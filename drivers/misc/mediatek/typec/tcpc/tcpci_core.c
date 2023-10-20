@@ -271,7 +271,7 @@ static ssize_t tcpc_store_property(struct device *dev,
 			return -EINVAL;
 		}
 
-		tcpm_typec_change_role(tcpc, val);
+		tcpm_typec_change_role_postpone(tcpc, val, true);
 		break;
 	case TCPC_DESC_TIMER:
 		ret = get_parameters((char *)buf, &val, 1);

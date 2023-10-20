@@ -1674,6 +1674,9 @@ static bool are_stream_backends_same(
 	if (is_timing_changed(stream_a, stream_b))
 		return false;
 
+	if (stream_a->signal != stream_b->signal)
+		return false;
+
 	if (stream_a->dpms_off != stream_b->dpms_off)
 		return false;
 
@@ -1696,6 +1699,10 @@ bool dc_is_stream_unchanged(
 		return false;
 
 	if (old_stream->ignore_msa_timing_param != stream->ignore_msa_timing_param)
+		return false;
+
+	/*compare audio info*/
+	if (memcmp(&old_stream->audio_info, &stream->audio_info, sizeof(stream->audio_info)) != 0)
 		return false;
 
 	return true;

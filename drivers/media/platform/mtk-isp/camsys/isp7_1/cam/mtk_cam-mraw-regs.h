@@ -213,6 +213,9 @@ union MRAW_FMT_SEL {
 #define REG_MRAW_TG_TIME_STAMP				0x0778
 #define REG_MRAW_TG_TIME_STAMP_CNT			0x077C
 
+#define REG_MRAW_CRP_X_POS					0x0800
+#define REG_MRAW_CRP_Y_POS					0x0804
+
 /* use spare register FH_SPARE_3 */
 #define REG_MRAW_FRAME_SEQ_NUM				0x238C
 
@@ -237,6 +240,12 @@ union MRAW_MRAWCTL_FBC_GROUP {
 #define MRAWCTL_CPIO_RCNT_INC			BIT(2)
 #define MRAWCTL_CQ_THR0_DONE_ST			BIT(0)
 #define MRAWCTL_CQ_THR0_START			BIT(0)
+
+#define REG_MRAW_CPI_CFG_0				0x1380
+#define REG_MRAW_CPI_CFG_1				0x1384
+
+#define REG_MRAW_MBN_CFG_0				0x13C0
+#define REG_MRAW_MBN_CFG_1				0x13C4
 
 #define REG_MRAW_FBC_IMGO_CTL1			0x1480
 #define REG_MRAW_FBC_IMGO_CTL2			0x1484
@@ -316,6 +325,36 @@ union MRAW_FBC_CPIO_CTL1 {
 		unsigned int FBC_CPIO_FBC_EN      :  1;    /* 15..15, 0x00008000 */
 		unsigned int FBC_CPIO_VALID_NUM   :  8;    /* 16..23, 0x00ff0000 */
 		unsigned int FBC_CPIO_SUB_RATIO   :  8;    /* 24..31, 0xff000000 */
+	} Bits;
+	unsigned int Raw;
+};
+
+union MRAW_FBC_IMGO_CTRL2 {
+	struct {
+		unsigned int FBC_IMGO_M1_RCNT :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int FBC_IMGO_M1_WCNT :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int FBC_IMGO_M1_FBC_CNT :  9;    /* 16..24, 0x01ff0000 */
+		unsigned int FBC_IMGO_M1_DROP_CNT :  7;    /* 25..31, 0xfe000000 */
+	} Bits;
+	unsigned int Raw;
+};
+
+union MRAW_FBC_IMGBO_CTRL2 {
+	struct {
+		unsigned int FBC_IMGBO_M1_RCNT :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int FBC_IMGBO_M1_WCNT :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int FBC_IMGBO_M1_FBC_CNT :  9;    /* 16..24, 0x01ff0000 */
+		unsigned int FBC_IMGBO_M1_DROP_CNT :  7;    /* 25..31, 0xfe000000 */
+	} Bits;
+	unsigned int Raw;
+};
+
+union MRAW_FBC_CPIO_CTRL2 {
+	struct {
+		unsigned int FBC_CPIO_M1_RCNT :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int FBC_CPIO_M1_WCNT :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int FBC_CPIO_M1_FBC_CNT :  9;    /* 16..24, 0x01ff0000 */
+		unsigned int FBC_CPIO_M1_DROP_CNT :  7;    /* 25..31, 0xfe000000 */
 	} Bits;
 	unsigned int Raw;
 };

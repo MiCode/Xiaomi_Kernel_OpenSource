@@ -140,6 +140,17 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 			},
 	},
 	{
+		.name = "audio_task_spatializer_dai",
+		.id = AUDIO_TASK_SPATIALIZER_ID,
+		.playback = {
+				.stream_name = "DSP_Playback_Spatializer",
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
+	{
 		.name = "audio_task_ktv_dai",
 		.id = AUDIO_TASK_KTV_ID,
 		.playback = {

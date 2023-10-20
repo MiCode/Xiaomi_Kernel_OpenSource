@@ -6,6 +6,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/spinlock.h>
 
 #include <dt-bindings/power/mt6895-power.h>
 
@@ -14,6 +15,14 @@
 
 #define TAG				"[pdchk] "
 #define BUG_ON_CHK_ENABLE		0
+
+#define EVT_LEN				40
+#define PWR_ID_SHIFT			0
+#define PWR_STA_SHIFT			8
+
+static DEFINE_SPINLOCK(trace_lock);
+static unsigned int pwr_event[EVT_LEN];
+static unsigned int evt_cnt;
 
 /*
  * The clk names in Mediatek CCF.
@@ -589,6 +598,27 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 		}
 	}
 
+	if (id == MT6895_POWER_DOMAIN_ISP_MAIN) {
+		print_subsys_reg_mt6895(img_subcomm0);
+		print_subsys_reg_mt6895(img_subcomm1);
+	}
+
+	if (id == MT6895_POWER_DOMAIN_CAM_MAIN) {
+		print_subsys_reg_mt6895(cam_mm_subcomm0);
+		print_subsys_reg_mt6895(cam_mdp_subcomm1);
+		print_subsys_reg_mt6895(cam_sys_subcomm1);
+	}
+
+	pr_notice("first idx: %d\n", evt_cnt);
+	for (i = 0; i < EVT_LEN; i += 5)
+		pr_notice("pwr_evt[%d] = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+				i,
+				pwr_event[i],
+				pwr_event[i + 1],
+				pwr_event[i + 2],
+				pwr_event[i + 3],
+				pwr_event[i + 4]);
+
 	BUG_ON(1);
 }
 
@@ -602,6 +632,23 @@ static void log_dump(unsigned int id, unsigned int pwr_sta)
 		print_subsys_reg_mt6895(spm);
 		print_subsys_reg_mt6895(vlpcfg);
 	}
+}
+
+static void trace_power_event(unsigned int id, unsigned int pwr_sta)
+{
+	unsigned long flags = 0;
+
+	if (id >= MT6895_POWER_DOMAIN_NR)
+		return;
+
+	spin_lock_irqsave(&trace_lock, flags);
+
+	pwr_event[evt_cnt] = (id << PWR_ID_SHIFT) | (pwr_sta << PWR_STA_SHIFT);
+	evt_cnt++;
+	if (evt_cnt >= EVT_LEN)
+		evt_cnt = 0;
+
+	spin_unlock_irqrestore(&trace_lock, flags);
 }
 
 static struct pd_sta pd_pwr_msk[] = {
@@ -753,6 +800,7 @@ static struct pdchk_ops pdchk_mt6895_ops = {
 	.get_notice_mtcmos_id = get_notice_mtcmos_id,
 	.is_mtcmos_chk_bug_on = is_mtcmos_chk_bug_on,
 	.get_suspend_allow_id = get_suspend_allow_id,
+	.trace_power_event = trace_power_event,
 };
 
 static int pd_chk_mt6895_probe(struct platform_device *pdev)

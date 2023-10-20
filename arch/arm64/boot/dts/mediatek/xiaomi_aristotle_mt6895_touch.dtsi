@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2022-2023 XiaoMi, Inc.
+ */
+
+/* TOUCH start */
+
+&spi2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	xiaomi_touch@0 {
+		status = "ok";
+		compatible = "xiaomi,touch-spi";
+		reg = <0x0>;
+		interrupt-parent = <&pio>;
+		interrupts = <135 0x2008>;
+		spi-max-frequency = <15000000>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_gt_spi_mode", "pmx_ts_avdd_enable", "pmx_ts_avdd_disable";
+		pinctrl-0 = <&ts_reset_active &ts_int_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+		pinctrl-3 = <&ts_avdd_enable>;
+		pinctrl-4 = <&ts_avdd_disable>;
+
+		/* gtp dtsi start */
+		goodix,iovdd-name = "iovdd";
+		iovdd-supply = <&mt6363_vufs18>;
+		goodix,irq-gpio = <&pio 135 0x2008>;
+		goodix,reset-gpio = <&pio 3 0x00>;
+		goodix,avdd-gpio = <&pio 212 0x00>;
+		goodix,irq-flags = <2>;
+		goodix,panel-max-x = <12200>;
+		goodix,panel-max-y = <27120>;
+		goodix,panel-max-w = <255>;
+		goodix,panel-max-p = <4096>;
+		goodix,firmware-name = "goodix_firmware_aristotle";
+		goodix,config-name = "goodix_cfg_group_aristotle";
+		/* gtp dtsi end */
+	};
+};
+
+&mt6363_vufs18 {
+	regulator-boot-on;
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+
+&pio {
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-low;
+		};
+	};
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			input-enable;
+			bias-disable;
+		};
+	};
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_SPI2_A_MI>,
+				<PINMUX_GPIO110__FUNC_SPI2_A_CSB>,
+				<PINMUX_GPIO111__FUNC_SPI2_A_MO>,
+				<PINMUX_GPIO112__FUNC_SPI2_A_CLK>;
+			drive-strength = <1>;
+		};
+	};
+	ts_avdd_enable: ts_avddenable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO212__FUNC_GPIO212>;
+			output-high;
+		};
+	};
+	ts_avdd_disable: ts_avdddisable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO212__FUNC_GPIO212>;
+			output-low;
+		};
+	};
+};
+/* TOUCH end */

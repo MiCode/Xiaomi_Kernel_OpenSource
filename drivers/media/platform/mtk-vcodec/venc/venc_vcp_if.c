@@ -25,9 +25,9 @@
 #include "mtk_vcodec_intr.h"
 
 #ifdef CONFIG_MTK_ENG_BUILD
-#define IPI_TIMEOUT_MS          (2000U)
+#define IPI_TIMEOUT_MS          (10000U)
 #else
-#define IPI_TIMEOUT_MS          (1000U + ((mtk_vcodec_dbg | mtk_v4l2_dbg_level) ? 1000U : 0U))
+#define IPI_TIMEOUT_MS          (5000U + ((mtk_vcodec_dbg | mtk_v4l2_dbg_level) ? 5000U : 0U))
 #endif
 
 struct vcp_enc_mem_list {
@@ -107,6 +107,17 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	if (inst->vcu_inst.abort || inst->vcu_inst.daemon_pid != get_vcp_generation())
 		return -EIO;
 
+	if (!is_ack && *(u32 *)msg != AP_IPIMSG_ENC_BACKUP) {
+		while (inst->ctx->dev->is_codec_suspending == 1) {
+			suspend_block_cnt++;
+			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+				mtk_v4l2_debug(0, "VENC blocked by suspend\n");
+				suspend_block_cnt = 0;
+			}
+			usleep_range(10000, 20000);
+		}
+	}
+
 	while (!is_vcp_ready(VCP_A_ID)) {
 		mtk_v4l2_debug((((timeout % 20) == 10) ? 0 : 4), "[VCP] wait ready %d ms", timeout);
 		mdelay(1);
@@ -114,7 +125,8 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
 			mtk_vcodec_err(inst, "VCP_A_ID not ready");
 			mtk_smi_dbg_hang_detect("VENC VCP");
-			break;
+			inst->vcu_inst.abort = 1;
+			return -EIO;
 		}
 	}
 
@@ -122,15 +134,6 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
 		inst->vcu_inst.abort = 1;
 		return -EIO;
-	}
-
-	while (inst->ctx->dev->is_codec_suspending == 1) {
-		suspend_block_cnt++;
-		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-			mtk_v4l2_debug(4, "VENC blocked by suspend\n");
-			suspend_block_cnt = 0;
-		}
-		usleep_range(10000, 20000);
 	}
 
 	if (!is_ack)
@@ -202,11 +205,12 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		if (IS_ERR_OR_NULL(vcu))
 			return;
 
-		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
-			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 		inst = container_of(vcu, struct venc_inst, vcu_inst);
 		dev = get_dev_by_mem_type(inst, &msg->mem);
 		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
+
+		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
+			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 	}
 
 	/* check memory bound */
@@ -221,6 +225,9 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			msg->status, msg->mem.va, msg->mem.pa,
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
+		/* reset prevent VCP TF */
+		msg->mem.pa = 0;
+		msg->mem.iova = 0;
 	} else if (msg->mem.type != MEM_TYPE_FOR_SHM) {
 		tmp = kmalloc(sizeof(struct vcp_enc_mem_list), GFP_KERNEL);
 		if (tmp) {
@@ -339,7 +346,6 @@ int vcp_enc_ipi_handler(void *arg)
 	struct mtk_vcodec_msg_node *mq_node;
 	struct venc_vcu_ipi_mem_op *shem_msg;
 	unsigned long flags;
-	unsigned int suspend_block_cnt = 0;
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *temp_ctx;
 	int msg_valid = 0;
@@ -364,15 +370,9 @@ int vcp_enc_ipi_handler(void *arg)
 
 	do {
 		ret = wait_event_interruptible(dev->mq.wq, atomic_read(&dev->mq.cnt) > 0);
-		if (ret) {
-			while (dev->is_codec_suspending == 1) {
-				suspend_block_cnt++;
-				if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-					mtk_v4l2_debug(4, "blocked by suspend\n");
-					suspend_block_cnt = 0;
-				}
-				usleep_range(10000, 20000);
-			}
+		if (ret < 0) {
+			mtk_v4l2_debug(0, "wait event return %d (suspending %d)\n",
+				ret, atomic_read(&dev->mq.cnt));
 			continue;
 		}
 
@@ -397,6 +397,10 @@ int vcp_enc_ipi_handler(void *arg)
 			shem_msg = (struct venc_vcu_ipi_mem_op *)obj->share_buf;
 			if (shem_msg->mem.type == MEM_TYPE_FOR_SHM) {
 				handle_venc_mem_alloc((void *)shem_msg);
+				shem_msg->reserved[0] = (__u32)VCP_PACK_IOVA(
+					vcp_get_reserve_mem_phys(VENC_SET_PROP_MEM_ID));
+				shem_msg->reserved[1] = (__u32)VCP_PACK_IOVA(
+					vcp_get_reserve_mem_phys(VENC_VCP_LOG_INFO_ID));
 				shem_msg->msg_id = AP_IPIMSG_ENC_MEM_ALLOC_DONE;
 				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VENC_0, IPI_SEND_WAIT, obj,
 					PIN_OUT_SIZE_VENC, 100);
@@ -445,9 +449,12 @@ int vcp_enc_ipi_handler(void *arg)
 			handle_enc_init_msg(vcu, (void *)obj->share_buf);
 			if (msg->status != VENC_IPI_MSG_STATUS_OK)
 				vcu->failure = VENC_IPI_MSG_STATUS_FAIL;
+			else
+				vcu->ctx->state = MTK_STATE_INIT;
 		case VCU_IPIMSG_ENC_SET_PARAM_DONE:
 		case VCU_IPIMSG_ENC_ENCODE_DONE:
 		case VCU_IPIMSG_ENC_DEINIT_DONE:
+		case VCU_IPIMSG_ENC_BACKUP_DONE:
 			vcu->signaled = true;
 			wake_up(&vcu->wq_hd);
 			break;
@@ -568,28 +575,93 @@ static int venc_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 	return 0;
 }
 
+static int venc_vcp_backup(struct venc_inst *inst)
+{
+	struct venc_vcu_ipi_msg_common msg;
+	int err = 0;
+
+	mtk_vcodec_debug_enter(inst);
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_id = AP_IPIMSG_ENC_BACKUP;
+	msg.venc_inst = inst->vcu_inst.inst_addr;
+
+	err = venc_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
+	mtk_vcodec_debug(inst, "- ret=%d", err);
+
+	return err;
+}
+
 static int vcp_venc_notify_callback(struct notifier_block *this,
 	unsigned long event, void *ptr)
 {
 	struct mtk_vcodec_dev *dev;
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *ctx;
+	int timeout = 0;
+	bool backup = false;
+	struct venc_inst *inst = NULL;
+
+	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
+		return 0;
 
 	dev = container_of(this, struct mtk_vcodec_dev, vcp_notify);
 
 	switch (event) {
 	case VCP_EVENT_STOP:
+		timeout = 0;
+		while (atomic_read(&dev->mq.cnt)) {
+			timeout++;
+			mdelay(1);
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_debug(0, "VCP_EVENT_STOP timeout\n");
+				break;
+			}
+		}
 		mutex_lock(&dev->ctx_mutex);
 		// check release all ctx lock
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
 			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
 				ctx->state = MTK_STATE_ABORT;
+				inst = (struct venc_inst *)(ctx->drv_handle);
+				if (inst != NULL) {
+					inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
+					inst->vcu_inst.abort = 1;
+				}
 				venc_check_release_lock(ctx);
 				mtk_venc_queue_error_event(ctx);
 			}
 		}
 		mutex_unlock(&dev->ctx_mutex);
+	break;
+	case VCP_EVENT_SUSPEND:
+		dev->is_codec_suspending = 1;
+		while (atomic_read(&dev->mq.cnt)) {
+			timeout += 20;
+			usleep_range(10000, 20000);
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_debug(0, "VCP_EVENT_SUSPEND timeout\n");
+				break;
+			}
+		}
+		// check no more ipi in progress
+		mutex_lock(&dev->ipi_mutex);
+		mutex_unlock(&dev->ipi_mutex);
+		// send backup ipi to vcp by one of any instances
+		mutex_lock(&dev->ctx_mutex);
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (ctx != NULL && ctx->state < MTK_STATE_ABORT
+					&& ctx->state > MTK_STATE_FREE) {
+				mutex_unlock(&dev->ctx_mutex);
+				backup = true;
+				venc_vcp_backup((struct venc_inst *)ctx->drv_handle);
+				break;
+			}
+		}
+		if (!backup)
+			mutex_unlock(&dev->ctx_mutex);
 	break;
 	}
 	return NOTIFY_DONE;
@@ -1153,8 +1225,6 @@ void set_venc_vcp_data(struct venc_inst *inst, enum vcp_reserve_mem_id_t id, voi
 
 	mtk_vcodec_debug(inst, "msg.param_id %d msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
 		msg.param_id, msg.data[0], msg.data[1]);
-	venc_vcp_ipi_send(inst, &msg, sizeof(msg), 1);
-
 }
 
 int vcp_enc_set_param(struct venc_inst *inst,
@@ -1302,11 +1372,12 @@ static int venc_vcp_set_param(unsigned long handle,
 	int i;
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
+	unsigned int fmt = 0;
 
 	if (inst == NULL)
 		return -EINVAL;
 
-	mtk_vcodec_debug(inst, "->type=%d, codec_id=%d", type, inst->vcu_inst.id);
+	mtk_vcodec_debug(inst, "->type=%d", type);
 
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
@@ -1352,18 +1423,20 @@ static int venc_vcp_set_param(unsigned long handle,
 				sizeof(struct mtk_color_desc));
 		}
 
-		if (inst->vcu_inst.id == VENC_H264 ||
-			inst->vcu_inst.id == VENC_HYBRID_H264) {
+		fmt = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
+		mtk_vcodec_debug(inst, "fmt:%u", fmt);
+
+		if (fmt == V4L2_PIX_FMT_H264) {
 			inst->vsi->config.profile = enc_prm->profile;
 			inst->vsi->config.level = enc_prm->level;
-		} else if (inst->vcu_inst.id == VENC_H265 ||
-				inst->vcu_inst.id == VENC_HEIF) {
+		} else if (fmt == V4L2_PIX_FMT_H265 ||
+				fmt == V4L2_PIX_FMT_HEIF) {
 			inst->vsi->config.profile =
 				venc_h265_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =
 				venc_h265_get_level(inst, enc_prm->level,
 					enc_prm->tier);
-		} else if (inst->vcu_inst.id == VENC_MPEG4) {
+		} else if (fmt == V4L2_PIX_FMT_MPEG4) {
 			inst->vsi->config.profile =
 				venc_mpeg4_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =

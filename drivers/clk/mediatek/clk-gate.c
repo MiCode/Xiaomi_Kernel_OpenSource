@@ -147,7 +147,7 @@ static int mtk_cg_is_done_hwv(struct clk_hw *hw)
 	return val != 0;
 }
 
-static int mtk_cg_enable_hwv(struct clk_hw *hw)
+static int __cg_enable_hwv(struct clk_hw *hw, bool inv)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val, val2;
@@ -176,7 +176,9 @@ static int mtk_cg_enable_hwv(struct clk_hw *hw)
 		if ((profile_time[2] == 0) && (val & BIT(cg->bit)) != 0)
 			profile_time[2] = sched_clock();
 		else {
-			if (clk_hw_is_enabled(hw)) {
+			regmap_read(cg->regmap, cg->sta_ofs, &val);
+			if ((inv && (val & BIT(cg->bit)) != 0) ||
+					(!inv && (val & BIT(cg->bit)) == 0)) {
 				profile_time[3] = sched_clock();
 				break;
 			} else if (j  > MTK_WAIT_HWV_STA_CNT)
@@ -219,6 +221,16 @@ hwv_prepare_fail:
 			cg->bit, CLK_EVT_HWV_CG_TIMEOUT);
 
 	return -EBUSY;
+}
+
+static int mtk_cg_enable_hwv(struct clk_hw *hw)
+{
+	return __cg_enable_hwv(hw, false);
+}
+
+static int mtk_cg_enable_hwv_inv(struct clk_hw *hw)
+{
+	return __cg_enable_hwv(hw, true);
 }
 
 static void mtk_cg_disable_hwv(struct clk_hw *hw)
@@ -366,6 +378,14 @@ const struct clk_ops mtk_clk_gate_ops_hwv = {
 	.disable_unused = mtk_cg_disable_unused_hwv,
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_hwv);
+
+const struct clk_ops mtk_clk_gate_ops_hwv_inv = {
+	.is_enabled	= mtk_cg_is_set_hwv,
+	.enable		= mtk_cg_enable_hwv_inv,
+	.disable	= mtk_cg_disable_hwv,
+	.disable_unused = mtk_cg_disable_unused_hwv,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_hwv_inv);
 
 const struct clk_ops mtk_clk_gate_ops_no_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,

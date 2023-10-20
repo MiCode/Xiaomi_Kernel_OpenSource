@@ -1,0 +1,8 @@
+config XIAOMI_GPU_PLAID
+	tristate "Enable gpu plaid mode"
+	help
+	  Say Y here if you enable gpu plaid mode.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here:

@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (c) 2022 XiaoMi Inc.
+ */
+
+/* fingerprint start */
+
+
+&spi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		netlink-event = <30>;
+		vfp-supply = <&mt6368_vfp>;
+		vibr-supply = <&mt6368_vibr>;
+                vufs18-supply = <&mt6363_vufs18>;
+		power-type = <1>;
+		status = "okay";
+	};
+};
+
+&fingerprint {
+	pinctrl-names = "spiio_gpio_mode", "spiio_spi_mode", "reset_high", "reset_low", "eint_default", "eint_pulldown";
+	pinctrl-0 = <&fingerprints_spiio_gpio_mode>;
+	pinctrl-1 = <&fingerprints_spiio_spi_mode>;
+	pinctrl-2 = <&fingerprints_reset_high>;
+	pinctrl-3 = <&fingerprints_reset_low>;
+	pinctrl-4 = <&fingerprints_eint_default>;
+	pinctrl-5 = <&fingerprints_eint_pulldown>;
+	fpc,gpio_irq = <&pio 136 0>;
+	interrupt-parent = <&pio>;
+	interrupts = <136 IRQ_TYPE_EDGE_RISING 136 0>;
+	status = "okay";
+};
+
+&pio {
+	fingerprints_spiio_gpio_mode: state_gpio_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO217__FUNC_GPIO217>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO218__FUNC_GPIO218>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd3_dat {
+			pinmux = <PINMUX_GPIO219__FUNC_GPIO219>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd4_dat {
+			pinmux = <PINMUX_GPIO220__FUNC_GPIO220>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+	};
+	fingerprints_spiio_spi_mode: state_spi_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO217__FUNC_SPI3_A_CLK>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO218__FUNC_SPI3_A_CSB>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd3_dat {
+			pinmux = <PINMUX_GPIO219__FUNC_SPI3_A_MI>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd4_dat {
+			pinmux = <PINMUX_GPIO220__FUNC_SPI3_A_MO>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+	};
+
+	fingerprints_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO216__FUNC_GPIO216>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprints_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO216__FUNC_GPIO216>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprints_eint_default: state_eint_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO136__FUNC_GPIO136>;
+			slew-rate = <0>;
+			input-enable;
+			bias-disable;
+			input-schmitt-enable;
+		};
+	};
+	fingerprints_eint_pulldown: state_eint_pulldown {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO136__FUNC_GPIO136>;
+			slew-rate = <0>;
+			input-enable;
+			bias-pull-down;
+			input-schmitt-enable;
+		};
+	};
+};
+
+/* fingerprint end */

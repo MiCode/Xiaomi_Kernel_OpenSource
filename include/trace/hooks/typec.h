@@ -6,13 +6,19 @@
 #define _TRACE_HOOK_TYPEC_H
 #include <linux/tracepoint.h>
 #include <linux/usb/pd.h>
+#include <linux/usb/tcpm.h>
 #include <trace/hooks/vendor_hooks.h>
 /*
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
-struct tcpci;
+#if defined(__GENKSYMS__) || !IS_ENABLED(CONFIG_TYPEC_TCPCI)
 struct tcpci_data;
+#else
+/* struct tcpci_data */
+#include <../drivers/usb/typec/tcpm/tcpci.h>
+#endif /* __GENKSYMS__ */
+struct tcpci;
 struct tcpm_port;
 
 #ifndef TYPEC_TIMER

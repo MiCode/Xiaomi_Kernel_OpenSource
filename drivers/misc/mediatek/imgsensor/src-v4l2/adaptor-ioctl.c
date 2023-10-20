@@ -181,8 +181,12 @@ static void frame_desc_to_vcinfo2(
 		vc->VC_DataType = entry->data_type;
 		vc->VC_SIZEH_PIXEL = entry->hsize;
 		vc->VC_SIZEV = entry->vsize;
-		vc->VC_SIZEH_BYTE = vc->VC_DataType != 0x2b ?
-			vc->VC_SIZEH_PIXEL : vc->VC_SIZEH_PIXEL * 10 / 8;
+		vc->DT_REMAP_TO_TYPE = entry->dt_remap_to_type;
+		if (vc->VC_DataType == 0x2b ||
+			vc->DT_REMAP_TO_TYPE == MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)
+			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL * 10 / 8;
+		else
+			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL;
 	}
 }
 #else /* IMGSENSOR_VC_ROUTING */
@@ -366,7 +370,9 @@ static void vcinfo2_fill_output_format(
 		} else {
 			/* stat data */
 			vcinfo2->vc_info[i].VC_OUTPUT_FORMAT =
-				(vcinfo2->vc_info[i].VC_DataType == 0x2b) ?
+				((vcinfo2->vc_info[i].VC_DataType == 0x2b) ||
+				 (vcinfo2->vc_info[i].DT_REMAP_TO_TYPE ==
+					MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)) ?
 				SENSOR_OUTPUT_FORMAT_RAW_B :
 				SENSOR_OUTPUT_FORMAT_RAW8_B;
 		}
@@ -1338,6 +1344,45 @@ static int s_tg(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+#ifdef __XIAOMI_CAMERA__
+static int s_enable_seamless_switch(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = *info;
+
+	subdrv_call(ctx, feature_control,
+		XIAOMI_FEATURE_ENABLE_SEAMLESS_SWITCH,
+		para.u8, &len);
+
+	return 0;
+}
+
+static int s_lock_setting_work_queue(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *lock = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = *lock;
+
+	if (*lock) {
+		subdrv_call(ctx, feature_control,
+			XIAOMI_FEATURE_LOCK_SETTING_WORK_QUEUE,
+			para.u8, &len);
+	} else {
+		subdrv_call(ctx, feature_control,
+			XIAOMI_FEATURE_UNLOCK_SETTING_WORK_QUEUE,
+			para.u8, &len);
+	}
+
+	return 0;
+}
+
+#endif
+
 struct ioctl_entry {
 	unsigned int cmd;
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
@@ -1394,6 +1439,10 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_S_LSC_TBL, s_lsc_tbl},
 	{VIDIOC_MTK_S_CONTROL, s_control},
 	{VIDIOC_MTK_S_TG, s_tg},
+#ifdef __XIAOMI_CAMERA__
+	{VIDIOC_XIAOMI_S_ENABLE_SEAMLESS_SWITCH, s_enable_seamless_switch},
+	{VIDIOC_XIAOMI_S_LOCK_SETTING_WORK_QUEUE, s_lock_setting_work_queue},
+#endif
 };
 
 long adaptor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

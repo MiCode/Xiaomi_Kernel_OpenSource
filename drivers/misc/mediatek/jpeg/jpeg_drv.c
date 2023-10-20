@@ -49,39 +49,6 @@ static struct dmabuf_info bufInfo[HW_CORE_NUMBER];
 int jpg_dbg_level;
 module_param(jpg_dbg_level, int, 0644);
 
-static int jpeg_drv_hybrid_dec_suspend_notifier(
-					struct notifier_block *nb,
-					unsigned long action, void *data)
-{
-	int i;
-	int wait_cnt = 0;
-
-	JPEG_LOG(0, "action:%ld", action);
-	switch (action) {
-	case PM_SUSPEND_PREPARE:
-		gJpegqDev.is_suspending = 1;
-		for (i = 0 ; i < HW_CORE_NUMBER; i++) {
-			JPEG_LOG(1, "jpeg dec sn wait core %d", i);
-			while (dec_hwlocked[i]) {
-				JPEG_LOG(1, "jpeg dec sn core %d locked. wait...", i);
-				usleep_range(10000, 20000);
-				wait_cnt++;
-				if (wait_cnt > 5) {
-					JPEG_LOG(0, "jpeg dec sn wait core %d fail", i);
-					return NOTIFY_DONE;
-				}
-			}
-		}
-		return NOTIFY_OK;
-	case PM_POST_SUSPEND:
-		gJpegqDev.is_suspending = 0;
-		return NOTIFY_OK;
-	default:
-		return NOTIFY_DONE;
-	}
-	return NOTIFY_DONE;
-}
-
 static int jpeg_isr_hybrid_dec_lisr(int id)
 {
 	unsigned int tmp = 0;
@@ -408,12 +375,51 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 		JPEG_LOG(1, "jpeg dec HW core %d is unlocked", hwid);
 		jpeg_drv_hybrid_dec_power_off(hwid);
 		disable_irq(gJpegqDev.hybriddecIrqId[hwid]);
+		jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf,
+			bufInfo[hwid].i_attach,
+			bufInfo[hwid].i_sgt);
+		jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf,
+			bufInfo[hwid].o_attach,
+			bufInfo[hwid].o_sgt);
+		jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
+		jpg_dmabuf_put(bufInfo[hwid].o_dbuf);
+		// we manually add 1 ref count, need to put it.
 	}
-	jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf, bufInfo[hwid].i_attach, bufInfo[hwid].i_sgt);
-	jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf, bufInfo[hwid].o_attach, bufInfo[hwid].o_sgt);
-	jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
-	jpg_dmabuf_put(bufInfo[hwid].o_dbuf); // we manually add 1 ref count, need to put it.
 	mutex_unlock(&jpeg_hybrid_dec_lock);
+}
+
+static int jpeg_drv_hybrid_dec_suspend_notifier(
+					struct notifier_block *nb,
+					unsigned long action, void *data)
+{
+	int i;
+	int wait_cnt = 0;
+
+	JPEG_LOG(0, "action:%ld", action);
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		gJpegqDev.is_suspending = 1;
+		for (i = 0 ; i < HW_CORE_NUMBER; i++) {
+			JPEG_LOG(1, "jpeg dec sn wait core %d", i);
+			while (dec_hwlocked[i]) {
+				JPEG_LOG(1, "jpeg dec sn core %d locked. wait...", i);
+				usleep_range(10000, 20000);
+				wait_cnt++;
+				if (wait_cnt > 5) {
+					JPEG_LOG(0, "jpeg dec sn unlock core %d", i);
+					jpeg_drv_hybrid_dec_unlock(i);
+					return NOTIFY_DONE;
+				}
+			}
+		}
+		return NOTIFY_OK;
+	case PM_POST_SUSPEND:
+		gJpegqDev.is_suspending = 0;
+		return NOTIFY_OK;
+	default:
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_DONE;
 }
 
 static int jpeg_drv_hybrid_dec_suspend(void)
@@ -556,6 +562,10 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 		} while (_jpeg_hybrid_dec_int_status[hwid] == 0);
 
 	#else
+		if (!dec_hwlocked[hwid]) {
+			JPEG_LOG(0, "wait on unlock core %d\n", hwid);
+			return -EFAULT;
+		}
 		if (jpeg_isr_hybrid_dec_lisr(hwid) < 0) {
 			long ret = 0;
 			int waitfailcnt = 0;
@@ -904,6 +914,15 @@ static int jpeg_probe(struct platform_device *pdev)
 	if (ret) {
 		JPEG_LOG(0, "64-bit DMA enable failed");
 		return ret;
+	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+		devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			JPEG_LOG(0, "Failed to set DMA segment size\n");
 	}
 	pm_runtime_enable(&pdev->dev);
 

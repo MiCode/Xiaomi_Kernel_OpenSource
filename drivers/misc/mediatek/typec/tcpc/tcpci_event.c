@@ -649,6 +649,9 @@ void pd_notify_tcp_event_buf_reset(struct pd_port *pd_port, uint8_t reason)
 {
 	struct tcpc_device *tcpc = pd_port->tcpc;
 
+	if(TCP_DPM_RET_DROP_RECV_SRESET == reason)
+	    tcpci_notify_soft_reset(tcpc);
+
 	pd_notify_tcp_event_1st_result(pd_port, reason);
 
 	mutex_lock(&tcpc->access_lock);
@@ -1350,9 +1353,11 @@ static int tcpc_event_thread_fn(void *data)
 			dev_notice(&tcpc->dev, "%s exits(%d)\n", __func__, ret);
 			break;
 		}
+		atomic_inc(&tcpc->suspend_pending);
 		do {
 			atomic_dec_if_positive(&tcpc->pending_event);
 		} while (pd_policy_engine_run(tcpc) && !kthread_should_stop());
+		atomic_dec_if_positive(&tcpc->suspend_pending);
 	}
 
 	return 0;

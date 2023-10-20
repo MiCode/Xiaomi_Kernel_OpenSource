@@ -34,6 +34,7 @@
 #include <linux/atomic.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/suspend.h>
 
 #ifndef CCCI_KMODULE_ENABLE
 #include "ccci_core.h"
@@ -79,6 +80,7 @@
 
 struct hif_dpmaif_ctrl *dpmaif_ctrl_v3;
 #define dpmaif_ctrl dpmaif_ctrl_v3
+static unsigned int g_backup_dl_isr, g_backup_ul_isr;
 
 
 static struct dpmaif_clk_node g_clk_tbs[] = {
@@ -135,45 +137,16 @@ TRACE_EVENT(ccci_skb_rx,
 #endif
 #endif
 
-static void dpmaif_affinity_rta(u32 irq_cpus, u32 push_cpus, int cpu_nr)
+static inline void dpmaif_set_cpu_mask(struct cpumask *cpu_mask,
+		u32 cpus, int cpu_nr)
 {
-	struct cpumask imask, tmask;
-	int i, irq_cnt = 0, ret;
+	int i;
 
-	cpumask_clear(&imask);
-	cpumask_clear(&tmask);
+	cpumask_clear(cpu_mask);
 
 	for (i = 0; i < cpu_nr; i++) {
-		if (irq_cpus & (1 << i)) {
-			if (irq_cnt > 0)
-				CCCI_ERROR_LOG(-1, TAG,
-					"[%s] error: irq_cpus invalid: %x\n",
-					__func__, irq_cpus);
-			else
-				cpumask_set_cpu(i, &imask);
-
-			irq_cnt++;
-		}
-
-		if (push_cpus & (1 << i))
-			cpumask_set_cpu(i, &tmask);
-	}
-
-	CCCI_REPEAT_LOG(-1, TAG,
-		"[%s] irq_cpus: 0x%x push_cpus: 0x%x\n",
-		__func__, irq_cpus, push_cpus);
-
-	if (dpmaif_ctrl->dpmaif_irq_id) {
-		ret = irq_set_affinity_hint(dpmaif_ctrl->dpmaif_irq_id, &imask);
-		CCCI_NORMAL_LOG(-1, TAG,
-			"[%s] irq_set_affinity_hint(): %d\n",
-			__func__, ret);
-	}
-	if (dpmaif_ctrl->rxq[0].rx_thread) {
-		ret = set_cpus_allowed_ptr(dpmaif_ctrl->rxq[0].rx_thread, &tmask);
-		CCCI_NORMAL_LOG(-1, TAG,
-			"[%s] set_cpus_allowed_ptr(): %d\n",
-			__func__, ret);
+		if (cpus & (1 << i))
+			cpumask_set_cpu(i, cpu_mask);
 	}
 }
 
@@ -1982,6 +1955,7 @@ static int dpmaif_wait_resume_done(void)
 			CCCI_NORMAL_LOG(-1, TAG,
 				"[%s] warning: suspend_flag = 1; (cnt: %d)",
 				__func__, cnt);
+			pm_system_wakeup();
 			return -1;
 		}
 	}
@@ -2009,8 +1983,9 @@ static int dpmaif_tx_done_kernel_thread(void *arg)
 {
 	struct dpmaif_tx_queue *txq = (struct dpmaif_tx_queue *)arg;
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
-	int ret;
+	int ret, affinity_set = -1, tx_aff;
 	unsigned int L2TISAR0;
+	struct cpumask tmask;
 
 	while (1) {
 		ret = wait_event_interruptible(txq->tx_done_wait,
@@ -2020,6 +1995,22 @@ static int dpmaif_tx_done_kernel_thread(void *arg)
 			break;
 		if (ret == -ERESTARTSYS)
 			continue;
+
+		if (affinity_set != mtk_ccci_get_tx_done_aff(txq->index)) {
+			affinity_set = mtk_ccci_get_tx_done_aff(txq->index);
+			if (affinity_set <= 0)
+				tx_aff = 0xFF;
+			else
+				tx_aff = affinity_set;
+
+			dpmaif_set_cpu_mask(&tmask, (u32)tx_aff, 8);
+
+			ret = set_cpus_allowed_ptr(txq->tx_done_thread, &tmask);
+			CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+				"[%s] txq%d; aff: 0x%X; ret: %d\n",
+				__func__, txq->index, (u8)tx_aff, ret);
+		}
+
 		atomic_set(&txq->txq_done, 0);
 		/* This is used to avoid race condition which may cause KE */
 		if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
@@ -2726,7 +2717,22 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 		CCCI_ERROR_LOG(-1, TAG, "alloc PIT memory fail\r\n");
 		return LOW_MEMORY_PIT;
 	}
-	rxq->pit_phy_addr = virt_to_phys(rxq->pit_base);
+
+	rxq->pit_phy_addr = dma_map_single(
+		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id), rxq->pit_base,
+		(rxq->pit_size_cnt * sizeof(struct dpmaifq_normal_pit)),
+		DMA_TO_DEVICE);
+	if (dma_mapping_error(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+		rxq->pit_phy_addr)) {
+		CCCI_ERROR_LOG(-1, TAG, "rxq->pit_base[0x%p]dma_mapping_error\n",
+			rxq->pit_base);
+		kfree(rxq->pit_base);
+		return -ENOMEM;
+	}
+	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
+		__func__, rxq->pit_phy_addr, rxq->pit_base);
+	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
+		__func__, rxq->pit_phy_addr, rxq->pit_base);
 #endif
 	memset(rxq->pit_base, 0, DPMAIF_DL_PIT_SIZE);
 	/* dpmaif_pit_init(rxq->pit_base, rxq->pit_size_cnt); */
@@ -3048,7 +3054,8 @@ static int dpmaif_late_init(unsigned char hif_id)
 	if (DPMAIF_RXQ_NUM > 0)
 		mtk_ccci_spd_qos_set_task(
 			dpmaif_ctrl->rxq[0].rx_thread,
-			dpmaif_ctrl->bat_alloc_thread);
+			dpmaif_ctrl->bat_alloc_thread,
+			dpmaif_ctrl->dpmaif_irq_id);
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
@@ -3070,7 +3077,7 @@ static int dpmaif_start(unsigned char hif_id)
 	struct dpmaif_rx_queue *rxq = NULL;
 	struct dpmaif_tx_queue *txq = NULL;
 	int i, ret = 0;
-	struct cpumask tmask;
+	struct cpumask imask;
 	unsigned int value = 0;
 
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
@@ -3150,13 +3157,6 @@ static int dpmaif_start(unsigned char hif_id)
 				(long)txq->tx_done_thread);
 			return -1;
 		}
-
-		cpumask_clear(&tmask);
-		cpumask_set_cpu(0, &tmask);
-		cpumask_set_cpu(2, &tmask);
-		cpumask_set_cpu(3, &tmask);
-		cpumask_set_cpu(4, &tmask);
-		set_cpus_allowed_ptr(txq->tx_done_thread, &tmask);
 	}
 
 	drv3_dpmaif_hw_init_done();
@@ -3176,7 +3176,9 @@ static int dpmaif_start(unsigned char hif_id)
 
 	atomic_set(&s_tx_busy_assert_on, 0);
 
-	dpmaif_affinity_rta(0x02, 0x04, 8);
+	cpumask_clear(&imask);
+	cpumask_set_cpu(1, &imask);
+	irq_set_affinity_hint(dpmaif_ctrl->dpmaif_irq_id, &imask);
 
 	return 0;
 }
@@ -3645,6 +3647,14 @@ static int dpmaif_resume(unsigned char hif_id)
 	/*IP don't power down before*/
 	if (drv3_dpmaif_check_power_down() == false) {
 		CCCI_DEBUG_LOG(0, TAG, "sys_resume no need restore\n");
+	} else {
+		/* for dpmaif backfill  DL&UL register value */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, g_backup_ul_isr);
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, g_backup_dl_isr);
+
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, g_backup_dl_isr);
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, g_backup_ul_isr);
 	}
 
 	return 0;
@@ -3672,6 +3682,11 @@ static int dpmaif_suspend(unsigned char hif_id __maybe_unused)
 	/* dpmaif clock on: backup int mask. */
 	dpmaif_ctrl->rxq[0].reg_int_mask_bak =
 		drv3_dpmaif_get_dl_interrupt_mask();
+
+	/* for dpmaif backup DL&UL register value */
+	g_backup_dl_isr = drv3_dpmaif_get_dl_interrupt_mask();
+	g_backup_ul_isr = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0);
+
 	return 0;
 }
 
@@ -3726,6 +3741,8 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 
 static void dpmaif_total_spd_cb(u64 total_speed)
 {
+	ccmni_set_cur_speed(total_speed);
+
 	if (total_speed < MAX_SPEED_THRESHOLD)
 		dpmaif_ctrl->enable_pit_debug = 1;
 	else

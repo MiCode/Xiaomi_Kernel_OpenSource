@@ -26,6 +26,7 @@
 #include "mtk_drm_lowpower.h"
 #include "mtk_log.h"
 #include "mtk_dump.h"
+#include "mtk_drm_mmp.h"
 
 #define C3D_BYPASS_SHADOW BIT(0)
 

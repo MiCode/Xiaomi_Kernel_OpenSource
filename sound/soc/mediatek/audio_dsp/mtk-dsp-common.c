@@ -48,6 +48,7 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_FAST_ID]         = "fast",
 	[AUDIO_TASK_KTV_ID]          = "ktv",
 	[AUDIO_TASK_FM_ADSP_ID]      = "fm",
+	[AUDIO_TASK_SPATIALIZER_ID]  = "spatializer",
 };
 
 static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
@@ -67,6 +68,7 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_FAST_ID]        = TASK_SCENE_FAST,
 	[AUDIO_TASK_KTV_ID]         = TASK_SCENE_KTV,
 	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
+	[AUDIO_TASK_SPATIALIZER_ID] = TASK_SCENE_SPATIALIZER,
 };
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe)
@@ -396,9 +398,8 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				       AUDIO_IPI_PAYLOAD,
 				       AUDIO_IPI_MSG_NEED_ACK,
 				       command,
-				       sizeof(unsigned int),
-				       (unsigned int)
-				       dsp_memif->msg_atod_share_buf.phy_addr,
+				       sizeof(dsp_memif->msg_atod_share_buf.phy_addr),
+				       0,
 				       (char *)
 				       &dsp_memif->msg_atod_share_buf.phy_addr);
 		break;

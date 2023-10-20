@@ -61,6 +61,7 @@ struct mtu3_request;
 #define MTU3_EP_BUSY		BIT(3)
 
 #define MTU3_U3_IP_SLOT_DEFAULT 2
+#define MTU3_U3_IP_SLOT_MAX 4
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
 #define MTU3_SW_ID_GROUND	BIT(0)
@@ -151,6 +152,12 @@ enum mtu3_power_state {
 	MTU3_STATE_POWER_ON,
 	MTU3_STATE_SUSPEND,
 	MTU3_STATE_RESUME,
+};
+
+enum mtu3_ep_slot_mode {
+	MTU3_EP_SLOT_DEFAULT = 0,
+	MTU3_EP_SLOT_MIN,
+	MTU3_EP_SLOT_MAX,
 };
 
 enum mtu3_plat_type {
@@ -322,7 +329,8 @@ struct ssusb_mtk {
 	enum mtu3_fpga_phy fpga_phy;
 	/* xhci */
 	struct platform_driver *xhci_pdrv;
-	int u2_dp_pullup;
+	/* u2 cdp */
+	struct work_struct dp_work;
 };
 
 /**
@@ -421,7 +429,8 @@ struct mtu3 {
 	u32 hw_version;
 
 	unsigned is_gadget_ready:1;
-	unsigned is_ep_saving:1;
+	int ep_slot_mode;
+	unsigned async_callbacks:1;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)
@@ -476,7 +485,7 @@ void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on);
 int ssusb_phy_power_on(struct ssusb_mtk *ssusb);
 void ssusb_phy_power_off(struct ssusb_mtk *ssusb);
 void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode);
-void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb, int is_on);
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);

@@ -8,13 +8,14 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-heap.h>
 #include <linux/scatterlist.h>
+#include <linux/sched/clock.h>
 #include <mtk_heap.h>
 
 #include "mtk-mml.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-core.h"
 
-void mml_buf_get_fd(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *name)
+s32 mml_buf_get_fd(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *name)
 {
 	u32 i;
 	struct dma_buf *dmabuf;
@@ -27,12 +28,13 @@ void mml_buf_get_fd(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *
 		if (IS_ERR_OR_NULL(dmabuf)) {
 			mml_err("%s fail to get dma_buf %u by fd %d err %ld",
 				__func__, i, fd[i], PTR_ERR(dmabuf));
-			continue;
+			return -ENOMEM;
 		}
 
 		buf->dma[i].dmabuf = dmabuf;
 		mtk_dma_buf_set_name(dmabuf, name);
 	}
+	return 0;
 }
 
 void mml_buf_get(struct mml_file_buf *buf, void **dmabufs, u32 cnt, const char *name)
@@ -104,6 +106,7 @@ int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf)
 		if (ret < 0)
 			return ret;
 	}
+	buf->map_time = sched_clock();
 
 	return 0;
 }
@@ -145,6 +148,7 @@ void mml_buf_put(struct mml_file_buf *buf)
 			dmabuf_iova_free(&buf->dma[i]);
 		dma_buf_put(buf->dma[i].dmabuf);
 	}
+	buf->unmap_time = sched_clock();
 }
 
 void mml_buf_flush(struct mml_file_buf *buf)

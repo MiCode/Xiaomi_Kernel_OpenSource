@@ -15,4 +15,11 @@ snd-soc-mtk-scp-ultra-objs := \
 	mtk-scp-ultra-common.o \
 	ultra_ipi.o
 
+# ifeq ($(CONFIG_MIUS_IIO), m)
+# subdir-ccflags-y += -DULTRA_PCM_DUMP
+# 
+# snd-soc-mtk-scp-ultra-objs += \
+# 	mtk-scp-ultra_dump.o
+# endif
+
 obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += snd-soc-mtk-scp-ultra.o

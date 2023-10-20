@@ -196,7 +196,7 @@ static int sys_msg_send_battery(struct port_t *port)
 {
 	int data;
 
-	data = battery_get_bat_voltage();
+	data = battery_get_bat_voltage() / 1000;
 	CCCI_REPEAT_LOG(port->md_id, SYS, "get bat voltage %d\n", data);
 	port_send_msg_to_md(port, MD_GET_BATTERY_INFO, data, 1);
 	return 0;

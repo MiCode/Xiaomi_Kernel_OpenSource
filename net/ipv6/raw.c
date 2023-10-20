@@ -915,7 +915,7 @@ static int rawv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		fl6.flowi6_oif = np->mcast_oif;
 	else if (!fl6.flowi6_oif)
 		fl6.flowi6_oif = np->ucast_oif;
-	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+	security_sk_classify_flow(sk, flowi6_to_flowi_common(&fl6));
 
 	if (hdrincl)
 		fl6.flowi6_flags |= FLOWI_FLAG_KNOWN_NH;
@@ -1019,6 +1019,9 @@ static int do_rawv6_setsockopt(struct sock *sk, int level, int optname,
 {
 	struct raw6_sock *rp = raw6_sk(sk);
 	int val;
+
+	if (optlen < sizeof(val))
+		return -EINVAL;
 
 	if (copy_from_sockptr(&val, optval, sizeof(val)))
 		return -EFAULT;

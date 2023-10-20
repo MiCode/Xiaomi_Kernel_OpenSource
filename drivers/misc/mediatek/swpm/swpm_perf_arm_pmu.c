@@ -17,6 +17,7 @@ static unsigned int swpm_arm_pmu_status;
 static unsigned int swpm_arm_dsu_pmu_status;
 static unsigned int boundary;
 static unsigned int pmu_dsu_support;
+static unsigned int pmu_dsu_type;
 
 static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
 static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
@@ -53,7 +54,7 @@ static struct perf_event_attr cycle_event_attr = {
 /*	.disabled       = 1, */
 };
 static struct perf_event_attr dsu_cycle_event_attr = {
-	.type           = 11, /* from /sys/devices/arm_dsu_0/type */
+/*	.type           = 11,  from /sys/devices/arm_dsu_0/type */
 	.config         = ARMV8_PMUV3_PERFCTR_CPU_CYCLES, /* 0x11 */
 	.size           = sizeof(struct perf_event_attr),
 	.pinned         = 1,
@@ -139,7 +140,7 @@ static int swpm_dsu_pmu_enable(int enable)
 			event = perf_event_create_kernel_counter(
 				&dsu_cycle_event_attr, 0, NULL, dummy_handler, NULL);
 			if (IS_ERR(event)) {
-				pr_notice("create (0) dsu_cycle error_v11 (%d)\n",
+				pr_notice("create dsu_cycle error (%d)\n",
 					  (int)PTR_ERR(event));
 				goto FAIL;
 			}
@@ -305,9 +306,17 @@ int __init swpm_arm_pmu_init(void)
 	ret = of_property_read_u32_index(node, "pmu_dsu_support",
 					 0, &pmu_dsu_support);
 	if (ret) {
-		pr_notice("failed to get pmu_rf_support index from dts\n");
+		pr_notice("failed to get pmu_dsu_support index from dts\n");
 		goto END;
 	}
+	/* device node, device name, offset, variable */
+	ret = of_property_read_u32_index(node, "pmu_dsu_type",
+					 0, &pmu_dsu_type);
+	if (ret) {
+		pr_notice("failed to get pmu_dsu_type index from dts\n");
+		goto END;
+	}
+	dsu_cycle_event_attr.type = pmu_dsu_type;
 
 END:
 	for (i = 0; i < num_possible_cpus(); i++) {

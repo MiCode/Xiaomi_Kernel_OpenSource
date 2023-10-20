@@ -25,9 +25,13 @@
 	cd-debounce-delay-ms = <0>;
 	cd-gpios = <&pio 11 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt6368_vmch_eint_high>;
-	vqmmc-supply = <&mt6368_vmc>;
+	//vqmmc-supply = <&mt6368_vmc>;
 	no-mmc;
 	no-sdio;
+	mediatek,mmc-qos;
+	interconnects = <&dvfsrc MT6873_MASTER_UFS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+	interconnect-names = "msdc-perf-bw";
+	required-opps = <&dvfsrc_freq_opp3>;
 };
 
 &mmc2 {

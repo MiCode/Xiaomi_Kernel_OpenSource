@@ -218,6 +218,8 @@ struct dpmaif_rx_queue {
 	unsigned short    pit_rel_rd_idx;
 	unsigned int reg_int_mask_bak;
 
+	unsigned int    pit_seq;
+
 	struct tasklet_struct dpmaif_rxq0_task;
 	wait_queue_head_t rx_wq;
 	struct task_struct *rx_thread;
@@ -509,5 +511,7 @@ extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
+
+extern void ccmni_set_cur_speed(u64 cur_dl_speed);
 
 #endif				/* __MODEM_DPMA_H__ */

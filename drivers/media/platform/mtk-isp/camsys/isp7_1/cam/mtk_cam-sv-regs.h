@@ -224,6 +224,16 @@ union CAMSV_PAK {
 	unsigned int Raw;
 };
 
+/* MISC */
+#define REG_CAMSV_MISC							0x0088
+union CAMSV_MISC {
+	struct {
+		unsigned int  VF_SRC					:	1;
+		unsigned int  rsv_1						:	31;
+	} Bits;
+	unsigned int Raw;
+};
+
 /* QBIN */
 #define REG_CAMSV_QBN_SET						0x009C
 union CAMSV_CAMSV_QBN_SET {

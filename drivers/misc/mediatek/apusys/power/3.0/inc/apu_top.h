@@ -32,6 +32,7 @@ enum aputop_func_id {
 	APUTOP_FUNC_IPI_TEST,	// test for wakeup apu through ipi flow
 	APUTOP_FUNC_ARE_DUMP1,
 	APUTOP_FUNC_ARE_DUMP2,
+	APUTOP_FUNC_DBG_VSRAM_VB,
 	APUTOP_FUNC_MAX_ID,
 };
 

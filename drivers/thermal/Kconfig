@@ -504,4 +504,10 @@ config KHADAS_MCU_FAN_THERMAL
 	  If you say yes here you get support for the FAN controlled
 	  by the Microcontroller found on the Khadas VIM boards.
 
+config MI_THERMAL_TZMODE
+	tristate "enable game mode for beanpod tee"
+	help
+	  Enable game mode in kernel when the device uses beanpod tee
+	  instead of mitee.
+
 endif

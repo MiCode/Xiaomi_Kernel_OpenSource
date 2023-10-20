@@ -226,8 +226,8 @@ enum gpufreq_segment {
 };
 
 enum gpufreq_clk_src {
-	CLOCK_MAIN = 0,
-	CLOCK_SUB,
+	CLOCK_SUB = 0,
+	CLOCK_MAIN,
 };
 
 /**************************************************

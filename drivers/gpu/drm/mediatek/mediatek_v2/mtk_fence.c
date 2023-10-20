@@ -802,8 +802,6 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	data.value = ++(layer_info->fence_idx);
 	mutex_unlock(&(layer_info->sync_lock));
 
-	snprintf(data.name, sizeof(data.name), "disp-S%x-L%d-%d", session_id,
-		 timeline_id, data.value);
 	ret = mtk_sync_fence_create(layer_info->timeline, &data);
 	if (ret != 0) {
 		/* Does this really happened? */

@@ -8584,7 +8584,7 @@
 		mtk_dsp_mem_afe = <0x1 0x40000>;
 	};
 
-	goodix_fp: fingerprint {
+	fingerprint: fingerprint {
 		compatible = "mediatek,goodix-fp";
 	};
 

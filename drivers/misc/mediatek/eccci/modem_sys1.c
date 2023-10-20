@@ -893,8 +893,6 @@ static int md_cd_force_assert(struct ccci_modem *md, enum MD_COMM_TYPE type)
 static int md_cd_dump_info(struct ccci_modem *md,
 	enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
-	struct md_sys1_info *md_info =
-		(struct md_sys1_info *)md->private_data;
 
 	if (flag & DUMP_FLAG_CCIF_REG) {
 		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump CCIF REG\n");
@@ -1048,22 +1046,12 @@ static int md_cd_dump_info(struct ccci_modem *md,
 			low_pwr->size);
 	}
 	if (flag & DUMP_FLAG_MD_WDT) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD RGU registers\n");
-		if (md->hw_info->plat_ptr->lock_modem_clock_src)
-			md->hw_info->plat_ptr->lock_modem_clock_src(1);
-#ifdef BASE_ADDR_MDRSTCTL
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			md_info->md_rgu_base, 0x88);
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			(md_info->md_rgu_base + 0x200), 0x5c);
-#else
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			md_info->md_rgu_base, 0x30);
+		CCCI_MEM_LOG_TAG(md->index, TAG,
+			"wdt_enabled=%d\n", atomic_read(&md->wdt_enabled));
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+		CCCI_NORMAL_LOG(md->index, TAG, "Dump md WDT IRQ status\n");
+		mt_irq_dump_status(md->md_wdt_irq_id);
 #endif
-		if (md->hw_info->plat_ptr->lock_modem_clock_src)
-			md->hw_info->plat_ptr->lock_modem_clock_src(0);
-		CCCI_MEM_LOG_TAG(md->index, TAG, "wdt_enabled=%d\n",
-			atomic_read(&md->wdt_enabled));
 	}
 
 	if ((flag & DUMP_MD_BOOTUP_STATUS) &&

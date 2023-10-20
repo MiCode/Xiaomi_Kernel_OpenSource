@@ -24,7 +24,10 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <soc/mediatek/smi.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-#include "../misc/mediatek/include/mt-plat/aee.h"
+#include <mt-plat/aee.h>
+#endif
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#include <mt-plat/mrdump.h>
 #endif
 
 #include "mtk_ccu_isp71.h"
@@ -40,6 +43,9 @@
 #define LOG_DBG(format, args...) \
 	pr_info(MTK_CCU_TAG "[%s] " format, __func__, ##args)
 
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+static struct mtk_ccu *dev_ccu;
+#endif
 static int mtk_ccu_probe(struct platform_device *dev);
 static int mtk_ccu_remove(struct platform_device *dev);
 static int mtk_ccu_read_platform_info_from_dt(struct device_node
@@ -55,7 +61,8 @@ mtk_ccu_allocate_mem(struct device *dev, struct mtk_ccu_mem_handle *memHandle)
 
 	/* get buffer virtual address */
 	memHandle->meminfo.va = dma_alloc_attrs(dev, memHandle->meminfo.size,
-		&memHandle->meminfo.mva, GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
+		&memHandle->meminfo.mva, GFP_KERNEL,
+		DMA_ATTR_WRITE_COMBINE | DMA_ATTR_FORCE_CONTIGUOUS);
 
 	if (memHandle->meminfo.va == NULL) {
 		dev_err(dev, "fail to get buffer kernel virtual address");
@@ -97,6 +104,7 @@ static void mtk_ccu_set_log_memory_address(struct mtk_ccu *ccu)
 	ccu->log_info[0].offset = offset;
 	ccu->log_info[0].mva = meminfo->mva + offset;
 	ccu->log_info[0].va = meminfo->va + offset;
+	*((uint32_t *)(ccu->log_info[0].va)) = LOG_ENDEND;
 
 	/* log chunk2 */
 	ccu->log_info[1].fd = meminfo->fd;
@@ -104,6 +112,7 @@ static void mtk_ccu_set_log_memory_address(struct mtk_ccu *ccu)
 	ccu->log_info[1].offset = offset + MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[1].mva = ccu->log_info[0].mva + MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[1].va = ccu->log_info[0].va + MTK_CCU_DRAM_LOG_BUF_SIZE;
+	*((uint32_t *)(ccu->log_info[1].va)) = LOG_ENDEND;
 
 	/* sram log */
 	ccu->log_info[2].fd = meminfo->fd;
@@ -677,6 +686,44 @@ mtk_ccu_sanity_check(struct rproc *rproc, const struct firmware *fw)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+void get_ccu_mrdump_buffer(unsigned long *vaddr, unsigned long *size)
+{
+
+	if ((!dev_ccu) || (!dev_ccu->mrdump_buf))
+		return;
+
+	*((uint32_t *)(dev_ccu->mrdump_buf)) = LOG_ENDEND;
+	*((uint32_t *)(dev_ccu->mrdump_buf +
+		(MTK_CCU_SRAM_LOG_BUF_SIZE / 2))) = LOG_ENDEND;
+
+	if (spin_trylock(&dev_ccu->ccu_poweron_lock)) {
+		if (dev_ccu->poweron) {
+			memcpy(dev_ccu->mrdump_buf,
+				dev_ccu->dmem_base + MTK_CCU_SRAM_LOG_OFFSET,
+				MTK_CCU_SRAM_LOG_BUF_SIZE);
+			memcpy(dev_ccu->mrdump_buf + MTK_CCU_SRAM_LOG_BUF_SIZE,
+				dev_ccu->ccu_base,
+				MTK_CCU_REG_LOG_BUF_SIZE - MTK_CCU_EXTRA_REG_LOG_BUF_SIZE);
+			memcpy(dev_ccu->mrdump_buf + MTK_CCU_MRDUMP_SRAM_BUF_SIZE
+				- MTK_CCU_EXTRA_REG_LOG_BUF_SIZE,
+				dev_ccu->ccu_base + MTK_CCU_EXTRA_REG_OFFSET,
+				MTK_CCU_EXTRA_REG_LOG_BUF_SIZE);
+		}
+
+		spin_unlock(&dev_ccu->ccu_poweron_lock);
+	}
+
+	memcpy(dev_ccu->mrdump_buf + MTK_CCU_MRDUMP_SRAM_BUF_SIZE,
+		dev_ccu->log_info[0].va, MTK_CCU_MRDUMP_BUF_DRAM_SIZE);
+	memcpy(dev_ccu->mrdump_buf + MTK_CCU_MRDUMP_SRAM_BUF_SIZE + MTK_CCU_MRDUMP_BUF_DRAM_SIZE,
+		dev_ccu->log_info[1].va, MTK_CCU_MRDUMP_BUF_DRAM_SIZE);
+
+	*vaddr = (unsigned long)dev_ccu->mrdump_buf;
+	*size = MTK_CCU_MRDUMP_BUF_SIZE;
+}
+#endif
+
 static const struct rproc_ops ccu_ops = {
 	.start = mtk_ccu_start,
 	.stop  = mtk_ccu_stop,
@@ -858,6 +905,17 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	mtk_ccu_set_log_memory_address(ccu);
 	rproc->auto_boot = false;
 
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	ccu->mrdump_buf = kmalloc(MTK_CCU_MRDUMP_BUF_SIZE, GFP_ATOMIC);
+	if (!ccu->mrdump_buf) {
+		mtk_ccu_deallocate_mem(ccu->dev, &ccu->ext_buf);
+		return -EINVAL;
+	}
+
+	dev_ccu = ccu;
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_CCU, get_ccu_mrdump_buffer);
+#endif
+
 	ret = rproc_add(rproc);
 	return ret;
 }
@@ -866,6 +924,15 @@ static int mtk_ccu_remove(struct platform_device *pdev)
 {
 	struct mtk_ccu *ccu = platform_get_drvdata(pdev);
 
+	/*
+	 * WARNING:
+	 * With mrdump, remove CCU module will cause access violation
+	 * at KE/SystemAPI.
+	 */
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_CCU, NULL);
+	kfree(ccu->mrdump_buf);
+#endif
 	mtk_ccu_deallocate_mem(ccu->dev, &ccu->ext_buf);
 	disable_irq(ccu->irq_num);
 	rproc_del(ccu->rproc);

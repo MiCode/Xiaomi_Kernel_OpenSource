@@ -43,7 +43,6 @@ u64 dma_direct_get_required_mask(struct device *dev)
 
 	return (1ULL << (fls64(max_dma) - 1)) * 2 - 1;
 }
-EXPORT_SYMBOL_GPL(dma_direct_get_required_mask);
 
 static gfp_t dma_direct_optimal_gfp_mask(struct device *dev, u64 dma_mask,
 				  u64 *phys_limit)
@@ -61,7 +60,8 @@ static gfp_t dma_direct_optimal_gfp_mask(struct device *dev, u64 dma_mask,
 	*phys_limit = dma_to_phys(dev, dma_limit);
 	if (*phys_limit <= DMA_BIT_MASK(zone_dma_bits))
 		return GFP_DMA;
-	if (*phys_limit <= DMA_BIT_MASK(32))
+	if (*phys_limit <= DMA_BIT_MASK(32) &&
+		!zone_dma32_are_empty())
 		return GFP_DMA32;
 	return 0;
 }
@@ -101,7 +101,8 @@ again:
 
 		if (IS_ENABLED(CONFIG_ZONE_DMA32) &&
 		    phys_limit < DMA_BIT_MASK(64) &&
-		    !(gfp & (GFP_DMA32 | GFP_DMA))) {
+		    !(gfp & (GFP_DMA32 | GFP_DMA)) &&
+		    !zone_dma32_are_empty()) {
 			gfp |= GFP_DMA32;
 			goto again;
 		}
@@ -189,7 +190,7 @@ void *dma_direct_alloc(struct device *dev, size_t size,
 			goto out_free_pages;
 		if (force_dma_unencrypted(dev)) {
 			err = set_memory_decrypted((unsigned long)ret,
-						   1 << get_order(size));
+						   PFN_UP(size));
 			if (err)
 				goto out_free_pages;
 		}
@@ -211,7 +212,7 @@ void *dma_direct_alloc(struct device *dev, size_t size,
 	ret = page_address(page);
 	if (force_dma_unencrypted(dev)) {
 		err = set_memory_decrypted((unsigned long)ret,
-					   1 << get_order(size));
+					   PFN_UP(size));
 		if (err)
 			goto out_free_pages;
 	}
@@ -232,7 +233,7 @@ done:
 out_encrypt_pages:
 	if (force_dma_unencrypted(dev)) {
 		err = set_memory_encrypted((unsigned long)page_address(page),
-					   1 << get_order(size));
+					   PFN_UP(size));
 		/* If memory cannot be re-encrypted, it must be leaked */
 		if (err)
 			return NULL;
@@ -245,8 +246,6 @@ out_free_pages:
 void dma_direct_free(struct device *dev, size_t size,
 		void *cpu_addr, dma_addr_t dma_addr, unsigned long attrs)
 {
-	unsigned int page_order = get_order(size);
-
 	if ((attrs & DMA_ATTR_NO_KERNEL_MAPPING) &&
 	    !force_dma_unencrypted(dev)) {
 		/* cpu_addr is a struct page cookie, not a kernel address */
@@ -267,7 +266,7 @@ void dma_direct_free(struct device *dev, size_t size,
 		return;
 
 	if (force_dma_unencrypted(dev))
-		set_memory_encrypted((unsigned long)cpu_addr, 1 << page_order);
+		set_memory_encrypted((unsigned long)cpu_addr, PFN_UP(size));
 
 	if (IS_ENABLED(CONFIG_DMA_REMAP) && is_vmalloc_addr(cpu_addr))
 		vunmap(cpu_addr);
@@ -303,8 +302,7 @@ struct page *dma_direct_alloc_pages(struct device *dev, size_t size,
 
 	ret = page_address(page);
 	if (force_dma_unencrypted(dev)) {
-		if (set_memory_decrypted((unsigned long)ret,
-				1 << get_order(size)))
+		if (set_memory_decrypted((unsigned long)ret, PFN_UP(size)))
 			goto out_free_pages;
 	}
 	memset(ret, 0, size);
@@ -314,13 +312,11 @@ out_free_pages:
 	dma_free_contiguous(dev, page, size);
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(dma_direct_alloc);
 
 void dma_direct_free_pages(struct device *dev, size_t size,
 		struct page *page, dma_addr_t dma_addr,
 		enum dma_data_direction dir)
 {
-	unsigned int page_order = get_order(size);
 	void *vaddr = page_address(page);
 
 	/* If cpu_addr is not from an atomic pool, dma_free_from_pool() fails */
@@ -329,11 +325,10 @@ void dma_direct_free_pages(struct device *dev, size_t size,
 		return;
 
 	if (force_dma_unencrypted(dev))
-		set_memory_encrypted((unsigned long)vaddr, 1 << page_order);
+		set_memory_encrypted((unsigned long)vaddr, PFN_UP(size));
 
 	dma_free_contiguous(dev, page, size);
 }
-EXPORT_SYMBOL_GPL(dma_direct_free);
 
 #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE) || \
     defined(CONFIG_SWIOTLB)

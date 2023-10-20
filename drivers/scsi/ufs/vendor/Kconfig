@@ -87,3 +87,9 @@ config UFSRINGBUF_POC
 	  UFS RingBuffer POC test
 	  1. set default vendor_signature & vendor_parameter for test
 	  2. Set custom vender_parameter
+
+config UFS_PA_CONFIG
+	bool "UFS_UNIPRO_PA_CONFIG"
+	depends on SCSI_UFSHCD
+	help
+	  This helps configure pa attribute

@@ -219,6 +219,7 @@ exit:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 ssize_t scp_A_log_read(char __user *data, size_t len)
 {
 	unsigned int w_pos, r_pos, datalen;
@@ -231,8 +232,20 @@ ssize_t scp_A_log_read(char __user *data, size_t len)
 
 	mutex_lock(&scp_A_log_mutex);
 
-	r_pos = SCP_A_buf_info->r_pos;
+//	r_pos = SCP_A_buf_info->r_pos;
 	w_pos = SCP_A_buf_info->w_pos;
+
+#ifdef SCP_LOGGER_OVERWRITE
+	//pr_err("scp_A_log_read: len= %d\n", len);
+
+	if (get_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Get fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
+
+	r_pos = SCP_A_buf_info->r_pos;
 
 	if (r_pos == w_pos)
 		goto error;
@@ -269,6 +282,14 @@ ssize_t scp_A_log_read(char __user *data, size_t len)
 	SCP_A_buf_info->r_pos = r_pos;
 
 error:
+#ifdef SCP_LOGGER_OVERWRITE
+	if (release_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Release fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
+
 	mutex_unlock(&scp_A_log_mutex);
 
 	return datalen;
@@ -326,6 +347,9 @@ static unsigned int scp_A_log_if_poll(struct file *file, poll_table *wait)
 
 	return ret;
 }
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 /*
  * ipi send to enable scp logger flag
  */
@@ -513,8 +537,20 @@ static ssize_t scp_A_mobile_log_UT_show(struct device *kobj,
 
 	mutex_lock(&scp_A_log_mutex);
 
-	r_pos = SCP_A_buf_info->r_pos;
+//	r_pos = SCP_A_buf_info->r_pos;
 	w_pos = SCP_A_buf_info->w_pos;
+
+	#ifdef SCP_LOGGER_OVERWRITE
+	pr_err("scp_A_log_read: len= %d\n", len);
+
+	if (get_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Get fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
+
+	r_pos = SCP_A_buf_info->r_pos;
 
 	if (r_pos == w_pos)
 		goto error;
@@ -541,6 +577,14 @@ static ssize_t scp_A_mobile_log_UT_show(struct device *kobj,
 	SCP_A_buf_info->r_pos = r_pos;
 
 error:
+#ifdef SCP_LOGGER_OVERWRITE
+	if (release_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Release fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
+
 	mutex_unlock(&scp_A_log_mutex);
 
 	return len;
@@ -593,6 +637,7 @@ static ssize_t log_filter_store(struct device *dev,
 	}
 }
 DEVICE_ATTR_WO(log_filter);
+#endif
 
 
 /*
@@ -818,12 +863,14 @@ void scp_logger_uninit(void)
 		vfree(tmp);
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 const struct file_operations scp_A_log_file_ops = {
 	.owner = THIS_MODULE,
 	.read = scp_A_log_if_read,
 	.open = scp_A_log_if_open,
 	.poll = scp_A_log_if_poll,
 };
+#endif
 
 
 /*

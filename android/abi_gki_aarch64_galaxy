@@ -343,6 +343,7 @@
   __traceiter_dwc3_readl
   __traceiter_dwc3_writel
   __traceiter_gpu_mem_total
+  __traceiter_kfree_skb
   __traceiter_sched_util_est_se_tp
   __traceiter_xdp_exception
   __tracepoint_android_rvh_account_irq
@@ -494,6 +495,7 @@
   __tracepoint_ipi_raise
   __tracepoint_irq_handler_entry
   __tracepoint_irq_handler_exit
+  __tracepoint_kfree_skb
   __tracepoint_pelt_cfs_tp
   __tracepoint_pelt_dl_tp
   __tracepoint_pelt_irq_tp
@@ -1899,6 +1901,8 @@
   find_vpid
   finish_wait
   firmware_request_nowarn
+  fixed_phy_register
+  fixed_phy_unregister
   fixed_size_llseek
   flow_keys_basic_dissector
   flush_dcache_page
@@ -2025,10 +2029,12 @@
   gpiochip_generic_free
   gpiochip_generic_request
   gpiochip_get_data
+  gpiochip_irqchip_add_key
   gpiochip_line_is_valid
   gpiochip_lock_as_irq
   gpiochip_populate_parent_fwspec_fourcell
   gpiochip_remove
+  gpiochip_set_nested_irqchip
   gpiochip_unlock_as_irq
   gpiod_cansleep
   gpiod_count
@@ -2051,9 +2057,14 @@
   gro_cells_destroy
   gro_cells_init
   gro_cells_receive
+  gs_alloc_req
+  gs_free_req
   gserial_alloc_line
   gserial_connect
   gserial_disconnect
+  gserial_free_line
+  gserial_resume
+  gserial_suspend
   guid_gen
   handle_bad_irq
   handle_edge_irq
@@ -2318,6 +2329,7 @@
   irq_create_mapping_affinity
   irq_create_of_mapping
   irq_dispose_mapping
+  irq_domain_add_simple
   irq_domain_alloc_irqs_parent
   irq_domain_create_hierarchy
   irq_domain_free_irqs_common
@@ -3014,6 +3026,7 @@
   phy_ethtool_get_link_ksettings
   phy_ethtool_nway_reset
   phy_ethtool_set_link_ksettings
+  phy_ethtool_set_wol
   phy_exit
   phy_find_first
   phy_get_pause
@@ -3025,9 +3038,12 @@
   phy_power_off
   phy_power_on
   phy_print_status
+  phy_register_fixup_for_uid
+  phy_save_page
   phy_set_mode_ext
   phy_start
   phy_stop
+  phy_unregister_fixup_for_uid
   pick_highest_pushable_task
   pid_nr_ns
   pid_task
@@ -4057,6 +4073,7 @@
   ttm_tt_populate
   ttm_tt_set_placement_caching
   ttm_unmap_and_unpopulate_pages
+  tty_encode_baud_rate
   tty_flip_buffer_push
   tty_insert_flip_string_fixed_flag
   tty_kref_put
@@ -4205,8 +4222,10 @@
   usb_asmedia_modifyflowcontrol
   usb_assign_descriptors
   usb_autopm_get_interface
+  usb_autopm_get_interface_async
   usb_autopm_get_interface_no_resume
   usb_autopm_put_interface
+  usb_autopm_put_interface_async
   usb_bulk_msg
   usb_calc_bus_time
   usb_choose_configuration
@@ -4278,11 +4297,13 @@
   usb_hcd_start_port_resume
   usb_hcd_unlink_urb_from_ep
   usb_hcds_loaded
+  usb_hid_driver
   usb_hub_clear_tt_buffer
   usb_hub_find_child
   usb_ifnum_to_if
   usb_initialize_gadget
   usb_interface_id
+  usb_interrupt_msg
   usb_kill_urb
   usb_match_id
   usb_match_one_id
@@ -4317,9 +4338,11 @@
   usb_unpoison_urb
   usb_unregister_notify
   usb_wakeup_notification
+  usbnet_cdc_unbind
   usbnet_change_mtu
   usbnet_defer_kevent
   usbnet_disconnect
+  usbnet_generic_cdc_bind
   usbnet_get_drvinfo
   usbnet_get_endpoints
   usbnet_get_link

@@ -769,7 +769,7 @@ void __init thrm_aware_init(struct kobject *dir_kobj, int cpu)
 	cur_m_core = THRM_AWARE_CORE_RESET;
 	debnc_time = TIME_1S;
 	iso_pcbtemp_th = 200;
-	thrm_aware_priority = 1;
+	thrm_aware_priority = 0;//disable fpsgo isolate cpu7
 
 	if (g_cluster_num > 2 && cpu >= 0 && cpu < num_possible_cpus()) {
 		temp_th = 0;

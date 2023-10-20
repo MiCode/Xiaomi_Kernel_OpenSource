@@ -89,9 +89,15 @@ unsigned int layout_check(struct EEPROM_DRV_FD_DATA *pdata,
 		return result;
 	}
 
+#if defined(ARISTOTLE_CAM)
+	if ((check_id << 8) == (cam_cal_config->layout->header_id << 8)) {
+		debug_log("header_id matched 0x%08x 0x%08x, new 0x%08x 0x%08x\n",
+			check_id, cam_cal_config->layout->header_id, check_id << 8, (cam_cal_config->layout->header_id << 8));
+#else
 	if (check_id == cam_cal_config->layout->header_id) {
 		debug_log("header_id matched 0x%08x 0x%08x\n",
 			check_id, cam_cal_config->layout->header_id);
+#endif
 		result = CAM_CAL_ERR_NO_ERR;
 	} else
 		debug_log("header_id not matched 0x%08x 0x%08x\n",

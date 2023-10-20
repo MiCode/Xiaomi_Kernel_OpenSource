@@ -7,7 +7,23 @@
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
 #include <linux/sched/task.h>
+#include <linux/slab.h>
 #include <linux/errno.h>
+
+#include <trace/hooks/dtask.h>
+
+/*
+ * trace_android_vh_record_pcpu_rwsem_starttime  is called in
+ * include/linux/percpu-rwsem.h by including include/hooks/dtask.h, which
+ * will result to build-err. So we create
+ * func:_trace_android_vh_record_pcpu_rwsem_starttime for percpu-rwsem.h to call.
+ */
+void _trace_android_vh_record_pcpu_rwsem_starttime(struct task_struct *tsk,
+		unsigned long settime)
+{
+	trace_android_vh_record_pcpu_rwsem_starttime(tsk, settime);
+}
+EXPORT_SYMBOL_GPL(_trace_android_vh_record_pcpu_rwsem_starttime);
 
 int __percpu_init_rwsem(struct percpu_rw_semaphore *sem,
 			const char *name, struct lock_class_key *key)
@@ -236,11 +252,13 @@ void percpu_down_write(struct percpu_rw_semaphore *sem)
 
 	/* Wait for all active readers to complete. */
 	rcuwait_wait_event(&sem->writer, readers_active_check(sem), TASK_UNINTERRUPTIBLE);
+	trace_android_vh_record_pcpu_rwsem_starttime(current, jiffies);
 }
 EXPORT_SYMBOL_GPL(percpu_down_write);
 
 void percpu_up_write(struct percpu_rw_semaphore *sem)
 {
+	trace_android_vh_record_pcpu_rwsem_starttime(current, 0);
 	rwsem_release(&sem->dep_map, _RET_IP_);
 
 	/*
@@ -268,3 +286,34 @@ void percpu_up_write(struct percpu_rw_semaphore *sem)
 	rcu_sync_exit(&sem->rss);
 }
 EXPORT_SYMBOL_GPL(percpu_up_write);
+
+static LIST_HEAD(destroy_list);
+static DEFINE_SPINLOCK(destroy_list_lock);
+
+static void destroy_list_workfn(struct work_struct *work)
+{
+	struct percpu_rw_semaphore_atomic *sem, *sem2;
+	LIST_HEAD(to_destroy);
+
+	spin_lock(&destroy_list_lock);
+	list_splice_init(&destroy_list, &to_destroy);
+	spin_unlock(&destroy_list_lock);
+
+	if (list_empty(&to_destroy))
+		return;
+
+	list_for_each_entry_safe(sem, sem2, &to_destroy, destroy_list_entry) {
+		percpu_free_rwsem(&sem->rw_sem);
+		kfree(sem);
+	}
+}
+
+static DECLARE_WORK(destroy_list_work, destroy_list_workfn);
+
+void percpu_rwsem_async_destroy(struct percpu_rw_semaphore_atomic *sem)
+{
+	spin_lock(&destroy_list_lock);
+	list_add_tail(&sem->destroy_list_entry, &destroy_list);
+	spin_unlock(&destroy_list_lock);
+	schedule_work(&destroy_list_work);
+}

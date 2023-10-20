@@ -254,11 +254,19 @@ unsigned long ged_query_info(GED_INFO eType)
 	case GED_CUR_FREQ_IDX:
 		return ged_get_cur_oppidx();
 	case GED_MAX_FREQ_IDX:
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		return ged_get_min_oppidx();
+#else
 		return ged_get_max_oppidx();
+#endif
 	case GED_MAX_FREQ_IDX_FREQ:
 		return g_maxfreq;
 	case GED_MIN_FREQ_IDX:
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		return ged_get_max_oppidx();
+#else
 		return ged_get_min_oppidx();
+#endif
 	case GED_MIN_FREQ_IDX_FREQ:
 		return g_minfreq;
 	case GED_3D_FENCE_DONE_TIME:
@@ -357,15 +365,6 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		eCommitType == GED_DVFS_LOADING_BASE_COMMIT)
 		g_last_def_commit_freq_id = ui32NewFreqID;
 
-	/* Delegate to DCS */
-#ifdef DIRECT_EB_COMMIT
-	if (ged_is_fdvfs_support() &&
-		ged_dvfs_gpu_freq_commit_fp != mtk_gpueb_dvfs_commit) {
-		ged_dvfs_gpu_freq_commit_fp = mtk_gpueb_dvfs_commit;
-		GED_LOGI("%s @ %d. GPUEB version commit\n", __func__, __LINE__);
-	}
-#endif
-
 	if (ged_dvfs_gpu_freq_commit_fp != NULL) {
 
 		ui32CeilingID = ged_get_cur_limit_idx_ceil();
@@ -385,7 +384,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		if (ui32NewFreqID != ui32CurFreqID) {
 			/* call to ged gpufreq wrapper module */
 			g_ged_dvfs_commit_idx = ui32NewFreqID;
-			ged_gpufreq_commit(ui32NewFreqID, eCommitType);
+			ged_gpufreq_commit(ui32NewFreqID, eCommitType, &bCommited);
 
 			/*
 			 * To-Do: refine previous freq contributions,
@@ -1419,6 +1418,7 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 
 	mutex_lock(&gsDVFSLock);
 
+	g_fastdvfs_margin = 0;
 	dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
 	dvfs_margin_low_bound = MIN_DVFS_MARGIN/10;
 
@@ -1429,6 +1429,10 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 		return;
 	} else if (i32MarginValue == -2) {
 		dvfs_margin_mode = VARIABLE_MARGIN_MODE_OPP_INDEX;
+		mutex_unlock(&gsDVFSLock);
+		return;
+	} else if (i32MarginValue == 999) {
+		g_fastdvfs_margin = 1;
 		mutex_unlock(&gsDVFSLock);
 		return;
 	}
@@ -1485,6 +1489,9 @@ static int ged_get_dvfs_margin_value(void)
 		ret = dvfs_margin_value + 500;
 	else if (dvfs_margin_mode == VARIABLE_MARGIN_MODE_OPP_INDEX)
 		ret = -2;
+
+	if (g_fastdvfs_margin)
+		ret = 999;
 
 	return ret;
 }

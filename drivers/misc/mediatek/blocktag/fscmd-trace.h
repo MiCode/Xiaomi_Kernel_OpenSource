@@ -16,7 +16,7 @@ void fscmd_trace_sys_enter(void *data,
 void fscmd_trace_sys_exit(void *data,
 		struct pt_regs *regs, long ret);
 
-size_t mtk_fscmd_usedmem(char **buff, unsigned long *size,
+void mtk_fscmd_show(char **buff, unsigned long *size,
 	struct seq_file *seq);
 
 int mtk_fscmd_init(void);

@@ -56,7 +56,7 @@ static const struct mtk_node_desc node_descs_mt6983[] = {
 	DEFINE_MNODE(larb2, SLAVE_LARB(2), 0, false, 0x0, MASTER_COMMON_PORT(0, 2)),
 	DEFINE_MNODE(larb5, SLAVE_LARB(5), 0, false, 0x0, MASTER_COMMON_PORT(0, 3)),
 	DEFINE_MNODE(larb7, SLAVE_LARB(7), 0, false, 0x0, MASTER_COMMON_PORT(0, 4)),
-	DEFINE_MNODE(larb9, SLAVE_LARB(9), 0, false, 0x0, MASTER_COMMON_PORT(0, 5)),
+	DEFINE_MNODE(larb9, SLAVE_LARB(9), 0, false, 0x02, MASTER_COMMON_PORT(0, 5)),
 	DEFINE_MNODE(larb10, SLAVE_LARB(10), 0, false, 0x2, MASTER_COMMON_PORT(0, 5)),
 	DEFINE_MNODE(larb11, SLAVE_LARB(11), 0, false, 0x0, MASTER_COMMON_PORT(0, 5)), //LARB11_u0
 	DEFINE_MNODE(larb23, SLAVE_LARB(23), 0, false, 0x0, MASTER_COMMON_PORT(0, 5)), //LARB11_u2
@@ -1071,9 +1071,9 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6983 = {
 		{ 0x2, 0x2, 0x1, 0x1, 0x1, 0x2, 0x1, 0x2, 0x3 }
 	},
 	.comm_port_hrt_types = {
-		{ HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE,
+		{ HRT_MAX_BWL, HRT_MAX_BWL, HRT_NONE, HRT_NONE, HRT_NONE,
 			HRT_NONE, HRT_CAM, HRT_NONE, HRT_DISP },
-		{ HRT_NONE, HRT_NONE, HRT_MML, HRT_NONE, HRT_NONE,
+		{ HRT_MAX_BWL, HRT_MAX_BWL, HRT_MML, HRT_NONE, HRT_NONE,
 			HRT_NONE, HRT_CAM, HRT_NONE, HRT_NONE },
 	},
 	.dual_pipe_larbs = { SLAVE_LARB(1), SLAVE_LARB(20) },

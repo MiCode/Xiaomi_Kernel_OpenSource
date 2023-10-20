@@ -1188,29 +1188,7 @@ static int wcd934x_set_sido_input_src(struct wcd934x_codec *wcd, int sido_src)
 	if (sido_src == wcd->sido_input_src)
 		return 0;
 
-	if (sido_src == SIDO_SOURCE_INTERNAL) {
-		regmap_update_bits(wcd->regmap, WCD934X_ANA_BUCK_CTL,
-				   WCD934X_ANA_BUCK_HI_ACCU_EN_MASK, 0);
-		usleep_range(100, 110);
-		regmap_update_bits(wcd->regmap, WCD934X_ANA_BUCK_CTL,
-				   WCD934X_ANA_BUCK_HI_ACCU_PRE_ENX_MASK, 0x0);
-		usleep_range(100, 110);
-		regmap_update_bits(wcd->regmap, WCD934X_ANA_RCO,
-				   WCD934X_ANA_RCO_BG_EN_MASK, 0);
-		usleep_range(100, 110);
-		regmap_update_bits(wcd->regmap, WCD934X_ANA_BUCK_CTL,
-				   WCD934X_ANA_BUCK_PRE_EN1_MASK,
-				   WCD934X_ANA_BUCK_PRE_EN1_ENABLE);
-		usleep_range(100, 110);
-		regmap_update_bits(wcd->regmap, WCD934X_ANA_BUCK_CTL,
-				   WCD934X_ANA_BUCK_PRE_EN2_MASK,
-				   WCD934X_ANA_BUCK_PRE_EN2_ENABLE);
-		usleep_range(100, 110);
-		regmap_update_bits(wcd->regmap, WCD934X_ANA_BUCK_CTL,
-				   WCD934X_ANA_BUCK_HI_ACCU_EN_MASK,
-				   WCD934X_ANA_BUCK_HI_ACCU_ENABLE);
-		usleep_range(100, 110);
-	} else if (sido_src == SIDO_SOURCE_RCO_BG) {
+	if (sido_src == SIDO_SOURCE_RCO_BG) {
 		regmap_update_bits(wcd->regmap, WCD934X_ANA_RCO,
 				   WCD934X_ANA_RCO_BG_EN_MASK,
 				   WCD934X_ANA_RCO_BG_ENABLE);
@@ -1296,8 +1274,6 @@ static int wcd934x_disable_ana_bias_and_syclk(struct wcd934x_codec *wcd)
 	regmap_update_bits(wcd->regmap, WCD934X_CLK_SYS_MCLK_PRG,
 			   WCD934X_EXT_CLK_BUF_EN_MASK |
 			   WCD934X_MCLK_EN_MASK, 0x0);
-	wcd934x_set_sido_input_src(wcd, SIDO_SOURCE_INTERNAL);
-
 	regmap_update_bits(wcd->regmap, WCD934X_ANA_BIAS,
 			   WCD934X_ANA_BIAS_EN_MASK, 0);
 	regmap_update_bits(wcd->regmap, WCD934X_ANA_BIAS,
@@ -1812,9 +1788,8 @@ static int wcd934x_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	wcd->dai[dai->id].sconfig.rate = params_rate(params);
-	wcd934x_slim_set_hw_params(wcd, &wcd->dai[dai->id], substream->stream);
 
-	return 0;
+	return wcd934x_slim_set_hw_params(wcd, &wcd->dai[dai->id], substream->stream);
 }
 
 static int wcd934x_hw_free(struct snd_pcm_substream *substream,
@@ -2471,6 +2446,9 @@ static int wcd934x_compander_set(struct snd_kcontrol *kc,
 	int value = ucontrol->value.integer.value[0];
 	int sel;
 
+	if (wcd->comp_enabled[comp] == value)
+		return 0;
+
 	wcd->comp_enabled[comp] = value;
 	sel = value ? WCD934X_HPH_GAIN_SRC_SEL_COMPANDER :
 		WCD934X_HPH_GAIN_SRC_SEL_REGISTER;
@@ -2494,10 +2472,10 @@ static int wcd934x_compander_set(struct snd_kcontrol *kc,
 	case COMPANDER_8:
 		break;
 	default:
-		break;
+		return 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 static int wcd934x_rx_hph_mode_get(struct snd_kcontrol *kc,
@@ -2520,13 +2498,16 @@ static int wcd934x_rx_hph_mode_put(struct snd_kcontrol *kc,
 
 	mode_val = ucontrol->value.enumerated.item[0];
 
+	if (mode_val == wcd->hph_mode)
+		return 0;
+
 	if (mode_val == 0) {
 		dev_err(wcd->dev, "Invalid HPH Mode, default to ClSH HiFi\n");
 		mode_val = CLS_H_LOHIFI;
 	}
 	wcd->hph_mode = mode_val;
 
-	return 0;
+	return 1;
 }
 
 static int slim_rx_mux_get(struct snd_kcontrol *kc,
@@ -2541,6 +2522,31 @@ static int slim_rx_mux_get(struct snd_kcontrol *kc,
 	return 0;
 }
 
+static int slim_rx_mux_to_dai_id(int mux)
+{
+	int aif_id;
+
+	switch (mux) {
+	case 1:
+		aif_id = AIF1_PB;
+		break;
+	case 2:
+		aif_id = AIF2_PB;
+		break;
+	case 3:
+		aif_id = AIF3_PB;
+		break;
+	case 4:
+		aif_id = AIF4_PB;
+		break;
+	default:
+		aif_id = -1;
+		break;
+	}
+
+	return aif_id;
+}
+
 static int slim_rx_mux_put(struct snd_kcontrol *kc,
 			   struct snd_ctl_elem_value *ucontrol)
 {
@@ -2548,43 +2554,59 @@ static int slim_rx_mux_put(struct snd_kcontrol *kc,
 	struct wcd934x_codec *wcd = dev_get_drvdata(w->dapm->dev);
 	struct soc_enum *e = (struct soc_enum *)kc->private_value;
 	struct snd_soc_dapm_update *update = NULL;
+	struct wcd934x_slim_ch *ch, *c;
 	u32 port_id = w->shift;
+	bool found = false;
+	int mux_idx;
+	int prev_mux_idx = wcd->rx_port_value[port_id];
+	int aif_id;
 
-	if (wcd->rx_port_value[port_id] == ucontrol->value.enumerated.item[0])
+	mux_idx = ucontrol->value.enumerated.item[0];
+
+	if (mux_idx == prev_mux_idx)
 		return 0;
 
-	wcd->rx_port_value[port_id] = ucontrol->value.enumerated.item[0];
-
-	switch (wcd->rx_port_value[port_id]) {
+	switch(mux_idx) {
 	case 0:
-		list_del_init(&wcd->rx_chs[port_id].list);
+		aif_id = slim_rx_mux_to_dai_id(prev_mux_idx);
+		if (aif_id < 0)
+			return 0;
+
+		list_for_each_entry_safe(ch, c, &wcd->dai[aif_id].slim_ch_list, list) {
+			if (ch->port == port_id + WCD934X_RX_START) {
+				found = true;
+				list_del_init(&ch->list);
+				break;
+			}
+		}
+		if (!found)
+			return 0;
+
 		break;
-	case 1:
-		list_add_tail(&wcd->rx_chs[port_id].list,
-			      &wcd->dai[AIF1_PB].slim_ch_list);
+	case 1 ... 4:
+		aif_id = slim_rx_mux_to_dai_id(mux_idx);
+		if (aif_id < 0)
+			return 0;
+
+		if (list_empty(&wcd->rx_chs[port_id].list)) {
+			list_add_tail(&wcd->rx_chs[port_id].list,
+				      &wcd->dai[aif_id].slim_ch_list);
+		} else {
+			dev_err(wcd->dev ,"SLIM_RX%d PORT is busy\n", port_id);
+			return 0;
+		}
 		break;
-	case 2:
-		list_add_tail(&wcd->rx_chs[port_id].list,
-			      &wcd->dai[AIF2_PB].slim_ch_list);
-		break;
-	case 3:
-		list_add_tail(&wcd->rx_chs[port_id].list,
-			      &wcd->dai[AIF3_PB].slim_ch_list);
-		break;
-	case 4:
-		list_add_tail(&wcd->rx_chs[port_id].list,
-			      &wcd->dai[AIF4_PB].slim_ch_list);
-		break;
+
 	default:
-		dev_err(wcd->dev, "Unknown AIF %d\n",
-			wcd->rx_port_value[port_id]);
+		dev_err(wcd->dev, "Unknown AIF %d\n", mux_idx);
 		goto err;
 	}
 
+	wcd->rx_port_value[port_id] = mux_idx;
 	snd_soc_dapm_mux_update_power(w->dapm, kc, wcd->rx_port_value[port_id],
 				      e, update);
 
-	return 0;
+	return 1;
 err:
 	return -EINVAL;
 }
@@ -3030,6 +3052,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kc,
 	struct soc_mixer_control *mixer =
 			(struct soc_mixer_control *)kc->private_value;
 	int enable = ucontrol->value.integer.value[0];
+	struct wcd934x_slim_ch *ch, *c;
 	int dai_id = widget->shift;
 	int port_id = mixer->shift;
 
@@ -3037,17 +3060,32 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kc,
 	if (enable == wcd->tx_port_value[port_id])
 		return 0;
 
+	if (enable) {
+		if (list_empty(&wcd->tx_chs[port_id].list)) {
+			list_add_tail(&wcd->tx_chs[port_id].list,
+				      &wcd->dai[dai_id].slim_ch_list);
+		} else {
+			dev_err(wcd->dev ,"SLIM_TX%d PORT is busy\n", port_id);
+			return 0;
+		}
+	 } else {
+		bool found = false;
+
+		list_for_each_entry_safe(ch, c, &wcd->dai[dai_id].slim_ch_list, list) {
+			if (ch->port == port_id) {
+				found = true;
+				list_del_init(&wcd->tx_chs[port_id].list);
+				break;
+			}
+		}
+		if (!found)
+			return 0;
+	 }
+
 	wcd->tx_port_value[port_id] = enable;
-
-	if (enable)
-		list_add_tail(&wcd->tx_chs[port_id].list,
-			      &wcd->dai[dai_id].slim_ch_list);
-	else
-		list_del_init(&wcd->tx_chs[port_id].list);
-
 	snd_soc_dapm_mixer_update_power(widget->dapm, kc, enable, update);
 
-	return 0;
+	return 1;
 }
 
 static const struct snd_kcontrol_new aif1_slim_cap_mixer[] = {
@@ -4985,6 +5023,7 @@ static int wcd934x_codec_parse_data(struct wcd934x_codec *wcd)
 	}
 
 	wcd->sidev = of_slim_get_device(wcd->sdev->ctrl, ifc_dev_np);
+	of_node_put(ifc_dev_np);
 	if (!wcd->sidev) {
 		dev_err(dev, "Unable to get SLIM Interface device\n");
 		return -EINVAL;

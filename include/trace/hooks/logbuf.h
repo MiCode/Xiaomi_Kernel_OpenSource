@@ -10,8 +10,13 @@
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
-struct printk_ringbuffer;
+#if defined(__GENKSYMS__) || !IS_ENABLED(CONFIG_PRINTK)
 struct printk_record;
+struct printk_ringbuffer;
+#else
+/* struct printk_record, struct printk_ringbuffer */
+#include <../kernel/printk/printk_ringbuffer.h>
+#endif /* __GENKSYMS__ */
 
 DECLARE_HOOK(android_vh_logbuf,
 	TP_PROTO(struct printk_ringbuffer *rb, struct printk_record *r),

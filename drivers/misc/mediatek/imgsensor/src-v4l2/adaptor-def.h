@@ -55,6 +55,8 @@ enum {
 	STATE_AFVDD_ON,
 	STATE_AVDD1_OFF,
 	STATE_AVDD1_ON,
+	STATE_AVDD2_OFF,
+	STATE_AVDD2_ON,
 	STATE_MAXCNT,
 };
 
@@ -80,6 +82,8 @@ enum {
 	"afvdd_on", \
 	"avdd1_off", \
 	"avdd1_on", \
+	"avdd2_off", \
+	"avdd2_on", \
 
 enum {
 	REGULATOR_AVDD = 0,
@@ -87,6 +91,7 @@ enum {
 	REGULATOR_DOVDD,
 	REGULATOR_AFVDD,
 	REGULATOR_AVDD1,
+	REGULATOR_AVDD2,
 	REGULATOR_MAXCNT,
 };
 
@@ -96,6 +101,7 @@ enum {
 	"dovdd", \
 	"afvdd", \
 	"avdd1", \
+	"avdd2", \
 
 /* Format code util */
 

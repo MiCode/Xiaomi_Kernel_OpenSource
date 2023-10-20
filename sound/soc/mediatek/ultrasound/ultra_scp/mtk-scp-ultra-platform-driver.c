@@ -350,9 +350,6 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		}
 		return 0;
 	case SCP_ULTRA_STATE_OFF:
-		afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable = false;
-		afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable = false;
-
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_OFF,
 			       false,
 			       0,

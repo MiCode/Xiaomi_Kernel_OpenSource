@@ -22,6 +22,12 @@
 
 #define HDR_HIST_NUM (58)
 
+#define MML_PQ_RB_ENGINE (2)
+#define MAX_ENG_RB_BUF (8)
+#define TOTAL_RB_BUF_NUM (MML_PQ_RB_ENGINE*MML_PIPE_CNT*MAX_ENG_RB_BUF)
+#define INVALID_OFFSET_ADDR (4096*TOTAL_RB_BUF_NUM)
+#define CONFIG_FRAME_WAIT_TIME_MS (1000)
+
 extern int mml_pq_msg;
 
 #define mml_pq_msg(fmt, args...) \
@@ -68,16 +74,23 @@ extern int mml_pq_trace;
 
 struct mml_task;
 
+enum mml_pq_vcp_engine {
+	MML_PQ_HDR0 = 0,
+	MML_PQ_HDR1,
+	MML_PQ_AAL0,
+	MML_PQ_AAL1,
+};
+
 enum mml_pq_readback_engine {
 	MML_PQ_HDR = 0,
 	MML_PQ_AAL,
 	MML_PQ_DC,
 };
 
-
 struct mml_pq_readback_buffer {
 	dma_addr_t pa;
 	u32 *va;
+	u32 va_offset;
 	struct list_head buffer_list;
 };
 
@@ -152,6 +165,26 @@ s32 mml_pq_task_create(struct mml_task *task);
 void mml_pq_task_release(struct mml_task *task);
 
 /*
+ * mml_pq_get_vcp_buf_offset - get vcp readback buffer offset
+ *
+ * @task:	task data, include pq_task inside
+ * @engine:	module id, engine
+ * @hist	hist id, readback hist
+ */
+void mml_pq_get_vcp_buf_offset(struct mml_task *task, u32 engine,
+			       struct mml_pq_readback_buffer *hist);
+
+/*
+ * mml_pq_put_vcp_buf_offset - put vcp readback buffer offset
+ *
+ * @task:	task data, include pq_task inside
+ * @engine:	module id, know engine id
+ * @hist	hist id, readback hist
+ */
+void mml_pq_put_vcp_buf_offset(struct mml_task *task, u32 engine,
+			       struct mml_pq_readback_buffer *hist);
+
+/*
  * mml_pq_get_readback_buffer - get readback buffer
  *
  * @task:	task data, include pq_task inside
@@ -216,6 +249,13 @@ int mml_pq_set_comp_config(struct mml_task *task);
  * Return:	if value < 0, means PQ update failed should debug
  */
 int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
+
+/*
+ * mml_pq_init_comp_config_result - init result for first frame
+ *
+ * @result:	hw setting data
+ */
+void mml_pq_init_comp_config_result(struct mml_pq_comp_config_result *result);
 
 /*
  * mml_pq_put_comp_config_result - put away result

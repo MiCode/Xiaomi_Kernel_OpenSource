@@ -65,6 +65,7 @@ enum adsp_feature_id {
 	BLEENC_FEATURE_ID               = 26,
 	BLE_CALL_DL_FEATURE_ID          = 27,
 	BLE_CALL_UL_FEATURE_ID          = 28,
+	SPATIALIZER_FEATURE_ID          = 29,
 	ADSP_NUM_FEATURE_ID,
 };
 

@@ -567,9 +567,9 @@ static void sys_debug_dump(struct mml_comp *comp)
 	}
 }
 
-static void sys_reset(struct mml_comp *comp, struct mml_task *task, u32 pipe)
+static void sys_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
 {
-	const struct mml_topology_path *path = task->config->path[pipe];
+	const struct mml_topology_path *path = cfg->path[pipe];
 
 	mml_err("[sys]reset bits %#llx for pipe %u", path->reset_bits, pipe);
 	if (path->reset0 != U32_MAX) {
@@ -579,6 +579,15 @@ static void sys_reset(struct mml_comp *comp, struct mml_task *task, u32 pipe)
 	if (path->reset1 != U32_MAX) {
 		writel(path->reset1, comp->base + SYS_SW1_RST_B_REG);
 		writel(U32_MAX, comp->base + SYS_SW1_RST_B_REG);
+	}
+
+	if (cfg->info.mode == MML_MODE_RACING) {
+		struct mml_sys *sys = comp_to_sys(comp);
+
+		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe0);
+		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe1);
+		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe1_next);
+		cmdq_clear_event(path->clt->chan, sys->event_ir_eof);
 	}
 }
 

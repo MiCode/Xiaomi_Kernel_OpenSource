@@ -475,6 +475,18 @@ int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en)
 }
 EXPORT_SYMBOL(tcpci_set_cc_hidet);
 
+int tcpci_notify_wd0_state(struct tcpc_device *tcpc, bool wd0_state)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.wd0_state.wd0 = wd0_state;
+
+	TCPC_DBG("wd0: %d\n", wd0_state);
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_WD0_STATE);
+}
+EXPORT_SYMBOL(tcpci_notify_wd0_state);
+
 int tcpci_notify_plug_out(struct tcpc_device *tcpc)
 {
 	struct tcp_notify tcp_noti;
@@ -874,6 +886,17 @@ int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 EXPORT_SYMBOL(tcpci_enable_force_discharge);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
+
+int tcpci_notify_soft_reset(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti = {0};
+	int ret;
+	DP_INFO("%s++++",__func__);
+
+	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
+		TCP_NOTIFY_IDX_MISC, TCP_NOTIFY_SOFT_RESET);
+	return ret;
+}
 
 int tcpci_notify_hard_reset_state(struct tcpc_device *tcpc, uint8_t state)
 {

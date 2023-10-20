@@ -4,7 +4,6 @@
  */
 #include "perf_ioctl.h"
 
-
 #define TAG "PERF_IOCTL"
 
 #define MAX_STEP 10

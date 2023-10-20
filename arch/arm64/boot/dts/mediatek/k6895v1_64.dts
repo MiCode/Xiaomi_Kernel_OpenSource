@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 /*
  * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (c) 2022 XiaoMi Inc.
  * Author: Chun-Hung Wu <chun-hung.wu@mediatek.com>
  */
 /dts-v1/;
@@ -22,6 +23,10 @@ androidboot.hardware=mt6895";
 		vib_limit = <9>;
 		vib_vol= <9>;
 	};
+};
+
+&utos {
+       microtrust,real-drv = <1>;
 };
 
 &mtk_leds {
@@ -678,6 +683,10 @@ androidboot.hardware=mt6895";
 
 &pdc {
 	pd_vbus_upper_bound = <12000000>;
+};
+
+&mmlsys_config {
+	racing-enable;
 };
 
 #include "mediatek/cust_mt6895_touch_1080x2400.dtsi"

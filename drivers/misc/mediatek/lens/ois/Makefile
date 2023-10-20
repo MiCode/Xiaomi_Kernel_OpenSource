@@ -3,3 +3,5 @@
 #
 
 obj-$(CONFIG_MTK_V4L2_LENS)   += bu63169/
+obj-$(CONFIG_MTK_V4L2_LENS)   += bu24618/
+obj-$(CONFIG_MTK_V4L2_LENS)   += xiaomi_common/

@@ -13,6 +13,7 @@
 
 #define DW9718_NAME				"dw9718"
 #define DW9718_MAX_FOCUS_POS			1023
+#define DW9718_ORIGIN_FOCUS_POS			0
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -31,9 +32,8 @@
  * uniformly adjusted for gradual lens movement, with desired
  * number of control steps.
  */
-#define DW9718_MOVE_STEPS			16
-#define DW9718_MOVE_DELAY_US			8400
-#define DW9718_STABLE_TIME_US			20000
+#define DW9718_MOVE_STEPS			100
+#define DW9718_MOVE_DELAY_US			5000
 
 /* dw9718 device structure */
 struct dw9718_device {
@@ -106,11 +106,22 @@ static int dw9718_set_position(struct dw9718_device *dw9718, u16 val)
 
 static int dw9718_release(struct dw9718_device *dw9718)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&dw9718->sd);
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
+	struct i2c_client *client = v4l2_get_subdevdata(&dw9718->sd);
 
-	for (val = round_down(dw9718->focus->val, DW9718_MOVE_STEPS);
-	     val >= 0; val -= DW9718_MOVE_STEPS) {
+	diff_dac = DW9718_ORIGIN_FOCUS_POS - dw9718->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		DW9718_MOVE_STEPS;
+
+	val = dw9718->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (DW9718_MOVE_STEPS*(-1)) : DW9718_MOVE_STEPS);
+
 		ret = dw9718_set_position(dw9718, val);
 		if (ret) {
 			pr_info("%s I2C failure: %d",
@@ -121,19 +132,20 @@ static int dw9718_release(struct dw9718_device *dw9718)
 			     DW9718_MOVE_DELAY_US + 1000);
 	}
 
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(DW9718_STABLE_TIME_US - DW9718_MOVE_DELAY_US,
-		     DW9718_STABLE_TIME_US - DW9718_MOVE_DELAY_US + 1000);
+	// last step to origin
+	ret = dw9718_set_position(dw9718, DW9718_ORIGIN_FOCUS_POS);
+	if (ret) {
+		pr_info("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
 
 	ret = i2c_smbus_write_byte_data(client, DW9718_CONTROL_REG,
 					DW9718_CONTROL_POWER_DOWN);
 	if (ret)
 		return ret;
 
-	usleep_range(DW9718_CTRL_DELAY_US, DW9718_CTRL_DELAY_US + 100);
+	pr_info("%s -\n", __func__);
 
 	return 0;
 }

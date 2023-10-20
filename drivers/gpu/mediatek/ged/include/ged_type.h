@@ -75,6 +75,10 @@
 #define GED_VSYNC_HW_EVENT	1
 #define GED_VSYNC_TYPE      int
 
+#define GED_SWD_FENCE_DEQUEUE   0
+#define GED_SWD_FENCE_QUEUE     1
+#define GED_SWD_FENCE_TYPE      int
+
 enum {
 	GAS_CATEGORY_GAME,
 	GAS_CATEGORY_OTHERS,

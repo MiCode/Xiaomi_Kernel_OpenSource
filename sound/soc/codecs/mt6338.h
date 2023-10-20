@@ -22751,6 +22751,7 @@ struct mt6338_priv {
 	int mtkaif_protocol;
 	int dmic_one_wire_mode;
 	int mic_hifi_mode;
+	int mic_ulcf_en;
 	unsigned int vd105;
 
 	/* hw version */

@@ -45,7 +45,6 @@ config BITREVERSE
 config HAVE_ARCH_BITREVERSE
 	bool
 	default n
-	depends on BITREVERSE
 	help
 	  This option enables the use of hardware bit-reversal instructions on
 	  architectures which support such operations.
@@ -101,6 +100,11 @@ config INDIRECT_PIO
 	  sure your devices really need this configure item enabled.
 
 	  When in doubt, say N.
+
+source "lib/crypto/Kconfig"
+
+config LIB_MEMNEQ
+	bool
 
 config CRC_CCITT
 	tristate "CRC-CCITT functions"

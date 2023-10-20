@@ -34,6 +34,8 @@ int usb_boost_init(void);
 void usb_audio_boost(bool enable);
 int audio_core_hold(void);
 int audio_core_release(void);
+int audio_freq_hold(void);
+int audio_freq_release(void);
 
 void register_usb_boost_act(int type_id, int action_id,
 	int (*func)(struct act_arg_obj *arg));

@@ -1393,6 +1393,7 @@ void pd_dpm_ufp_recv_uvdm(struct pd_port *pd_port)
 	pd_port->uvdm_svid = svid;
 	pd_port->uvdm_cnt = pd_get_msg_data_count(pd_port);
 
+    DPM_INFO("pd_dpm_ufp_recv_uvdm\r\n");
 	memcpy(pd_port->uvdm_data,
 		pd_get_msg_data_payload(pd_port),
 		pd_get_msg_data_size(pd_port));
@@ -1429,7 +1430,7 @@ void pd_dpm_dfp_inform_uvdm(struct pd_port *pd_port, bool ack)
 
 	if (ack && pd_port->uvdm_wait_resp) {
 		svid = dpm_vdm_get_svid(pd_port);
-
+        DPM_INFO("pd_dpm_dfp_inform_uvdm get svid = 0x%04x\r\n", svid);
 		if (svid != expected_svid) {
 			ack = false;
 			DPM_INFO("Not expected SVID (0x%04x, 0x%04x)\n",
@@ -1443,6 +1444,7 @@ void pd_dpm_dfp_inform_uvdm(struct pd_port *pd_port, bool ack)
 	}
 
 	if (svid_data) {
+		DPM_INFO("pd_dpm_dfp_inform_uvdm svid_data is not null\r\n");
 		if (svid_data->ops->dfp_notify_uvdm)
 			svid_data->ops->dfp_notify_uvdm(
 				pd_port, svid_data, ack);

@@ -716,9 +716,7 @@ static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
 	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
 
 	if (udev_speed >= MTU3_SPEED_SUPER)
-		ssusb_phy_dp_pullup(mtu->ssusb, true);
-	else
-		ssusb_phy_dp_pullup(mtu->ssusb, false);
+		ssusb_phy_dp_pullup(mtu->ssusb);
 
 	if (udev_speed == USB_SPEED_UNKNOWN)
 		mtu3_gadget_disconnect(mtu);
@@ -738,9 +736,6 @@ static irqreturn_t mtu3_u3_ltssm_isr(struct mtu3 *mtu)
 	mtu3_writel(mbase, U3D_LTSSM_INTR, ltssm); /* W1C */
 	dev_dbg(mtu->dev, "=== LTSSM[%x] ===\n", ltssm);
 	trace_mtu3_u3_ltssm_isr(ltssm);
-
-	if (ltssm & SS_DISABLE_INTR || ltssm & SS_INACTIVE_INTR)
-		ssusb_phy_dp_pullup(mtu->ssusb, false);
 
 	if (ltssm & (HOT_RST_INTR | WARM_RST_INTR))
 		mtu3_gadget_reset(mtu);

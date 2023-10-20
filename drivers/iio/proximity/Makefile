@@ -17,3 +17,15 @@ obj-$(CONFIG_SX9500)		+= sx9500.o
 obj-$(CONFIG_VCNL3020)		+= vcnl3020.o
 obj-$(CONFIG_VL53L0X_I2C)	+= vl53l0x-i2c.o
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/rv
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensor/2.0/core
+
+MIUS_IIO_OBJS := us_prox.o
+MIUS_IIO_OBJS += kefifo_buf.o
+
+
+us_prox_iio-$(CONFIG_MIUS_IIO) := $(MIUS_IIO_OBJS)
+obj-$(CONFIG_MIUS_IIO) += us_prox_iio.o

@@ -337,7 +337,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			}
 			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				(rdma->id == DDP_COMPONENT_RDMA0 ||
-					rdma->id == DDP_COMPONENT_RDMA3)) {
+					rdma->id == DDP_COMPONENT_RDMA2)) {
 				mtk_crtc->pf_time = ktime_get();
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
@@ -347,19 +347,32 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 
 	if (val & (1 << 1)) {
+		struct mtk_drm_private *drm_priv = NULL;
+		struct drm_crtc *crtc;
+
 		if (rdma->id == DDP_COMPONENT_RDMA0)
 			DRM_MMP_EVENT_START(rdma0, val, 0);
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		MMPathTraceDRM(rdma);
 
-		if (mtk_crtc &&
-			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			if (rdma->id == DDP_COMPONENT_RDMA0) {
-				atomic_set(&mtk_crtc->pf_event, 1);
-				wake_up_interruptible(&mtk_crtc->present_fence_wq);
+		if (mtk_crtc && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+				(rdma->id == DDP_COMPONENT_RDMA0)) {
+			if (mtk_crtc->base.dev) {
+				unsigned int pf_idx;
+				unsigned int crtc_idx;
+
+				crtc = &mtk_crtc->base;
+				crtc_idx = drm_crtc_index(crtc);
+				drm_priv = mtk_crtc->base.dev->dev_private;
+				pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
+				atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
 			}
+			atomic_set(&mtk_crtc->pf_event, 1);
+			wake_up_interruptible(&mtk_crtc->present_fence_wq);
 		}
+		DDPINFO("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 	}
 
 	if (val & (1 << 3)) {
@@ -408,7 +421,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				wake_up_interruptible(
 					&mtk_crtc->esd_ctx->check_task_wq);
 			}
-			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+			if ((val & (1 << 2)) == 0)
+				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);	
 		}
 	}
 
@@ -482,6 +496,7 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		break;
 	default:
 		break;
+
 	}
 
 	if (data && data->sodi_config)

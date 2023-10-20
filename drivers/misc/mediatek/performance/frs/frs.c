@@ -19,6 +19,7 @@
 #define TAG "FRS"
 
 static int frs_nl_id = 31;
+module_param(frs_nl_id, int, 0644);
 struct _EARA_THRM_PACKAGE {
 	__s32 type;
 	__s32 request;

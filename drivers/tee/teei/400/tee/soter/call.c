@@ -35,7 +35,7 @@ static struct tee_shm *get_msg_arg(struct tee_context *ctx, size_t num_params,
 	struct tee_shm *shm;
 	struct optee_msg_arg *ma;
 
-	shm = isee_shm_alloc(ctx, OPTEE_MSG_GET_ARG_SIZE(num_params),
+	shm = isee_shm_alloc_noid(ctx, OPTEE_MSG_GET_ARG_SIZE(num_params),
 			    TEE_SHM_MAPPED);
 	if (IS_ERR(shm))
 		return shm;
@@ -234,6 +234,9 @@ int soter_open_session(struct tee_context *ctx,
 	while (teei_capi_ready != 1)
 		msleep(50);
 
+	if (teei_daemon_status == STATUS_KILLED)
+		return -EIO;
+
 	/* +2 for the meta parameters added below */
 	shm = get_msg_arg(ctx, arg->num_params + 2, &msg_arg, &msg_parg);
 	if (IS_ERR(shm))
@@ -307,6 +310,9 @@ int soter_close_session(struct tee_context *ctx, u32 session)
 	phys_addr_t msg_parg;
 	struct soter_session *sess;
 
+	if (teei_daemon_status == STATUS_KILLED)
+		return -EIO;
+
 	/* Check that the session is valid and remove it from the list */
 	mutex_lock(&ctxdata->mutex);
 	sess = find_session(ctxdata, session);
@@ -343,6 +349,9 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 #if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)
 	long time_used;
 #endif
+
+	if (teei_daemon_status == STATUS_KILLED)
+		return -EIO;
 
 	/* Check that the session is valid */
 	mutex_lock(&ctxdata->mutex);

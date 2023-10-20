@@ -38,6 +38,9 @@ struct DRM_MMP_Events {
 	mmp_event dsi;
 	mmp_event dsi0;
 	mmp_event dsi1;
+	mmp_event aal;
+	mmp_event aal0;
+	mmp_event aal1;
 	mmp_event dp_intf0;
 	mmp_event ddp;
 	mmp_event mutex[DISP_MUTEX_DDP_COUNT];
@@ -59,6 +62,8 @@ struct DRM_MMP_Events {
 	mmp_event ion_import_free;
 	mmp_event set_mode;
 	mmp_event top_clk;
+	mmp_event sram_alloc;
+	mmp_event sram_free;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
@@ -70,7 +75,6 @@ struct CRTC_MMP_Events {
 	mmp_event update_present_fence;
 	mmp_event release_present_fence;
 	mmp_event present_fence_timestamp_same;
-	mmp_event present_fence_timestamp;
 	mmp_event update_sf_present_fence;
 	mmp_event release_sf_present_fence;
 	mmp_event warn_sf_pf_0;
@@ -102,6 +106,8 @@ struct CRTC_MMP_Events {
 	mmp_event clk_change;
 	mmp_event layerBmpDump;
 	mmp_event layer_dump[6];
+	mmp_event wbBmpDump;
+	mmp_event wb_dump;
 	mmp_event cwbBmpDump;
 	mmp_event cwb_dump;
 	/*Msync 2.0 mmp start*/
@@ -114,9 +120,17 @@ struct CRTC_MMP_Events {
 	/*Msync 2.0 mmp end*/
 	mmp_event mode_switch;
 	mmp_event ddp_clk;
+	/*AAL mmp mark*/
+	mmp_event aal_sof_thread;
+	mmp_event aal_dre30_rw;
+	mmp_event aal_dre20_rh;
 	/*DRE30 mmp mark*/
 	mmp_event aal_sof_irq;
 	mmp_event aal_sof_rw;
+	mmp_event max_hrt_layers;
+	/*Gamma mmp mark*/
+	mmp_event gamma_ioctl;
+	mmp_event gamma_sof;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
@@ -124,6 +138,8 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
 int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			  u32 downSampleX, u32 downSampleY, int global_lye_num);
+int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
+	struct drm_framebuffer *wb_fb, u32 downSampleX, u32 downSampleY);
 int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 	struct mtk_cwb_info *cwb_info,
 	void *buffer, unsigned int buf_idx);
@@ -163,6 +179,28 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_END, v1, v2);       \
 	} while (0)
+
+#define CRTC_MMP_BITMAP_MARK(id, event, data)                                  \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_meta_bitmap(get_crtc_mmp_events(id)->event,  \
+					 MMPROFILE_FLAG_PULSE, data);       \
+	} while (0)
+
+#define CRTC_MMP_YUV_BITMAP_MARK(id, event, data)                              \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_meta_yuv_bitmap(get_crtc_mmp_events(id)->event,  \
+					 MMPROFILE_FLAG_PULSE, data);       \
+	} while (0)
+
+#define CRTC_MMP_META_MARK(id, event, data)                                    \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_meta(get_crtc_mmp_events(id)->event,     \
+					 MMPROFILE_FLAG_PULSE, data);       \
+	} while (0)
+
 #else
 #define DRM_MMP_MARK(event, v1, v2) do { } while (0)
 #define DRM_MMP_EVENT_START(event, v1, v2) do { } while (0)

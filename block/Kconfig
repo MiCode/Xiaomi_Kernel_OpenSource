@@ -242,12 +242,4 @@ config BLK_MQ_RDMA
 config BLK_PM
 	def_bool BLOCK && PM
 
-config MTK_BLOCK_IO_PM_DEBUG
-	bool "Enable Blocktag BLK PM Tracer"
-	help
-	  If it is enabled, there are some pm-related trace
-	  events will be created in block layer.
-	  Our blocktag module will registered these event and
-	  records the pm information.
-
 source "block/Kconfig.iosched"

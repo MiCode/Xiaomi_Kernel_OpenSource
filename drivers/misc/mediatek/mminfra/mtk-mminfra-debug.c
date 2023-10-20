@@ -5,6 +5,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -12,6 +13,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/scmi_protocol.h>
 #include <linux/slab.h>
+#include <linux/sched/clock.h>
+#include <linux/timer.h>
 #include "cmdq-util.h"
 #include "mtk-smi-dbg.h"
 #include "tinysys-scmi.h"
@@ -77,12 +80,26 @@ static bool mminfra_check_scmi_status(void)
 static void do_mminfra_bkrs(bool is_restore)
 {
 	int err;
+	u64 start_ts, start_osts, end_ts, end_osts;
 
 	if (mminfra_check_scmi_status()) {
+		start_ts = sched_clock();
+		start_osts = __arch_counter_get_cntvct();
+
 		err = scmi_tinysys_common_set(tinfo->ph, feature_id,
 				2, (is_restore)?0:1, 0, 0, 0);
-		pr_notice("%s: call scmi_tinysys_common_set(%d) err=%d\n",
-			__func__, is_restore, err);
+
+		if (err) {
+			end_ts = sched_clock();
+			end_osts = __arch_counter_get_cntvct();
+			pr_notice("%s: call scmi(%d) err=%d osts:%llu ts:%llu\n",
+				__func__, is_restore, err, start_osts, start_ts);
+			if (err == -ETIMEDOUT) {
+				pr_notice("%s: call scmi(%d) timeout osts:%llu ts:%llu\n",
+					__func__, is_restore, end_osts, end_ts);
+				mdelay(3);
+			}
+		}
 	}
 }
 
@@ -182,17 +199,24 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		mminfra_cg_check(true);
 		count = atomic_inc_return(&clk_ref_cnt);
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 		do_mminfra_bkrs(true);
 		test_base = ioremap(0x1e800280, 4);
 		val = readl_relaxed(test_base);
 		if (val != 0xfff) {
 			pr_notice("%s: HRE restore failed 0x1e800280=%x\n",
 				__func__, val);
+			mdelay(3);
+			val = readl_relaxed(test_base);
+			if (val != 0xfff) {
+				pr_notice("%s: HRE restore failed 0x1e800280=%x\n",
+					__func__, val);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("mminfra",
-				"HRE restore failed 0x1e800280=%x\n", val);
+				aee_kernel_warning("mminfra",
+					"HRE restore failed 0x1e800280=%x\n", val);
 #endif
-
+				BUG_ON(1);
+			}
 		}
 		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
@@ -429,6 +453,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 			return ret;
 		}
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 	}
 
 	dbg->mminfra_base = ioremap(MMINFRA_BASE, 0x8f4);

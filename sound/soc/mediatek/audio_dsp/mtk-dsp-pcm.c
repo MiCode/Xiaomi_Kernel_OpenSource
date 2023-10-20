@@ -61,6 +61,7 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_KTV_ID]         = "mtk_dsp_ktv",
 	[AUDIO_TASK_CAPTURE_RAW_ID] = "mtk_dsp_capture_raw",
 	[AUDIO_TASK_FM_ADSP_ID]     = "mtk_dsp_fm",
+	[AUDIO_TASK_SPATIALIZER_ID] = "mtk_dsp_spatializer",
 };
 
 static int dsp_pcm_taskattr_init(struct platform_device *pdev)

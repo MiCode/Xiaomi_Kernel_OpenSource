@@ -129,6 +129,7 @@
   cgroup_path_ns
   cgroup_taskset_first
   cgroup_taskset_next
+  check_move_unevictable_pages
   __check_object_size
   check_preempt_curr
   check_zeroed_user
@@ -549,6 +550,7 @@
   divider_ro_round_rate_parent
   divider_round_rate_parent
   dma_alloc_attrs
+  dma_alloc_noncoherent
   dma_async_device_register
   dma_async_device_unregister
   dma_async_tx_descriptor_init
@@ -584,6 +586,7 @@
   dma_fence_signal_timestamp_locked
   dma_fence_wait_timeout
   dma_free_attrs
+  dma_free_noncoherent
   dma_get_sgtable_attrs
   dma_get_slave_channel
   dma_heap_add
@@ -879,6 +882,7 @@
   extcon_get_edev_name
   extcon_get_extcon_dev
   extcon_get_property
+  extcon_get_property_capability
   extcon_get_state
   extcon_register_notifier
   extcon_set_state_sync
@@ -899,6 +903,7 @@
   finish_wait
   firmware_request_nowarn
   flush_dcache_page
+  flush_delayed_fput
   flush_delayed_work
   __flush_icache_range
   flush_work
@@ -1104,6 +1109,7 @@
   idr_replace
   iio_channel_get_all
   iio_read_channel_processed
+  iio_write_channel_raw
   import_iovec
   in4_pton
   in6_pton
@@ -1654,6 +1660,7 @@
   page_endio
   page_mapping
   __page_pinner_migration_failed
+  __pagevec_release
   panic
   panic_notifier_list
   panic_timeout
@@ -1969,6 +1976,7 @@
   register_oom_notifier
   register_pernet_device
   register_pm_notifier
+  register_qdisc
   register_reboot_notifier
   register_restart_handler
   __register_rpmsg_driver
@@ -2030,6 +2038,7 @@
   resched_curr
   reset_control_assert
   reset_control_deassert
+  __reset_control_get
   reset_control_put
   reset_control_reset
   resume_cpus
@@ -2089,6 +2098,7 @@
   rproc_put
   rproc_remove_subdev
   rproc_report_crash
+  rproc_set_firmware
   rproc_shutdown
   rtc_ktime_to_tm
   __rtc_register_device
@@ -2188,6 +2198,7 @@
   sg_init_one
   sg_init_table
   sg_miter_next
+  sg_miter_skip
   sg_miter_start
   sg_miter_stop
   sg_next
@@ -2227,6 +2238,7 @@
   skb_complete_wifi_ack
   skb_copy
   skb_copy_bits
+  skb_copy_datagram_from_iter
   skb_copy_datagram_iter
   skb_copy_expand
   skb_dequeue
@@ -2251,6 +2263,7 @@
   smp_call_function
   smp_call_function_any
   smp_call_function_single
+  smp_call_function_single_async
   snd_card_free
   snd_card_new
   snd_card_register
@@ -2314,6 +2327,7 @@
   snprintf
   soc_device_register
   soc_device_unregister
+  sock_alloc_send_pskb
   sock_alloc_send_skb
   __sock_create
   sock_create_kern
@@ -2424,6 +2438,7 @@
   sysfs_create_groups
   sysfs_create_link
   sysfs_emit
+  sysfs_group_change_owner
   __sysfs_match_string
   sysfs_notify
   sysfs_remove_bin_file
@@ -2500,6 +2515,7 @@
   __traceiter_android_rvh_cpu_cgroup_online
   __traceiter_android_rvh_cpufreq_transition
   __traceiter_android_rvh_dequeue_task
+  __traceiter_android_rvh_do_sched_yield
   __traceiter_android_rvh_enqueue_task
   __traceiter_android_rvh_find_busiest_queue
   __traceiter_android_rvh_find_lowest_rq
@@ -2507,6 +2523,7 @@
   __traceiter_android_rvh_force_compatible_post
   __traceiter_android_rvh_force_compatible_pre
   __traceiter_android_rvh_gic_v3_set_affinity
+  __traceiter_android_rvh_iommu_setup_dma_ops
   __traceiter_android_rvh_irqs_disable
   __traceiter_android_rvh_irqs_enable
   __traceiter_android_rvh_migrate_queued_task
@@ -2594,12 +2611,14 @@
   __traceiter_ipi_entry
   __traceiter_ipi_raise
   __traceiter_irq_handler_entry
+  __traceiter_map
   __traceiter_rwmmio_post_read
   __traceiter_rwmmio_read
   __traceiter_rwmmio_write
   __traceiter_sched_overutilized_tp
   __traceiter_sched_switch
   __traceiter_suspend_resume
+  __traceiter_unmap
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
@@ -2611,6 +2630,8 @@
   __tracepoint_android_rvh_cpu_cgroup_online
   __tracepoint_android_rvh_cpufreq_transition
   __tracepoint_android_rvh_dequeue_task
+  __tracepoint_android_rvh_do_ptrauth_fault
+  __tracepoint_android_rvh_do_sched_yield
   __tracepoint_android_rvh_enqueue_task
   __tracepoint_android_rvh_find_busiest_queue
   __tracepoint_android_rvh_find_lowest_rq
@@ -2618,6 +2639,7 @@
   __tracepoint_android_rvh_force_compatible_post
   __tracepoint_android_rvh_force_compatible_pre
   __tracepoint_android_rvh_gic_v3_set_affinity
+  __tracepoint_android_rvh_iommu_setup_dma_ops
   __tracepoint_android_rvh_irqs_disable
   __tracepoint_android_rvh_irqs_enable
   __tracepoint_android_rvh_migrate_queued_task
@@ -2667,6 +2689,7 @@
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_cpuidle_psci_enter
   __tracepoint_android_vh_cpuidle_psci_exit
+  __tracepoint_android_vh_disable_thermal_cooling_stats
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_freq_table_limits
   __tracepoint_android_vh_ftrace_dump_buffer
@@ -2676,11 +2699,13 @@
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
   __tracepoint_android_vh_gpio_block_read
+  __tracepoint_android_vh_handle_tlb_conf
   __tracepoint_android_vh_iommu_setup_dma_ops
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
+  __tracepoint_android_vh_madvise_cold_or_pageout
   __tracepoint_android_vh_oom_check_panic
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_process_killed
@@ -2693,6 +2718,7 @@
   __tracepoint_android_vh_show_max_freq
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
+  __tracepoint_android_vh_subpage_dma_contig_alloc
   __tracepoint_android_vh_timer_calc_index
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_clock_scaling
@@ -2713,6 +2739,7 @@
   __tracepoint_ipi_entry
   __tracepoint_ipi_raise
   __tracepoint_irq_handler_entry
+  __tracepoint_map
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
@@ -2722,6 +2749,7 @@
   __tracepoint_sched_overutilized_tp
   __tracepoint_sched_switch
   __tracepoint_suspend_resume
+  __tracepoint_unmap
   trace_print_array_seq
   trace_print_flags_seq
   trace_print_hex_seq
@@ -3001,6 +3029,7 @@
   wait_for_completion_interruptible_timeout
   wait_for_completion_killable
   wait_for_completion_timeout
+  wait_on_page_bit
   __wait_rcu_gp
   wait_woken
   __wake_up

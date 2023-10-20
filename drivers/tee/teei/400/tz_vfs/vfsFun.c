@@ -42,6 +42,10 @@
 
 #define GET_FP_VENDOR_CMD _IOWR(TEEI_CONFIG_IOC_MAGIC, 0x80, int)
 
+#define TEEI_VFS_TIMEOUT 10
+#define STATUS_OK         0
+#define STATUS_KILLED     1
+
 int enter_tui_flag = 1;
 
 static int vfs_major = VFS_MAJOR;
@@ -53,33 +57,51 @@ struct vfs_dev {
 	struct semaphore sem;
 };
 
-#ifdef VFS_RDWR_SEM
-struct semaphore VFS_rd_sem;
-struct semaphore VFS_wr_sem;
-#else
 DECLARE_COMPLETION(VFS_rd_comp);
 DECLARE_COMPLETION(VFS_wr_comp);
-#endif
+
+unsigned int teei_daemon_status;
+static DEFINE_MUTEX(teei_daemon_status_lock);
 
 struct vfs_dev *vfs_devp;
 
+static void set_teei_daemon_status(unsigned int stat_val)
+{
+	mutex_lock(&teei_daemon_status_lock);
+
+	teei_daemon_status = stat_val;
+
+	mutex_unlock(&teei_daemon_status_lock);
+}
+
 int wait_for_vfs_done(void)
 {
-#ifdef VFS_RDWR_SEM
-	down_interruptible(&VFS_wr_sem);
-#else
-	wait_for_completion_interruptible(&VFS_wr_comp);
-#endif
+	union TEEI_vfs_response *tz_response = NULL;
+	int retVal = 0;
+
+	if (teei_daemon_status == STATUS_KILLED)
+		goto return_err;
+
+	retVal = wait_for_completion_timeout(&VFS_wr_comp, TEEI_VFS_TIMEOUT * HZ);
+	if (retVal == 0) {
+	IMSG_PRINTK("TEEI: teei_daemon is killed!\n");
+		set_teei_daemon_status(STATUS_KILLED);
+		goto return_err;
+	}
+
+	return 0;
+
+return_err:
+	tz_response = (union TEEI_vfs_response *)daulOS_VFS_share_mem;
+	tz_response->value = -1;
+
 	return 0;
 }
 
 int notify_vfs_handle(void)
 {
-#ifdef VFS_RDWR_SEM
-	up(&VFS_rd_sem);
-#else
-	complete(&VFS_rd_comp);
-#endif
+	if (teei_daemon_status == STATUS_OK)
+		complete(&VFS_rd_comp);
 	return 0;
 }
 
@@ -145,18 +167,17 @@ static ssize_t tz_vfs_read(struct file *filp, char __user *buf,
 	if ((size < 0) || (size > VFS_SIZE))
 		return -EINVAL;
 
-	/*IMSG_DEBUG("read begin cpu[%d]\n",cpu_id);*/
-#ifdef VFS_RDWR_SEM
-	down_interruptible(&VFS_rd_sem);
-#else
-	ret = wait_for_completion_interruptible(&VFS_rd_comp);
+	if (teei_daemon_status == STATUS_KILLED) {
+		IMSG_PRINTK("TEEI: teei_daemon become alive!\n");
+		set_teei_daemon_status(STATUS_OK);
+	}
 
+	ret = wait_for_completion_interruptible(&VFS_rd_comp);
 	if (ret == -ERESTARTSYS) {
 		IMSG_ERROR("[%s][%d] wait_for_completion was interrupt\n",
 				__func__, __LINE__);
 		return ret;
 	}
-#endif
 
 	if (daulOS_VFS_share_mem == NULL)
 		return -EINVAL;
@@ -196,11 +217,8 @@ static ssize_t tz_vfs_write(struct file *filp, const char __user *buf,
 	Flush_Dcache_By_Area((unsigned long)daulOS_VFS_share_mem,
 				(unsigned long)daulOS_VFS_share_mem + size);
 
-#ifdef VFS_RDWR_SEM
-	up(&VFS_wr_sem);
-#else
 	complete(&VFS_wr_comp);
-#endif
+
 	return 0;
 }
 

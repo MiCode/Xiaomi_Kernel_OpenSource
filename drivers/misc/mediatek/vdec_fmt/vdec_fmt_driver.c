@@ -10,6 +10,7 @@
 #include <linux/suspend.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/namei.h>
 #include "vdec_fmt_driver.h"
 #include "vdec_fmt_dmabuf.h"
 #include "vdec_fmt_pm.h"
@@ -57,13 +58,14 @@ static int fmt_lock(u32 id, bool sec)
 		usleep_range(10000, 20000);
 	}
 
-	if (sec != false)
-		gce_status = GCE_SECURE;
-	else
-		gce_status = GCE_NORMAL;
+	//if (sec != false)
+	//	gce_status = GCE_SECURE;
+	//else
+	// FMT only support sec in TZMP flow, always use normal GCE
+	gce_status = GCE_NORMAL;
 
-	fmt_debug(1, "id %d gce_status %d cur gce_status %d",
-				id,
+	fmt_debug(1, "id %d sec %d gce_status %d cur gce_status %d",
+				id, sec,
 				gce_status,
 				fmt->gce_status[id]);
 
@@ -630,7 +632,8 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
 			// FMT cores share the same MTCMOS/CLK,
 			// pwr/clock on/off only when there's 0 job on both pipes
-			fmt_end_dvfs_emi_bw(fmt, identifier);
+			for (i = 0; i < fmt->gce_th_num; i++)
+				fmt_end_dvfs_emi_bw(fmt, i);
 			fmt_debug(0, "Both pipe job cnt = 0, pwr/clock off");
 			ret = fmt_clock_off(fmt);
 				if (ret != 0L) {
@@ -670,7 +673,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 static int fmt_gce_wait_callback(unsigned long arg)
 {
-	int ret;
+	int ret, i;
 	unsigned int identifier, taskid;
 	unsigned char *user_data_addr = NULL;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
@@ -713,7 +716,8 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
 		// FMT cores share the same MTCMOS/CLK,
 		// pwr/clock on/off only when there's 0 job on both pipes
-		fmt_end_dvfs_emi_bw(fmt, identifier);
+		for (i = 0; i < fmt->gce_th_num; i++)
+			fmt_end_dvfs_emi_bw(fmt, i);
 		fmt_debug(1, "Both pipe job cnt = 0, pwr/clock off");
 		ret = fmt_clock_off(fmt);
 			if (ret != 0L) {
@@ -1168,10 +1172,6 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 
 	fmt_init_pm(fmt);
 
-	ret = fmt_sync_device_init();
-	if (ret != 0)
-		fmt_debug(0, "fmt_sync init failed");
-
 	larbnode = of_parse_phandle(dev->of_node, "mediatek,larbs", 0);
 	if (!larbnode) {
 		fmt_debug(0, "fail to get larbnode");
@@ -1260,5 +1260,40 @@ static struct platform_driver vdec_fmt_driver = {
 	},
 };
 
-module_platform_driver(vdec_fmt_driver);
+static int __init fmt_init(void)
+{
+	int ret;
+	struct path path;
+	char *pathname = "/dev/fmt_sync";
+
+	fmt_debug(0, "+");
+	ret = platform_driver_register(&vdec_fmt_driver);
+	if (ret) {
+		fmt_err("failed to init fmt_device");
+		return ret;
+	}
+
+	ret = fmt_sync_device_init();
+	if (ret != 0)
+		fmt_debug(0, "fmt_sync init failed");
+	while (kern_path(pathname, LOOKUP_FOLLOW, &path))
+		;
+	fmt_debug(0, "get path success name:%s inode:%lu",
+		path.dentry->d_name.name,
+		path.dentry->d_inode);
+	path_put(&path);
+	fmt_debug(0, "-");
+
+	return 0;
+}
+static void __init fmt_exit(void)
+{
+	platform_driver_unregister(&vdec_fmt_driver);
+}
+
+subsys_initcall(fmt_init);
+module_exit(fmt_exit);
+
+
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);

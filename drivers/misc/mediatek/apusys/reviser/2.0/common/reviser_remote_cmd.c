@@ -594,7 +594,7 @@ int reviser_remote_alloc_mem(void *drvinfo,
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	uint32_t ret_id = 0, mem_op = 0;
+	uint32_t ret_id = 0, mem_op = 0, out_op = 0;
 	int widx = 0;
 	int ridx = 0;
 	uint64_t ret_addr = 0;
@@ -640,8 +640,15 @@ int reviser_remote_alloc_mem(void *drvinfo,
 		goto out;
 	}
 
+	RVR_RPMSG_RAED(&out_op, reply.data, sizeof(out_op), ridx);
 	RVR_RPMSG_RAED(&out_addr, reply.data, sizeof(out_addr), ridx);
 	RVR_RPMSG_RAED(&ret_id, reply.data, sizeof(ret_id), ridx);
+
+	if (out_op != mem_op) {
+		LOG_ERR("Check OP Fail %x/%x\n", out_op, mem_op);
+		ret = -EINVAL;
+		goto out;
+	}
 
 	ret_addr = (uint64_t) out_addr;
 
@@ -659,7 +666,7 @@ int reviser_remote_free_mem(void *drvinfo, uint32_t sid, uint32_t *type,
 	int ret = 0;
 	int widx = 0;
 	int ridx = 0;
-	uint32_t mem_op = 0;
+	uint32_t mem_op = 0, out_op = 0;
 	uint32_t out_addr = 0, out_size = 0, out_type = 0;
 	uint64_t ret_addr = 0;
 
@@ -699,9 +706,16 @@ int reviser_remote_free_mem(void *drvinfo, uint32_t sid, uint32_t *type,
 		goto out;
 	}
 
+	RVR_RPMSG_RAED(&out_op, reply.data, sizeof(out_op), ridx);
 	RVR_RPMSG_RAED(&out_type, reply.data, sizeof(out_type), ridx);
 	RVR_RPMSG_RAED(&out_addr, reply.data, sizeof(out_addr), ridx);
 	RVR_RPMSG_RAED(&out_size, reply.data, sizeof(out_size), ridx);
+
+	if (out_op != mem_op) {
+		LOG_ERR("Check OP Fail %x/%x\n", out_op, mem_op);
+		ret = -EINVAL;
+		goto out;
+	}
 
 	ret_addr = (uint64_t) out_addr;
 	*type = out_type;
@@ -718,7 +732,7 @@ int reviser_remote_map_mem(void *drvinfo,
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	uint32_t mem_op = 0;
+	uint32_t mem_op = 0, out_op = 0;
 	int widx = 0;
 	int ridx = 0;
 	uint32_t out_addr = 0;
@@ -761,7 +775,15 @@ int reviser_remote_map_mem(void *drvinfo,
 		goto out;
 	}
 
+	RVR_RPMSG_RAED(&out_op, reply.data, sizeof(out_op), ridx);
 	RVR_RPMSG_RAED(&out_addr, reply.data, sizeof(out_addr), ridx);
+
+	if (out_op != mem_op) {
+		LOG_ERR("Check OP Fail %x/%x\n", out_op, mem_op);
+		ret = -EINVAL;
+		goto out;
+	}
+
 
 	ret_addr = (uint64_t) out_addr;
 	*addr = ret_addr;
@@ -776,8 +798,8 @@ int reviser_remote_unmap_mem(void *drvinfo,
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	uint32_t mem_op = 0;
-	int widx = 0;
+	uint32_t mem_op = 0, out_op = 0;
+	int widx = 0, ridx = 0;
 
 	DEBUG_TAG;
 
@@ -816,6 +838,14 @@ int reviser_remote_unmap_mem(void *drvinfo,
 		goto out;
 	}
 
+	RVR_RPMSG_RAED(&out_op, reply.data, sizeof(out_op), ridx);
+
+	if (out_op != mem_op) {
+		LOG_ERR("Check OP Fail %x/%x\n", out_op, mem_op);
+		ret = -EINVAL;
+		goto out;
+	}
+
 
 out:
 	return ret;
@@ -826,8 +856,8 @@ int reviser_remote_import_mem(void *drvinfo, uint64_t session, uint32_t sid)
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	int widx = 0;
-	uint32_t mem_op = 0;
+	int widx = 0, ridx = 0;
+	uint32_t mem_op = 0, out_op = 0;
 
 	DEBUG_TAG;
 
@@ -867,6 +897,15 @@ int reviser_remote_import_mem(void *drvinfo, uint64_t session, uint32_t sid)
 		LOG_ERR("Check Msg Fail %d\n", ret);
 		goto out;
 	}
+
+	RVR_RPMSG_RAED(&out_op, reply.data, sizeof(out_op), ridx);
+
+	if (out_op != mem_op) {
+		LOG_ERR("Check OP Fail %x/%x\n", out_op, mem_op);
+		ret = -EINVAL;
+		goto out;
+	}
+
 out:
 	return ret;
 }
@@ -876,8 +915,8 @@ int reviser_remote_unimport_mem(void *drvinfo, uint64_t session, uint32_t sid)
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	int widx = 0;
-	uint32_t mem_op = 0;
+	int widx = 0, ridx = 0;
+	uint32_t mem_op = 0, out_op = 0;
 
 	DEBUG_TAG;
 
@@ -919,6 +958,15 @@ int reviser_remote_unimport_mem(void *drvinfo, uint64_t session, uint32_t sid)
 		LOG_ERR("Check Msg Fail %d\n", ret);
 		goto out;
 	}
+
+	RVR_RPMSG_RAED(&out_op, reply.data, sizeof(out_op), ridx);
+
+	if (out_op != mem_op) {
+		LOG_ERR("Check OP Fail %x/%x\n", out_op, mem_op);
+		ret = -EINVAL;
+		goto out;
+	}
+
 out:
 	return ret;
 }

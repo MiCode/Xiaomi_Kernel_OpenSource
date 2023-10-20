@@ -15,6 +15,10 @@
 #include <soc/mediatek/dramc.h>
 #endif /* CONFIG_MTK_DRAMC */
 
+#define OFFS_CM_HINT (0x12D4)
+#define OFFS_CM_THRESH (0x12D8)
+#define OFFS_DSU_PERF (0x12DC)
+
 enum {
 	CM_MGR_LP4 = 0,
 	CM_MGR_MAX,

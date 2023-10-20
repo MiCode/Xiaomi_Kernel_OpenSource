@@ -71,6 +71,7 @@
 #define DITHER_ADD_LSHIFT_G(x) (((x)&0x7) << 4)
 #define DITHER_ADD_RSHIFT_G(x) (((x)&0x7) << 0)
 
+#define MMSYS_MISC                                0xF0
 #define MMSYS_SODI_REQ_MASK                       0xF4
 
 #define SODI_HRT_FIFO_SEL                         REG_FLD_MSB_LSB(3, 0)
@@ -1565,6 +1566,14 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+		v = (readl(priv->config_regs + MMSYS_MISC)
+			& (~0x3FFFFC));
+		writel_relaxed(v, priv->config_regs + MMSYS_MISC);
+		if (priv->side_config_regs) {
+			v = (readl(priv->side_config_regs + MMSYS_MISC)
+				& (~0x3FFFFC));
+			writel_relaxed(v, priv->side_config_regs + MMSYS_MISC);
+		}
 	} else {
 		/* TODO: HARD CODE for RDMA0 scenario */
 		// cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
@@ -1575,6 +1584,8 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			MMSYS_DUMMY0, 0x7, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_MISC, 0x0, 0x3FFFFC);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
@@ -1582,6 +1593,8 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 				MMSYS_DUMMY0, 0x7, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_EMI_REQ_CTL, 0xdf, ~0);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_MISC, 0x0, 0x3FFFFC);
 		}
 	}
 }

@@ -3,6 +3,9 @@
 # Makefile for the industrial I/O core.
 #
 
+ifeq ($(CONFIG_MIUS_IIO), m)
+ccflags-y += -DCFG_MTK_MIUS
+endif
 obj-$(CONFIG_IIO) += industrialio.o
 industrialio-y := industrialio-core.o industrialio-event.o inkern.o
 industrialio-$(CONFIG_IIO_BUFFER) += industrialio-buffer.o

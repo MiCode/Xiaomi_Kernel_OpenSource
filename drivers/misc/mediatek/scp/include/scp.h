@@ -44,6 +44,8 @@
 #define PIN_IN_SIZE_SENSOR_NOTIFY        7
 #define PIN_OUT_SIZE_SCP_CONNSYS         3
 #define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG   2
+#define PIN_IN_SIZE_ELLIPTIC_ULTRA_0     10
+#define PIN_OUT_SIZE_ELLIPTIC_ULTRA_0    10
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -92,6 +94,8 @@ enum {
 	IPI_IN_AUDIO_ACCDET_1     = 36,
 	IPI_OUT_SCP_AOD           = 37,
 	IPI_IN_SCP_AOD            = 38,
+	IPI_OUT_ELLIPTIC_ULTRA_0   = 39,
+	IPI_IN_ELLIPTIC_ULTRA_0    = 40,
 	SCP_IPI_COUNT
 };
 
@@ -133,6 +137,7 @@ enum scp_reserve_mem_id_t {
 	SENS_DEBUG_MEM_ID,
 	SENS_CUSTOM_W_MEM_ID,
 	SENS_CUSTOM_R_MEM_ID,
+	SCP_ELLIPTIC_DEBUG_MEM,
 	NUMS_MEM_ID,
 };
 

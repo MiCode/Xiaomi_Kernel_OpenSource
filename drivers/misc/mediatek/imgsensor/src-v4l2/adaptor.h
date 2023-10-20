@@ -136,6 +136,11 @@ struct adaptor_ctx {
 
 	unsigned int *sensor_debug_flag;
 	u32 shutter_for_timeout;
+	struct wakeup_source *sensor_ws;
+#ifdef __XIAOMI_CAMERA__
+	/* if is_reset is 1, do not power on/off for AFVDD pw_seq */
+	unsigned int is_reset:1;
+#endif
 };
 
 #endif

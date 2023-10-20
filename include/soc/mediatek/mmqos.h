@@ -14,6 +14,7 @@ enum hrt_type {
 	HRT_MML,
 	HRT_TYPE_NUM,
 	HRT_NONE = HRT_TYPE_NUM,
+	HRT_MAX_BWL,
 };
 
 enum {

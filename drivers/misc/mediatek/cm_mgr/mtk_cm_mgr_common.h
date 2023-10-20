@@ -61,6 +61,10 @@ struct cm_mgr_hook {
 #endif /* CONFIG_MTK_CM_IPI */
 
 /* common api */
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+extern int get_cm_step_num(void);
+extern int get_dsu_perf(void);
+#endif
 extern void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
 #if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 extern int cm_mgr_to_sspm_command(u32 cmd, int val);

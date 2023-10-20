@@ -84,4 +84,5 @@ void mtk_cpuidle_status_exit(void);
 
 unsigned long long mtk_cpuidle_state_last_dis_ms(void);
 
+int mtk_s2idle_state_enable(bool en);
 #endif /* __MTK_CPUIDLE_STATUS_H__ */

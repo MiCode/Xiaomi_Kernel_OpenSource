@@ -234,28 +234,25 @@ TRACE_EVENT(sched_queue_task,
 );
 
 TRACE_EVENT(sched_task_util,
-	TP_PROTO(int pid, char *comm,
+	TP_PROTO(int pid,
 		unsigned long util,
 		unsigned int util_enqueued, unsigned int util_ewma),
-	TP_ARGS(pid, comm, util, util_enqueued, util_ewma),
+	TP_ARGS(pid, util, util_enqueued, util_ewma),
 	TP_STRUCT__entry(
 		__field(int, pid)
-		__field(char *, comm)
 		__field(unsigned long, util)
 		__field(unsigned int, util_enqueued)
 		__field(unsigned int, util_ewma)
 	),
 	TP_fast_assign(
 		__entry->pid = pid;
-		__entry->comm = comm;
 		__entry->util = util;
 		__entry->util_enqueued = util_enqueued;
 		__entry->util_ewma = util_ewma;
 	),
 	TP_printk(
-		"pid=%d comm=%s util=%lu util_enqueued=%u util_ewma=%u",
+		"pid=%d util=%lu util_enqueued=%u util_ewma=%u",
 		__entry->pid,
-		__entry->comm,
 		__entry->util,
 		__entry->util_enqueued,
 		__entry->util_ewma)

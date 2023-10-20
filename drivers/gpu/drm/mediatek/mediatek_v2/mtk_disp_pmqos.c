@@ -117,6 +117,64 @@ void __mtk_disp_set_module_hrt(struct icc_path *request,
 		mtk_icc_set_bw(request, 0, MBps_to_icc(bandwidth));
 }
 
+static bool mtk_disp_check_segment(struct mtk_drm_crtc *mtk_crtc,
+				struct mtk_drm_private *priv)
+{
+	bool ret = true;
+	int hact = 0;
+	int vact = 0;
+	int vrefresh = 0;
+
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s, mtk_crtc is NULL\n", __func__);
+		return ret;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, private is NULL\n", __func__);
+		return ret;
+	}
+
+	hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+
+	switch (priv->seg_id) {
+	case 1:
+		if (hact >= 1440)
+			ret = false;
+		else if (hact >= 1080 && vrefresh > 168)
+			ret = false;
+		break;
+	case 2:
+		if (hact >= 1440 && vrefresh > 120)
+			ret = false;
+		else if (hact >= 1080 && vrefresh > 168)
+			ret = false;
+		break;
+	case 3:
+		if (hact >= 1440 && vrefresh > 120)
+			ret = false;
+		else if (hact >= 1080 && vrefresh > 180)
+			ret = false;
+		break;
+	default:
+		ret = true;
+		break;
+	}
+
+/*
+ *	DDPMSG("%s, segment:%d, mode(%d, %d, %d)\n",
+ *			__func__, priv->seg_id, hact, vact, vrefresh);
+ */
+
+	if (ret == false)
+		DDPPR_ERR("%s, check sement fail: segment:%d, mode(%d, %d, %d)\n",
+			__func__, priv->seg_id, hact, vact, vrefresh);
+
+	return ret;
+}
+
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
@@ -143,6 +201,11 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 
 	if (ret == RDMA_REQ_HRT)
 		tmp = mtk_drm_primary_frame_bw(crtc);
+
+	if (priv->data->mmsys_id == MMSYS_MT6895) {
+		if (mtk_disp_check_segment(mtk_crtc, priv) == false)
+			tmp = 1;
+	}
 
 	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
 	DRM_MMP_MARK(hrt_bw, 0, tmp);
@@ -249,6 +312,7 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 		DDPPR_ERR("%s:allocate qos_ctx failed\n", __func__);
 		return -ENOMEM;
 	}
+	memset(mtk_crtc->qos_ctx, 0, sizeof(struct mtk_drm_qos_ctx));
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);
@@ -281,6 +345,11 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 	mtk_drm_mmdvfs_get_avail_freq(dev);
 }
 
+unsigned int mtk_drm_get_mmclk_step_size(void)
+{
+	return step_size;
+}
+
 void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {
@@ -309,7 +378,9 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 		if (g_freq_level[i] > g_freq_level[idx]) {
 			DDPINFO("%s[%d] g_freq_level[i=%d]=%d > g_freq_level[idx=%d]=%d\n",
 				__func__, __LINE__, i, g_freq_level[i], idx, g_freq_level[idx]);
-			return;
+			// Note: The following change is temporary, and the
+			// formal change is subject to the new MTK baseline.
+			//return;
 		}
 	}
 

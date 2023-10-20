@@ -54,6 +54,6 @@
 #define MESSAGE_LENGTH			(0x1000)
 #define MESSAGE_SIZE			(0x1000)
 
-/* #define DYNAMIC_SET_PRIORITY */
+#define DYNAMIC_SET_PRIORITY
 
 #endif /* end of UTDRIVER_MACRO_H */

@@ -105,6 +105,7 @@ int tcpci_notify_fod_status(struct tcpc_device *tcpc);
 int tcpci_notify_typec_otp(struct tcpc_device *tcpc);
 
 int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en);
+int tcpci_notify_wd0_state(struct tcpc_device *tcpc, bool wd0_state);
 int tcpci_notify_plug_out(struct tcpc_device *tcpc);
 
 int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en);
@@ -152,6 +153,8 @@ int tcpci_enable_auto_discharge(struct tcpc_device *tcpc, bool en);
 int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
+
+int tcpci_notify_soft_reset(struct tcpc_device *tcpc);
 
 int tcpci_notify_hard_reset_state(struct tcpc_device *tcpc, uint8_t state);
 

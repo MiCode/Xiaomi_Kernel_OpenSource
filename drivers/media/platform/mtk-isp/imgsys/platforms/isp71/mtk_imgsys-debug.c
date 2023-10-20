@@ -13,6 +13,7 @@
 #include <linux/remoteproc.h>
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-debug.h"
+#include "smi.h"
 
 #define DL_CHECK_ENG_NUM 11
 #define WPE_HW_SET    3
@@ -140,6 +141,14 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	pr_debug("%s: +.\n", __func__);
 
+	mtk_smi_larb_clamp(9, 1);
+	mtk_smi_larb_clamp(10, 1);
+	mtk_smi_larb_clamp(11, 1);
+	mtk_smi_larb_clamp(15, 1);
+	mtk_smi_larb_clamp(22, 1);
+	mtk_smi_larb_clamp(23, 1);
+	mtk_smi_larb_clamp(18, 1);
+
 	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
 	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
 
@@ -210,7 +219,13 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
-
+	mtk_smi_larb_clamp(9, 0);
+	mtk_smi_larb_clamp(10, 0);
+	mtk_smi_larb_clamp(11, 0);
+	mtk_smi_larb_clamp(15, 0);
+	mtk_smi_larb_clamp(22, 0);
+	mtk_smi_larb_clamp(23, 0);
+	mtk_smi_larb_clamp(18, 0);
 	pr_debug("%s: -.\n", __func__);
 }
 

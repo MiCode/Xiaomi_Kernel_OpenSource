@@ -12,6 +12,8 @@ int mt_dcm_common_init(void);
 bool is_dcm_initialized(void);
 void mt_dcm_disable(void);
 void mt_dcm_restore(void);
+void dcm_disable(unsigned int type);
+void dcm_dump_state(int type);
 
 #endif /* #ifndef __MTK_DCM_H__ */
 

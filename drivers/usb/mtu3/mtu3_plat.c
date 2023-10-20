@@ -277,15 +277,21 @@ void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
 		phy_set_mode(ssusb->phys[i], mode);
 }
 
-void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb, int is_on)
+static void ssusb_dp_pullup_work(struct work_struct *w)
 {
-	int mode = is_on ? PHY_MODE_DPPULLUP_SET : PHY_MODE_DPPULLUP_CLR;
+	struct ssusb_mtk *ssusb = container_of(w, struct ssusb_mtk, dp_work);
 
-	if (ssusb->u2_dp_pullup == is_on)
-		return;
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE,
+		PHY_MODE_DPPULLUP_SET);
+	mdelay(50);
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE,
+		PHY_MODE_DPPULLUP_CLR);
+}
 
-	ssusb->u2_dp_pullup = is_on;
-	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE, mode);
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb)
+{
+	dev_info(ssusb->dev, "%s\n", __func__);
+	queue_work(system_power_efficient_wq, &ssusb->dp_work);
 }
 
 int ssusb_clks_enable(struct ssusb_mtk *ssusb)
@@ -643,6 +649,8 @@ static int mtu3_probe(struct platform_device *pdev)
 		goto comm_exit;
 	}
 
+	INIT_WORK(&ssusb->dp_work, ssusb_dp_pullup_work);
+
 	return 0;
 
 host_exit:
@@ -704,7 +712,9 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
-	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3"))
+	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3") ||
+			of_device_is_compatible(node, "mediatek,mt6895-mtu3") ||
+			of_device_is_compatible(node, "mediatek,mt6879-mtu3"))
 		ssusb_set_host_power_state(ssusb, MTU3_STATE_SUSPEND);
 	else
 		ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
@@ -739,7 +749,9 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 
 	ssusb_host_enable(ssusb);
 
-	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3"))
+	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3") ||
+			of_device_is_compatible(node, "mediatek,mt6895-mtu3") ||
+			of_device_is_compatible(node, "mediatek,mt6879-mtu3"))
 		ssusb_set_host_power_state(ssusb, MTU3_STATE_RESUME);
 	else
 		ssusb_set_power_state(ssusb, MTU3_STATE_RESUME);

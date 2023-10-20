@@ -84,10 +84,6 @@ struct adsp_priv {
 
 	/* method */
 	const struct adsp_core_operations *ops;
-
-	/* snapshot for recovery restore */
-	void *itcm_snapshot;
-	void *dtcm_snapshot;
 };
 
 struct adspsys_priv {

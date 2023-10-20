@@ -175,6 +175,7 @@
 #define MT6375_MSK_RPDET_MANUAL	BIT(6)
 #define MT6375_MSK_RPDET_AUTO	BIT(7)
 /* MT6375_REG_TYPECOTPCTRL: 0xCD */
+#define MT6375_MSK_VREFTS_EN	BIT(7)
 #define MT6375_MSK_TYPECOTP_FWEN	BIT(2)
 /* MT6375_REG_WD12MODECTRL: 0xD0 */
 #define MT6375_MSK_WD12MODE_EN	BIT(4)
@@ -216,6 +217,11 @@
 	(MT6375_MSK_DPDET_EN | MT6375_MSK_DMDET_EN)
 #define MT6375_MSK_MANUAL_MODE	BIT(7)
 
+#define MT6375_MSK_WD0_TSLEEP	GENMASK(5, 4)
+#define MT6375_SFT_WD0_TSLEEP	(4)
+#define MT6375_MSK_WD0_TDET	GENMASK(2, 0)
+#define MT6375_SFT_WD0_TDET	(0)
+
 struct mt6375_tcpc_data {
 	struct device *dev;
 	struct regmap *rmap;
@@ -227,6 +233,10 @@ struct mt6375_tcpc_data {
 	struct iio_channel *adc_iio;
 	int irq;
 	u16 did;
+	bool wd0_state;
+	bool wd0_enable;
+	u8 wd0_tsleep;
+	u8 wd0_tdet;
 
 	atomic_t wd_protect_rty;
 
@@ -658,6 +668,15 @@ static int mt6375_enable_typec_otp_fwen(struct tcpc_device *tcpc, bool en)
 	pr_info("%s: en=%d\n", __func__, en);
 	return (en ? mt6375_set_bits : mt6375_clr_bits)
 		(ddata, MT6375_REG_TYPECOTPCTRL, MT6375_MSK_TYPECOTP_FWEN);
+}
+
+static int mt6375_set_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
+{
+	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+
+	pr_info("%s en = %d", __func__, en);
+	return (en ? mt6375_set_bits : mt6375_clr_bits)
+		(ddata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_BLEED_DISC_EN);
 }
 
 static int mt6375_hidet_is_plugout(struct mt6375_tcpc_data *ddata, bool *out)
@@ -1381,11 +1400,15 @@ static int mt6375_is_floating_ground_enabled(struct mt6375_tcpc_data *ddata,
 static int mt6375_enable_floating_ground(struct mt6375_tcpc_data *ddata,
 					 bool en)
 {
-	int ret;
+	int ret = 0;
+	u8 value = 0;
 
 	pr_info("%s: en:%d\n", __func__, en);
 	if (en) {
-		ret = tcpci_set_cc(ddata->tcpc, TYPEC_CC_RD);
+		/* set wd0 detect time */
+		value |= (ddata->wd0_tsleep << MT6375_SFT_WD0_TSLEEP);
+		value |= (ddata->wd0_tdet << MT6375_SFT_WD0_TDET);
+		ret = mt6375_write8_rt2(ddata, MT6375_REG_WDSET3, value);
 		if (ret < 0)
 			return ret;
 		ret = mt6375_set_wd_ldo(ddata, MT6375_WD_LDO_0_6V);
@@ -1414,12 +1437,8 @@ static int mt6375_floating_ground_evt_process(struct mt6375_tcpc_data *ddata)
 	ret = mt6375_read8(ddata, MT6375_REG_WD0SET, &data);
 	if (ret < 0)
 		return ret;
-	if (data & MT6375_MSK_WD0PULL_STS)
-		return tcpci_set_cc(ddata->tcpc, TYPEC_CC_DRP);
-#if CONFIG_TCPC_LOW_POWER_MODE
-	tcpci_set_low_power_mode(ddata->tcpc, true, TYPEC_CC_DRP);
-#endif /* CONFIG_TCPC_LOW_POWER_MODE */
-	return tcpci_set_floating_ground(ddata->tcpc, true);
+	ddata->wd0_state = (data & MT6375_MSK_WD0PULL_STS) ? true : false;
+	return tcpci_notify_wd0_state(ddata->tcpc, ddata->wd0_state);
 }
 
 /*
@@ -1508,6 +1527,9 @@ static int mt6375_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	/* Disable bleed dischg for IQ about 2mA consumption */
 	mt6375_clr_bits(ddata, TCPC_V10_REG_POWER_CTRL,
 			TCPC_V10_REG_BLEED_DISC_EN);
+
+        /* Enable VREFTS */
+	mt6375_set_bits(ddata, MT6375_REG_TYPECOTPCTRL, MT6375_MSK_VREFTS_EN);
 
 	/* SHIPPING off, AUTOIDLE on */
 	mt6375_set_bits(ddata, MT6375_REG_SYSCTRL1,
@@ -1691,19 +1713,22 @@ static int mt6375_set_cc(struct tcpc_device *tcpc, int pull)
 	int ret;
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
-	bool en;
+	bool __maybe_unused en;
 
 	MT6375_INFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
+
+	/* enable wd0 once when set cc */
+	if (!ddata->wd0_enable && tcpm_is_floating_ground(tcpc)) {
+		ret = mt6375_enable_floating_ground(ddata, true);
+		if (ret < 0)
+			dev_err(ddata->dev, "enable wd0 failed\n");
+		else
+			ddata->wd0_enable = true;
+	}
+
 	if (pull == TYPEC_CC_DRP) {
-		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND) {
-			ret = mt6375_is_floating_ground_enabled(ddata, &en);
-			if (!en)
-				ret = mt6375_enable_floating_ground(ddata, true);
-			else
-				ret = mt6375_set_cc_toggling(ddata, pull);
-		} else
-			ret = mt6375_set_cc_toggling(ddata, pull);
+		ret = mt6375_set_cc_toggling(ddata, pull);
 	} else {
 #if CONFIG_WATER_DETECTION
 #if CONFIG_WD_POLLING_ONLY
@@ -2219,8 +2244,17 @@ static int mt6375_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en)
 	u8 val = en ? TCPC_V10_REG_AUTO_DISCHG_DISCNT
 		    : TCPC_V10_REG_VBUS_MONITOR;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+	int ret = 0;
 
 	MT6375_INFO("%s en=%d\n", __func__, en);
+	if (en) {
+		ret |= mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+					  TCPC_V10_REG_VBUS_MONITOR, 0);
+		ret |= mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+					  TCPC_V10_REG_AUTO_DISCHG_DISCNT,
+					  TCPC_V10_REG_AUTO_DISCHG_DISCNT);
+		return ret;
+	}
 	return mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL, mask, val);
 }
 
@@ -2295,6 +2329,7 @@ static struct tcpc_ops mt6375_tcpc_ops = {
 
 	.set_floating_ground = mt6375_set_floating_ground,
 	.set_otp_fwen = mt6375_enable_typec_otp_fwen,
+	.set_force_discharge = mt6375_set_force_discharge,
 };
 
 static void mt6375_irq_work_handler(struct kthread_work *work)
@@ -2309,6 +2344,7 @@ static void mt6375_irq_work_handler(struct kthread_work *work)
 	reinit_completion(&ddata->tcpc->alert_done);
 
 	tcpci_lock_typec(ddata->tcpc);
+	atomic_inc(&ddata->tcpc->suspend_pending);
 
 	do {
 		ret = tcpci_alert(ddata->tcpc);
@@ -2326,6 +2362,7 @@ static void mt6375_irq_work_handler(struct kthread_work *work)
 			break;
 	} while (1);
 
+	atomic_dec_if_positive(&ddata->tcpc->suspend_pending);
 	tcpci_unlock_typec(ddata->tcpc);
 	complete(&ddata->tcpc->alert_done);
 	enable_irq(ddata->irq);
@@ -2376,8 +2413,8 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 	}
 	ddata->irq = ret;
 	ret = devm_request_threaded_irq(ddata->dev, ret, NULL,
-					mt6375_pd_evt_handler, IRQF_ONESHOT,
-					dev_name(ddata->dev), ddata);
+					mt6375_pd_evt_handler, IRQF_ONESHOT |
+					IRQF_NO_SUSPEND, dev_name(ddata->dev), ddata);
 	if (ret < 0) {
 		dev_err(ddata->dev, "failed to request irq %d\n", ddata->irq);
 		return ret;
@@ -2536,6 +2573,24 @@ static int mt6375_parse_dt(struct mt6375_tcpc_data *ddata)
 	}
 
 	ddata->desc = desc;
+
+	if (desc->en_floatgnd) {
+		if (device_property_read_u32(dev, "wd,wd0_tsleep", &val)) {
+			dev_notice(dev, "wd0_tsleep use default\n");
+			ddata->wd0_tsleep = 1;
+		} else {
+			dev_notice(dev, "wd0_tsleep = %d\n", val);
+			ddata->wd0_tsleep = val;
+		}
+		if (device_property_read_u32(dev, "wd,wd0_tdet", &val)) {
+			dev_notice(dev, "wd0_tdet use default\n");
+			ddata->wd0_tdet = 3;
+		} else {
+			dev_notice(dev, "wd0_tdet = %d\n", val);
+			ddata->wd0_tdet = val;
+		}
+	}
+	dev_err(dev, "wd0_tsleep=%d wd0_tdet=%d\n", ddata->wd0_tsleep, ddata->wd0_tdet);
 	return 0;
 }
 
@@ -2659,6 +2714,7 @@ static int mt6375_tcpc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	device_init_wakeup(ddata->dev, true);
 	dev_info(ddata->dev, "%s successfully!\n", __func__);
 	return 0;
 err:
@@ -2688,6 +2744,23 @@ static void mt6375_shutdown(struct platform_device *pdev)
 	tcpm_shutdown(ddata->tcpc);
 }
 
+static int tcpc_mt6375_prepare(struct device *dev)
+{
+	struct mt6375_tcpc_data *ddata = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s: suspend_pending: %d, pending_event: %d\n", __func__,
+		 atomic_read(&ddata->tcpc->suspend_pending),
+		 atomic_read(&ddata->tcpc->pending_event));
+	if (atomic_read(&ddata->tcpc->suspend_pending) > 0 ||
+	    atomic_read(&ddata->tcpc->pending_event) > 0)
+		return -EBUSY;
+	return 0;
+}
+
+static const struct dev_pm_ops tcpc_mt6375_pm_ops = {
+	.prepare = tcpc_mt6375_prepare,
+};
+
 static const struct of_device_id __maybe_unused mt6375_tcpc_of_match[] = {
 	{ .compatible = "mediatek,mt6375-tcpc", },
 	{ }
@@ -2699,6 +2772,7 @@ static struct platform_driver mt6375_tcpc_driver = {
 	.shutdown = mt6375_shutdown,
 	.driver = {
 		.name = "mt6375-tcpc",
+		.pm = &tcpc_mt6375_pm_ops,
 		.of_match_table = of_match_ptr(mt6375_tcpc_of_match),
 	},
 };

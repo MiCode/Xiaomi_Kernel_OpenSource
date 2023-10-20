@@ -176,6 +176,13 @@ enum ADSP_MI_SELECT {
 #define SRAM_START_ADDR				(0x100000)
 #define SRAM_END_ADDR				(0x1FFFFF)
 
+#define L3CACHE_0_START				(0x00200000)
+#define L3CACHE_0_END				(0x005FFFFF)
+#define L3CACHE_1_START				(0x00800000)
+#define L3CACHE_1_END				(0x0C3FFFFF)
+#define L3CACHE_2_START				(0x0C800000)
+#define L3CACHE_2_END				(0x0CBFFFFF)
+
 /* For VLP Bus Parser */
 #define VLP_SCP_START_ADDR			(0x1C400000)
 #define VLP_SCP_END_ADDR			(0x1C7FFFFF)
@@ -819,7 +826,7 @@ static const struct mtk_device_info mt6895_devices_infra1[] = {
 	{-1, -1, 226, "OOB_way_en", true},
 	{-1, -1, 227, "OOB_way_en", true},
 	{-1, -1, 228, "OOB_way_en", true},
-	{-1, -1, 229, "OOB_way_en", false},
+	{-1, -1, 229, "OOB_way_en", true},
 
 	{-1, -1, 230, "OOB_way_en", true},
 	{-1, -1, 231, "OOB_way_en", true},

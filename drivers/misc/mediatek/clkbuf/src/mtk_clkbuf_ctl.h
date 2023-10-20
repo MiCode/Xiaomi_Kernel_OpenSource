@@ -11,6 +11,15 @@
 #ifndef __MTK_CLK_BUF_CTL_H__
 #define __MTK_CLK_BUF_CTL_H__
 
+enum RC_CTRL_CMD {
+	HW = 0,
+	SW_OFF,
+	SW_BBLPM,
+	SW_FPM,
+	SW_LPM,
+	MAX_RC_REQ_NUM
+};
+
 enum CLK_BUF_TYPE {
 	CLK_BUF_SW_DISABLE = 0,
 	CLK_BUF_SW_ENABLE  = 1,
@@ -61,5 +70,6 @@ extern int clk_buf_control_bblpm(bool on);
 extern int clk_buf_dump_log(void);
 extern int clk_buf_get_xo_en_sta(u32 id);
 extern int clk_buf_check_bblpm_enter_cond(void);
+extern int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req);
 #endif
 

@@ -19,17 +19,6 @@
 			(0x0 << 17) | \
 			(0x1 << 18))
 
-bool dcm_infracfg_ao_aximem_bus_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(INFRA_AXIMEM_IDLE_BIT_EN_0) &
-		INFRACFG_AO_AXIMEM_BUS_DCM_REG0_MASK) ==
-		(unsigned int) INFRACFG_AO_AXIMEM_BUS_DCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_infracfg_ao_aximem_bus_dcm(int on)
 {
 	if (on) {
@@ -80,17 +69,6 @@ static void infracfg_ao_infra_dcm_rg_sfsel_set(unsigned int val)
 		(val & 0x1f) << 10);
 }
 
-bool dcm_infracfg_ao_infra_bus_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(INFRA_BUS_DCM_CTRL) &
-		INFRACFG_AO_INFRA_BUS_DCM_REG0_MASK) ==
-		(unsigned int) INFRACFG_AO_INFRA_BUS_DCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_infracfg_ao_infra_bus_dcm(int on)
 {
 	if (on) {
@@ -113,17 +91,6 @@ void dcm_infracfg_ao_infra_bus_dcm(int on)
 #define INFRACFG_AO_INFRA_RX_P2P_DCM_REG0_MASK ((0xf << 0))
 #define INFRACFG_AO_INFRA_RX_P2P_DCM_REG0_ON ((0x0 << 0))
 #define INFRACFG_AO_INFRA_RX_P2P_DCM_REG0_OFF ((0xf << 0))
-
-bool dcm_infracfg_ao_infra_rx_p2p_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(P2P_RX_CLK_ON) &
-		INFRACFG_AO_INFRA_RX_P2P_DCM_REG0_MASK) ==
-		(unsigned int) INFRACFG_AO_INFRA_RX_P2P_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_infracfg_ao_infra_rx_p2p_dcm(int on)
 {
@@ -160,23 +127,6 @@ void dcm_infracfg_ao_infra_rx_p2p_dcm(int on)
 			(0x0 << 16))
 #define INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_OFF ((0x10 << 20))
 #define INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_OFF ((0x0 << 0))
-
-bool dcm_infra_ao_bcrm_infra_bus_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0) &
-		INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_MASK) ==
-		(unsigned int) INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_ON);
-	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
-		INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_MASK) ==
-		(unsigned int) INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_ON);
-	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2) &
-		INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_MASK) ==
-		(unsigned int) INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_ON);
-
-	return ret;
-}
 
 void dcm_infra_ao_bcrm_infra_bus_dcm(int on)
 {
@@ -298,20 +248,6 @@ void dcm_infra_ao_bcrm_infra_bus_fmem_sub_dcm(int on)
 #define PERI_AO_BCRM_PERI_BUS_DCM_REG1_OFF ((0x0 << 10) | \
 			(0x0 << 25))
 
-bool dcm_peri_ao_bcrm_peri_bus_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(VDNR_DCM_TOP_PERI_PAR_BUS_u_PERI_PAR_BUS_CTRL_0) &
-		PERI_AO_BCRM_PERI_BUS_DCM_REG0_MASK) ==
-		(unsigned int) PERI_AO_BCRM_PERI_BUS_DCM_REG0_ON);
-	ret &= ((reg_read(VDNR_DCM_TOP_PERI_PAR_BUS_u_PERI_PAR_BUS_CTRL_1) &
-		PERI_AO_BCRM_PERI_BUS_DCM_REG1_MASK) ==
-		(unsigned int) PERI_AO_BCRM_PERI_BUS_DCM_REG1_ON);
-
-	return ret;
-}
-
 void dcm_peri_ao_bcrm_peri_bus_dcm(int on)
 {
 	if (on) {
@@ -354,17 +290,6 @@ void dcm_peri_ao_bcrm_peri_bus_dcm(int on)
 			(0x0 << 4) | \
 			(0x0 << 13))
 
-bool dcm_vlp_ao_bcrm_vlp_bus_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(VDNR_DCM_TOP_VLP_PAR_BUS_u_VLP_PAR_BUS_CTRL_0) &
-		VLP_AO_BCRM_VLP_BUS_DCM_REG0_MASK) ==
-		(unsigned int) VLP_AO_BCRM_VLP_BUS_DCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_vlp_ao_bcrm_vlp_bus_dcm(int on)
 {
 	if (on) {
@@ -390,17 +315,6 @@ void dcm_vlp_ao_bcrm_vlp_bus_dcm(int on)
 			(0x1 << 16))
 #define MCUSYS_TOP_MCU_ACP_DCM_REG0_OFF ((0x0 << 0) | \
 			(0x0 << 16))
-
-bool dcm_mcusys_top_mcu_acp_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_MP_ADB_DCM_CFG0) &
-		MCUSYS_TOP_MCU_ACP_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_ACP_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mcusys_top_mcu_acp_dcm(int on)
 {
@@ -453,17 +367,6 @@ void dcm_mcusys_top_mcu_acp_dcm(int on)
 			(0x0 << 9) | \
 			(0x0 << 10))
 
-bool dcm_mcusys_top_mcu_adb_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_ADB_FIFO_DCM_EN) &
-		MCUSYS_TOP_MCU_ADB_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_ADB_DCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mcusys_top_mcu_adb_dcm(int on)
 {
 	if (on) {
@@ -487,17 +390,6 @@ void dcm_mcusys_top_mcu_adb_dcm(int on)
 			(0x1 << 24))
 #define MCUSYS_TOP_MCU_APB_DCM_REG0_OFF ((0x0 << 8) | \
 			(0x0 << 24))
-
-bool dcm_mcusys_top_mcu_apb_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_MP0_DCM_CFG0) &
-		MCUSYS_TOP_MCU_APB_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_APB_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mcusys_top_mcu_apb_dcm(int on)
 {
@@ -537,20 +429,6 @@ void dcm_mcusys_top_mcu_apb_dcm(int on)
 			(0x0 << 4) | \
 			(0x0 << 8) | \
 			(0x0 << 12))
-
-bool dcm_mcusys_top_mcu_bus_qdcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_QDCM_CONFIG0) &
-		MCUSYS_TOP_MCU_BUS_QDCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_BUS_QDCM_REG0_ON);
-	ret &= ((reg_read(MCUSYS_TOP_QDCM_CONFIG1) &
-		MCUSYS_TOP_MCU_BUS_QDCM_REG1_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_BUS_QDCM_REG1_ON);
-
-	return ret;
-}
 
 void dcm_mcusys_top_mcu_bus_qdcm(int on)
 {
@@ -601,32 +479,6 @@ void dcm_mcusys_top_mcu_bus_qdcm(int on)
 #define MCUSYS_TOP_MCU_CBIP_DCM_REG5_OFF ((0x0 << 0) | \
 			(0x0 << 1) | \
 			(0x0 << 2))
-
-bool dcm_mcusys_top_mcu_cbip_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_CBIP_CABGEN_3TO1_CONFIG) &
-		MCUSYS_TOP_MCU_CBIP_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CBIP_DCM_REG0_ON);
-	ret &= ((reg_read(MCUSYS_TOP_CBIP_CABGEN_2TO1_CONFIG) &
-		MCUSYS_TOP_MCU_CBIP_DCM_REG1_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CBIP_DCM_REG1_ON);
-	ret &= ((reg_read(MCUSYS_TOP_CBIP_CABGEN_4TO2_CONFIG) &
-		MCUSYS_TOP_MCU_CBIP_DCM_REG2_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CBIP_DCM_REG2_ON);
-	ret &= ((reg_read(MCUSYS_TOP_CBIP_CABGEN_1TO2_CONFIG) &
-		MCUSYS_TOP_MCU_CBIP_DCM_REG3_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CBIP_DCM_REG3_ON);
-	ret &= ((reg_read(MCUSYS_TOP_CBIP_CABGEN_2TO5_CONFIG) &
-		MCUSYS_TOP_MCU_CBIP_DCM_REG4_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CBIP_DCM_REG4_ON);
-	ret &= ((reg_read(MCUSYS_TOP_CBIP_P2P_CONFIG0) &
-		MCUSYS_TOP_MCU_CBIP_DCM_REG5_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CBIP_DCM_REG5_ON);
-
-	return ret;
-}
 
 void dcm_mcusys_top_mcu_cbip_dcm(int on)
 {
@@ -704,20 +556,6 @@ void dcm_mcusys_top_mcu_cbip_dcm(int on)
 #define MCUSYS_TOP_MCU_CORE_QDCM_REG1_OFF ((0x0 << 0) | \
 			(0x0 << 4))
 
-bool dcm_mcusys_top_mcu_core_qdcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_QDCM_CONFIG2) &
-		MCUSYS_TOP_MCU_CORE_QDCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CORE_QDCM_REG0_ON);
-	ret &= ((reg_read(MCUSYS_TOP_QDCM_CONFIG3) &
-		MCUSYS_TOP_MCU_CORE_QDCM_REG1_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_CORE_QDCM_REG1_ON);
-
-	return ret;
-}
-
 void dcm_mcusys_top_mcu_core_qdcm(int on)
 {
 	if (on) {
@@ -753,20 +591,6 @@ void dcm_mcusys_top_mcu_core_qdcm(int on)
 			(0x0 << 12))
 #define MCUSYS_TOP_MCU_IO_DCM_REG1_OFF ((0x0 << 0))
 
-bool dcm_mcusys_top_mcu_io_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_QDCM_CONFIG0) &
-		MCUSYS_TOP_MCU_IO_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_IO_DCM_REG0_ON);
-	ret &= ((reg_read(MCUSYS_TOP_L3GIC_ARCH_CG_CONFIG) &
-		MCUSYS_TOP_MCU_IO_DCM_REG1_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_IO_DCM_REG1_ON);
-
-	return ret;
-}
-
 void dcm_mcusys_top_mcu_io_dcm(int on)
 {
 	if (on) {
@@ -796,17 +620,6 @@ void dcm_mcusys_top_mcu_io_dcm(int on)
 #define MCUSYS_TOP_MCU_STALLDCM_REG0_ON ((0xf0 << 0))
 #define MCUSYS_TOP_MCU_STALLDCM_REG0_OFF ((0x0 << 0))
 
-bool dcm_mcusys_top_mcu_stalldcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_TOP_MP0_DCM_CFG0) &
-		MCUSYS_TOP_MCU_STALLDCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_TOP_MCU_STALLDCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mcusys_top_mcu_stalldcm(int on)
 {
 	if (on) {
@@ -827,17 +640,6 @@ void dcm_mcusys_top_mcu_stalldcm(int on)
 #define MCUSYS_CPC_CPC_PBI_DCM_REG0_MASK ((0x1 << 0))
 #define MCUSYS_CPC_CPC_PBI_DCM_REG0_ON ((0x1 << 0))
 #define MCUSYS_CPC_CPC_PBI_DCM_REG0_OFF ((0x0 << 0))
-
-bool dcm_mcusys_cpc_cpc_pbi_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_CPC_CPC_DCM_Enable) &
-		MCUSYS_CPC_CPC_PBI_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_CPC_CPC_PBI_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mcusys_cpc_cpc_pbi_dcm(int on)
 {
@@ -860,17 +662,6 @@ void dcm_mcusys_cpc_cpc_pbi_dcm(int on)
 #define MCUSYS_CPC_CPC_TURBO_DCM_REG0_ON ((0x1 << 1))
 #define MCUSYS_CPC_CPC_TURBO_DCM_REG0_OFF ((0x0 << 1))
 
-bool dcm_mcusys_cpc_cpc_turbo_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MCUSYS_CPC_CPC_DCM_Enable) &
-		MCUSYS_CPC_CPC_TURBO_DCM_REG0_MASK) ==
-		(unsigned int) MCUSYS_CPC_CPC_TURBO_DCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mcusys_cpc_cpc_turbo_dcm(int on)
 {
 	if (on) {
@@ -891,17 +682,6 @@ void dcm_mcusys_cpc_cpc_turbo_dcm(int on)
 #define MP_CPU4_TOP_MCU_APB_DCM_REG0_MASK ((0x1 << 4))
 #define MP_CPU4_TOP_MCU_APB_DCM_REG0_ON ((0x1 << 4))
 #define MP_CPU4_TOP_MCU_APB_DCM_REG0_OFF ((0x0 << 4))
-
-bool dcm_mp_cpu4_top_mcu_apb_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU4_TOP_PTP3_CPU_PCSM_SW_PCHANNEL) &
-		MP_CPU4_TOP_MCU_APB_DCM_REG0_MASK) ==
-		(unsigned int) MP_CPU4_TOP_MCU_APB_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mp_cpu4_top_mcu_apb_dcm(int on)
 {
@@ -924,17 +704,6 @@ void dcm_mp_cpu4_top_mcu_apb_dcm(int on)
 #define MP_CPU4_TOP_MCU_STALLDCM_REG0_ON ((0x1 << 0))
 #define MP_CPU4_TOP_MCU_STALLDCM_REG0_OFF ((0x0 << 0))
 
-bool dcm_mp_cpu4_top_mcu_stalldcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU4_TOP_STALL_DCM_CONF) &
-		MP_CPU4_TOP_MCU_STALLDCM_REG0_MASK) ==
-		(unsigned int) MP_CPU4_TOP_MCU_STALLDCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mp_cpu4_top_mcu_stalldcm(int on)
 {
 	if (on) {
@@ -955,17 +724,6 @@ void dcm_mp_cpu4_top_mcu_stalldcm(int on)
 #define MP_CPU5_TOP_MCU_APB_DCM_REG0_MASK ((0x1 << 4))
 #define MP_CPU5_TOP_MCU_APB_DCM_REG0_ON ((0x1 << 4))
 #define MP_CPU5_TOP_MCU_APB_DCM_REG0_OFF ((0x0 << 4))
-
-bool dcm_mp_cpu5_top_mcu_apb_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU5_TOP_PTP3_CPU_PCSM_SW_PCHANNEL) &
-		MP_CPU5_TOP_MCU_APB_DCM_REG0_MASK) ==
-		(unsigned int) MP_CPU5_TOP_MCU_APB_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mp_cpu5_top_mcu_apb_dcm(int on)
 {
@@ -988,17 +746,6 @@ void dcm_mp_cpu5_top_mcu_apb_dcm(int on)
 #define MP_CPU5_TOP_MCU_STALLDCM_REG0_ON ((0x1 << 0))
 #define MP_CPU5_TOP_MCU_STALLDCM_REG0_OFF ((0x0 << 0))
 
-bool dcm_mp_cpu5_top_mcu_stalldcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU5_TOP_STALL_DCM_CONF) &
-		MP_CPU5_TOP_MCU_STALLDCM_REG0_MASK) ==
-		(unsigned int) MP_CPU5_TOP_MCU_STALLDCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mp_cpu5_top_mcu_stalldcm(int on)
 {
 	if (on) {
@@ -1019,17 +766,6 @@ void dcm_mp_cpu5_top_mcu_stalldcm(int on)
 #define MP_CPU6_TOP_MCU_APB_DCM_REG0_MASK ((0x1 << 4))
 #define MP_CPU6_TOP_MCU_APB_DCM_REG0_ON ((0x1 << 4))
 #define MP_CPU6_TOP_MCU_APB_DCM_REG0_OFF ((0x0 << 4))
-
-bool dcm_mp_cpu6_top_mcu_apb_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU6_TOP_PTP3_CPU_PCSM_SW_PCHANNEL) &
-		MP_CPU6_TOP_MCU_APB_DCM_REG0_MASK) ==
-		(unsigned int) MP_CPU6_TOP_MCU_APB_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mp_cpu6_top_mcu_apb_dcm(int on)
 {
@@ -1052,17 +788,6 @@ void dcm_mp_cpu6_top_mcu_apb_dcm(int on)
 #define MP_CPU6_TOP_MCU_STALLDCM_REG0_ON ((0x1 << 0))
 #define MP_CPU6_TOP_MCU_STALLDCM_REG0_OFF ((0x0 << 0))
 
-bool dcm_mp_cpu6_top_mcu_stalldcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU6_TOP_STALL_DCM_CONF) &
-		MP_CPU6_TOP_MCU_STALLDCM_REG0_MASK) ==
-		(unsigned int) MP_CPU6_TOP_MCU_STALLDCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mp_cpu6_top_mcu_stalldcm(int on)
 {
 	if (on) {
@@ -1083,17 +808,6 @@ void dcm_mp_cpu6_top_mcu_stalldcm(int on)
 #define MP_CPU7_TOP_MCU_APB_DCM_REG0_MASK ((0x1 << 4))
 #define MP_CPU7_TOP_MCU_APB_DCM_REG0_ON ((0x1 << 4))
 #define MP_CPU7_TOP_MCU_APB_DCM_REG0_OFF ((0x0 << 4))
-
-bool dcm_mp_cpu7_top_mcu_apb_dcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU7_TOP_PTP3_CPU_PCSM_SW_PCHANNEL) &
-		MP_CPU7_TOP_MCU_APB_DCM_REG0_MASK) ==
-		(unsigned int) MP_CPU7_TOP_MCU_APB_DCM_REG0_ON);
-
-	return ret;
-}
 
 void dcm_mp_cpu7_top_mcu_apb_dcm(int on)
 {
@@ -1116,17 +830,6 @@ void dcm_mp_cpu7_top_mcu_apb_dcm(int on)
 #define MP_CPU7_TOP_MCU_STALLDCM_REG0_ON ((0x1 << 0))
 #define MP_CPU7_TOP_MCU_STALLDCM_REG0_OFF ((0x0 << 0))
 
-bool dcm_mp_cpu7_top_mcu_stalldcm_is_on(void)
-{
-	bool ret = true;
-
-	ret &= ((reg_read(MP_CPU7_TOP_STALL_DCM_CONF) &
-		MP_CPU7_TOP_MCU_STALLDCM_REG0_MASK) ==
-		(unsigned int) MP_CPU7_TOP_MCU_STALLDCM_REG0_ON);
-
-	return ret;
-}
-
 void dcm_mp_cpu7_top_mcu_stalldcm(int on)
 {
 	if (on) {
@@ -1143,5 +846,3 @@ void dcm_mp_cpu7_top_mcu_stalldcm(int on)
 			MP_CPU7_TOP_MCU_STALLDCM_REG0_OFF);
 	}
 }
-
-

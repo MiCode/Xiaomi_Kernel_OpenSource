@@ -1309,7 +1309,6 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 /*
  * define character device operation for rpc_u
  */
- #define BANK4_DRDI_SMEM_SIZE (512*1024)
 static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	struct port_t *port = fp->private_data;
@@ -1452,6 +1451,7 @@ int port_rpc_recv_match(struct port_t *port, struct sk_buff *skb)
 		case IPC_RPC_QUERY_AP_SYS_PROPERTY:
 		case IPC_RPC_SAR_TABLE_IDX_QUERY_OP:
 		case IPC_RPC_AMMS_DRDI_CONTROL:
+		case IPC_RPC_SAVE_MD_CAPID:
 			is_userspace_msg = 1;
 			break;
 		default:

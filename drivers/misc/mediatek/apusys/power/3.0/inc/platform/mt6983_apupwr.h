@@ -17,6 +17,7 @@
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
 #define APMCU_REQ_RPC_SLEEP	(0)	// rpm suspend trigger sleep req to rpc
 #define APUPW_DUMP_FROM_APMCU	(0)	// 1: dump reg from APMCU, 0: from ATF
+#define SUPPORT_VSRAM_0P75_VB	(1)
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
@@ -25,11 +26,13 @@
 #define TURBO_BOOST_VAL		(110)
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
+#define HW_SEMA_TIMEOUT_CNT	(7) // 7 * 10 = 70 us
 
 enum smc_rcx_pwr_op {
 	SMC_RCX_PWR_AFC_EN = 0,
 	SMC_RCX_PWR_WAKEUP_RPC,
 	SMC_RCX_PWR_CG_EN,
+	SMC_RCX_PWR_HW_SEMA,
 };
 
 enum smc_pwr_dump {
@@ -212,6 +215,8 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 
 // spm offset define
 #define APUSYS_BUCK_ISOLATION		(0x39C)
+#define SPM_SEMA_M0			(0x69C)
+#define SPM_HW_SEMA_MASTER		SPM_SEMA_M0
 
 // PCU initial data
 #define APU_PCUTOP_CTRL_SET	0x0

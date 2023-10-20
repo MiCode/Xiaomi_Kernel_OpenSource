@@ -197,7 +197,7 @@ struct obj_cgroup {
 	struct mem_cgroup *memcg;
 	atomic_t nr_charged_bytes;
 	union {
-		struct list_head list;
+		struct list_head list; /* protected by objcg_lock */
 		struct rcu_head rcu;
 	};
 };
@@ -300,7 +300,8 @@ struct mem_cgroup {
 	int kmemcg_id;
 	enum memcg_kmem_state kmem_state;
 	struct obj_cgroup __rcu *objcg;
-	struct list_head objcg_list; /* list of inherited objcgs */
+	/* list of inherited objcgs, protected by objcg_lock */
+	struct list_head objcg_list;
 #endif
 
 	MEMCG_PADDING(_pad2_);
@@ -343,6 +344,9 @@ struct mem_cgroup {
 #define MEMCG_CHARGE_BATCH 32U
 
 extern struct mem_cgroup *root_mem_cgroup;
+
+struct lruvec *page_to_lruvec(struct page *page, pg_data_t *pgdat);
+void do_traversal_all_lruvec(void);
 
 static __always_inline bool memcg_stat_item_in_bytes(int idx)
 {
@@ -967,6 +971,15 @@ void split_page_memcg(struct page *head, unsigned int nr);
 #define MEM_CGROUP_ID_MAX	0
 
 struct mem_cgroup;
+
+static inline struct lruvec *page_to_lruvec(struct page *page, pg_data_t *pgdat)
+{
+	return NULL;
+}
+
+static inline void do_traversal_all_lruvec(void)
+{
+}
 
 static inline bool mem_cgroup_is_root(struct mem_cgroup *memcg)
 {

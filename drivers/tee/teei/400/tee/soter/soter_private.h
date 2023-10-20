@@ -14,6 +14,9 @@
 
 #define TEEI_UUID_MAX_LEN 128
 
+#define STATUS_OK 0
+#define STATUS_KILLED 1
+
 /* Some Global Platform error codes used in this driver */
 #define TEEC_SUCCESS			0x00000000
 #define TEEC_ERROR_BAD_PARAMETERS	0xFFFF0006
@@ -62,5 +65,5 @@ extern uint32_t tzdriver_dynamical_debug_flag;
 #endif
 
 extern unsigned long teei_capi_ready;
-
+extern unsigned int teei_daemon_status;
 #endif

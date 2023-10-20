@@ -254,7 +254,9 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 */
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
-#ifdef ENABLE_EMIMPU_CB
+#if IS_ENABLED(CONFIG_MTK_EMI)
+		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			"mtk_clear_md_violation\n");
 		mtk_clear_md_violation();
 #endif
 		count = 0;
@@ -809,6 +811,7 @@ struct ccci_fsm_ctl *fsm_get_entity_by_md_id(int md_id)
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(fsm_get_entity_by_md_id);
 
 int ccci_fsm_init(int md_id)
 {

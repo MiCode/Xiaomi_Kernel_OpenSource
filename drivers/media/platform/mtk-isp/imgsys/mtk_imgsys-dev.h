@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/remoteproc.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
@@ -54,7 +55,7 @@
 #define MTK_DIP_DEV_META_BUF_POOL_MAX_SIZE	(1024 * 1024 * 16)
 #define MTK_IMGSYS_OPP_SET			2
 #define MTK_IMGSYS_CLK_LEVEL_CNT		5
-#define MTK_IMGSYS_DVFS_GROUP			3
+#define MTK_IMGSYS_DVFS_GROUP			4
 #define MTK_IMGSYS_QOS_GROUP			2
 
 #define MTK_IMGSYS_LOG_LENGTH			1024
@@ -295,6 +296,9 @@ struct mtk_imgsys_dev {
 	struct imgsys_queue runnerque;
 	wait_queue_head_t flushing_waitq;
 
+	/* CCU control flow */
+	struct rproc *rproc_ccu_handle;
+
 	struct work_pool gwork_pool;
 	atomic_t num_composing;	/* increase after ipi */
 	/*MDP/GCE callback workqueue */
@@ -397,7 +401,7 @@ struct gce_timeout_work {
 
 struct gce_cb_work {
 	struct work_struct work;
-	struct mtk_imgsys_request *req;
+	u32 reqfd;
 	void *req_sbuf_kva;
 	void *pipe;
 };
@@ -618,6 +622,7 @@ mtk_imgsys_hw_timeout_work_to_req(struct work_struct *gcetimeout_work)
 	return gwork->req;
 }
 
+#ifdef GCE_DONE_USE_REQ
 static inline struct mtk_imgsys_request *
 mtk_imgsys_hw_gce_done_work_to_req(struct work_struct *gcecb_work)
 {
@@ -625,7 +630,7 @@ mtk_imgsys_hw_gce_done_work_to_req(struct work_struct *gcecb_work)
 
 	return gwork->req;
 }
-
+#endif
 static inline int mtk_imgsys_buf_is_meta(u32 type)
 {
 	return type == V4L2_BUF_TYPE_META_CAPTURE ||
@@ -752,6 +757,9 @@ struct cleartoken_info_t {
 #define REQ_FD_MAX 65536
 struct reqfd_cbinfo_t {
 	int req_fd;
+	int req_no;
+	int frm_no;
+	uint64_t frm_owner;
 	int exp_cnt;
 	int cur_cnt;
 };

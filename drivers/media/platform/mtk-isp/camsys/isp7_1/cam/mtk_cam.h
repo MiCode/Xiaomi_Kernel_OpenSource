@@ -50,6 +50,9 @@
 
 #define MTK_CAM_CTX_WATCHDOG_INTERVAL	100
 
+/*stagger sensor stability option for camsys*/
+#define STAGGER_CQ_LAST_SOF 1
+
 struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;
@@ -82,6 +85,7 @@ struct mtk_raw_pipeline;
 #define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
+#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
@@ -137,6 +141,8 @@ struct mtk_camsv_working_buf_entry {
 	struct list_head list_entry;
 	u64 ts_raw;
 	u64 ts_sv;
+	atomic_t is_apply;
+	u8 is_stagger;
 };
 
 struct mtk_camsv_working_buf_list {
@@ -161,6 +167,8 @@ struct mtk_mraw_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
 	u64 ts_raw;
 	u64 ts_mraw;
+	atomic_t is_apply;
+	u8 is_stagger;
 };
 
 struct mtk_mraw_working_buf_list {
@@ -284,6 +292,12 @@ struct mtk_cam_frame_sync {
 	struct mutex op_lock;
 };
 
+struct mtk_cam_req_raw_pipe_data {
+	struct mtk_cam_resource res;
+	struct mtk_raw_stagger_select stagger_select;
+	int enabled_raw;
+};
+
 /*
  * struct mtk_cam_request - MTK camera request.
  *
@@ -313,7 +327,8 @@ struct mtk_cam_request {
 	struct list_head cleanup_list;
 	struct work_struct link_work;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
-	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
+	struct mtk_cam_req_raw_pipe_data raw_pipe_data[MTKCAM_SUBDEV_RAW_END -
+						       MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;
 	atomic_t ref_cnt;
 };
@@ -350,6 +365,17 @@ struct mtk_cam_img_working_buf_pool {
 	int working_img_buf_size;
 	struct mtk_cam_img_working_buf_entry img_working_buf[CAM_IMG_BUF_NUM];
 	struct mtk_cam_working_buf_list cam_freeimglist;
+};
+
+struct mtk_cam_watchdog_data {
+	struct mtk_cam_ctx *ctx;
+	int pipe_id;
+	atomic_t watchdog_timeout_cnt;
+	atomic_t watchdog_cnt;
+	atomic_t watchdog_dumped;
+	atomic_t watchdog_dump_cnt;
+	struct work_struct watchdog_work;
+	u64 watchdog_time_diff_ns;
 };
 
 struct mtk_cam_device;
@@ -395,6 +421,7 @@ struct mtk_cam_ctx {
 	struct completion session_complete;
 	struct completion m2m_complete;
 	int session_created;
+	struct work_struct session_work;
 
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;
@@ -417,13 +444,16 @@ struct mtk_cam_ctx {
 	struct mtk_cam_working_buf_list processing_img_buffer_list;
 
 	atomic_t enqueued_frame_seq_no;
+	atomic_t composed_delay_seq_no;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
-
+	unsigned int component_dequeued_frame_seq_no;
 	/* mstream */
 	unsigned int enqueued_request_cnt;
 	unsigned int next_sof_mask_frame_seq_no;
+	unsigned int next_sof_frame_seq_no;
 	unsigned int working_request_seq;
+	bool trigger_next_drain;
 
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 
@@ -433,14 +463,15 @@ struct mtk_cam_ctx {
 
 	spinlock_t streaming_lock;
 	spinlock_t first_cq_lock;
+	struct mutex cleanup_lock;
 
 	struct mtk_cam_hsf_ctrl *hsf;
-	atomic_t watchdog_timeout_cnt;
-	atomic_t watchdog_cnt;
-	atomic_t watchdog_dumped;
-	atomic_t watchdog_dump_cnt;
+
+	/* Watchdog data */
+	spinlock_t watchdog_pipe_lock;
+	unsigned int enabled_watchdog_pipe;
 	struct timer_list watchdog_timer;
-	struct work_struct watchdog_work;
+	struct mtk_cam_watchdog_data watchdog_data[MTKCAM_SUBDEV_MAX];
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;
@@ -459,6 +490,9 @@ struct mtk_cam_device {
 	//struct platform_device *scp_pdev; /* only for scp case? */
 	phandle rproc_phandle;
 	struct rproc *rproc_handle;
+
+	phandle rproc_ccu_phandle;
+	struct rproc *rproc_ccu_handle;
 
 	struct workqueue_struct *link_change_wq;
 	unsigned int composer_cnt;
@@ -598,6 +632,15 @@ mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
 	return s_data->req;
 }
 
+static inline struct mtk_cam_req_raw_pipe_data*
+mtk_cam_s_data_get_raw_pipe_data(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!is_raw_subdev(s_data->pipe_id))
+		return NULL;
+
+	return &s_data->req->raw_pipe_data[s_data->pipe_id];
+}
+
 static inline struct mtk_cam_resource*
 mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 {
@@ -607,7 +650,19 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 	if (!is_raw_subdev(s_data->pipe_id))
 		return NULL;
 
-	return &s_data->req->raw_res[s_data->pipe_id];
+	return &s_data->req->raw_pipe_data[s_data->pipe_id].res;
+}
+
+static inline int
+mtk_cam_s_data_get_res_feature(struct mtk_cam_request_stream_data *s_data)
+{
+	if (s_data == NULL)
+		return 0;
+
+	if (!is_raw_subdev(s_data->pipe_id))
+		return 0;
+
+	return s_data->req->raw_pipe_data[s_data->pipe_id].res.raw_res.feature;
 }
 
 static inline int
@@ -722,6 +777,9 @@ mtk_cam_s_data_set_buf_state(struct mtk_cam_request_stream_data *s_data,
 	return false;
 }
 
+int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
+			      struct mtkcam_ipi_input_param *cfg_in_param);
+
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_sensor_work_to_s_data(struct kthread_work *work)
 {
@@ -764,6 +822,23 @@ static inline void mtk_cam_fs_reset(struct mtk_cam_frame_sync *fs)
 	fs->off_cnt = 0;
 }
 
+static inline struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
+						  unsigned int raw_mask)
+{
+	struct mtk_cam_ctx *ctx;
+	unsigned int i;
+
+	for (i = 0; i < cam->num_raw_drivers; i++) {
+		if (raw_mask & (1 << i)) {
+			ctx = cam->ctxs + i;
+			/* FIXME: correct TWIN case */
+			return cam->raw.devs[i];
+		}
+	}
+
+	return NULL;
+}
+
 //TODO: with spinlock or not? depends on how request works [TBD]
 
 struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
@@ -776,9 +851,9 @@ void mtk_cam_complete_sensor_hdl(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 bool watchdog_scenario(struct mtk_cam_ctx *ctx);
-void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx);
-void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt);
-void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx);
+void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx, int pipe_id);
+void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_id);
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id);
 
 int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 				      struct v4l2_subdev *sd,
@@ -806,8 +881,24 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 			  enum vb2_buffer_state state);
 
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe);
+void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data);
+int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
+	bool streaming, bool config_pipe);
+int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data);
 
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_seninf_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_sv_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,
 			  struct v4l2_subdev_format *sink_fmt);
@@ -828,12 +919,15 @@ int get_main_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_sub_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_last_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 
+int mtk_cam_dc_last_camsv(int raw_id);
+
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
+struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev);
 struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
 					struct mtk_camsv_pipeline *pipe);
 struct mtk_mraw_device *get_mraw_dev(struct mtk_cam_device *cam,
