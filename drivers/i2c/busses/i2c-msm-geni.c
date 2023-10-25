@@ -145,7 +145,7 @@ struct dbg_buf_ctxt {
 	void *map_buf;
 };
 
-struct gsi_tre_queue {
+struct gsi_i2c_tre_queue {
 	u32 msg_cnt; /* transmitted tre msg count */
 	u32 tre_freed_cnt;
 	bool is_multi_descriptor;
@@ -166,7 +166,7 @@ struct geni_i2c_dev {
 	struct completion m_cancel_cmd;
 	struct i2c_msg *cur;
 	struct i2c_msg *msgs;
-	struct gsi_tre_queue gsi_tx;
+	struct gsi_i2c_tre_queue gsi_tx;
 	struct geni_se i2c_rsc;
 	struct clk *m_ahb_clk;
 	struct clk *s_ahb_clk;
@@ -2319,6 +2319,8 @@ static int geni_i2c_probe(struct platform_device *pdev)
 
 	gi2c->dev = dev;
 
+	pr_info("boot_kpi: M - DRIVER GENI_I2C Init\n");
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
@@ -2444,6 +2446,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		test_bus_enable_per_qupv3(gi2c->wrapper_dev, gi2c->ipcl);
 	}
 
+	pr_info("boot_kpi: M - DRIVER GENI_I2C_%d Ready\n", gi2c->adap.nr);
 	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }

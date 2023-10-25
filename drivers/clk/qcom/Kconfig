@@ -1256,6 +1256,24 @@ config SM_CAMCC_CLIFFS
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SM_DEBUGCC_CLIFFS
+	tristate "Cliffs Debug Clock Controller"
+	depends on SM_GCC_CLIFFS
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  Cliffs devices.
+	  Say Y if you want to support the debug clocks such as clock
+	  measurement functionality.
+
+config SM_GCC_PITTI
+	tristate "PITTI Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  PITTI devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, SD/UFS, Camera, Video etc.
+
 endif
 
 config VIRTIO_CLK

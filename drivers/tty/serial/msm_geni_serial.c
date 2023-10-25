@@ -115,9 +115,16 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 #define UART_START_TX		(0x1)
 #define UART_START_BREAK	(0x4)
 #define UART_STOP_BREAK		(0x5)
+
 /* UART S_CMD OP codes */
-#define UART_START_READ		(0x1)
-#define UART_PARAM		(0x1)
+#define UART_START_READ			(0x1)
+#define UART_PARAM			(0x1)
+
+/* When set character with framing error is not written in RX fifo */
+#define UART_PARAM_SKIP_FRAME_ERR_CHAR	(BIT(5))
+
+/* When set break character is not written in RX fifo */
+#define UART_PARAM_SKIP_BREAK_CHAR	(BIT(6))
 #define UART_PARAM_RFR_OPEN		(BIT(7))
 
 /* UART DMA Rx GP_IRQ_BITS */
@@ -2447,7 +2454,8 @@ static void start_rx_sequencer(struct uart_port *uport)
 {
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
-	u32 geni_se_param = UART_PARAM_RFR_OPEN;
+	u32 geni_se_param = (UART_PARAM_SKIP_FRAME_ERR_CHAR |
+			     UART_PARAM_SKIP_BREAK_CHAR | UART_PARAM_RFR_OPEN);
 
 	if (port->startup_in_progress)
 		return;
@@ -2488,7 +2496,10 @@ static void start_rx_sequencer(struct uart_port *uport)
 							&port->rx_dma);
 	}
 
-	/* Start RX with the RFR_OPEN to keep RFR in always ready state */
+	/* Start RX with the RFR_OPEN to keep RFR in always ready state.
+	 * Configure for character with Framing error & Break character
+	 * is not written in RX fifo.
+	 */
 	geni_se_setup_s_cmd(&port->se, UART_START_READ, geni_se_param);
 	msm_geni_serial_enable_interrupts(uport);
 
@@ -3025,29 +3036,28 @@ static void check_rx_buf(char *buf, struct uart_port *uport, int size)
 static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	unsigned int rx_bytes = 0;
+	unsigned int rx_bytes = 0, rx_bytes_copied = 0;
 	struct tty_port *tport;
-	int ret = 0;
+	int ret = 0, cnt = 0, offset = 0;
+	unsigned char *rx_buf;
 	unsigned int geni_status;
 
 	geni_status = geni_read_reg(uport->membase, SE_GENI_STATUS);
 	/* Possible stop rx is called */
 	if (!(geni_status & S_GENI_CMD_ACTIVE)) {
 		UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
-			    "%s: GENI: 0x%x\n", __func__, geni_status);
+			     "%s: GENI: 0x%x\n", __func__, geni_status);
 		return 0;
 	}
 
 	if (unlikely(!msm_port->rx_buf)) {
-		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev, "%s: NULL Rx_buf\n",
-								__func__);
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev, "%s: NULL Rx_buf\n", __func__);
 		return 0;
 	}
 
 	rx_bytes = geni_read_reg(uport->membase, SE_DMA_RX_LEN_IN);
 	if (unlikely(!rx_bytes)) {
-		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev, "%s: Size %d\n",
-					__func__, rx_bytes);
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev, "%s: Size %d\n", __func__, rx_bytes);
 		return 0;
 	}
 
@@ -3071,22 +3081,51 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 
 	tport = &uport->state->port;
 	ret = tty_insert_flip_string(tport, (unsigned char *)(msm_port->rx_buf), rx_bytes);
+	rx_bytes_copied = ret;
 	if (ret != rx_bytes) {
-		dev_err(uport->dev, "%s: ret %d rx_bytes %d\n", __func__, ret, rx_bytes);
-		msm_geni_update_uart_error_code(msm_port, UART_ERROR_RX_TTY_INSERT_FAIL);
-		WARN_ON_ONCE(1);
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
+			     "%s: ret %d rx_bytes %d\n", __func__, ret, rx_bytes);
+		rx_buf = (unsigned char *)(msm_port->rx_buf);
+		rx_buf += ret;
+		/* Bytes still left to copy from rx buffer */
+		rx_bytes = rx_bytes - ret;
+		while (rx_bytes) {
+			/*
+			 * Allocation in tty layer can fail due to higher order page
+			 * request, hence try copying in chunks of 512 bytes which will
+			 * use zero order pages.
+			 */
+			cnt = rx_bytes < 512 ? rx_bytes : 512;
+			UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
+				     "%s: To copy %d, try copying %d\n", __func__, rx_bytes, cnt);
+			ret = tty_insert_flip_string(tport, &rx_buf[offset], cnt);
+			if (ret != cnt) {
+				UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
+					     "%s: Unable to copy %d bytes rx_bytes %d\n",
+					     __func__, cnt, rx_bytes);
+				msm_geni_update_uart_error_code(msm_port,
+								UART_ERROR_RX_TTY_INSERT_FAIL);
+				WARN_ON_ONCE(1);
+				break;
+			}
+			offset += cnt;
+			rx_bytes -= cnt;
+			rx_bytes_copied += ret;
+		}
 	}
-	uport->icount.rx += ret;
+
+	uport->icount.rx += rx_bytes_copied;
 	tty_flip_buffer_push(tport);
-	dump_ipc(uport, msm_port->ipc_log_rx, "DMA Rx", (char *)msm_port->rx_buf, 0, rx_bytes);
+	dump_ipc(uport, msm_port->ipc_log_rx, "DMA Rx",
+		 (char *)msm_port->rx_buf, 0, rx_bytes_copied);
 	/*
 	 * DMA_DONE interrupt doesn't confirm that the DATA is copied to
 	 * DDR memory, sometimes we are queuing the stale data from previous
 	 * transfer to tty flip_buffer, adding memset to zero
 	 * change to idenetify such scenario.
 	 */
-	memset(msm_port->rx_buf, 0, rx_bytes);
-	return ret;
+	memset(msm_port->rx_buf, 0, rx_bytes_copied);
+	return rx_bytes_copied;
 }
 
 static int msm_geni_serial_handle_dma_tx(struct uart_port *uport)
@@ -3253,7 +3292,6 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 				     "%s dma_rx_status:0x%x Rx Framing error:%d\n",
 				     __func__, dma_rx_status,
 				     uport->icount.frame);
-			drop_rx = true;
 		}
 
 		if (dma_rx_status & UART_DMA_RX_BREAK) {
@@ -4839,6 +4877,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		line = pdev->id;
 	}
 
+	if (drv->cons)
+		pr_info("boot_kpi: M - DRIVER GENI_CONSOLE_%d Init\n", line);
+	else
+		pr_info("boot_kpi: M - DRIVER GENI_HS_UART_%d Init\n", line);
+
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
 	if (IS_ERR_OR_NULL(dev_port)) {
@@ -4951,6 +4994,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	ret = uart_add_one_port(drv, uport);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to register uart_port: %d\n", ret);
+
+	if (is_console)
+		pr_info("boot_kpi: M - DRIVER GENI_CONSOLE_%d Ready\n", line);
+	else
+		pr_info("boot_kpi: M - DRIVER GENI_HS_UART_%d Ready\n", line);
 
 exit_geni_serial_probe:
 	UART_LOG_DBG(dev_port->ipc_log_misc, &pdev->dev, "%s: ret:%d\n",
