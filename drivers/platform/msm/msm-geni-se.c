@@ -1806,8 +1806,8 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	dma_rx_attr = geni_read_reg_nolog(base, SE_DMA_RX_ATTR);
 	dma_rx_max_burst_size = geni_read_reg_nolog(base, SE_DMA_RX_MAX_BURST);
 	dma_if_en = geni_read_reg_nolog(base, SE_DMA_IF_EN);
-	geni_clk_ctrl = geni_read_reg_nolog(base, SE_GENI_CLK_CTRL);
-	fifo_if_disable = geni_read_reg_nolog(base, SE_FIFO_IF_DISABLE);
+	geni_clk_ctrl = geni_read_reg_nolog(base, GENI_CLK_CTRL_RO);
+	fifo_if_disable = geni_read_reg_nolog(base, GENI_IF_FIFO_DISABLE_RO);
 
 	device_name = dev_name(rsc->ctrl_dev);
 
