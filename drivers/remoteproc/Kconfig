@@ -399,6 +399,22 @@ config TI_K3_R5_REMOTEPROC
 	  It's safe to say N here if you're not interested in utilizing
 	  a slave processor.
 
+config XIAOMI_ZISP_REMOTEPROC
+	tristate "Xiaomi ZISP remoteproc support"
+	depends on REMOTEPROC
+	select MFD_SYSCON
+	select RPMSG_VIRTIO
+	select WANT_DEV_COREDUMP
+	help
+	  Say y here to support Xiaomi ZISP's remote processors via the remote
+	  processor framework.
+
+config ZISP_OCRAM_AON
+	bool "Whether auto boot chip zisp when Linux bootup and keep ocram always on"
+	depends on XIAOMI_ZISP_REMOTEPROC
+	help
+	  Say y here to keep ocram always on and auto boot chip zisp.
+
 config QCOM_SPSS_AC_RESTRICTION
 	bool "Enable support for Secure Subsystem's access-control restriction"
 	depends on QCOM_SPSS

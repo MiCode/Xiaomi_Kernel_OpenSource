@@ -429,9 +429,18 @@ void cpuidle_install_idle_handler(void)
  */
 void cpuidle_uninstall_idle_handler(void)
 {
+	int cpu;
+
 	if (enabled_devices) {
 		initialized = 0;
-		wake_up_all_online_idle_cpus();
+		preempt_disable();
+		for_each_online_cpu(cpu) {
+			if (cpu == smp_processor_id())
+				continue;
+
+			wake_up_all_online_idle_cpus();
+		}
+		preempt_enable();
 	}
 
 	/*

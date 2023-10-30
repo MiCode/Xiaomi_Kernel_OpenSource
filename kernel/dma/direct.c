@@ -89,6 +89,7 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
 					   &phys_limit);
 	page = dma_alloc_contiguous(dev, size, gfp);
 	if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
+		pr_err("%s: !coherent_ok, gfp_flags %#x(%pGg) cma phys 0x%lx", __func__, gfp, page_to_phys(page));
 		dma_free_contiguous(dev, page, size);
 		page = NULL;
 	}
@@ -96,6 +97,7 @@ again:
 	if (!page)
 		page = alloc_pages_node(node, gfp, get_order(size));
 	if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
+		pr_err("%s: !coherent_ok, gfp_flags %#x(%pGg) buddy phys 0x%lx", __func__, gfp, page_to_phys(page));
 		dma_free_contiguous(dev, page, size);
 		page = NULL;
 

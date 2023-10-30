@@ -266,7 +266,7 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 		goto err;
 	}
 
-	pr_debug("nfc ese cmd hdr 0x%x 0x%x 0x%x\n",
+	pr_info("nfc ese cmd hdr 0x%x 0x%x 0x%x\n",
 				nfc_dev->cold_reset.cmd_buf[0],
 				nfc_dev->cold_reset.cmd_buf[1],
 				nfc_dev->cold_reset.cmd_buf[2]);

@@ -215,6 +215,7 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		bool *energy_eval_needed, bool *ignore_cluster)
 {
 	int i = 0;
+
 	*order_index = 0;
 	*end_index = 0;
 

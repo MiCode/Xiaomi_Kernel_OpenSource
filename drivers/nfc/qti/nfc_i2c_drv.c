@@ -132,8 +132,7 @@ int i2c_read(struct nfc_dev *nfc_dev, char *buf, size_t count, int timeout)
 					ret = wait_event_interruptible(nfc_dev->read_wq,
 						!i2c_dev->irq_enabled);
 					if (ret) {
-						pr_err("%s error wakeup of read wq\n", __func__);
-						ret = -EINTR;
+						pr_debug("%s unexpeted wakeup of read wq, try wait again.\n", __func__);
 						goto err;
 					}
 				}
@@ -146,6 +145,18 @@ int i2c_read(struct nfc_dev *nfc_dev, char *buf, size_t count, int timeout)
 				pr_info("%s: releasing read\n", __func__);
 				ret = -EIO;
 				goto err;
+			}
+			/*
+			 * NFC service wanted to close the driver so,
+			 * release the calling reader thread asap.
+			 *
+			 * This can happen in case of nfc node close call from
+			 * eSE HAL in that case the NFC HAL reader thread
+			 * will again call read system call
+			 */
+			if (nfc_dev->release_read) {
+				pr_debug("%s: releasing read\n", __func__);
+				return 0;
 			}
 			pr_warn("%s: spurious interrupt detected\n", __func__);
 		}
@@ -237,7 +248,7 @@ ssize_t nfc_i2c_dev_read(struct file *filp, char __user *buf,
 	}
 	if (ret > 0) {
 		if (copy_to_user(buf, nfc_dev->read_kbuf, ret)) {
-			pr_warn("%s : failed to copy to user space\n", __func__);
+			pr_warn("%s: failed to copy to user space\n", __func__);
 			ret = -EFAULT;
 		}
 	}
@@ -274,6 +285,7 @@ static const struct file_operations nfc_i2c_dev_fops = {
 	.read = nfc_i2c_dev_read,
 	.write = nfc_i2c_dev_write,
 	.open = nfc_dev_open,
+	.flush = nfc_dev_flush,
 	.release = nfc_dev_close,
 	.unlocked_ioctl = nfc_dev_ioctl,
 };
@@ -286,7 +298,7 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct platform_configs nfc_configs;
 	struct platform_gpio *nfc_gpio = &nfc_configs.gpio;
 
-	pr_debug("%s: enter\n", __func__);
+	pr_info("%s: enter\n", __func__);
 
 	//retrieve details of gpios from dt
 
@@ -557,7 +569,7 @@ MODULE_DEVICE_TABLE(of, nfc_i2c_dev_match_table);
 static int __init nfc_i2c_dev_init(void)
 {
 	int ret = 0;
-
+	pr_info("loading NFC I2C driver\n");
 	ret = i2c_add_driver(&nfc_i2c_dev_driver);
 	if (ret != 0)
 		pr_err("NFC I2C add driver error ret %d\n", ret);
@@ -568,7 +580,7 @@ module_init(nfc_i2c_dev_init);
 
 static void __exit nfc_i2c_dev_exit(void)
 {
-	pr_debug("Unloading NFC I2C driver\n");
+	pr_info("Unloading NFC I2C driver\n");
 	i2c_del_driver(&nfc_i2c_dev_driver);
 }
 

@@ -127,6 +127,29 @@ static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val);
 static void ufs_qcom_hook_clock_scaling(void *used, struct ufs_hba *hba, bool *force_out,
 		bool *force_saling, bool *scale_up);
 
+static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err;
+
+	if (host->cpufreq_dis)
+		return;
+
+	cancel_delayed_work_sync(&host->fwork);
+	if (!host->cur_freq_vote)
+		return;
+	atomic_set(&host->num_reqs_threshold, 0);
+
+	err = ufs_qcom_mod_min_cpufreq(host->config_cpu,
+				       host->min_cpu_scale_freq);
+	if (err < 0)
+		dev_err(hba->dev, "fail set cpufreq-fmin_def %d:\n",
+				err);
+	else
+		host->cur_freq_vote = false;
+	dev_dbg(hba->dev, "%s,err=%d\n", __func__, err);
+}
+
 static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 				      struct ufs_pa_layer_attr *dev_max,
 				      struct ufs_pa_layer_attr *agreed_pwr)
@@ -526,6 +549,14 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	 * so that the ice hardware will be re-initialized properly in the
 	 * later part of the UFS host controller reset.
 	 */
+	ufs_qcom_ice_disable(host);
+
+	/*
+	* The ice registers are also reset to default values after a ufs
+	* host controller reset. Reset the ice internal software flags here
+	* so that the ice hardware will be re-initialized properly in the
+	* later part of the UFS host controller reset.
+	*/
 	ufs_qcom_ice_disable(host);
 
 	if (reenable_intr) {
@@ -3259,9 +3290,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	host->hba = hba;
 	ufshcd_set_variant(hba, host);
 	ut = &host->uqt;
-#if defined(CONFIG_UFS_DBG)
-	host->dbg_en = true;
-#endif
 	host->crash_on_err =
 		of_property_read_bool(np, "qcom,enable_crash_on_err");
 
@@ -4318,6 +4346,7 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
 	of_property_read_u32(np, "ufs-dev-types", &host->ufs_dev_types);
 	host->ufs_dev_revert = of_property_read_bool(np, "qcom,ufs-dev-revert");
+
 
 	if (host->ufs_dev_types >= 2)
 		ufs_qcom_read_nvmem_cell(host);

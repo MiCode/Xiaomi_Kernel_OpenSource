@@ -1539,7 +1539,7 @@ static int adreno_pm_suspend(struct device *dev)
 		return status;
 
 	kgsl_reclaim_close();
-	flush_workqueue(device->events_wq);
+	kthread_flush_worker(device->events_worker);
 	flush_workqueue(kgsl_driver.mem_workqueue);
 
 	return status;

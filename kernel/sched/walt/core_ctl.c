@@ -18,12 +18,18 @@
 
 #include "walt.h"
 #include "trace.h"
+#ifdef CONFIG_METIS_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+#endif
 
 /* mask of CPUs on which there is an outstanding pause claim */
 static cpumask_t cpus_paused_by_us = { CPU_BITS_NONE };
 
 struct cluster_data {
 	bool			inited;
+#ifdef CONFIG_METIS_WALT
+	unsigned int 		user_min_cpus;
+#endif
 	unsigned int		min_cpus;
 	unsigned int		max_cpus;
 	unsigned int		offline_delay_ms;
@@ -84,7 +90,24 @@ ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
 static unsigned int last_nr_big;
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
+#ifdef CONFIG_METIS_WALT
+extern void register_corectl_boost_hook(oem_corectl_hook_f f);
+static void oem_corectl_boost_cpu(unsigned int cid, unsigned int val)
+{
+	struct cluster_data *cstate, *state;
 
+	if (cid < MAX_CLUSTERS) {
+		cstate = &cluster_state[cid];
+		state = &cluster_state[cid];
+		if (val)
+			cstate->min_cpus = min(val, cstate->num_cpus);
+		else
+			cstate->min_cpus = min(cstate->user_min_cpus, state->num_cpus);
+		apply_need(cstate);
+	}
+
+}
+#endif
 /* ========================= sysfs interface =========================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -96,6 +119,10 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 		return -EINVAL;
 
 	state->min_cpus = min(val, state->num_cpus);
+#ifdef CONFIG_METIS_WALT
+	state->user_min_cpus = state->min_cpus;
+#endif
+
 	apply_need(state);
 
 	return count;
@@ -1225,6 +1252,13 @@ static void __ref do_core_ctl(void)
 
 	core_ctl_pause_cpus(&cpus_to_pause);
 	core_ctl_resume_cpus(&cpus_to_unpause);
+	/* Update the final active cpus after the real resume and
+	* pause actions.
+	*/
+	index = 0;
+	for_each_cluster(cluster, index) {
+		cluster->active_cpus = get_active_cpu_count(cluster);
+	}
 }
 
 static int __ref try_core_ctl(void *data)
@@ -1298,6 +1332,10 @@ static int cluster_init(const struct cpumask *mask)
 	}
 	cluster->first_cpu = first_cpu;
 	cluster->min_cpus = 1;
+#ifdef CONFIG_METIS_WALT
+	cluster->user_min_cpus = 1;
+	register_corectl_boost_hook(oem_corectl_boost_cpu);
+#endif
 	cluster->max_cpus = cluster->num_cpus;
 	cluster->need_cpus = cluster->num_cpus;
 	cluster->offline_delay_ms = 100;

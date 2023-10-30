@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_CNSS_STATISTIC
+	tristate "MI CNSS STATISTIC Driver"
+	help
+	  This module creates generic netlink family "mi_cnss_statistic". This can be
+	  used by CNSS driver and userspace utilities to communicate over
+	  netlink sockets for statistic.
+
+

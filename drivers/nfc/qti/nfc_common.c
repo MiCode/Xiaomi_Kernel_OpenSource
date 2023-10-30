@@ -236,8 +236,14 @@ void gpio_set_ven(struct nfc_dev *nfc_dev, int value)
 
 		gpio_set_value(nfc_gpio->ven, value);
 		/* hardware dependent delay */
-		usleep_range(NFC_GPIO_SET_WAIT_TIME_USEC,
+		if(value == 0)
+		{
+			usleep_range(2*NFC_GPIO_SET_WAIT_TIME_USEC,
+			     2*NFC_GPIO_SET_WAIT_TIME_USEC + 100);
+		} else {
+			usleep_range(NFC_GPIO_SET_WAIT_TIME_USEC,
 			     NFC_GPIO_SET_WAIT_TIME_USEC + 100);
+		}
 	}
 }
 
@@ -373,7 +379,7 @@ int nfc_misc_register(struct nfc_dev *nfc_dev,
 int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 {
 	int ret = 0;
-
+	pr_info("%s : enter, arg=%d\n", __func__, arg);
 	if (arg == ESE_POWER_ON) {
 		/*
 		 * Let's store the NFC VEN pin state
@@ -414,15 +420,16 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
  * @arg:    mode that we want to move to
  *
  * Device power control. Depending on the arg value, device moves to
- * different states, refer nfcc_ioctl_request in nfc_common.h for args
+ * different states, refer common.h for args
  *
- * Return: -ENOIOCTLCMD if arg is not supported, 0 in any other case
+ * Return: -ENOIOCTLCMD if arg is not supported, 0 if Success(or no issue)
+ * and error ret code otherwise
  */
 static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 {
 	int ret = 0;
 	struct platform_gpio *nfc_gpio = &nfc_dev->configs.gpio;
-
+	pr_info("%s : enter, arg=%d \n", __func__, arg);
 	if (arg == NFC_POWER_OFF) {
 		/*
 		 * We are attempting a hardware reset so let us disable
@@ -457,7 +464,7 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		 * Setting firmware download gpio to HIGH
 		 * before FW download start
 		 */
-		pr_debug("set fw gpio high\n");
+		pr_info("set fw gpio high\n");
 		set_valid_gpio(nfc_gpio->dwl_req, 1);
 		nfc_dev->nfc_state = NFC_STATE_FW_DWL;
 
@@ -473,7 +480,7 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		 * Setting firmware download gpio to LOW
 		 * FW download finished
 		 */
-		pr_debug("set fw gpio LOW\n");
+		pr_info("set fw gpio LOW\n");
 		set_valid_gpio(nfc_gpio->dwl_req, 0);
 		nfc_dev->nfc_state = NFC_STATE_NCI;
 
@@ -528,7 +535,7 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 	if (!nfc_dev)
 		return -ENODEV;
 
-	pr_debug("%s cmd = %x arg = %zx\n", __func__, cmd, arg);
+	pr_info("%s cmd = %x arg = %zx\n", __func__, cmd, arg);
 
 	switch (cmd) {
 	case NFC_SET_PWR:
@@ -563,8 +570,8 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 
 int nfc_dev_open(struct inode *inode, struct file *filp)
 {
-	struct nfc_dev *nfc_dev = container_of(inode->i_cdev,
-					struct nfc_dev, c_dev);
+	struct nfc_dev *nfc_dev = NULL;
+	nfc_dev = container_of(inode->i_cdev, struct nfc_dev, c_dev);
 
 	if (!nfc_dev)
 		return -ENODEV;
@@ -595,10 +602,33 @@ int nfc_dev_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+int nfc_dev_flush(struct file *pfile, fl_owner_t id)
+{
+	struct nfc_dev *nfc_dev = pfile->private_data;
+
+	if (!nfc_dev)
+		return -ENODEV;
+	/*
+	 * release blocked user thread waiting for pending read during close
+	 */
+	if (!mutex_trylock(&nfc_dev->read_mutex)) {
+		nfc_dev->release_read = true;
+		nfc_dev->nfc_disable_intr(nfc_dev);
+		wake_up(&nfc_dev->read_wq);
+		pr_debug("%s: waiting for release of blocked read\n", __func__);
+		mutex_lock(&nfc_dev->read_mutex);
+		nfc_dev->release_read = false;
+	} else {
+		pr_debug("%s: read thread already released\n", __func__);
+	}
+	mutex_unlock(&nfc_dev->read_mutex);
+	return 0;
+}
+
 int nfc_dev_close(struct inode *inode, struct file *filp)
 {
-	struct nfc_dev *nfc_dev = container_of(inode->i_cdev,
-					struct nfc_dev, c_dev);
+	struct nfc_dev *nfc_dev = NULL;
+	nfc_dev = container_of(inode->i_cdev, struct nfc_dev, c_dev);
 
 	if (!nfc_dev)
 		return -ENODEV;
@@ -835,7 +865,7 @@ static enum chip_types get_nfcc_chip_type(struct nfc_dev *nfc_dev)
 			chip_type = CHIP_SN1XX;
 		else if (rom_version == SN220_ROM_VER && major_version == SN220_MAJOR_VER)
 			chip_type = CHIP_SN220;
-		pr_debug(" %s:NCI  Core Reset ntf 0x%02x%02x%02x%02x\n",
+		pr_info(" %s:NCI  Core Reset ntf 0x%02x%02x%02x%02x\n",
 			__func__, rsp[0], rsp[1], rsp[2], rsp[3]);
 
 		nfc_dev->nqx_info.info.chip_type = rsp[NCI_HDR_LEN + rsp[NCI_PAYLOAD_LEN_IDX] -

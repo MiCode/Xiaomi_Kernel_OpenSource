@@ -16,8 +16,6 @@ config SCHED_WALT
 config SCHED_WALT_DEBUG
 	tristate "WALT debug module"
 	depends on SCHED_WALT
-	select TRACE_PREEMPT_TOGGLE
-	select TRACE_IRQFLAGS
 	help
 	  This module provides the means of debugging long preempt and
 	  irq disable code. This helps in identifying the scheduling

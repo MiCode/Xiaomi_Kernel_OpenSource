@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config  PD_RT17XX
+	tristate "RT17XX PDPHY"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for rt17xx pdphy.
+
+config  CHARGER_SYV690D
+	tristate "SYV690D Charger"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for syv690d Charger.
+
+config  FUEL_GAUGE_BQ27Z561
+	tristate "BQ27z561 fuel gauge driver"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for bq27z561 fuel gauge driver
+
+config  CHARGER_PUMP_SC8551A
+	tristate "SC8551 Divider Charger Driver"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for sc8551a charger pump driver
+
+config  CHARGER_PUMP_LN8000
+	tristate "LN8000 Divider Charger Driver"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for ln8000 charger pump driver

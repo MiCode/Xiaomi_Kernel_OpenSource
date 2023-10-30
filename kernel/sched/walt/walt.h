@@ -295,7 +295,9 @@ extern unsigned int sched_lib_mask_force;
 #define WALT_CPUFREQ_PL			(1U << 3)
 #define WALT_CPUFREQ_EARLY_DET		(1U << 4)
 #define WALT_CPUFREQ_BOOST_UPDATE	(1U << 5)
-
+#ifdef CONFIG_METIS_WALT
+#define OEM_CPUFREQ_UPDATE		(1U << 6)
+#endif
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2

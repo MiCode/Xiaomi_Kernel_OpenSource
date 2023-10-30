@@ -667,11 +667,11 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	if (id == -ENOSPC) {
 		/*
 		 * Before declaring that there are no contexts left try
-		 * flushing the event workqueue just in case there are
+		 * flushing the event worker just in case there are
 		 * detached contexts waiting to finish
 		 */
 
-		flush_workqueue(device->events_wq);
+		kthread_flush_worker(device->events_worker);
 		id = _kgsl_get_context_id(device);
 	}
 
@@ -1120,9 +1120,12 @@ static struct kgsl_process_private *kgsl_process_private_open(
 	 * private destroy is triggered but didn't complete. Retry creating
 	 * process private after sometime to allow previous destroy to complete.
 	 */
-	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 50); i++) {
+	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 100); i++) {
 		usleep_range(10, 100);
 		private = _process_private_open(device);
+	}
+	if (i >= 100) {
+		pr_info("kgsl: kgsl_process_private_open times = %d\n", i);
 	}
 
 	return private;
@@ -1245,7 +1248,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 static int kgsl_open_device(struct kgsl_device *device)
 {
 	int result = 0;
-
+	pr_info("kgsl: kgsl_open_device Enter\n");
 	mutex_lock(&device->mutex);
 	if (device->open_count == 0) {
 		result = device->ftbl->first_open(device);
@@ -1255,6 +1258,7 @@ static int kgsl_open_device(struct kgsl_device *device)
 	device->open_count++;
 out:
 	mutex_unlock(&device->mutex);
+	pr_info("kgsl: kgsl_open_device Exit\n");
 	return result;
 }
 
@@ -4932,15 +4936,16 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error;
 
-	device->events_wq = alloc_workqueue("kgsl-events",
-		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS | WQ_HIGHPRI, 0);
+	device->events_worker = kthread_create_worker(0, "kgsl-events");
 
-	if (!device->events_wq) {
-		dev_err(device->dev, "Failed to allocate events workqueue\n");
-		status = -ENOMEM;
+	if (IS_ERR(device->events_worker)) {
+		status = PTR_ERR(device->events_worker);
+		dev_err(device->dev, "Failed to create events worker ret=%d\n", status);
 		goto error_pwrctrl_close;
 	}
+	sched_set_fifo(device->events_worker->task);
 
+	/* This can return -EPROBE_DEFER */
 	status = kgsl_reclaim_init();
 	if (status)
 		goto error_pwrctrl_close;
@@ -4964,11 +4969,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	return 0;
 
 error_pwrctrl_close:
-	if (device->events_wq) {
-		destroy_workqueue(device->events_wq);
-		device->events_wq = NULL;
-	}
-
+	if (!IS_ERR(device->events_worker))
+		kthread_destroy_worker(device->events_worker);
 	kgsl_pwrctrl_close(device);
 error:
 	_unregister_device(device);
@@ -4977,10 +4979,7 @@ error:
 
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
-	if (device->events_wq) {
-		destroy_workqueue(device->events_wq);
-		device->events_wq = NULL;
-	}
+	kthread_destroy_worker(device->events_worker);
 
 	kgsl_device_snapshot_close(device);
 

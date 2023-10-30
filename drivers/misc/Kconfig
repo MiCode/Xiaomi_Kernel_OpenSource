@@ -510,6 +510,18 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
+config GPIO_TESTING_MODE
+	tristate "A simple GPIO testing mode driver for sar controler"
+	default n
+	help
+	  Enable driver for a simple testing mode detection
+
+config LDO_WL2866D
+	tristate "WL2866 regulators"
+	help
+	  This driver provides support for the voltage regulators and top-level
+	  chip enablement of WL2866
+
 config KINECTICS_XR_NORDIC
 	tristate "Nordic Misc driver support in XR Reference devices"
 	help
@@ -518,6 +530,12 @@ config KINECTICS_XR_NORDIC
 	   code to power up the Nordic chip and initializes SPI interface. Also,
 	   this also parses the gpios and interrupts from device tree and sets
 	   the gpios and interrupt handler for handling the interrupt.
+
+config MMHARDWARE_DETECTION
+	tristate "Register xiaomi mmhardware detection module"
+	default n
+	help
+	  This adds support for mmhardware detection
 
 source "drivers/misc/rtimd-i2c/Kconfig"
 source "drivers/misc/c2port/Kconfig"
@@ -536,4 +554,7 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/isl97900_led/Kconfig"
 source "drivers/misc/uacce/Kconfig"
+source "drivers/misc/hwid/Kconfig"
+source "drivers/misc/mi_gamekey/Kconfig"
+source "drivers/misc/plaid/Kconfig"
 endmenu

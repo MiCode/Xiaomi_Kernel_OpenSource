@@ -10,52 +10,6 @@
   i2c_smbus_read_byte_data
   i2c_smbus_write_byte_data
 
-#required by memory module
-  blk_execute_rq
-  blk_rq_map_kern
-  scsi_device_lookup
-  scsi_host_lookup
-  scsi_host_put
-  ufshcd_read_desc_param
-  utf16s_to_utf8s
-  async_schedule_node
-  blk_ksm_register
-  blk_ksm_reprogram_all_keys
-  blk_mq_alloc_tag_set
-  blk_mq_init_queue
-  blk_mq_tagset_busy_iter
-  bsg_job_done
-  bsg_remove_queue
-  bsg_setup_queue
-  dev_pm_opp_remove
-  scsi_add_host_with_dma
-  scsi_block_requests
-  scsi_dma_unmap
-  scsi_is_host_device
-  scsi_remove_host
-  scsi_report_bus_reset
-  scsi_scan_host
-  scsi_unblock_requests
-  scsi_change_queue_depth
-  scsi_print_command
-  scsi_dma_map
-  scsi_host_alloc
-  scsi_normalize_sense
-  sg_copy_from_buffer
-  sg_copy_to_buffer
-  ufshcd_alloc_host
-  ufshcd_config_pwr_mode
-  ufshcd_dealloc_host
-  ufshcd_hba_enable
-  ufshcd_make_hba_operational
-  ufshcd_map_desc_id_to_length
-  ufshcd_query_attr_retry
-  ufshcd_query_flag_retry
-  ufshcd_update_evt_hist
-  wait_for_completion_io_timeout
-  __scsi_add_device
-  __scsi_execute
-  blk_mq_free_tag_set
   blk_queue_update_dma_alignment
   blk_queue_update_dma_pad
   blk_ksm_get_slot_idx

@@ -875,8 +875,8 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 
 		bus_bw_update_noc = geni_se_check_bus_bw_noc(geni_se_dev);
 		/* qup-ddr path is specified as the last entry in dt, so the
-		 * index is set to num_paths-1.
-		 */
+		* index is set to num_paths-1.
+		*/
 		index = geni_se_dev->num_paths - 1;
 		geni_se_dev->vectors[index].ab = geni_se_dev->cur_ab_noc;
 		geni_se_dev->vectors[index].ib = geni_se_dev->cur_ib_noc;
@@ -1046,8 +1046,8 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 
 		bus_bw_update_noc = geni_se_check_bus_bw_noc(geni_se_dev);
 		/* qup-ddr path is specified as the last entry in dt, so the
-		 * index is set to num_paths-1.
-		 */
+		* index is set to num_paths-1.
+		*/
 		index = geni_se_dev->num_paths - 1;
 		geni_se_dev->vectors[index].ab = geni_se_dev->cur_ab_noc;
 		geni_se_dev->vectors[index].ib = geni_se_dev->cur_ib_noc;

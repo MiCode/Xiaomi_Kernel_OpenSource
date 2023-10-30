@@ -1441,11 +1441,14 @@ endif
 # needs to be updated, so this check is forced on all builds
 
 uts_len := 64
-ifneq (,$(BUILD_NUMBER))
-	UTS_RELEASE=$(KERNELRELEASE)-ab$(BUILD_NUMBER)
-else
-	UTS_RELEASE=$(KERNELRELEASE)
-endif
+
+#ifneq (,$(BUILD_NUMBER))
+#	UTS_RELEASE=$(KERNELRELEASE)-ab$(BUILD_NUMBER)
+#else
+#	UTS_RELEASE=$(KERNELRELEASE)
+#endif
+UTS_RELEASE=$(KERNELRELEASE)
+
 define filechk_utsrelease.h
 	if [ `echo -n "$(UTS_RELEASE)" | wc -c ` -gt $(uts_len) ]; then \
 		echo '"$(UTS_RELEASE)" exceeds $(uts_len) characters' >&2;    \

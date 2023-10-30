@@ -109,6 +109,12 @@ struct ddr_stats_g_data *ddr_gdata;
 bool ddr_freq_update;
 ktime_t send_msg_time;
 
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+/*add  CONFIG_MI_POWER_INFO_MODULE */
+//#include "../../misc/mi-power/mi_power.h"
+extern void soc_sleep_stats_dbg_register(struct stats_prv_data *prv_data);
+#endif // end of CONFIG_MI_POWER_INFO_MODULE
+
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
 	u64 accumulated = stat->accumulated;
@@ -572,6 +578,11 @@ skip_ddr_stats:
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
 #endif
+
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+	/*add  CONFIG_MI_POWER_INFO_MODULE  register */
+	soc_sleep_stats_dbg_register(prv_data);
+#endif // end of CONFIG_MI_POWER_INFO_MODULE
 
 	return 0;
 }

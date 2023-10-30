@@ -31,6 +31,7 @@
 #include "qmi.h"
 #include "debug.h"
 #include "genl.h"
+#include "hwid.h"
 
 #define WLFW_SERVICE_WCN_INS_ID_V01	3
 #define WLFW_SERVICE_INS_ID_V01		0
@@ -42,7 +43,13 @@
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan."
+#define ELF_BDF_FILE_NAME_L9S		"bd_l9s.elf"
+#define ELF_BDF_FILE_NAME_L9S_GLOBAL	"bd_l9sgl.elf"
+#define BIN_BDF_FILE_NAME_N16		"bd_n16.bin"
+#define BIN_BDF_FILE_NAME_N16_GLOBAL	"bd_n16g.bin"
+#define BIN_BDF_FILE_NAME_N16_INDIA	"bd_n16i.bin"
 #define REGDB_FILE_NAME			"regdb.bin"
+#define REGDB_FILE_NAME_XIAOMI		"regdb_xiaomi.bin"
 
 #define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
 
@@ -1014,24 +1021,49 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 	char foundry_specific_filename[ICNSS_MAX_FILE_NAME];
 	int ret = 0;
 
+	uint32_t hw_platform_ver = 0;
+	uint32_t hw_country_ver = 0;
+	hw_country_ver = get_hw_country_version();
+	hw_platform_ver = get_hw_version_platform();
+
 	switch (bdf_type) {
 	case ICNSS_BDF_ELF:
-		if (priv->board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
-		else if (priv->board_id < 0xFF)
+		if (priv->board_id == 0xFF) {
+		        if (hw_platform_ver == HARDWARE_PROJECT_L9S) {
+				if ((uint32_t)CountryGlobal == hw_country_ver)
+					snprintf(filename_tmp, filename_len,
+						ELF_BDF_FILE_NAME_L9S_GLOBAL);
+				else
+					snprintf(filename_tmp, filename_len,
+						ELF_BDF_FILE_NAME_L9S);
+			} else
+			        snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+		} else if (priv->board_id < 0xFF) {
 			snprintf(filename_tmp, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
 				 priv->board_id);
-		else
+		} else
 			snprintf(filename_tmp, filename_len,
 				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
 				 priv->board_id >> 8 & 0xFF,
 				 priv->board_id & 0xFF);
 		break;
 	case ICNSS_BDF_BIN:
-		if (priv->board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
-		else if (priv->board_id >= WLAN_BOARD_ID_INDEX)
+		if (priv->board_id == 0xFF) {
+			if (hw_platform_ver == HARDWARE_PROJECT_N16) {
+				if ((uint32_t)CountryGlobal == hw_country_ver) {
+					snprintf(filename_tmp, filename_len,
+						BIN_BDF_FILE_NAME_N16_GLOBAL);
+				} else if ((uint32_t)CountryIndia == hw_country_ver) {
+					snprintf(filename_tmp, filename_len,
+						BIN_BDF_FILE_NAME_N16_INDIA);
+				} else {
+					snprintf(filename_tmp, filename_len,
+						BIN_BDF_FILE_NAME_N16);
+				}
+			} else
+				snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
+		} else if (priv->board_id >= WLAN_BOARD_ID_INDEX)
 			snprintf(filename_tmp, filename_len,
 				 BIN_BDF_FILE_NAME_PREFIX "%03x",
 				 priv->board_id);
@@ -1050,7 +1082,7 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 		}
 		break;
 	case ICNSS_BDF_REGDB:
-		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
+		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME_XIAOMI);
 		break;
 	default:
 		icnss_pr_err("Invalid BDF type: %d\n",

@@ -14,8 +14,18 @@ struct typec_role_class {
 	struct typec_partner_desc	typec_partner_desc;
 };
 
+enum charger_notifier_events {
+	/* thermal board temp */
+	 THERMAL_BOARD_TEMP = 0,
+};
+
 int qti_typec_partner_register(struct typec_role_class *chip, int mode);
 void qti_typec_partner_unregister(struct typec_role_class *chip);
 struct typec_role_class *qti_typec_class_init(struct device *dev);
 void qti_typec_class_deinit(struct typec_role_class *chip);
+
+extern struct srcu_notifier_head charger_notifier;
+extern int charger_reg_notifier(struct notifier_block *nb);
+extern int charger_unreg_notifier(struct notifier_block *nb);
+extern int charger_notifier_call_cnain(unsigned long event,int val);
 #endif /* __QTI_TYPEC_CLASS_H */

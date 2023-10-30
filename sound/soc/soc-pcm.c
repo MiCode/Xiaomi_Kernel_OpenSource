@@ -10,6 +10,7 @@
 // Authors: Liam Girdwood <lrg@ti.com>
 //          Mark Brown <broonie@opensource.wolfsonmicro.com>
 
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/delay.h>

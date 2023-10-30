@@ -1,4 +1,16 @@
 # SPDX-License-Identifier: GPL-2.0-only
+#
+# USB PS5169 driver configuration
+#
+menu "USB PS5169 drivers"
+
+config SELF_USB_REDRIVER
+	tristate "Redriver PS5169 framework"
+	help
+	  If you're using  ps5169 file
+	  platform, please say 'Y' or 'M' here.
+
+endmenu
 
 menu "USB3 linear redriver"
 

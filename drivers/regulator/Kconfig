@@ -1404,6 +1404,14 @@ config REGULATOR_QCOM_LABIBB
 	  boost regulator and IBB can be used as a negative boost regulator
 	  for LCD display panel.
 
+config REGULATOR_WL2866D
+	tristate "WILL Semi Technologies Inc. WL2866D regulator driver"
+	depends on I2C
+	help
+	  This driver controls WL2866D PMIC chip and the voltage
+	  regulators found in WILL Semi Technologies Inc. WL2866D
+	  PMIC.
+
 config REGULATOR_QTI_OCP_NOTIFIER
 	tristate "Qualcomm Technologies, Inc. Regulator OCP Notifier Driver"
 	help
@@ -1413,5 +1421,13 @@ config REGULATOR_QTI_OCP_NOTIFIER
 	  providing a more graceful recovery mechanism than resetting the entire
 	  system.
 
+config I2C_RETRY
+	bool "Stub Regulator"
+	help
+	  This help control I2C retry functions
+config REGULATOR_WL2866D_N16
+	tristate "Xiaomi WL2866D regulator Driver"
+	help
+	  This driver provides support for the pmic regulator WL2866.
 endif
 

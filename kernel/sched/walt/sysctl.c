@@ -872,6 +872,15 @@ struct ctl_table walt_table[] = {
 		.extra2		= SYSCTL_ONE,
 	},
 	{
+		.procname	= "sched_asymcap_booster",
+		.data		= &sysctl_sched_asymcap_boost,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
 		.procname	= "cluster0_rel",
 		.data		= sysctl_cluster_arr[0],
 		.maxlen		= sizeof(int) * 15,
