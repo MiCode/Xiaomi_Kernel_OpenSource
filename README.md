@@ -191,3 +191,4 @@
 | pissarro-s-oss | Redmi Note 11 Pro | Android S | bsp-s-t-alps-release-s0.bsp-pre10.2 | [pissarro-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pissarro-s-oss) |
 | corot-s-oss | Redmi K60 Ultra | Android T | t-alps-release-t0.mp1.tc8sp2-V1.14 | [corot-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/corot-t-oss) |
 | bsp-aristotle-s-oss | Xiaomi 13T | Android T | alps-mp-s0.mp1.tc8sp2-mt6983-V1.0.1 | [bsp-aristotle-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-aristotle-s-oss) |
+| garnet-t-oss | Redmi Note 13 Pro | Android T | KERNEL.PLATFORM.1.0.r1-15100-kernel.0-1* | [garnet-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/garnet-t-oss) |
