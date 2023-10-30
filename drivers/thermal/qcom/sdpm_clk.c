@@ -216,8 +216,11 @@ static int sdpm_clk_device_probe(struct platform_device *pdev)
 
 		sdpm_clk->clk_data[idx].clk = devm_clk_get(dev,
 				sdpm_clk->clk_data[idx].clock_name);
-		if (IS_ERR(sdpm_clk->clk_data[idx].clk))
-			return PTR_ERR(sdpm_clk->clk_data[idx].clk);
+		if (IS_ERR(sdpm_clk->clk_data[idx].clk)) {
+			sdpm_clk->clk_data[idx].clk = NULL;
+			sdpm_clk->clk_data[idx].clock_name = NULL;
+			continue;
+		}
 
 		ret = of_property_read_u32_index(dev_node, "csr-id", idx, &csr);
 		if (ret < 0) {
