@@ -44,6 +44,14 @@ menuconfig TYPEC
 	  <https://www.kernel.org/doc/html/latest/driver-api/usb/typec.html>
 	  and ABI (Documentation/ABI/testing/sysfs-class-typec).
 
+config TYPEC_CLASS
+        tristate "NOPMI Charger Support"
+        depends on I2C
+        help
+          Say Y to include support for NOPMI Charger.
+
+source "drivers/usb/typec/wusb3801x/Kconfig"
+
 if TYPEC
 
 source "drivers/usb/typec/tcpm/Kconfig"

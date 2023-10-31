@@ -168,7 +168,6 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		bool *energy_eval_needed)
 {
 	int i = 0;
-
 	*order_index = 0;
 	*end_index = 0;
 
@@ -324,8 +323,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 			/* record the prss as we visit cpus in a cluster */
 			fbt_env->prs[i] = wrq->prev_runnable_sum + wrq->grp_time.prev_runnable_sum;
 
-			if (!cpu_active(i))
+			if (!cpu_active(i)) {
 				continue;
+			}
 
 			if (cpu_halted(i))
 				continue;
@@ -334,18 +334,22 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * This CPU is the target of an active migration that's
 			 * yet to complete. Avoid placing another task on it.
 			 */
-			if (is_reserved(i))
+			if (is_reserved(i)) {
 				continue;
+			}
 
-			if (sched_cpu_high_irqload(i))
+			if (sched_cpu_high_irqload(i)) {
 				continue;
+			}
 
-			if (fbt_env->skip_cpu == i)
+			if (fbt_env->skip_cpu == i) {
 				continue;
+			}
 
 			if (wrq->num_mvp_tasks > 0 &&
-				per_task_boost(p) != TASK_BOOST_STRICT_MAX)
+				per_task_boost(p) != TASK_BOOST_STRICT_MAX) {
 				continue;
+			}
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -376,8 +380,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * than the one required to boost the task.
 			 */
 			new_cpu_util = wake_cpu_util + min_task_util;
-			if (new_cpu_util > capacity_orig)
+			if (new_cpu_util > capacity_orig) {
 				continue;
+			}
 
 			/*
 			 * Find an optimal backup IDLE CPU for non latency
@@ -404,8 +409,10 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 				this_complex_idle = is_complex_sibling_idle(i) ? 1 : 0;
 
-				if (this_complex_idle < best_complex_idle)
+				if (this_complex_idle < best_complex_idle) {
 					continue;
+				}
+
 				/*
 				 * Prefer shallowest over deeper idle state cpu,
 				 * of same capacity cpus.
@@ -428,8 +435,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 			}
 
 			/* skip visiting any more busy if idle was found */
-			if (best_idle_cpu_cluster != -1)
+			if (best_idle_cpu_cluster != -1) {
 				continue;
+			}
 
 			/*
 			 * Compute the maximum possible capacity we expect
@@ -446,17 +454,20 @@ static void walt_find_best_target(struct sched_domain *sd,
 			 * boost.
 			 */
 			if (rtg_high_prio_task) {
-				if (walt_nr_rtg_high_prio(i) > target_nr_rtg_high_prio)
+				if (walt_nr_rtg_high_prio(i) > target_nr_rtg_high_prio) {
 					continue;
+				}
 
 				/* Favor CPUs with maximum spare capacity */
 				if (walt_nr_rtg_high_prio(i) == target_nr_rtg_high_prio &&
-						spare_cap < target_max_spare_cap)
+						spare_cap < target_max_spare_cap) {
 					continue;
+				}
 			} else {
 				/* Favor CPUs with maximum spare capacity */
-				if (spare_cap < target_max_spare_cap)
+				if (spare_cap < target_max_spare_cap) {
 					continue;
+				}
 			}
 
 			target_max_spare_cap = spare_cap;
@@ -963,8 +974,8 @@ unlock:
 	if (best_energy_cpu < 0 || best_energy_cpu >= WALT_NR_CPUS)
 		best_energy_cpu = prev_cpu;
 
-	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
-			sync, fbt_env.need_idle, fbt_env.fastpath,
+	trace_sched_task_util(p, cpumask_bits(candidates)[0],
+			best_energy_cpu, sync, fbt_env.need_idle, fbt_env.fastpath,
 			start_t, uclamp_boost, start_cpu);
 
 	return best_energy_cpu;

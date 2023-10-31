@@ -334,6 +334,8 @@ static int uaudio_snd_usb_pcm_change_state(struct snd_usb_substream *subs, int s
 static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 	size_t iova_size, size_t mapped_iova_size);
 
+extern void kick_usbpd_vbus_sm(void);
+
 static enum usb_audio_device_speed_enum_v01
 get_speed_info(enum usb_device_speed udev_speed)
 {
@@ -1527,6 +1529,11 @@ static int enable_audio_stream(struct snd_usb_substream *subs,
 		if (ret < 0) {
 			uaudio_err("%d:%d: usb_set_interface failed (%d)\n",
 					fmt->iface, fmt->altsetting, ret);
+			if(((0x2717 == USB_ID_VENDOR(subs->stream->chip->usb_id))&&(0x3801 == USB_ID_PRODUCT(subs->stream->chip->usb_id)))
+				|| ((0xbe57 == USB_ID_VENDOR(subs->stream->chip->usb_id))&&(0x0238 == USB_ID_PRODUCT(subs->stream->chip->usb_id))))
+			{
+				kick_usbpd_vbus_sm();
+			}
 			return ret;
 		}
 

@@ -116,22 +116,26 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 
 	rcu_read_lock();
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
+
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
 			bool lt;
 
 			trace_sched_cpu_util(cpu, lowest_mask);
 
-			if (!cpu_active(cpu))
+			if (!cpu_active(cpu)) {
 				continue;
+			}
 
 			if (cpu_halted(cpu))
 				continue;
 
-			if (sched_cpu_high_irqload(cpu))
+			if (sched_cpu_high_irqload(cpu)) {
 				continue;
+			}
 
-			if (__cpu_overutilized(cpu, tutil))
+			if (__cpu_overutilized(cpu, tutil)) {
 				continue;
+			}
 
 			util = cpu_util(cpu);
 
@@ -142,22 +146,25 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			 * When the best is suitable and the current is not,
 			 * skip it
 			 */
-			if (lt && !best_cpu_lt)
+			if (lt && !best_cpu_lt) {
 				continue;
+			}
 
 			/*
 			 * Either both are sutilable or unsuitable, load takes
 			 * precedence.
 			 */
-			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
+			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util)) {
 				continue;
+			}
 
 			/*
 			 * If the previous CPU has same load, keep it as
 			 * best_cpu.
 			 */
-			if (best_cpu_util == util && *best_cpu == task_cpu(task))
+			if (best_cpu_util == util && *best_cpu == task_cpu(task)) {
 				continue;
+			}
 
 			/*
 			 * If candidate CPU is the previous CPU, select it.
@@ -170,12 +177,14 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 
 			util_cum = cpu_util_cum(cpu);
 			if (cpu != task_cpu(task) && best_cpu_util == util) {
-				if (best_idle_exit_latency < cpu_idle_exit_latency)
+				if (best_idle_exit_latency < cpu_idle_exit_latency) {
 					continue;
+				}
 
 				if (best_idle_exit_latency == cpu_idle_exit_latency &&
-						best_cpu_util_cum < util_cum)
+						best_cpu_util_cum < util_cum) {
 					continue;
+				}
 			}
 
 			best_idle_exit_latency = cpu_idle_exit_latency;
@@ -231,7 +240,6 @@ enum rt_fastpaths {
 	SYNC_WAKEUP,
 	CLUSTER_PACKING_FASTPATH,
 };
-
 
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)

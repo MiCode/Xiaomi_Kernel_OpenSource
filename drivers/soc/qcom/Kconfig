@@ -1339,4 +1339,11 @@ config QCOM_S2D_VENDOR_HOOK
           core kernel and help to do bootloader hibernation specific job.
 	  Enable this if bootloader hibernation is enabled.
 
+config QCOM_MINIDUMP_LAST_KMSG
+       bool "export /proc/last_kmsg"
+       depends on QCOM_MINIDUMP
+       help
+         When the option is enabled, last_kmsg will export a proc filesystem
+         interface /proc/last_kmsg.
+
 endmenu

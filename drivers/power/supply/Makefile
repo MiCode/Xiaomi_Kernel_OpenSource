@@ -107,3 +107,6 @@ obj-$(CONFIG_BATTERY_SURFACE)	+= surface_battery.o
 obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
 obj-$(CONFIG_QTI_BATTERY_CHARGER)	+= qti_battery_charger.o
 obj-$(CONFIG_QCOM_POWER_SUPPLY)	+= qcom/
+obj-$(CONFIG_NOPMI_POWER_SUPPLY)	+= nopmi/
+obj-$(CONFIG_NOPMI_POWER_SUPPLY)     += nopmi-chg.o
+nopmi-chg-y        += nopmi_chg.o nopmi_chg_jeita.o nopmi_chg_common.o

@@ -505,6 +505,12 @@ config OPEN_DICE
 
 	  If unsure, say N.
 
+config PERF_HELPER
+	tristate "Perf helper"
+	default n
+	help
+	  this module support record perf messages.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -522,4 +528,6 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/uacce/Kconfig"
 source "drivers/misc/pvpanic/Kconfig"
+# BSP.System - 2022.4.2 - add simtray status
+source "drivers/misc/simtray/Kconfig"
 endmenu

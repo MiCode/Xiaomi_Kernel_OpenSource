@@ -334,6 +334,11 @@ config POWER_RESET_QCOM_VM
 	 Say Y here if you have a MSM virtual machine and wish to enable
 	 restart driver.
 
+config LAST_LOG_MINIDUMP
+	bool "support last log keep in minidump partition"
+	help
+	  support last dmesg and last logcat keep in minidump partition
+
 endif
 
 config PM_SILENT_MODE

@@ -40,7 +40,12 @@ struct qcom_dload {
 static bool enable_dump =
 	IS_ENABLED(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT);
 static enum qcom_download_mode current_download_mode = QCOM_DOWNLOAD_NODUMP;
+
+#ifdef CONFIG_LAST_LOG_MINIDUMP
+static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_BOTHDUMP;
+#else
 static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_FULLDUMP;
+#endif
 
 static int set_download_mode(enum qcom_download_mode mode)
 {

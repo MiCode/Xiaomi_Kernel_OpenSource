@@ -2525,8 +2525,12 @@ static int dwc3_gadget_soft_disconnect(struct dwc3 *dwc)
 		ret = wait_for_completion_timeout(&dwc->ep0_in_setup,
 				msecs_to_jiffies(DWC3_PULL_UP_TIMEOUT));
 		spin_lock_irqsave(&dwc->lock, flags);
-		if (ret == 0)
+		if (ret == 0){
 			dev_warn(dwc->dev, "timed out waiting for SETUP phase\n");
+			dwc3_ep0_end_control_data(dwc, dwc->eps[0]);
+			dwc3_ep0_end_control_data(dwc, dwc->eps[1]);
+			dwc3_ep0_stall_and_restart(dwc);
+		}
 	}
 
 	/*

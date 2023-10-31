@@ -21,9 +21,11 @@
 #include <soc/qcom/qcom_ramdump.h>
 #endif
 
+#define MAX_SSR_REASON_LEN	130U
 #define SMEM_SSR_REASON_MSS0	421
 #define SMEM_SSR_DATA_MSS0	611
 #define SMEM_MODEM	1
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
 
 /*
  * This program collects the data from SMEM regions whenever the modem crashes
@@ -221,6 +223,8 @@ static int microdump_crash_collection(void)
 
 		goto out;
 	}
+	strlcpy(last_modem_sfr_reason, crash_reason, MAX_SSR_REASON_LEN);
+	pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
 
 	segment[1].va = crash_reason;
 	segment[1].size = size_reason;

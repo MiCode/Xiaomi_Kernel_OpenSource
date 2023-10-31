@@ -57,3 +57,4 @@ obj-$(CONFIG_MSM_ADSPRPC_TRUSTED)	+= frpc_trusted-adsprpc.o
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
 obj-$(CONFIG_ADI)		+= adi.o
 obj-$(CONFIG_VIRTIO_FASTRPC) += virtio_fastrpc/
+obj-$(CONFIG_XLOGCHAR)		+= xlogchar.o

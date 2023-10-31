@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "No PMI Technologies, Inc. Charger and Fuel Gauge support"
+
+config BQ2589X_CHARGER
+	tristate "TI BQ2589X Battery Charger"
+	depends on I2C
+	help
+	  Say Y to include support for BQ2589X Battery Charger.
+
+config SH36610X_BATTERY
+	tristate "SH36610x battery driver"
+	depends on I2C
+	help
+		Say Y to enable support of SH36610x Battery Charger.
+
+config QCOM_PMIC_VOTER
+	tristate "QCOM pmic voter driver"
+	help
+	  Say Y to include support for QCOM pmic voter driver.
+
+endmenu

@@ -157,6 +157,34 @@
 #define PSY_IIO_CLEAR_SOH			0x7c
 #define PSY_IIO_SYS_SOC				0x7d
 
+/* nopmi */
+#define PSY_IIO_MTBF_CUR		        0x8e
+
+/* MAIN charge */
+#define PSY_IIO_CHARGE_ENABLED			0x9e
+
+/* sh366101 fg*/
+#define PSY_IIO_SHUTDOWN_DELAY			0x9f
+#define PSY_IIO_SOC_DECIMAL			0xa0
+#define PSY_IIO_SOC_DECIMAL_RATE		0xa1
+#define PSY_IIO_FASTCHARGE_MODE			0xa2
+#define PSY_IIO_BATTERY_TYPE			0xa3
+#define PSY_IIO_RAW_SOC                         0xa4
+
+// for NOPMI
+#define PSY_IIO_CHARGE_IC_TYPE			0xae
+#define PSY_IIO_FFC_DISABLE			0xaf
+
+// for sh366101 fg
+#define PSY_IIO_FG_MONITOR_WORK			0xb0
+#define PSY_IIO_BATT_ID				0xb1
+#define PSY_IIO_VERSION                     0xb2
+
+//for cc logic
+#define PSY_IIO_CC_CHIP_ID			0xb3
+#define PSY_IIO_SHIPMODE_COUNT_RESET 0xb4
+#define PSY_IIO_VBUS_VOL        0xb5
+
 /* QNOVO5 */
 #define PSY_IIO_VOLTAGE_QNOVO       0x7e
 #define PSY_IIO_CURRENT_QNOVO       0x7f
