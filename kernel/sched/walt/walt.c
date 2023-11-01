@@ -115,6 +115,9 @@ int set_task_boost(int boost, u64 period)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) current->android_vendor_data1;
 
+	if (unlikely(walt_disabled))
+		return -EAGAIN;
+
 	if (boost < TASK_BOOST_NONE || boost >= TASK_BOOST_END)
 		return -EINVAL;
 	if (boost) {
@@ -5238,10 +5241,13 @@ static void walt_do_sched_yield(void *unused, struct rq *rq)
 		per_cpu(rt_task_arrival_time, cpu_of(rq)) = 0;
 }
 
-void walt_set_cpus_taken(struct cpumask *set)
+int walt_set_cpus_taken(struct cpumask *set)
 {
 	unsigned long flags;
 	int cpu;
+
+	if (unlikely(walt_disabled))
+		return -EAGAIN;
 
 	spin_lock_irqsave(&cpus_taken_lock, flags);
 	for_each_cpu(cpu, set) {
@@ -5249,13 +5255,17 @@ void walt_set_cpus_taken(struct cpumask *set)
 	}
 	cpumask_or(&walt_cpus_taken_mask, &walt_cpus_taken_mask, set);
 	spin_unlock_irqrestore(&cpus_taken_lock, flags);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(walt_set_cpus_taken);
 
-void walt_unset_cpus_taken(struct cpumask *unset)
+int walt_unset_cpus_taken(struct cpumask *unset)
 {
 	unsigned long flags;
 	int cpu;
+
+	if (unlikely(walt_disabled))
+		return -EAGAIN;
 
 	spin_lock_irqsave(&cpus_taken_lock, flags);
 	for_each_cpu(cpu, unset) {
@@ -5265,6 +5275,7 @@ void walt_unset_cpus_taken(struct cpumask *unset)
 			cpumask_clear_cpu(cpu, &walt_cpus_taken_mask);
 	}
 	spin_unlock_irqrestore(&cpus_taken_lock, flags);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(walt_unset_cpus_taken);
 
@@ -5274,10 +5285,14 @@ cpumask_t walt_get_cpus_taken(void)
 }
 EXPORT_SYMBOL_GPL(walt_get_cpus_taken);
 
-void walt_get_cpus_in_state1(struct cpumask *cpus)
+int walt_get_cpus_in_state1(struct cpumask *cpus)
 {
+	if (unlikely(walt_disabled))
+		return -EAGAIN;
+
 	cpumask_or(cpus, cpu_partial_halt_mask, &sched_cluster[0]->cpus);
 	cpumask_andnot(cpus, cpus, cpu_halt_mask);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(walt_get_cpus_in_state1);
 
