@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 
 ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
 GCOV_PROFILE_mtk_bp_thl.o := y
@@ -14,3 +15,4 @@ obj-$(CONFIG_PMIC_LBAT_SERVICE) += pmic_lbat_service.o
 obj-$(CONFIG_PMIC_LBAT_SERVICE) += pmic_lvsys_notify.o
 obj-$(CONFIG_MTK_MD_POWER_THROTTLING) += mtk_md_power_throttling.o
 obj-$(CONFIG_MTK_CPU_POWER_THROTTLING) += mtk_cpu_power_throttling.o
+obj-m += mtk_peak_power_ctrl.o

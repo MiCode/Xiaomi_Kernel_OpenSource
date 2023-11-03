@@ -45,7 +45,6 @@
 #include <dt-bindings/memory/mt6985-larb-port.h>
 #endif
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
@@ -621,14 +620,14 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			      res_cfg->res_plan, res_user->sensor_res.width,
 			      res_user->sensor_res.height, &width, &height);
 
-	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
-		if (log)
-			dev_info(dev,
-			 "%s:%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
-			 __func__, dbg_str, pipeline->id, res_user->raw_res.bin,
-			 res_cfg->bin_enable);
-		return -EINVAL;
-	}
+	// if (res_user->raw_res.bin && !res_cfg->bin_enable) {
+	// 	if (log)
+	// 		dev_info(dev,
+	// 		 "%s:%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
+	// 		 __func__, dbg_str, pipeline->id, res_user->raw_res.bin,
+	// 		 res_cfg->bin_enable);
+	// 	return -EINVAL;
+	// }
 
 	if (res_cfg->raw_num_used > res_cfg->hwn_limit_max ||
 	    res_cfg->raw_num_used < res_cfg->hwn_limit_min) {
@@ -2613,7 +2612,18 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 		res->tgo_pxl_mode_before_raw, res->clk_target);
 
 }
-
+/* 0: disable, 1: 2x2, 2: 3x3 3: 4x4 */
+static inline int mtk_cbn_type(int cbn)
+{
+	if (cbn == MTK_CAM_CBN_2X2_ON)
+		return 1;
+	else if (cbn == MTK_CAM_CBN_3X3_ON)
+		return 2;
+	else if (cbn == MTK_CAM_CBN_4X4_ON)
+		return 3;
+	else
+		return 0;
+}
 bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   struct mtk_cam_resource_config *res,
 			   s64 pixel_rate, int res_plan,
@@ -2654,8 +2664,8 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		/ (in_h + vblank);
 	calc.width = in_w;
 	calc.height = in_h;
-	calc.bin_en = (res->bin_limit >= 1) ? 1:0;
-	calc.cbn_type = 0; /* 0: disable, 1: 2x2, 2: 3x3 3: 4x4 */
+    calc.bin_en = (res->bin_limit == MTK_CAM_BIN_ON) ? 1 : 0;
+	calc.cbn_type = mtk_cbn_type(res->bin_limit);
 	calc.qbnd_en = 0;
 	calc.qbn_type = 0; /* 0: disable, 1: w/2, 2: w/4 */
 
@@ -2693,8 +2703,8 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	res->raw_num_used = calc.raw_num;
 	res->clk_target = calc.clk;
 	res->bin_enable = calc.bin_en;
-	*out_w = in_w >> calc.bin_en;
-	*out_h = in_h >> calc.bin_en;
+    *out_w = calc.cbn_type ? in_w * (1 + calc.cbn_type) : in_w  >>  calc.bin_en;
+	*out_h = calc.cbn_type ? in_h * (1 + calc.cbn_type) : in_h  >>  calc.bin_en;
 
 	mtk_raw_update_debug_param(cam, res);
 

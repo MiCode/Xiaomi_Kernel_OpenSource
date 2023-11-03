@@ -7,7 +7,11 @@
 #define __CAM_CAL_LIST_H
 #include <linux/i2c.h>
 
+#ifdef __XIAOMI_CAMERA__
+#define DEFAULT_MAX_EEPROM_SIZE_8K 0x8000
+#else
 #define DEFAULT_MAX_EEPROM_SIZE_8K 0x2000
+#endif
 
 typedef unsigned int (*cam_cal_cmd_func) (struct i2c_client *client,
 	unsigned int addr, unsigned char *data, unsigned int size);

@@ -25,6 +25,7 @@
 #include "mtk_dump.h"
 #include "mtk_drm_helper.h"
 #include "platform/mtk_drm_platform.h"
+#include "mi_disp/mi_dsi_display.h"
 
 #ifdef CONFIG_LEDS_MTK_MODULE
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -73,6 +74,9 @@ static bool g_prim_ccorr_force_linear;
 static bool g_prim_ccorr_pq_nonlinear;
 static bool g_is_aibld_cv_mode;
 static atomic_t g_ccorr_irq_en = ATOMIC_INIT(0);
+// g_force_delay_check_trig: 0: non-delay 1: delay 2: default setting
+//                           3: not check trigger
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(2);
 
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : \
 		((module == DDP_COMPONENT_CCORR1) ? 1 : \
@@ -183,6 +187,9 @@ static struct mtk_ddp_comp *ccorr3_default_comp;
 static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock);
 /* static void ccorr_dump_reg(void); */
+
+static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, unsigned int cmd, void *data);
 
 enum CCORR_IOCTL_CMD {
 	SET_CCORR = 0,
@@ -669,11 +676,18 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 			disp_ccorr_set_interrupt(default_comp, 1);
 
 			if (default_comp != NULL &&
-					default_comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, true,
-					true);
-
-			DDPINFO("%s: trigger refresh when backlight changed", __func__);
+					default_comp->mtk_crtc != NULL) {
+				if (atomic_read(&g_force_delay_check_trig) == 0)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 1)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 2)
+					mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 3)
+					DDPINFO("%s: not check trigger\n", __func__);
+				else
+					DDPINFO("%s: value is not support!\n", __func__);
+			}
 		}
 	} else {
 		if (default_comp != NULL && (g_old_pq_backlight == 0 || bl_1024 == 0)) {
@@ -681,9 +695,18 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 			disp_ccorr_set_interrupt(default_comp, 1);
 
 			if (default_comp != NULL &&
-					default_comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, true,
-					true);
+					default_comp->mtk_crtc != NULL) {
+				if (atomic_read(&g_force_delay_check_trig) == 0)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 1)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 2)
+					mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 3)
+					DDPINFO("%s: not check trigger\n", __func__);
+				else
+					DDPINFO("%s: value is not support!\n", __func__);
+			}
 
 			DDPINFO("%s: trigger refresh when backlight ON/Off", __func__);
 		}
@@ -731,6 +754,15 @@ static int disp_ccorr_set_coef(
 						(ccorr_offset_base << 1) << ccorr_offset_mask;
 			}
 			*/
+
+			if (!comp->mtk_crtc->enabled) {
+				DDPINFO("%s:crtc is not enabled, just remember ccorr value, skip set reg!", __func__);
+				if (old_ccorr != NULL)
+					kfree(old_ccorr);
+				mutex_unlock(&g_ccorr_global_lock);
+				return ret;
+			}
+
 			DDPINFO("%s: Set module(%d) coef", __func__, id);
 			if (disp_aosp_ccorr)
 				disp_aosp_ccorr = false;
@@ -972,8 +1004,18 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 
 	mutex_unlock(&g_ccorr_global_lock);
 
-	if (need_refresh == true && comp->mtk_crtc != NULL)
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+	if (need_refresh == true && comp->mtk_crtc != NULL) {
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
+	}
 
 	return ret;
 }
@@ -996,6 +1038,13 @@ int disp_ccorr_set_RGB_Gain(struct mtk_ddp_comp *comp,
 
 	return ret;
 }
+
+static bool brightness_clone_iszero = false;
+void is_brightness_clone_level_zero(bool is_zero)
+{
+	brightness_clone_iszero = is_zero;
+}
+EXPORT_SYMBOL(is_brightness_clone_level_zero);
 
 int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
@@ -1022,7 +1071,17 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 		return -1;
 	}
 
-	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
+	if (!comp->mtk_crtc->enabled) {
+		DDPINFO("%s:crtc is not enabled, just remember ccorr value, skip set reg!", __func__);
+		if (mtk_ccorr_user_cmd(comp, NULL, SET_CCORR, (void *)data) < 0) {
+			DDPPR_ERR("mtk_ccorr_user_cmd: failed\n");
+			return -EFAULT;
+		}
+		return 0;
+	}
+
+	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] ||
+		m_new_pq_persist_property[DISP_PQ_MI_SOFT_BRIGHTNESS]) {
 
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 
@@ -1031,17 +1090,37 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 			DDPINFO("brightness = %d, silky_bright_flag = %d",
 				ccorr_config->FinalBacklight,
 				ccorr_config->silky_bright_flag);
-			mtk_leds_brightness_set("lcd-backlight",
-				ccorr_config->FinalBacklight, 0, (0X01<<SET_BACKLIGHT_LEVEL));
+			if (!brightness_clone_iszero) {
+				mtk_leds_brightness_set("lcd-backlight",
+					ccorr_config->FinalBacklight, 0, (0X01<<SET_BACKLIGHT_LEVEL));
+			}
 		}
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 
 		return ret;
 	} else {
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 
 		return ret;
 	}
@@ -1082,7 +1161,7 @@ int led_brightness_changed_event_to_pq(struct notifier_block *nb, unsigned long 
 	case LED_BRIGHTNESS_CHANGED:
 		if (!is_led_need_ccorr(led_conf->connector_id)) {
 			DDPINFO("connector id %d no need aal\n", led_conf->connector_id);
-			led_conf->aal_enable = 0;
+			atomic_set(&led_conf->aal_enable, 0);
 			break;
 		}
 		trans_level = led_conf->cdev.brightness;
@@ -1115,8 +1194,18 @@ int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
 	/* TODO: dual pipe */
 	int *enabled = data;
 
-	if (enabled || g_old_pq_backlight != g_pq_backlight)
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+	if (enabled || g_old_pq_backlight != g_pq_backlight) {
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
+	}
 
 	//mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
 	DDPINFO("ccorr_eventctl, enabled = %d\n", *enabled);
@@ -1531,6 +1620,7 @@ static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 							enum mtk_ddp_io_cmd cmd, void *params)
 {
 	int enable = 1;
+	uint32_t force_delay_trigger;
 
 	if (comp->id != DDP_COMPONENT_CCORR0 || !g_is_aibld_cv_mode)
 		return 0;
@@ -1538,6 +1628,9 @@ static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	if (cmd == FRAME_DIRTY) {
 		DDPDBG("%s FRAME_DIRTY comp id:%d\n", __func__, comp->id);
 		mtk_disp_ccorr_set_interrupt(comp, &enable);
+	} else if (cmd == FORCE_TRIG_CTL) {
+		force_delay_trigger = *(uint32_t *)params;
+		atomic_set(&g_force_delay_check_trig, force_delay_trigger);
 	}
 	return 0;
 }
@@ -1866,16 +1959,16 @@ struct platform_driver mtk_disp_ccorr_driver = {
 		},
 };
 
-void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	if (g_ccorr_relay_value[index_of_ccorr(default_comp->id)] == bypass &&
 		g_ccorr_relay_value[index_of_ccorr(ccorr1_default_comp->id)] == bypass)
-		return;
+		return ret;
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_CCORR, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }
 
 void mtk_ccorr_regdump(void)

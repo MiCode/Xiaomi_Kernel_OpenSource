@@ -383,6 +383,7 @@
 #define OV16A10_SENSOR_ID                       0x561641
 #define GC02M1B_SENSOR_ID                       0x02e0
 
+
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
@@ -624,6 +625,47 @@
 #define SENSOR_DRVNAME_IMX355_MIPI_RAW          "imx355_mipi_raw"
 #define SENSOR_DRVNAME_OV13B10_MIPI_RAW         "ov13b10_mipi_raw"
 #define SENSOR_DRVNAME_OV02B10_MIPI_RAW         "ov02b10_mipi_raw"
+
+#define BAILUIMX800_SENSOR_ID                   0x0800
+#define SENSOR_DRVNAME_BAILUIMX800_MIPI_RAW     "bailuimx800_mipi_raw"
+#define BAILUOV13B10_SENSOR_ID                  0xD42
+#define SENSOR_DRVNAME_BAILUOV13B10_MIPI_RAW    "bailuov13b10_mipi_raw"
+#define BAILUS5KGD2_SENSOR_ID                   0x0842
+#define SENSOR_DRVNAME_BAILUS5KGD2_MIPI_RAW     "bailus5kgd2_mipi_raw"
+#define BAILUS5KGD2UW_SENSOR_ID 	        0x0843
+#define SENSOR_DRVNAME_BAILUS5KGD2UW_MIPI_RAW   "bailus5kgd2uw_mipi_raw"
+#define BAILUS5KJN1_SENSOR_ID                   0x38E1
+#define SENSOR_DRVNAME_BAILUS5KJN1_MIPI_RAW     "bailus5kjn1_mipi_raw"
+
+//M12
+#define COROTIMX800_SENSOR_ID                   0x0800
+#define SENSOR_DRVNAME_COROTIMX800_MIPI_RAW     "corotimx800_mipi_raw"
+#define COROTIMX707_SENSOR_ID                   0x0707
+#define SENSOR_DRVNAME_COROTIMX707_MIPI_RAW     "corotimx707_mipi_raw"
+#define COROTOV13B10_SENSOR_ID                  0x0D42
+#define SENSOR_DRVNAME_COROTOV13B10_MIPI_RAW    "corotov13b10_mipi_raw"
+#define COROTIMX596_SENSOR_ID                   0x0596
+#define SENSOR_DRVNAME_COROTIMX596_MIPI_RAW     "corotimx596_mipi_raw"
+#define COROTOV50D_SENSOR_ID                    0x5044
+#define SENSOR_DRVNAME_COROTOV50D_MIPI_RAW      "corotov50d_mipi_raw" 
+#define COROTIMX355_SENSOR_ID                   0x0355
+#define SENSOR_DRVNAME_COROTIMX355_MIPI_RAW     "corotimx355_mipi_raw"
+#define COROTGC02M1_SENSOR_ID                   0x2E0
+#define SENSOR_DRVNAME_COROTGC02M1_MIPI_RAW     "corotgc02m1_mipi_raw"
+
+/*ZIRCON ADD START*/
+#define ZIRCONS5KHP3SUNNY_SENSOR_ID                  0x1B73
+#define SENSOR_DRVNAME_ZIRCONS5KHP3SUNNY_MIPI_RAW    "zircons5khp3sunny_mipi_raw"
+
+#define ZIRCONOV16A1QSUNNY_SENSOR_ID                 0x1641
+#define SENSOR_DRVNAME_ZIRCONOV16A1QSUNNY_MIPI_RAW   "zirconov16a1qsunny_mipi_raw"
+
+#define ZIRCONIMX355SUNNY_SENSOR_ID                  0x0355
+#define SENSOR_DRVNAME_ZIRCONIMX355SUNNY_MIPI_RAW    "zirconimx355sunny_mipi_raw"
+
+#define ZIRCONOV02B10SUNNY_SENSOR_ID                 0x002B
+#define SENSOR_DRVNAME_ZIRCONOV02B10SUNNY_MIPI_RAW   "zirconov02b10sunny_mipi_raw"
+/*ZIRCON ADD END*/
 
 /******************************************************************************
  *

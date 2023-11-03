@@ -18,6 +18,13 @@
 #define USB2_PORT 2
 #define USB3_PORT 3
 
+bool usb_host = true;
+static struct property usb_host_prop = {
+	.name = "linux,usb-host",
+	.length = sizeof(bool),
+	.value = &usb_host,
+};
+
 static inline struct ssusb_mtk *otg_sx_to_ssusb(struct otg_switch_mtk *otg_sx)
 {
 	return container_of(otg_sx, struct ssusb_mtk, otg_switch);
@@ -209,6 +216,8 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	enum usb_role desired_role = otg_sx->desired_role;
 	enum usb_role current_role = otg_sx->current_role;
 	unsigned long flags;
+	int flag = 0;
+	struct device_node *np = ssusb->dev->of_node;
 
 	if (current_role == desired_role)
 		return;
@@ -260,6 +269,11 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		ssusb_set_noise_still_tr(ssusb);
 		ssusb_set_vbus(otg_sx, 1);
 		ssusb->is_host = true;
+		flag = of_add_property(np, &usb_host_prop);
+		if(flag)
+			pr_err("add usb host prop fail\n");
+		flag = of_property_read_bool(np, "linux,usb-host");
+		pr_err("add usb host flag = %d\n", flag);
 		break;
 	case USB_ROLE_DEVICE:
 		/* avoid suspend when works as device */
@@ -271,6 +285,8 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		mtu3_start(mtu);
 		break;
 	case USB_ROLE_NONE:
+		pr_err("remove usb host flag = %d\n", flag);
+		of_remove_property(np, of_find_property(np, "linux,usb-host", NULL));
 		break;
 	default:
 		dev_info(ssusb->dev, "invalid role\n");
@@ -488,6 +504,9 @@ static ssize_t mode_store(struct device *dev,
 
 	if (kstrtoint(buf, 10, &mode))
 		return -EINVAL;
+
+	if (ssusb->is_host)
+		return count;
 
 	dev_info(dev, "store mode %d op_mode %d\n", mode, otg_sx->op_mode);
 

@@ -20,7 +20,7 @@
 #include "mtk_disp_bdg.h"
 #include "mtk_dsi.h"
 #include "mtk_reg_disp_bdg.h"
-
+#include "../../../../misc/hwid/hwid.h"
 
 #define MIPITX_DSI_CON 0x00
 #define RG_DSI_LDOCORE_EN BIT(0)
@@ -2206,6 +2206,11 @@ static int mtk_mipi_tx_pll_prepare_mt6985(struct clk_hw *hw)
 		mtk_mipi_tx_pll_dphy_config_mt6985(mipi_tx);
 
 #endif
+	if (!strcmp(product_name_get(), "corot") && get_hw_country_version() == CountryCN) {
+		DDPINFO("Change mipi_volt to 0.52V for M12 CN\n");
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_HSTX_LDO_REF_SEL, 11 << 6); // 0.3 + (0.02 * 11) = 0.52V
+	}
 	return 0;
 }
 

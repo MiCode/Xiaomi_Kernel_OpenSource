@@ -15,6 +15,10 @@
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+#include <linux/device.h>
+#include <trace/hooks/cpufreq.h>
+#endif
 
 #define LUT_MAX_ENTRIES			32U
 #define LUT_FREQ			GENMASK(11, 0)
@@ -242,6 +246,13 @@ static int mtk_cpufreq_hw_cpu_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+static void mtk_cpufreq_suppress(void *data, struct device *dev, int val)
+{
+	dev_set_uevent_suppress(dev, val);
+}
+#endif
+
 static struct cpufreq_driver cpufreq_mtk_hw_driver = {
 	.flags		= CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -438,6 +449,10 @@ static int mtk_cpufreq_hw_driver_probe(struct platform_device *pdev)
 
 release_region:
 	release_mem_region(csram_res->start, resource_size(csram_base));
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+	ret = register_trace_android_vh_cpufreq_offline(mtk_cpufreq_suppress, NULL);
+#endif
+
 	return ret;
 }
 

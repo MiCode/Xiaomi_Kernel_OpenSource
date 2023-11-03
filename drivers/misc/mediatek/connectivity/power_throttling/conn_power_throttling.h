@@ -3,6 +3,9 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#ifndef CONN_POWER_THROTTLING_H
+#define CONN_POWER_THROTTLING_H
+
 #define CONN_PWR_SET_CUSTOMER_POWER_LEVEL(value, index, lv) \
 ((value) = (((lv) << ((index) * 8)) | ((value) & ~(0xFF << ((index) * 8)))))
 
@@ -155,3 +158,4 @@ int conn_pwr_set_max_temp(unsigned long arg);
 int conn_pwr_set_battery_level(int level);
 int conn_pwr_set_thermal_level(int level);
 
+#endif

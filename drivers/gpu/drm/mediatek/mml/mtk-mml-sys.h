@@ -30,6 +30,13 @@ void mml_sys_unbind(struct device *dev, struct device *master,
  */
 void mml_set_uid(void **mml_scmi);
 
+/*
+ * mml_sys_put_dle_ctx - Put dle context through mmlsys comp
+ *
+ * @mml:	mml driver private data
+ */
+void mml_sys_put_dle_ctx(void *mml);
+
 extern const struct of_device_id mtk_mml_of_ids[];
 
 #endif	/* __MTK_MML_SYS_H__ */

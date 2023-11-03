@@ -20,6 +20,9 @@
 
 #define CSI_EFUSE_SET
 //#define SENINF_UT_DUMP
+#ifdef __XIAOMI_CAMERA__
+#define ERR_DETECT_TEST
+#endif
 
 #define seninf_logi(_ctx, format, args...) do { \
 	if ((_ctx) && (_ctx)->sensor_sd) { \
@@ -72,6 +75,11 @@ struct mtk_seninf_work {
 		unsigned int sof;
 		void *data_ptr;
 	} data;
+#ifdef __XIAOMI_CAMERA__
+	struct work_irq_status_data {
+		u64 time_mono;
+	} irq_status_data;
+#endif
 };
 
 struct seninf_core {
@@ -111,8 +119,27 @@ struct seninf_core {
 
 	/* record pid */
 	struct pid *pid;
+
 	/* mipi error detection count */
-	unsigned int detection_cnt;
+#ifdef __XIAOMI_CAMERA__
+	unsigned int data_not_enough_detection_cnt;
+	unsigned int err_lane_resync_detection_cnt;
+	unsigned int crc_err_detection_cnt;
+	unsigned int ecc_err_double_detection_cnt;
+	unsigned int ecc_err_corrected_detection_cnt;
+	/* seninf_mux fifo overrun irq */
+	unsigned int fifo_overrun_detection_cnt;
+	/* cam_mux h/v size irq */
+	unsigned int size_err_detection_cnt;
+#ifdef ERR_DETECT_TEST	
+	/* enable csi err detect flag */
+	unsigned int err_detect_test_flag;
+#endif
+	/* flags for continuous detection */
+	unsigned int err_detect_init_flag;
+	unsigned int err_detect_termination_flag;
+#endif
+  	unsigned int detection_cnt;
 	/* enable csi irq flag */
 	unsigned int csi_irq_en_flag;
 	/* enable vsync irq flag */
@@ -205,6 +232,7 @@ struct seninf_ctx {
 	/* flags */
 	unsigned int csi_streaming:1;
 	unsigned int streaming:1;
+	unsigned int delay_s_sensor_flag:1;
 
 	int seninf_dphy_settle_delay_dt;
 	int cphy_settle_delay_dt;
@@ -216,6 +244,7 @@ struct seninf_ctx {
 
 	int open_refcnt;
 	struct mutex mutex;
+	struct mutex delay_s_sensor_mutex;
 
 	/* csi irq */
 	unsigned int data_not_enough_cnt;
@@ -237,6 +266,14 @@ struct seninf_ctx {
 	unsigned int size_err_flag;
 	unsigned int dbg_timeout;
 	unsigned int dbg_last_dump_req;
+
+#ifdef __XIAOMI_CAMERA__
+#ifdef ERR_DETECT_TEST
+	unsigned int test_cnt;
+#endif
+	/* record pid */
+	struct pid *pid;
+#endif
 
 	/* cammux switch debug element */
 	struct mtk_cam_seninf_mux_param *dbg_chmux_param;

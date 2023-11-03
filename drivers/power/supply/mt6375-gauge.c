@@ -539,6 +539,8 @@ static int pre_gauge_update(struct mtk_gauge *gauge)
 	u32 rdata = 0;
 	int i, ret = 0, max_retry_cnt = 5;
 
+	/*not use mt6375 gauge*/
+	return 0;
 	if (gauge->gm->disableGM30)
 		return ret;
 
@@ -3087,6 +3089,9 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 				  0x410, 0x411, 0x416, 0x417, 0x41E, 0x41F, 0x422,
 				  0x423, 0x45C, 0x46E, 0x46F, 0x470, 0x471 };
 
+	/*not use mt6375 gauge*/
+	*val = 0;
+	return 0;
 	if (IS_ERR(gauge->chan_bat_voltage)) {
 		bm_err("[%s]chan error\n", __func__);
 		return -EOPNOTSUPP;

@@ -39,7 +39,7 @@ static DEFINE_MUTEX(adsp_wakelock_lock);
 
 #define IPIMSG_SHARE_MEM (1024)
 #define DSP_IRQ_LOOP_COUNT (3)
-static int adsp_wakelock_count;
+static int adsp_wakelock_count = 0;
 static struct wakeup_source *adsp_audio_wakelock;
 static int ktv_status;
 
@@ -167,6 +167,28 @@ static int dsp_wakelock_get(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = adsp_wakelock_count;
+	return 0;
+}
+
+static int reset_dsp_wakelock_set(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+
+	mutex_lock(&adsp_wakelock_lock);
+
+	pr_info("%s reset wakelock for audiohal reboot %d", __func__,adsp_wakelock_count);
+	if (adsp_wakelock_count > 0)
+	{
+		aud_wake_unlock(adsp_audio_wakelock);
+		adsp_wakelock_count = 0;
+	}
+	mutex_unlock(&adsp_wakelock_lock);
+	return 0;
+}
+
+static int reset_dsp_wakelock_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
 	return 0;
 }
 
@@ -364,6 +386,8 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_task_attr_get, dsp_task_attr_set),
 	SOC_SINGLE_EXT("audio_dsp_version", SND_SOC_NOPM, 0, 0xff, 0,
 		       audio_dsp_version_get, audio_dsp_version_set),
+	SOC_SINGLE_EXT("reset_audio_dsp_wakelock", SND_SOC_NOPM, 0, 0x1, 0,
+			   reset_dsp_wakelock_get, reset_dsp_wakelock_set),
 	SOC_SINGLE_EXT("swdsp_smartpa_process_enable", SND_SOC_NOPM, 0, 0xff, 0,
 		       smartpa_swdsp_process_enable_get,
 		       smartpa_swdsp_process_enable_set),

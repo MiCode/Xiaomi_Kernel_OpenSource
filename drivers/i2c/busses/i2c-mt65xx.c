@@ -23,6 +23,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -307,6 +308,11 @@ struct mtk_i2c {
 	bool master_code_sended;
 	struct mtk_i2c_ac_timing ac_timing;
 	const struct mtk_i2c_compatible *dev_comp;
+	struct pm_qos_request i2c_qos_request;
+	bool qos_req;
+#ifdef TRUE
+	bool dyna_speed;
+#endif
 };
 
 /**
@@ -1507,6 +1513,51 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 	if (ret)
 		return ret;
 
+#ifdef TRUE
+
+	if (i2c->dyna_speed) {
+		if((i2c->adap.nr == 9) && (msgs[0].addr == (0x34 >> 1) || msgs[0].addr == (0xA0 >> 1)) && (i2c->speed_hz != I2C_MAX_FAST_MODE_FREQ)){
+			i2c->speed_hz = I2C_MAX_FAST_MODE_FREQ;
+			ret = mtk_i2c_set_speed(i2c, clk_get_rate(i2c->clk_main));
+			mtk_i2c_init_hw(i2c);
+		}else if ((i2c->adap.nr == 9) && (msgs[0].addr == (0x20 >> 1) || msgs[0].addr == (0xA2 >> 1)) && (i2c->speed_hz != I2C_MAX_FAST_MODE_PLUS_FREQ)){
+			i2c->speed_hz = I2C_MAX_FAST_MODE_PLUS_FREQ;
+			ret = mtk_i2c_set_speed(i2c, clk_get_rate(i2c->clk_main));
+			mtk_i2c_init_hw(i2c);
+		}
+
+		if (ret && (i2c->adap.nr == 9)) {
+			dev_info(i2c->dev, "i2c:%d:Failed to set the speed. %d \n",i2c->adap.nr, i2c->speed_hz);
+			return -EINVAL;
+		}
+	}
+#else
+	//M12GL ov50d & M12CN imx355 share the i2c9, but ov50d supports 1M i2c speed, imx355 only supports 400k i2c speed
+	//ov50d i2c speed need be improved to 1M for reducing poweron time
+	if (i2c->adap.nr == 9 && i2c->speed_hz != I2C_MAX_FAST_MODE_PLUS_FREQ &&
+		(msgs[0].addr == (0x44 >> 1) || msgs[0].addr == (0x18 >> 1) || msgs[0].addr == (0xA8 >> 1)) ) {
+		//0x44 is ov50d sensor address, 0x18 is ov50d af address, 0xA8 is ov50d eeprom address
+		i2c->speed_hz = I2C_MAX_FAST_MODE_PLUS_FREQ;
+		if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
+			if (i2c->clk_src_in_hz)
+				ret = mtk_i2c_set_speed(i2c, i2c->clk_src_in_hz);
+			else
+				ret = -EINVAL;
+		} else {
+			ret = mtk_i2c_set_speed(i2c, clk_get_rate(i2c->clk_main));
+		}
+		if (ret) {
+			dev_err(i2c->dev, "fail to set ov50d i2c speed to 1M\n");
+			return ret;
+		}
+		dev_info(i2c->dev, "success to set ov50d i2c speed to 1M\n");
+	}
+#endif
+
+	/* update qos to prevent deep idle during transfer */
+	if (i2c->qos_req)
+		cpu_latency_qos_update_request(&i2c->i2c_qos_request, 150);
+
 	i2c->master_code_sended = false;
 	i2c->auto_restart = i2c->dev_comp->auto_restart;
 
@@ -1596,6 +1647,9 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 	ret = num;
 
 err_exit:
+	if (i2c->qos_req)
+		cpu_latency_qos_update_request(&i2c->i2c_qos_request,
+			PM_QOS_DEFAULT_VALUE);
 	mtk_i2c_clock_disable(i2c);
 	return ret;
 }
@@ -1671,6 +1725,10 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 		of_property_read_bool(np, "mediatek,use-push-pull");
 	of_property_read_u32(np, "scl-gpio-id", &i2c->scl_gpio_id);
 	of_property_read_u32(np, "sda-gpio-id", &i2c->sda_gpio_id);
+#ifdef TRUE
+	i2c->dyna_speed = of_property_read_bool(np, "mediatek,use-dyna-speed");
+#endif
+	i2c->qos_req = of_property_read_bool(np, "mediatek,use-qos-req");
 
 	return 0;
 }
@@ -1796,6 +1854,12 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 	}
 	mtk_i2c_init_hw(i2c);
 	mtk_i2c_clock_disable(i2c);
+
+	/* register qos to prevent deep idle during transfer */
+	if (i2c->qos_req)
+		cpu_latency_qos_add_request(&i2c->i2c_qos_request,
+			PM_QOS_DEFAULT_VALUE);
+
 
 	ret = devm_request_irq(&pdev->dev, irq, mtk_i2c_irq,
 			       IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE,

@@ -25,14 +25,14 @@
  */
 
 static const struct drm_gem_object_funcs drm_gem_shmem_funcs = {
-	.free = drm_gem_shmem_free_object,
-	.print_info = drm_gem_shmem_print_info,
-	.pin = drm_gem_shmem_pin,
-	.unpin = drm_gem_shmem_unpin,
-	.get_sg_table = drm_gem_shmem_get_sg_table,
-	.vmap = drm_gem_shmem_vmap,
-	.vunmap = drm_gem_shmem_vunmap,
-	.mmap = drm_gem_shmem_mmap,
+	.free = drm_gem_shmem_object_free,
+	.print_info = drm_gem_shmem_object_print_info,
+	.pin = drm_gem_shmem_object_pin,
+	.unpin = drm_gem_shmem_object_unpin,
+	.get_sg_table = drm_gem_shmem_object_get_sg_table,
+	.vmap = drm_gem_shmem_object_vmap,
+	.vunmap = drm_gem_shmem_object_vunmap,
+	.mmap = drm_gem_shmem_object_mmap,
 };
 
 static struct drm_gem_shmem_object *
@@ -116,8 +116,7 @@ EXPORT_SYMBOL_GPL(drm_gem_shmem_create);
  * @obj: GEM object to free
  *
  * This function cleans up the GEM object state and frees the memory used to
- * store the object itself. It should be used to implement
- * &drm_gem_object_funcs.free.
+ * store the object itself.
  */
 void drm_gem_shmem_free_object(struct drm_gem_object *obj)
 {
@@ -228,8 +227,7 @@ EXPORT_SYMBOL(drm_gem_shmem_put_pages);
  * @obj: GEM object
  *
  * This function makes sure the backing pages are pinned in memory while the
- * buffer is exported. It should only be used to implement
- * &drm_gem_object_funcs.pin.
+ * buffer is exported.
  *
  * Returns:
  * 0 on success or a negative error code on failure.
@@ -249,7 +247,7 @@ EXPORT_SYMBOL(drm_gem_shmem_pin);
  * @obj: GEM object
  *
  * This function removes the requirement that the backing pages are pinned in
- * memory. It should only be used to implement &drm_gem_object_funcs.unpin.
+ * memory.
  */
 void drm_gem_shmem_unpin(struct drm_gem_object *obj)
 {
@@ -275,6 +273,7 @@ static int drm_gem_shmem_vmap_locked(struct drm_gem_shmem_object *shmem, struct 
 		ret = dma_buf_vmap(obj->import_attach->dmabuf, map);
 		if (!ret) {
 			if (WARN_ON(map->is_iomem)) {
+				dma_buf_vunmap(obj->import_attach->dmabuf, map);
 				ret = -EIO;
 				goto err_put_pages;
 			}
@@ -320,11 +319,8 @@ err_zero_use:
  *       store.
  *
  * This function makes sure that a contiguous kernel virtual address mapping
- * exists for the buffer backing the shmem GEM object.
- *
- * This function can be used to implement &drm_gem_object_funcs.vmap. But it can
- * also be called by drivers directly, in which case it will hide the
- * differences between dma-buf imported and natively allocated objects.
+ * exists for the buffer backing the shmem GEM object. It hides the differences
+ * between dma-buf imported and natively allocated objects.
  *
  * Acquired mappings should be cleaned up by calling drm_gem_shmem_vunmap().
  *
@@ -376,9 +372,8 @@ static void drm_gem_shmem_vunmap_locked(struct drm_gem_shmem_object *shmem,
  * drm_gem_shmem_vmap(). The mapping is only removed when the use count drops to
  * zero.
  *
- * This function can be used to implement &drm_gem_object_funcs.vmap. But it can
- * also be called by drivers directly, in which case it will hide the
- * differences between dma-buf imported and natively allocated objects.
+ * This function hides the differences between dma-buf imported and natively
+ * allocated objects.
  */
 void drm_gem_shmem_vunmap(struct drm_gem_object *obj, struct dma_buf_map *map)
 {
@@ -390,7 +385,7 @@ void drm_gem_shmem_vunmap(struct drm_gem_object *obj, struct dma_buf_map *map)
 }
 EXPORT_SYMBOL(drm_gem_shmem_vunmap);
 
-struct drm_gem_shmem_object *
+static struct drm_gem_shmem_object *
 drm_gem_shmem_create_with_handle(struct drm_file *file_priv,
 				 struct drm_device *dev, size_t size,
 				 uint32_t *handle)
@@ -414,7 +409,6 @@ drm_gem_shmem_create_with_handle(struct drm_file *file_priv,
 
 	return shmem;
 }
-EXPORT_SYMBOL(drm_gem_shmem_create_with_handle);
 
 /* Update madvise status, returns true if not purged, else
  * false or -errno.
@@ -554,12 +548,20 @@ static void drm_gem_shmem_vm_open(struct vm_area_struct *vma)
 {
 	struct drm_gem_object *obj = vma->vm_private_data;
 	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-	int ret;
 
 	WARN_ON(shmem->base.import_attach);
 
-	ret = drm_gem_shmem_get_pages(shmem);
-	WARN_ON_ONCE(ret != 0);
+	mutex_lock(&shmem->pages_lock);
+
+	/*
+	 * We should have already pinned the pages when the buffer was first
+	 * mmap'd, vm_open() just grabs an additional reference for the new
+	 * mm the vma is getting copied into (ie. on fork()).
+	 */
+	if (!WARN_ON_ONCE(!shmem->pages_use_count))
+		shmem->pages_use_count++;
+
+	mutex_unlock(&shmem->pages_lock);
 
 	drm_gem_vm_open(vma);
 }
@@ -585,8 +587,7 @@ static const struct vm_operations_struct drm_gem_shmem_vm_ops = {
  * @vma: VMA for the area to be mapped
  *
  * This function implements an augmented version of the GEM DRM file mmap
- * operation for shmem objects. Drivers which employ the shmem helpers should
- * use this function as their &drm_gem_object_funcs.mmap handler.
+ * operation for shmem objects.
  *
  * Returns:
  * 0 on success or a negative error code on failure.
@@ -607,10 +608,8 @@ int drm_gem_shmem_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
 	shmem = to_drm_gem_shmem_obj(obj);
 
 	ret = drm_gem_shmem_get_pages(shmem);
-	if (ret) {
-		drm_gem_vm_close(vma);
+	if (ret)
 		return ret;
-	}
 
 	vma->vm_flags |= VM_MIXEDMAP | VM_DONTEXPAND;
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
@@ -627,8 +626,6 @@ EXPORT_SYMBOL_GPL(drm_gem_shmem_mmap);
  * @p: DRM printer
  * @indent: Tab indentation level
  * @obj: GEM object
- *
- * This implements the &drm_gem_object_funcs.info callback.
  */
 void drm_gem_shmem_print_info(struct drm_printer *p, unsigned int indent,
 			      const struct drm_gem_object *obj)
@@ -647,9 +644,7 @@ EXPORT_SYMBOL(drm_gem_shmem_print_info);
  * @obj: GEM object
  *
  * This function exports a scatter/gather table suitable for PRIME usage by
- * calling the standard DMA mapping API. Drivers should not call this function
- * directly, instead it should only be used as an implementation for
- * &drm_gem_object_funcs.get_sg_table.
+ * calling the standard DMA mapping API.
  *
  * Drivers who need to acquire an scatter/gather table for objects need to call
  * drm_gem_shmem_get_pages_sgt() instead.

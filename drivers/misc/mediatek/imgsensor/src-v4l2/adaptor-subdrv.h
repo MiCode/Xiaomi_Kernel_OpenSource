@@ -130,6 +130,17 @@ struct eeprom_info_struct {
 	u8 *preload_xtalk_table;
 };
 
+struct dcg_info_struct {
+	enum IMGSENSOR_DCG_MODE dcg_mode;
+	enum IMGSENSOR_DCG_GAIN_MODE dcg_gain_mode;
+	enum IMGSENSOR_DCG_GAIN_BASE dcg_gain_base;
+	u32 dcg_gain_ratio_min;
+	u32 dcg_gain_ratio_max;
+	u32 dcg_gain_ratio_step;
+	u32 *dcg_gain_table;
+	u32 dcg_gain_table_size;
+};
+
 struct subdrv_mode_struct {
 	u16 *mode_setting_table;
 	u32 mode_setting_len;
@@ -169,6 +180,9 @@ struct subdrv_mode_struct {
 	u32 dig_gain_min;
 	u32 dig_gain_max;
 	u32 dig_gain_step;
+
+	struct mtk_sensor_saturation_info *saturation_info;
+	struct dcg_info_struct dcg_info;
 };
 
 #define REG_ADDR_MAXCNT 3
@@ -211,6 +225,7 @@ struct subdrv_static_ctx {
 	u32 dig_gain_min;
 	u32 dig_gain_max;
 	u32 dig_gain_step;
+	struct mtk_sensor_saturation_info *saturation_info;
 
 	u32 frame_length_max;
 	u8 ae_effective_frame;
@@ -241,7 +256,13 @@ struct subdrv_static_ctx {
 	u16 reg_addr_temp_read;
 	u16 reg_addr_auto_extend;
 	u16 reg_addr_frame_count;
+#ifdef __XIAOMI_CAMERA__
+	u16 reg_addr_stream_cmd_allowed;
+	u16 reg_addr_change_page_allowed;
+	u8  chk_s_sta;
+#endif
 	u16 reg_addr_fast_mode;
+	u16 reg_addr_dcg_ratio;
 
 	u16 *init_setting_table;
 	u32 init_setting_len;
@@ -343,6 +364,10 @@ struct subdrv_ctx {
 	unsigned int sensor_mode_ops;
 	bool sensor_debug_sensing_ut_on_scp;
 	bool sensor_debug_dphy_global_timing_continuous_clk;
+#ifdef TRUE
+	struct SET_SENSOR_AWB_GAIN awb_data;
+#endif
+
 };
 
 struct subdrv_feature_control {
@@ -448,6 +473,36 @@ struct subdrv_entry {
 #define subdrv_i2c_wr_regs_u16(subctx, list, len) \
 	adaptor_i2c_wr_regs_u16(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, list, len)
+
+#ifdef __XIAOMI_CAMERA__
+#define subdrv_i2c_rd_u8_u8(subctx, reg) \
+({ \
+	u8 __val = 0xff; \
+	adaptor_i2c_rd_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, &__val); \
+	__val; \
+})
+
+#define subdrv_i2c_wr_u8_u8(subctx, reg, val) \
+	adaptor_i2c_wr_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, val)
+
+#define subdrv_i2c_wr_regs_u8_u8(subctx, list, len) \
+	adaptor_i2c_wr_regs_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, list, len)
+
+#define subdrv_i2c_wr_regs_u16_burst_for_addr_same(subctx, list, len) \
+	adaptor_i2c_wr_regs_u16_burst_for_addr_same(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, list, len)
+
+#define subdrv_i2c_wr_regs_u8_burst(subctx, list, len) \
+	adaptor_i2c_wr_regs_u8_burst(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, list, len)
+
+#define subdrv_i2c_wr_regs_u16_burst(subctx, list, len) \
+	adaptor_i2c_wr_regs_u16_burst(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, list, len)
+#endif
 
 #define FINE_INTEG_CONVERT(_shutter, _fine_integ) \
 ( \

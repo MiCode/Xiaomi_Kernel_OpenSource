@@ -10,9 +10,19 @@
 #include <linux/pm_qos.h>
 #include <linux/of_device.h>
 
+#if IS_ENABLED(CONFIG_SCSI_UFS_XIAOMI)
+#include "xiaomi/core/ufs.h"
+#include "xiaomi/core/ufshci.h"
+#include "xiaomi/core/ufshcd.h"
+#ifdef CONFIG_SCSI_UFS_XIAOMI_EBUFF
+extern bool of_obtain_ebuffha_info(void);
+extern bool ebuff_value_u32(char *pname, u32 *value);
+#endif
+#else
 #include "ufs.h"
 #include "ufshci.h"
 #include "ufshcd.h"
+#endif
 
 #ifdef CONFIG_UFSFEATURE
 #include "ufsfeature.h"
@@ -215,6 +225,9 @@ struct ufs_mtk_host {
 	bool clk_scale_up;
 	atomic_t clkscale_control;
 	atomic_t clkscale_control_powerhal;
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	u8 cpu_serror;
+#endif
 	u16 ref_clk_ungating_wait_us;
 	u16 ref_clk_gating_wait_us;
 	u32 ip_ver;
@@ -386,6 +399,7 @@ struct ufs_hba_private {
 	unsigned long outstanding_mcq_reqs[BITMAP_TAGS_LEN];
 
 	bool is_mcq_enabled;
+	bool is_mcq_irq_enabled;
 };
 
 int ufs_mtk_mcq_alloc_priv(struct ufs_hba *hba);
@@ -393,6 +407,8 @@ void ufs_mtk_mcq_host_dts(struct ufs_hba *hba);
 void ufs_mtk_mcq_get_irq(struct platform_device *pdev);
 void ufs_mtk_mcq_request_irq(struct ufs_hba *hba);
 void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba);
+void ufs_mtk_mcq_disable_irq(struct ufs_hba *hba);
+void ufs_mtk_mcq_enable_irq(struct ufs_hba *hba);
 int ufs_mtk_mcq_memory_alloc(struct ufs_hba *hba);
 int ufs_mtk_mcq_install_tracepoints(void);
 

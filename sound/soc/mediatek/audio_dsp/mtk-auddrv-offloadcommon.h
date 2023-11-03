@@ -66,7 +66,9 @@ struct afe_offload_service_t {
 	bool write_blocked;
 	bool enable;
 	bool drain;
+        bool draindone;
 	bool tswait;
+        bool pause_in_drain;
 	struct mutex ts_lock;
 	wait_queue_head_t ts_wq;
 	bool needdata;

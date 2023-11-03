@@ -84,6 +84,7 @@ obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
 obj-$(CONFIG_MTK_TINYSYS_VCP_SUPPORT) += vcp/
 obj-$(CONFIG_MTK_SENSOR_SUPPORT) += sensor/
+obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += elliptic/
 obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_PRINTK) += mtprintk/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
@@ -98,3 +99,11 @@ obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_USB) += usb/
 obj-$(CONFIG_MTK_WIDEVINE_DRM) += widevine_drm/
 obj-$(CONFIG_MTK_MT6382_BDG) += spi_slave_drv/
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"corot")
+subdir-ccflags-y += -DCOROT_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"zircon")
+subdir-ccflags-y += -DZIRCON_CAM
+endif
+obj-$(CONFIG_MI_CAMLOG) += cam_log/

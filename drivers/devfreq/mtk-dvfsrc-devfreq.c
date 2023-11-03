@@ -11,6 +11,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/arm-smccc.h>
+#include <linux/pm_qos.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
@@ -19,6 +20,8 @@
 #define DVFSRC_DDR_DVFS_GET_FREQ_INFO	0x5
 
 #define MAX_FREQ_COUNT 12
+
+struct dvfsrc_devfreq *the_devfreq;
 
 struct dvfsrc_devfreq {
 	struct devfreq_dev_profile profile;
@@ -150,6 +153,26 @@ static int dvfsrc_init_freq_info(struct device *dev)
 	return 0;
 }
 
+void boost_ddr_freq(unsigned int minfreq)
+{
+	int ret;
+	struct devfreq *df = NULL;
+	if (the_devfreq == NULL)
+		return;
+	if (the_devfreq->devfreq)
+		df = the_devfreq->devfreq;
+	else
+		return;
+
+	if (!dev_pm_qos_request_active(&df->user_min_freq_req))
+		return;
+
+	ret = dev_pm_qos_update_request(&df->user_min_freq_req, minfreq);
+	if (ret < 0)
+		return;
+}
+EXPORT_SYMBOL(boost_ddr_freq);
+
 static int dvfsrc_devfreq_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -160,7 +183,7 @@ static int dvfsrc_devfreq_probe(struct platform_device *pdev)
 	dvfsrc = devm_kzalloc(dev, sizeof(*dvfsrc), GFP_KERNEL);
 	if (!dvfsrc)
 		return -ENOMEM;
-
+	the_devfreq = dvfsrc;
 	platform_set_drvdata(pdev, dvfsrc);
 	ret = dvfsrc_init_freq_info(dev);
 	if (ret) {

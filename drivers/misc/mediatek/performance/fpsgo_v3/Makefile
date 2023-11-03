@@ -41,7 +41,7 @@ subdir-ccflags-y += \
         -I$(GBE_TOP)/ \
 
 
-#fpsgo_main
+
 MTK_FPSGO_MAIN += fpsgo_main.o
 
 #base

@@ -1,0 +1,10 @@
+#include "mediatek/xiaomi-mt6886-common.dtsi"
+#include "mediatek/zircon-mt6886-audio.dtsi"
+#include "mediatek/zircon-mt6886-display.dtsi"
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 119 0>;
+	};
+};

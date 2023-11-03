@@ -20,6 +20,36 @@
 #include "adaptor-i2c.h"
 #include "adaptor.h"
 
+#ifdef TRUE
+#define ZIRCONS5KHP3SUNNY_SENSOR_ID                  0x1B73
+#define SENSOR_OTP_DATA_LEN 38272
+#define S5KHP3_EEPROM_I2C_ADDR 0xA2
+#define S5KHP3_QXTC_DATA_ADDR_STAST 0x3956
+#define S5KHP3_QXTC_DATA_ADDR_END   0x5D55
+#define EEPROM_OTP_DATA_LEN  (S5KHP3_QXTC_DATA_ADDR_END - S5KHP3_QXTC_DATA_ADDR_STAST + 1)
+#define QXTC_END_FALG_BYTE 4
+static int valid_length = 0;
+static int read_length = 0;
+static u8 s5khp3_eeprom_otp_data[EEPROM_OTP_DATA_LEN] = {0};
+static unsigned char s5khp3_sensor_otp_data[SENSOR_OTP_DATA_LEN] = {0};
+static u8 otp_readed = 0;
+#define PMIC_DEBUG 1
+#if PMIC_DEBUG
+extern int pmic1_dump_flag;
+extern int pmic2_dump_flag;
+extern void wl2866d1_dump(void);
+extern void wl2866d2_dump(void);
+#endif
+#include "sensor-state.h"
+extern unsigned int g_sensor_state;
+
+#define AWB_RED_GAIN_ADDR   0x0D82
+#define AWB_GREEN_GAIN_ADDR 0x0D84
+#define AWB_BLUE_GAIN_ADDR  0x0D86
+
+#endif
+
+
 void check_current_scenario_id_bound(struct subdrv_ctx *ctx)
 {
 	if (ctx->current_scenario_id >= ctx->s_ctx.sensor_mode_num) {
@@ -453,6 +483,12 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
 		/ ctx->s_ctx.mode[scenario_id].linelength;
+#ifdef TRUE
+	if(ctx->s_ctx.sensor_id == ZIRCONS5KHP3SUNNY_SENSOR_ID){
+		if((ctx->sensor_mode == 7) && (frame_length == 3190))
+			frame_length = 3180;
+	}
+#endif
 	frame_length_step = ctx->s_ctx.mode[scenario_id].framelength_step;
 	frame_length = frame_length_step ?
 		(frame_length - (frame_length % frame_length_step)) : frame_length;
@@ -554,6 +590,28 @@ void set_shutter_frame_length(struct subdrv_ctx *ctx, u32 shutter, u32 frame_len
 {
 	u32 fine_integ_line = 0;
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
+#ifdef TRUE
+	unsigned short new_shutter = 0;
+	unsigned short new_framelength = 0;
+
+	if(ctx->s_ctx.sensor_id == ZIRCONS5KHP3SUNNY_SENSOR_ID){
+		if (shutter > 0xFFFF - ctx->s_ctx.exposure_margin) {
+			new_shutter = shutter / 128;
+			new_framelength = new_shutter + ctx->s_ctx.exposure_margin;
+			subdrv_i2c_wr_u8(ctx, 0x0104, 0x01);
+			subdrv_i2c_wr_u16(ctx, 0x0340, new_framelength);
+			subdrv_i2c_wr_u16(ctx, 0x0202, new_shutter);
+			subdrv_i2c_wr_u16(ctx, 0x0702, 0x0700);
+			subdrv_i2c_wr_u16(ctx, 0x0704, 0x0700);
+			subdrv_i2c_wr_u8(ctx, 0x0104, 0x00);
+			DRV_LOG(ctx, "=== 0x%x into long exop mode shutter:%d framelength:%d ===\n", ctx->s_ctx.sensor_id, new_shutter, new_framelength);
+			return;
+		} else {
+			subdrv_i2c_wr_u16(ctx, 0x0702, 0x0000);
+			subdrv_i2c_wr_u16(ctx, 0x0704, 0x0000);
+		}
+	}
+#endif
 
 	ctx->frame_length = frame_length ? frame_length : ctx->frame_length;
 	check_current_scenario_id_bound(ctx);
@@ -743,8 +801,10 @@ void set_gain(struct subdrv_ctx *ctx, u32 gain)
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 
 	/* check boundary of gain */
-	gain = max(gain, ctx->s_ctx.ana_gain_min);
-	gain = min(gain, ctx->s_ctx.ana_gain_max);
+	gain = max(gain,
+		ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_min);
+	gain = min(gain,
+		ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_max);
 	/* mapping of gain to register value */
 	if (ctx->s_ctx.g_gain2reg != NULL)
 		rg_gain = ctx->s_ctx.g_gain2reg(gain);
@@ -761,7 +821,7 @@ void set_gain(struct subdrv_ctx *ctx, u32 gain)
 		(rg_gain >> 8) & 0xFF);
 	set_i2c_buffer(ctx,	ctx->s_ctx.reg_addr_ana_gain[0].addr[1],
 		rg_gain & 0xFF);
-	DRV_LOG(ctx, "gain[0x%x]\n", rg_gain);
+	DRV_LOG(ctx, "CurrentSensorMode:%d gain[0x%x]\n", ctx->sensor_mode , rg_gain);
 	if (gph)
 		ctx->s_ctx.s_gph((void *)ctx, 0);
 	commit_i2c_buffer(ctx);
@@ -793,8 +853,10 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	}
 	for (i = 0; i < exp_cnt; i++) {
 		/* check boundary of gain */
-		gains[i] = max(gains[i], ctx->s_ctx.ana_gain_min);
-		gains[i] = min(gains[i], ctx->s_ctx.ana_gain_max);
+		gains[i] = max(gains[i],
+			ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_min);
+		gains[i] = min(gains[i],
+			ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_max);
 		/* mapping of gain to register value */
 		if (ctx->s_ctx.g_gain2reg != NULL)
 			gains[i] = ctx->s_ctx.g_gain2reg(gains[i]);
@@ -935,6 +997,40 @@ void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id)
 	*lens_id = LENS_DRIVER_ID_DO_NOT_CARE;
 }
 
+#ifdef TRUE
+void check_stream_status(struct subdrv_ctx *ctx, bool enable)
+{
+	u32 i = 0, framecnt = 0;
+	int timeout = 30;
+
+	if (!ctx->s_ctx.reg_addr_frame_count)
+		return;
+
+	for (i = 0; i < timeout; i++) {
+		framecnt = subdrv_i2c_rd_u8(ctx, ctx->s_ctx.reg_addr_frame_count);
+
+		DRV_LOG(ctx, "read frame_count :%u\n", framecnt);
+		if (enable) {
+			if (framecnt == 0x1) {
+				DRV_LOG(ctx, "success check stream on delay :%u\n", framecnt);
+				return;
+			}
+			mdelay(3);
+		} else {
+			if ((framecnt >= 0x1) && (framecnt != 0xFF) && (!(ctx->fast_mode_on))) {
+				DRV_LOG(ctx, "success check stream off delay :%u\n", framecnt);
+				mdelay(3);
+				return;
+			}
+			mdelay(3);
+		}
+	}
+	ctx->fast_mode_on = FALSE;
+	ctx->ref_sof_cnt = 0;
+	DRV_LOGE(ctx, "stream status check fail!\n");
+}
+#endif
+
 void check_stream_off(struct subdrv_ctx *ctx)
 {
 	u32 i = 0, framecnt = 0;
@@ -944,6 +1040,15 @@ void check_stream_off(struct subdrv_ctx *ctx)
 		return;
 	for (i = 0; i < timeout; i++) {
 		framecnt = subdrv_i2c_rd_u8(ctx, ctx->s_ctx.reg_addr_frame_count);
+#ifdef __XIAOMI_CAMERA__
+		DRV_LOG(ctx, "read frame_count :%u)\n", framecnt);
+
+		if (ctx->s_ctx.reg_addr_stream_cmd_allowed)
+		{
+			DRV_LOG(ctx, "read stream_cmd_allowed :%u)\n",
+				subdrv_i2c_rd_u8(ctx, ctx->s_ctx.reg_addr_stream_cmd_allowed));
+		}
+#endif
 		if (framecnt == 0xFF)
 			return;
 		mdelay(1);
@@ -953,6 +1058,9 @@ void check_stream_off(struct subdrv_ctx *ctx)
 
 void streaming_control(struct subdrv_ctx *ctx, bool enable)
 {
+#ifdef TRUE
+	SHOW_SENSOE_STATE(g_sensor_state, __func__, __LINE__);
+#endif
 	check_current_scenario_id_bound(ctx);
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode) {
 		DRV_LOG(ctx, "AOV mode set stream in SCP side! (sid:%u)\n",
@@ -961,9 +1069,37 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 	}
 
 	if (enable) {
+#ifdef TRUE
+		if(ctx->is_streaming == 1) {
+			DRV_LOG_MUST(ctx, "alreadly stream on status skip stream on!");
+			return;
+		}
+		if (ctx->s_ctx.reg_addr_change_page_allowed)
+			subdrv_i2c_wr_u16(ctx, ctx->s_ctx.reg_addr_change_page_allowed, 0x4000);
+
 		set_dummy(ctx);
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
+		/*if (ctx->s_ctx.chk_s_sta) {
+			check_stream_status(ctx, enable);
+			mdelay(1);
+		}*/
+#else
+		set_dummy(ctx);
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
+#endif
 	} else {
+#ifdef TRUE
+		if(ctx->is_streaming == 0) {
+			DRV_LOG_MUST(ctx, "alreadly stream off status skip stream off!");
+			return;
+		}
+		if (ctx->s_ctx.chk_s_sta) {
+			check_stream_status(ctx, enable);
+		}
+		if (ctx->s_ctx.reg_addr_change_page_allowed) {
+			subdrv_i2c_wr_u16(ctx, ctx->s_ctx.reg_addr_change_page_allowed, 0x4000);
+		}
+#endif
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
 		if (ctx->s_ctx.reg_addr_fast_mode && ctx->fast_mode_on) {
 			ctx->fast_mode_on = FALSE;
@@ -980,6 +1116,10 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		if (ctx->s_ctx.chk_s_off_end)
 			check_stream_off(ctx);
 	}
+#ifdef TRUE
+	SET_FRAME_STATE(g_sensor_state, 0, __func__, __LINE__);
+	SET_STREAMING_STATE(g_sensor_state, enable, __func__, __LINE__);
+#endif
 	ctx->is_streaming = enable;
 	DRV_LOG(ctx, "enable:%u\n", enable);
 }
@@ -1355,6 +1495,26 @@ void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 
 void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
 {
+#ifdef TRUE
+	if (type == FOUR_CELL_CAL_TYPE_XTALK_CAL) {
+			data[0] = 0x00;
+			data[1] = 0x24;
+			memcpy(data + 2, s5khp3_eeprom_otp_data, EEPROM_OTP_DATA_LEN);
+			pr_err("Read FOUR_CELL_CAL_TYPE_XTALK_CAL = %02x %02x %02x %02x %02x %02x\n",
+				(UINT16)data[0], (UINT16)data[1],
+				(UINT16)data[2], (UINT16)data[3],
+				(UINT16)data[4], (UINT16)data[5]);
+	}else if (type == FOUR_CELL_CAL_TYPE_DPC){
+			data[0] = 0x80;
+			data[1] = 0x95;
+			memcpy(data + 2, s5khp3_sensor_otp_data, SENSOR_OTP_DATA_LEN);
+			pr_err("Read FOUR_CELL_CAL_TYPE_DPC = %02x %02x %02x %02x %02x %02x\n",
+				(UINT16)data[0], (UINT16)data[1],
+				(UINT16)data[2], (UINT16)data[3],
+				(UINT16)data[4], (UINT16)data[5]);
+
+	}
+#else
 	u16 idx = 0;
 	u8 support = FALSE;
 	u8 *pbuf = NULL;
@@ -1379,6 +1539,7 @@ void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
 			}
 		}
 	}
+#endif
 }
 
 void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
@@ -1539,6 +1700,190 @@ void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
 	*scenario_exp_cnt = exp_cnt;
 }
 
+#ifdef TRUE
+static void read_eeprom_otp_data(struct subdrv_ctx *ctx)
+{
+	u16 addr;
+	int ret;
+	addr = ctx->i2c_client->addr;
+	ctx->i2c_client->addr = S5KHP3_EEPROM_I2C_ADDR;
+
+	ret = adaptor_i2c_rd_p8(ctx->i2c_client, S5KHP3_EEPROM_I2C_ADDR >> 1, S5KHP3_QXTC_DATA_ADDR_STAST, s5khp3_eeprom_otp_data, EEPROM_OTP_DATA_LEN);
+
+	ctx->i2c_client->addr = addr;
+}
+
+static void read_sensor_otp_page(struct subdrv_ctx *ctx, kal_uint32 page, unsigned char* buf)
+{
+	kal_uint16 idx = 0;
+	kal_uint16 temp = 0;
+
+	//set page
+	subdrv_i2c_wr_u16(ctx, 0x0A02 ,page);
+	//read start
+	subdrv_i2c_wr_u16(ctx, 0x0A00 ,0x0100);
+	mdelay(5);
+	//read
+	for (idx = 0; idx < 64; idx++)
+	{
+		temp = subdrv_i2c_rd_u16(ctx, 0x0A04 + idx);
+		buf[idx] = temp >> 8;
+		//pr_err("read page %d data[0x%x] = 0x%x\n", page, 0x0A04 + idx, buf[idx]);
+		buf[++idx] = temp & 0xFF;
+		//pr_err("read page %d data[0x%x] = 0x%x\n", page, 0x0A04 + idx, buf[idx]);
+		if(!valid_length){
+			valid_length = temp;
+			pr_err("QXTC %d valid data to read\n", temp);
+		}
+		read_length += 2;
+	}
+}
+
+static void read_sensor_otp_data(struct subdrv_ctx *ctx)
+{
+	kal_uint16 idx = 0;
+	unsigned char * ptr;
+
+	pr_err("read_sensor_otp_data E");
+
+	if(1)
+	{
+		//basic setting
+		subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x4000);
+		subdrv_i2c_wr_u16(ctx, 0x6012 ,0x0001);
+		mdelay(10);
+
+		subdrv_i2c_wr_u16(ctx, 0x7002 ,0x0080);
+		subdrv_i2c_wr_u16(ctx, 0x6014 ,0x0001);
+		mdelay(10);
+
+		subdrv_i2c_wr_u16(ctx, 0x0136 ,0x1800);
+		subdrv_i2c_wr_u16(ctx, 0x0FEA ,0x0000);
+
+		subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x2001);
+		subdrv_i2c_wr_u16(ctx, 0x7D40, 0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x7D42 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x79F4 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x79F6 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x7C34 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x7C36 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x90E8 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x90EA ,0x0000);
+
+		subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x2000);
+		subdrv_i2c_wr_u16(ctx, 0x13D0 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x13D2 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x13D4 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x13D6 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x13D8 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x13DA ,0x0000);
+
+		subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x2001);
+		subdrv_i2c_wr_u16(ctx, 0xB030 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x2800 ,0x0001);
+
+		subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x2000);
+		subdrv_i2c_wr_u16(ctx, 0x1490 ,0x0001);
+		subdrv_i2c_wr_u16(ctx, 0x1494 ,0x0001);
+		subdrv_i2c_wr_u16(ctx, 0x1496 ,0x89C0);
+		subdrv_i2c_wr_u16(ctx, 0x14A0 ,0x0001);
+		subdrv_i2c_wr_u16(ctx, 0x14A2 ,0x89C0);
+
+		//stream on
+		subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x4000);
+		subdrv_i2c_wr_u16(ctx, 0x0100 ,0x0100);
+		mdelay(10);
+
+		ptr = s5khp3_sensor_otp_data;
+		//read 51 ~ 628
+		for (idx = 0; idx < 578; idx++)
+		{
+			if(read_length >= valid_length + QXTC_END_FALG_BYTE)
+				break;
+			read_sensor_otp_page(ctx, 51 + idx, ptr);
+			ptr += 64;
+		}
+
+		//read 1555 ~ 1574
+		for (idx = 0; idx < 20; idx++)
+		{
+			if(read_length >= valid_length + QXTC_END_FALG_BYTE)
+				break;
+			read_sensor_otp_page(ctx, 1555 + idx, ptr);
+			ptr += 64;
+		}
+
+		//read end
+		subdrv_i2c_wr_u16(ctx, 0x0A00 ,0x0000);
+		subdrv_i2c_wr_u16(ctx, 0x0100 ,0x0000);
+
+	}
+#if 0
+	for (idx = 0; idx < SENSOR_OTP_DATA_LEN; idx++)
+	{
+		pr_err("S5KHP3 SENSOR OTP[%d] = 0x%x\n", idx ,s5khp3_sensor_otp_data[idx]);
+	}
+#endif
+	pr_err("read_sensor_otp_data X");
+
+}
+#endif
+
+
+void get_dcg_gain_ratio_table_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *size, void *data)
+{
+	u32 *gain_ratio_table;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		*size = 0;
+		return;
+	}
+
+	gain_ratio_table = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_table;
+	if (data == NULL)
+		*size = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_table_size;
+	else
+		memcpy(data, (void *)gain_ratio_table,
+			ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_table_size);
+}
+
+void get_dcg_gain_ratio_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain_ratio, u64 *max_gain_ratio)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	*min_gain_ratio = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_ratio_min;
+	*max_gain_ratio = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_ratio_max;
+}
+
+void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u64 *dcg_mode, u64 *dcg_gain_mode)
+{
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+
+	hdr_mode = ctx->s_ctx.mode[scenario_id].hdr_mode;
+	if (hdr_mode != HDR_RAW_DCG_RAW && hdr_mode != HDR_RAW_DCG_COMPOSE_RAW12
+		&& hdr_mode != HDR_RAW_DCG_COMPOSE_RAW14) {
+		DRV_LOG(ctx, "This mode doesn't support DCG:%u, hdr_mode:%u\n",
+			scenario_id, hdr_mode);
+		}
+	*dcg_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_mode;
+	*dcg_gain_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_mode;
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -1547,6 +1892,44 @@ int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 	u32 addr_l = ctx->s_ctx.reg_addr_sensor_id.addr[1];
 	u32 addr_ll = ctx->s_ctx.reg_addr_sensor_id.addr[2];
 
+#ifdef TRUE
+	struct adaptor_ctx *apt_ctx = container_of(ctx, struct adaptor_ctx, subctx);
+	while (ctx->s_ctx.i2c_addr_table[i] != 0xFF) {
+		ctx->i2c_write_id = ctx->s_ctx.i2c_addr_table[i];
+		do {
+			*sensor_id = (subdrv_i2c_rd_u8(ctx, addr_h) << 8) |
+				subdrv_i2c_rd_u8(ctx, addr_l);
+			if (addr_ll)
+				*sensor_id = ((*sensor_id) << 8) | subdrv_i2c_rd_u8(ctx, addr_ll);
+			dev_info(apt_ctx->dev, "[%s][%s] i2c_write_id:0x%x return_sensor_id sensor_id(cur/exp):0x%x/0x%x\n",
+				apt_ctx->subdrv->name, __func__,
+				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
+			if (*sensor_id == ctx->s_ctx.sensor_id){
+				if((*sensor_id == ZIRCONS5KHP3SUNNY_SENSOR_ID) && !otp_readed){
+					read_eeprom_otp_data(ctx);
+					read_sensor_otp_data(ctx);
+					otp_readed = 1;
+				}
+				return ERROR_NONE;
+			}
+			dev_info(apt_ctx->dev, "[%s][%s] Read sensor id fail : 0x%x/0x%x\n",
+				apt_ctx->subdrv->name, __func__, *sensor_id, ctx->s_ctx.sensor_id);
+			retry--;
+#if PMIC_DEBUG
+			if((retry == 0) && (i ==0)){
+				pr_err("=== Sensor %s probe/open failed dump PMIC state begin ===\n", apt_ctx->subdrv->name);
+				if(pmic1_dump_flag)
+				    wl2866d1_dump();
+				if(pmic2_dump_flag)
+				    wl2866d2_dump();
+				pr_err("=== Sensor %s probe/open failed dump PMIC state end ===\n", apt_ctx->subdrv->name);
+			}
+#endif
+		} while (retry > 0);
+		i++;
+		retry = 2;
+	}
+#else
 	while (ctx->s_ctx.i2c_addr_table[i] != 0xFF) {
 		ctx->i2c_write_id = ctx->s_ctx.i2c_addr_table[i];
 		do {
@@ -1563,6 +1946,7 @@ int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 		i++;
 		retry = 2;
 	}
+#endif
 	if (*sensor_id != ctx->s_ctx.sensor_id) {
 		*sensor_id = 0xFFFFFFFF;
 		return ERROR_SENSOR_CONNECT_FAIL;
@@ -1616,6 +2000,8 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 			ctx->s_ctx.mode[i].dig_gain_max = ctx->s_ctx.dig_gain_max;
 		if (!ctx->s_ctx.mode[i].min_exposure_line)
 			ctx->exposure_min = ctx->s_ctx.mode[i].min_exposure_line;
+		if (!ctx->s_ctx.mode[i].saturation_info)
+			ctx->s_ctx.mode[i].saturation_info = ctx->s_ctx.saturation_info;
 	}
 }
 
@@ -1704,8 +2090,21 @@ int common_get_info(struct subdrv_ctx *ctx,
 	sensor_info->MIPIsensorType = ctx->s_ctx.mipi_sensor_type;
 	sensor_info->SensorOutputDataFormat =
 		ctx->s_ctx.mode[scenario_id].sensor_output_dataformat;
-	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++)
+	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++) {
 		sensor_info->DelayFrame[i] = ctx->s_ctx.mode[i].delay_frame;
+		if (ctx->s_ctx.mode[i].saturation_info) {
+			sensor_info->gain_ratio[i] =
+				ctx->s_ctx.mode[i].saturation_info->gain_ratio;
+			sensor_info->OB_pedestals[i] =
+				ctx->s_ctx.mode[i].saturation_info->OB_pedestal;
+			sensor_info->saturation_level[i] =
+				ctx->s_ctx.mode[i].saturation_info->saturation_level;
+		} else {
+			sensor_info->gain_ratio[i] = 1000;
+			sensor_info->OB_pedestals[i] = ctx->s_ctx.ob_pedestal;
+			sensor_info->saturation_level[i] = 1023;
+		}
+	}
 	sensor_info->SensorDrivingCurrent = ctx->s_ctx.isp_driving_current;
 	sensor_info->IHDR_Support = 0;
 	sensor_info->IHDR_LE_FirstLine = 0;
@@ -1778,7 +2177,9 @@ int common_control(struct subdrv_ctx *ctx,
 	u16 size = 0;
 	u16 addr = 0;
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
-
+#ifdef TRUE
+	SHOW_SENSOE_STATE(g_sensor_state, __func__, __LINE__);
+#endif
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
@@ -1794,6 +2195,18 @@ int common_control(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].mode_setting_len);
 		i2c_table_write(ctx, ctx->s_ctx.mode[scenario_id].mode_setting_table,
 			ctx->s_ctx.mode[scenario_id].mode_setting_len);
+		ctx->sensor_mode = scenario_id;
+#ifdef TRUE
+		if((scenario_id == 15) && (ctx->s_ctx.sensor_id == ZIRCONS5KHP3SUNNY_SENSOR_ID)){
+			subdrv_i2c_wr_u16(ctx, AWB_RED_GAIN_ADDR, ctx->awb_data.ABS_GAIN_R * 2);
+			subdrv_i2c_wr_u16(ctx, AWB_GREEN_GAIN_ADDR, ctx->awb_data.ABS_GAIN_GR * 2);
+			subdrv_i2c_wr_u16(ctx, AWB_BLUE_GAIN_ADDR, ctx->awb_data.ABS_GAIN_B * 2);
+			DRV_LOG(ctx, "sensor mode 15 write awb_r:0x%x awb_g:0x%x awb_b:0x%x\n",
+				ctx->awb_data.ABS_GAIN_R * 2, ctx->awb_data.ABS_GAIN_GR * 2, ctx->awb_data.ABS_GAIN_B * 2);
+		}
+		SET_RES_STATE(g_sensor_state, scenario_id, __func__, __LINE__);
+		SET_FRAME_STATE(g_sensor_state, 0, __func__, __LINE__);
+#endif
 		DRV_LOG(ctx, "X: sid:%u size:%u\n", scenario_id,
 			ctx->s_ctx.mode[scenario_id].mode_setting_len);
 	} else {
@@ -2106,6 +2519,22 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		get_exposure_count_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*feature_data,
 			(u32 *)(feature_data + 1));
+		break;
+	case SENSOR_FEATURE_GET_DCG_GAIN_RATIO_TABLE_BY_SCENARIO:
+		get_dcg_gain_ratio_table_by_scenario(ctx,
+		(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+		feature_data+1,
+			(void *)(uintptr_t)(*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_DCG_GAIN_RATIO_RANGE_BY_SCENARIO:
+		get_dcg_gain_ratio_range_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, feature_data + 2);
+		break;
+	case SENSOR_FEATURE_GET_DCG_TYPE_BY_SCENARIO:
+		get_dcg_type_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, feature_data + 2);
 		break;
 	default:
 		break;

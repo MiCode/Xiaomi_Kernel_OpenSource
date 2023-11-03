@@ -243,6 +243,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		bk_val = readl_relaxed(test_base);
 		if (mminfra_bkrs)
 			do_mminfra_bkrs(false);
+                iounmap(test_base);
 		count = atomic_read(&clk_ref_cnt);
 		if (count != 1) {
 			pr_notice("%s: wrong clk ref_cnt=%d in PRE_OFF\n",

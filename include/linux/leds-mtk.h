@@ -22,7 +22,8 @@ struct led_conf_info {
 	int min_hw_brightness;
 	int limit_hw_brightness;
 	int min_brightness;
-	unsigned int aal_enable;
+	int pq_max_51backlight_threshold;
+	atomic_t aal_enable;
 	struct led_classdev cdev;
 	int flags;
 	enum led_mode mode;

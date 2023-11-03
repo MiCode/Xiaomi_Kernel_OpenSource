@@ -15,6 +15,10 @@
 #include "adaptor.h"
 #include "adaptor-hw.h"
 #include <linux/clk-provider.h>
+#ifdef TRUE
+#include "sensor-state.h"
+extern unsigned int g_sensor_state;
+#endif
 
 #define INST_OPS(__ctx, __field, __idx, __hw_id, __set, __unset) do {\
 	if (__ctx->__field[__idx]) { \
@@ -339,6 +343,9 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev, "[%s]-\n", __func__);
 #endif
+#ifdef TRUE
+	SET_POWERON_STATE(g_sensor_state, 1, __func__, __LINE__);
+#endif
 	return 0;
 }
 
@@ -384,7 +391,12 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		if (!op->unset)
 			continue;
 		op->unset(ctx, op->data, ent->val);
+#ifdef TRUE
+		if (ent->delay)
+			mdelay(ent->delay);
+#else
 		//msleep(ent->delay);
+#endif
 	}
 
 	op = &ctx->hw_ops[HW_ID_MIPI_SWITCH];
@@ -409,6 +421,11 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		dev_info(ctx->dev, "__pm_relax(fail)\n");
 
 	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
+#ifdef TRUE
+	SET_POWERON_STATE(g_sensor_state, 0, __func__, __LINE__);
+	CLEAN_STATE(g_sensor_state, __func__, __LINE__);
+	SHOW_SENSOE_STATE(g_sensor_state, __func__, __LINE__);
 #endif
 	return 0;
 }

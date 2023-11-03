@@ -34,7 +34,9 @@ static const char *const mt6985_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
 						  MTK_SPK_RICHTEK_RT5512_STR,
-						  MTK_SPK_GOODIX_TFA98XX_STR};
+						  MTK_SPK_GOODIX_TFA98XX_STR,
+						  MTK_SPK_AW_AW882XX_STR
+						  };
 static const char *const
 	mt6985_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
 				     MTK_SPK_I2S_1_STR,
@@ -121,14 +123,14 @@ static int mt6985_compress_info_get(struct snd_kcontrol *kcontrol,
 					 __func__,
 					 (compr->direction) ? "Capture" : "Playback");
 				compr_info.dir = compr->direction;
-			}
-			for_each_card_prelinks(card, i, dai_link) {
-				if (i == compr_info.device) {
-					pr_debug("device = %d, dai_link->name: %s\n",
-						 i, dai_link->stream_name);
-					strscpy(compr_info.id, dai_link->stream_name,
-						sizeof(compr_info.id));
-					break;
+				for_each_card_prelinks(card, i, dai_link) {
+					if (i == compr_info.device) {
+						pr_debug("device = %d, dai_link->name: %s\n",
+							i, dai_link->stream_name);
+						strscpy(compr_info.id, dai_link->stream_name,
+							sizeof(compr_info.id));
+						break;
+					}
 				}
 			}
 			break;

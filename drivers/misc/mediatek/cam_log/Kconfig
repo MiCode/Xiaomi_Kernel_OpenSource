@@ -1,0 +1,4 @@
+config MI_CAMLOG
+    tristate "Camera Camlog Driver Support"
+    help
+      Enable to build camera Skynet Camlog drivers.

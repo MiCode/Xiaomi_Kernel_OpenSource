@@ -378,6 +378,11 @@ struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id)
 }
 EXPORT_SYMBOL_GPL(mml_dev_get_comp_by_id);
 
+void *mml_get_sys(struct mml_dev *mml)
+{
+	return mml->sys;
+}
+
 static int master_bind(struct device *dev)
 {
 	return component_bind_all(dev, NULL);

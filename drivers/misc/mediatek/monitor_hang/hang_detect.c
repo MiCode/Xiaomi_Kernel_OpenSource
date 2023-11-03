@@ -939,7 +939,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 	int mapcount = 0;
 	struct file *file;
 	int flags;
-	struct mm_struct *mm;
+	struct mm_struct *mm, *current_mm;
 	struct pt_regs *user_ret;
 	char tpath[512];
 	char *path_p = NULL;
@@ -956,17 +956,18 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		return -1;
 	}
 
-	if (!get_task_mm(current_task)) {
+	current_mm = get_task_mm(current_task);
+	if (!current_mm) {
 		pr_info(" %s,%d:%s: current_task->mm == NULL", __func__, pid,
 				current_task->comm);
 		return -1;
 	}
 
-	mmap_read_lock(current_task->mm);
-	vma = current_task->mm->mmap;
+	mmap_read_lock(current_mm);
+	vma = current_mm->mmap;
 	log_hang_info("Dump native maps files:\n");
 	hang_log("Dump native maps files:\n");
-	while (vma && (mapcount < current_task->mm->map_count)) {
+	while (vma && (mapcount < current_mm->map_count)) {
 		file = vma->vm_file;
 		flags = vma->vm_flags;
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
@@ -1030,8 +1031,8 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		vma = vma->vm_next;
 		mapcount++;
 	}
-	mmap_read_unlock(current_task->mm);
-	mmput(current_task->mm);
+	mmap_read_unlock(current_mm);
+	mmput(current_mm);
 	return 0;
 }
 

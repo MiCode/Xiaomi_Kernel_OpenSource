@@ -24,6 +24,8 @@
 #define HEAP_DUMP_STATS           (1 << 3)
 #define HEAP_DUMP_DEC_1_REF       (1 << 4)
 #define HEAP_DUMP_OOM             (1 << 5)
+#define HEAP_DUMP_PSS_BYFD	  (1 << 6)
+#define HEAP_DUMP_EGL		  (1 << 7)
 
 #define HANG_DMABUF_FILE_TAG	((void *)0x1)
 typedef void (*hang_dump_cb)(const char *fmt, ...);

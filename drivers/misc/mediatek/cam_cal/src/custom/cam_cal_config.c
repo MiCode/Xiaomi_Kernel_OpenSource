@@ -26,6 +26,10 @@
 #define IDX_MAX_CAM_NUMBER 7 // refer to IHalsensor.h
 #define MAX_EEPROM_LIST_NUMBER 32
 
+#ifdef TRUE
+#define S5KHP3_LAY_OUT2 0x4444C214
+#endif
+
 #undef E
 #define E(__x__) (__x__)
 extern struct STRUCT_CAM_CAL_CONFIG_STRUCT CAM_CAL_CONFIG_LIST;
@@ -75,6 +79,9 @@ unsigned int layout_check(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned int header_offset = cam_cal_config->layout->header_addr;
 	unsigned int check_id = 0x00000000;
 	unsigned int result = CAM_CAL_ERR_NO_DEVICE;
+#ifdef TRUE
+	unsigned int check_id2 = S5KHP3_LAY_OUT2;
+#endif
 
 	if (cam_cal_config->sensor_id == sensorID)
 		debug_log("%s sensor_id matched\n", cam_cal_config->name);
@@ -87,13 +94,24 @@ unsigned int layout_check(struct EEPROM_DRV_FD_DATA *pdata,
 		debug_log("header_id read failed\n");
 		return result;
 	}
-
+#ifdef TRUE
+	if (((check_id << 8) == (cam_cal_config->layout->header_id << 8)) || ((check_id << 8) == (check_id2 << 8))) {
+		debug_log("header_id matched 0x%08x 0x%08x, new 0x%08x 0x%08x\n",
+			check_id, cam_cal_config->layout->header_id, check_id << 8, (cam_cal_config->layout->header_id << 8));
+#else
+#ifdef __XIAOMI_CAMERA__
+	if ((check_id << 8) == (cam_cal_config->layout->header_id << 8)) {
+		debug_log("header_id matched 0x%08x 0x%08x, new 0x%08x 0x%08x\n",
+			check_id, cam_cal_config->layout->header_id, check_id << 8, (cam_cal_config->layout->header_id << 8));
+#else
 	if (check_id == cam_cal_config->layout->header_id) {
 		debug_log("header_id matched 0x%08x 0x%08x\n",
 			check_id, cam_cal_config->layout->header_id);
+#endif
+#endif
 		result = CAM_CAL_ERR_NO_ERR;
 	} else
-		debug_log("header_id not matched 0x%08x 0x%08x\n",
+		pr_err("Error !! header_id not matched Read:0x%08x Exp:0x%08x\n",
 			check_id, cam_cal_config->layout->header_id);
 
 	return result;

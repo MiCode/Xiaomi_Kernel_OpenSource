@@ -131,7 +131,7 @@ struct adaptor_ctx {
 	int mode_cnt;
 	MSDK_SENSOR_INFO_STRUCT sensor_info;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_cfg;
-	int fmt_code;
+	int fmt_code[SENSOR_SCENARIO_ID_MAX];
 	int idx; /* requireed by frame-sync modules */
 	int dts_idx; /* dts idx (before reindex) */
 	struct mtk_hdr_ae ae_memento;

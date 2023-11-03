@@ -13,7 +13,11 @@
 #include "cam_cal_define.h"
 
 // TODO: Move to Kconfig
+#ifdef __XIAOMI_CAMERA__
+#define MAX_EEPROM_NUMBER 6
+#else
 #define MAX_EEPROM_NUMBER 5
+#endif
 
 #define DEV_NAME_STR_LEN_MAX 50
 

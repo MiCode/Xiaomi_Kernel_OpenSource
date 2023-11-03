@@ -1,0 +1,226 @@
+#include "mediatek/zircon-mt6886.dtsi"
+#include <zircon/cust.dtsi>
+#include <mediatek/xiaomi_zircon_mt6886_fingerprint.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+
+&i2c7 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	bq28z610@55 {
+		compatible = "bq28z610";
+		reg = <0x55>;
+		max_chg_power_120w;
+		enable_shutdown_delay;
+		normal_shutdown_vbat_1s = <3400>;
+		critical_shutdown_vbat_1s = <3280>;
+		report_full_rsoc_1s = <9500>;
+		soc_gap_1s = <2>;
+		soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+	};
+
+	sc8561_master@64 {
+		compatible = "sc8561_master";
+		reg = <0x64>;
+		sc8561_irq_gpio = <&pio 159 0x0>;
+	};
+	sc8561_slave@65 {
+		compatible = "sc8561_slave";
+		reg = <0x65>;
+		sc8561_irq_gpio = <&pio 158 0x0>;
+	};
+};
+
+&i2c6 {
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,gate-ic-i2c";
+		gate-power-gpios = <&pio 148 0>;
+		reg = <0x11>;
+		id = <6>;
+		status = "disabled";
+	};
+};
+
+&irtx_pwm {
+	pwm_ch = <3>;
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+
+&pio {
+	/* IRTX GPIO Settings -Start */
+	/* default: GPIO0, output, high */
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio148 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO148__FUNC_GPIO148>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio148 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO148__FUNC_PWM_3>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+
+&charger {
+	max_charge_power = <120>;
+	max_charger_voltage = <12000000>;
+	fv = <4470>;
+	fv_ffc = <4520>;
+	/* charging current */
+	usb_charger_current = <500000>;
+	ac_charger_current = <1500000>;
+	ac_charger_input_current = <1500000>;
+	charging_host_charger_current = <1500000>;
+	ffc_low_tbat = <150>;
+	ffc_high_tbat = <480>;
+	ffc_medium_tbat = <350>;
+	ffc_high_soc = <95>;
+	step_fallback_hyst = <25>;
+	step_forward_hyst = <5>;
+	jeita_fallback_hyst = <10>;
+	jeita_forward_hyst = <10>;
+	mt6373_moscon1_control;
+	sic_support;
+	enable_vbat_mon=<0>;
+	slave_connect_check_gpio = <&pio 187 GPIO_ACTIVE_LOW>;
+
+	min_charge_temp = <(-10)>;
+	min_charge_temp_plus_x_degree = <(-10)>;
+	max_charge_temp = <60>;
+	max_charge_temp_minus_x_degree = <58>;
+
+	jeita_fcc_cfg = <(-100)	0	4200	1464	732
+			1	50	4470	2440	2440
+			51	100	4470	4780	4780
+			101	150	4470	7230	7230
+			151	350	4150	22000	22000
+			351	400	4150	22000	22000
+			401	470	4150	22000	22000
+			471	600	4100	4780	4780>;
+	jeita_fv_cfg = <(-100)	0	4470
+			1	50	4470
+			51	100	4470
+			101	150	4470
+			151	350	4520
+			351	400	4520
+			401	470	4520
+			471	600	4100>;
+	step_chg_cfg_low_cycle = <3000	3595	21700
+				3596	4150	21700
+				4151	4250	15800
+				4251	4450	14500
+				4451	4520	9600>;
+	step_chg_cfg_middle_cycle = <3000	3595	21700
+				3596	4120	21700
+				4121	4220	15800
+				4221	4450	14500
+				4451	4500	9600>;
+	step_chg_cfg_high_cycle = <3000	3595	17300
+				3596	4120	17300
+				4121	4220	12600
+				4221	4430	11560
+				4431	4480	7640>;
+
+	jeita_iterm_cfg = <(-100)	0	410	410
+			1	50	410	410
+			51	100	410	410
+			101	150	410	410
+			151	350	410	3283
+			351	400	410	3773
+			401	470	410	5978
+			471	600	410	410>;
+	jeita_iterm_cfg_second_supplier = <(-100)	0	410	410
+		1	50	410	410
+		51	100	410	410
+		101	150	410	410
+		151	350	410	2548
+		351	400	410	3038
+		401	470	410	3871
+		471	600	410	410>;
+
+	thermal_limit_dcp = <1600 1600 1600 1600 1600 1600 1600 1600 1600 1600 1600 1600 1500 1400 1200 1000>;
+	thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_qc3_18w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+	thermal_limit_qc3_27w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+	thermal_limit_qc35 = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+	thermal_limit_pd = <22000 16000 12000 9000 8000 7000 6000 5000 4000 3500 3000 2400 2000 1500 1200 1000>;
+	smart_chg_lowfast_increment = <4000 10000 12000 14000 12000 12000 8000 7000 5000 3000 2000 1500 1000 0 0 0>;
+};
+
+&mtk_gauge {
+	DISABLE_MTKBATTERY = <(1)>;
+};
+
+&lk_charger {
+	usb_charger_current = <500000>;
+	ac_charger_current = <1500000>;
+	ac_charger_input_current = <2000000>;
+	non_std_ac_charger_current = <500000>;
+	charging_host_charger_current = <1500000>;
+	ta_ac_charger_current = <1500000>;
+	pd_charger_current = <1500000>;
+	temp_t4_threshold = <60>;
+	temp_t3_threshold = <45>;
+	pre_charger_current = <340000>;
+	fast_charge_voltage = <3200000>;
+};
+
+&pd_cp_manager {
+	compatible = "pd_cp_manager";
+	fv = <4465>;
+	fv_ffc = <4515>;
+	max_fcc = <22000>;
+	max_vbus = <20000>;
+	max_ibus = <6200>;
+	fcc_low_hyst = <220>;
+	fcc_high_hyst = <0>;
+	low_tbat = <100>;
+	high_tbat = <480>;
+	high_vbat = <4400>;
+	high_soc = <95>;
+	low_fcc = <2000>;
+	cv_vbat = <4450>;
+	cv_vbat_ffc = <4490>;
+	cv_ibat = <2000>;
+	vbus_low_gap = <800>;
+	vbus_high_gap = <1000>;
+	ibus_gap = <100>;
+	min_pdo_vbus = <8000>;
+	max_pdo_vbus = <20000>;
+	mt6375_control_gpio = <&pio 149 GPIO_ACTIVE_LOW>;
+	support_4_1;
+};
+
+&mtee_svp {
+	mtee: MTEE {
+		compatible = "mediatek,mtk_svp_on_mtee_support";
+	};
+
+	svp: SecureVideoPath {
+		compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};
+
+#include "mediatek/cust_mt6886_nfc_nxp.dtsi"
+#include "mediatek/zircon_mt6886_camera_v4l2.dtsi"
+#include "mediatek/zircon_mt6886_touch.dtsi"

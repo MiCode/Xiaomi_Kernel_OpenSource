@@ -77,6 +77,9 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt);
 void set_multi_dig_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt);
 void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id);
 void check_stream_off(struct subdrv_ctx *ctx);
+#ifdef ZIRCON_CAM
+void check_stream_status(struct subdrv_ctx *ctx, bool enable);
+#endif
 void streaming_control(struct subdrv_ctx *ctx, bool enable);
 void set_video_mode(struct subdrv_ctx *ctx, u16 framerate);
 void set_auto_flicker_mode(struct subdrv_ctx *ctx, bool enable, u16 framerate);
@@ -147,6 +150,13 @@ void get_readout_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *readout_time);
 void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *scenario_exp_cnt);
+void get_dcg_gain_ratio_table_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *size, void *data);
+void get_dcg_gain_ratio_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain, u64 *max_gain);
+void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u64 *dcg_mode, u64 *dcg_gain_mode);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);

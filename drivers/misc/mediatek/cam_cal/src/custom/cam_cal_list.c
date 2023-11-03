@@ -14,6 +14,12 @@
 
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	/*Below is commom sensor */
+
+	{ZIRCONS5KHP3SUNNY_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_32K},
+	{ZIRCONOV16A1QSUNNY_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_32K},
+	{ZIRCONIMX355SUNNY_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_32K},
+	{ZIRCONOV02B10SUNNY_SENSOR_ID, 0xA4, Common_read_region, MAX_EEPROM_SIZE_32K},
+
 	{OV48B12M_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{OV48B_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{IMX766_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_32K},

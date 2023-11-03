@@ -69,6 +69,7 @@ endif
     REL_GEN_KERNEL_BUILD_CONFIG := $(REL_KERNEL_OUT)/$(notdir $(GEN_KERNEL_BUILD_CONFIG))
     GEN_MTK_SETUP_ENV_SH := $(patsubst %/,%,$(dir $(KERNEL_OUT)))/mtk_setup_env.sh
     KERNEL_CONFIG_FILE := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/configs/$(word 1,$(KERNEL_DEFCONFIG))
+    KERNEL_MODULES_OUT := $(TARGET_OUT_VENDOR)/lib/modules
 
   else
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)

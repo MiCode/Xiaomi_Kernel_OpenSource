@@ -1732,13 +1732,13 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 		if (!device_property_read_u32_array(dev, "mediatek,lpm-parameter",
 			inst->lpm_para, PHY_PLL_PARA_CNT))
 			inst->lpm_quirk = true;
-		dev_dbg(dev, "intr:%d, term_cal, src:%d, vrt:%d, term:%d\n",
+		dev_info(dev, "intr:%d, term_cal, src:%d, vrt:%d, term:%d\n",
 			inst->efuse_intr, inst->efuse_term_cal, inst->eye_src,
 			inst->eye_vrt, inst->eye_term);
-		dev_dbg(dev, "src_host:%d, vrt_host:%d, term_host:%d\n",
+		dev_info(dev, "src_host:%d, vrt_host:%d, term_host:%d\n",
 			inst->eye_src_host, inst->eye_vrt_host,
 			inst->eye_term_host);
-		dev_dbg(dev, "discth:%d, rx_sqth:%d, rev6:%d, rev6_host:%d\n",
+		dev_info(dev, "discth:%d, rx_sqth:%d, rev6:%d, rev6_host:%d\n",
 			inst->discth, inst->rx_sqth, inst->rev6,
 			inst->rev6_host);
 		break;

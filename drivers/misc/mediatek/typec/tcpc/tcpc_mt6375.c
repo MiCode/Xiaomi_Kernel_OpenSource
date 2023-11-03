@@ -20,6 +20,7 @@
 #include "inc/tcpci_typec.h"
 #include "inc/tcpci_core.h"
 #include "inc/std_tcpci_v10.h"
+#include "../../../hwid/hwid.h"
 
 #define MT6375_INFO_EN	1
 #define MT6375_DBGINFO_EN	1
@@ -681,6 +682,15 @@ static int mt6375_enable_typec_otp_fwen(struct tcpc_device *tcpc, bool en)
 	pr_info("%s: en=%d\n", __func__, en);
 	return (en ? mt6375_set_bits : mt6375_clr_bits)
 		(ddata, MT6375_REG_TYPECOTPCTRL, MT6375_MSK_TYPECOTP_FWEN);
+}
+
+static int mt6375_set_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
+{
+	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+
+	pr_info("%s en = %d", __func__, en);
+	return (en ? mt6375_set_bits : mt6375_clr_bits)
+		(ddata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_BLEED_DISC_EN);
 }
 
 static int mt6375_hidet_is_plugout(struct mt6375_tcpc_data *ddata, bool *out)
@@ -2309,6 +2319,7 @@ static struct tcpc_ops mt6375_tcpc_ops = {
 
 	.set_floating_ground = mt6375_set_floating_ground,
 	.set_otp_fwen = mt6375_enable_typec_otp_fwen,
+	.set_force_discharge = mt6375_set_force_discharge,
 };
 
 static void mt6375_irq_work_handler(struct kthread_work *work)
@@ -2392,8 +2403,8 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 	}
 	ddata->irq = ret;
 	ret = devm_request_threaded_irq(ddata->dev, ret, NULL,
-					mt6375_pd_evt_handler, IRQF_ONESHOT,
-					dev_name(ddata->dev), ddata);
+					mt6375_pd_evt_handler, IRQF_ONESHOT |
+					IRQF_NO_SUSPEND, dev_name(ddata->dev), ddata);
 	if (ret < 0) {
 		dev_err(ddata->dev, "failed to request irq %d\n", ddata->irq);
 		return ret;
@@ -2459,6 +2470,10 @@ static int mt6375_parse_dt(struct mt6375_tcpc_data *ddata)
 	struct device *dev = ddata->dev;
 	u32 val;
 	int i;
+	const char * hw_sku = product_name_get();
+	uint32_t hw_ver_major = get_hw_version_major() & 0x000F;
+	uint32_t hw_ver_min = get_hw_version_minor();
+
 	const struct {
 		const char *name;
 		bool *val_ptr;
@@ -2512,7 +2527,6 @@ static int mt6375_parse_dt(struct mt6375_tcpc_data *ddata)
 		val < TCPC_VCONN_SUPPLY_NR)
 		desc->vconn_supply = val;
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
-
 	for (i = 0; i < ARRAY_SIZE(tcpc_props_bool); i++) {
 		*tcpc_props_bool[i].val_ptr =
 			device_property_read_bool(dev, tcpc_props_bool[i].name);
@@ -2530,6 +2544,16 @@ static int mt6375_parse_dt(struct mt6375_tcpc_data *ddata)
 			dev_info(dev, "props[%s] = %d\n",
 				 tcpc_props_u32[i].name,
 				 *tcpc_props_u32[i].val_ptr);
+	}
+
+	dev_err(dev, "sku=%s, major=%d, minor=%d \n", hw_sku, hw_ver_major, hw_ver_min);
+	if(strcmp(hw_sku, "corot") && strcmp(hw_sku, "zircon"))
+	{
+		desc->en_floatgnd = false;
+		dev_err(dev, "won't enable wd0 unless it's corot or zircon, wd0_float_gnd=%d\n", desc->en_floatgnd);
+	}else if (!strcmp(hw_sku, "corot") && (hw_ver_major == 0 || (hw_ver_major == 1 && hw_ver_min == 0))) {
+		desc->en_floatgnd = false;
+		dev_err(dev, "donot enable wd0 in special version, wd0_float_gnd=%d\n", desc->en_floatgnd);
 	}
 
 	ddata->desc = desc;
@@ -2551,6 +2575,7 @@ static int mt6375_parse_dt(struct mt6375_tcpc_data *ddata)
 		}
 
 	}
+	dev_err(dev, "wd0_tsleep=%d wd0_tdet=%d\n", ddata->wd0_tsleep, ddata->wd0_tdet);
 	return 0;
 }
 

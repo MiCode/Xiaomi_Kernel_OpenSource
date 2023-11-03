@@ -232,7 +232,12 @@ static ssize_t debug_ops_store(struct device *dev,
 	struct seninf_core *core = dev_get_drvdata(dev);
 	struct seninf_ctx *ctx, *seninf_ctx = NULL;
 	int rg_idx = -1;
+#ifdef __XIAOMI_CAMERA__
+	u32  pad_id, camtg, tag_id;
+	u64 val;
+#else
 	u32 val, pad_id, camtg, tag_id;
+#endif
 
 	if (!sbuf)
 		goto ERR_DEBUG_OPS_STORE;
@@ -267,7 +272,11 @@ static ssize_t debug_ops_store(struct device *dev,
 		if (rg_idx < 0)
 			goto ERR_DEBUG_OPS_STORE;
 
+#ifdef __XIAOMI_CAMERA__
+		ret = kstrtoull(arg[REG_OPS_CMD_VAL], 0, &val);
+#else
 		ret = kstrtouint(arg[REG_OPS_CMD_VAL], 0, &val);
+#endif
 		if (ret)
 			goto ERR_DEBUG_OPS_STORE;
 
@@ -774,7 +783,11 @@ static int seninf_core_probe(struct platform_device *pdev)
 		}
 		dev_info(dev, "registered irq=%d\n", irq);
 	}
-
+	
+#ifdef __XIAOMI_CAMERA__
+	/* flag for err detection */
+	core->err_detect_init_flag = 0;
+#endif
 	/* default platform properties */
 	core->cphy_settle_delay_dt = SENINF_CPHY_SETTLE_DELAY_DT;
 	core->dphy_settle_delay_dt = SENINF_DPHY_SETTLE_DELAY_DT;
@@ -1548,7 +1561,9 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 
 	core->csi_irq_en_flag = 0;
 	core->vsync_irq_en_flag = 0;
-
+#ifdef __XIAOMI_CAMERA__
+	core->err_detect_termination_flag = 1;
+#endif
 	list_for_each_entry(ctx_, &core->list, list) {
 		ctx_->data_not_enough_flag = 0;
 		ctx_->err_lane_resync_flag = 0;
@@ -1564,6 +1579,11 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 		ctx_->ecc_err_corrected_cnt = 0;
 		ctx_->fifo_overrun_cnt = 0;
 		ctx_->size_err_cnt = 0;
+#ifdef __XIAOMI_CAMERA__
+#ifdef ERR_DETECT_TEST
+		ctx_->test_cnt = 0;
+#endif
+#endif
 	}
 
 	return 0;
@@ -1637,7 +1657,12 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable) {
+#ifdef __XIAOMI_CAMERA__
+		if (!(core->err_detect_init_flag))
+			debug_err_detect_initialize(ctx);
+#else
 		debug_err_detect_initialize(ctx);
+#endif
 		get_mbus_config(ctx, ctx->sensor_sd);
 
 		get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
@@ -1722,6 +1747,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev,
 				 "[%s] pad_inited(%d)\n", __func__, pad_inited);
 			// stream on sensor while csi streamed
+			mutex_lock(&ctx->delay_s_sensor_mutex);
+			ctx->delay_s_sensor_flag = 1;
+			mutex_unlock(&ctx->delay_s_sensor_mutex);
 			stream_sensor(ctx, enable);
 			return 0;
 		}
@@ -1789,7 +1817,13 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		aov_switch_pm_ops(ctx, AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF);
 		core->aov_abnormal_deinit_flag = 0;
 	}
-
+#ifdef __XIAOMI_CAMERA__
+	/* for continuous detection */
+	if (enable && core->err_detect_init_flag){
+		dev_info(ctx->dev, "[%s] _enable_stream_err_detect enable(%d)\n", __func__, enable);
+		g_seninf_ops->_enable_stream_err_detect(ctx);
+	}
+#endif
 	return 0;
 }
 
@@ -2170,7 +2204,9 @@ static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt++;
 	core->pid = find_get_pid(current->pid);
-
+#ifdef __XIAOMI_CAMERA__
+	ctx->pid = find_get_pid(current->pid);
+#endif
 	if (ctx->open_refcnt == 1)
 		dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 
@@ -2440,7 +2476,9 @@ static int seninf_probe(struct platform_device *pdev)
 	ctx->dbg_chmux_param = NULL;
 
 	ctx->open_refcnt = 0;
+	ctx->delay_s_sensor_flag = 0;
 	mutex_init(&ctx->mutex);
+	mutex_init(&ctx->delay_s_sensor_mutex);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {

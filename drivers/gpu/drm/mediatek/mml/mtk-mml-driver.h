@@ -209,6 +209,11 @@ struct mml_topology_cache *mml_topology_get_cache(struct mml_dev *mml);
  */
 struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id);
 
+/*
+ * mml_get_sys - get mmlsys instance for mml
+ */
+void *mml_get_sys(struct mml_dev *mml);
+
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 /*
  * mml for swpm

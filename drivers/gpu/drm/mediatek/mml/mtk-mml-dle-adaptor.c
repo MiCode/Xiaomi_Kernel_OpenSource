@@ -124,10 +124,11 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 {
 	struct mml_task *task, *tmp;
 
-	mml_msg("[dle]%s frame config %p", __func__, cfg);
+	mml_msg("[dle]%s frame config %p task cnt (%u %u %hhu)",
+		__func__, cfg, cfg->await_task_cnt, cfg->run_task_cnt, cfg->done_task_cnt);
 
 	if (WARN_ON(!list_empty(&cfg->await_tasks))) {
-		mml_err("[dle]still waiting tasks in wq during destroy config");
+		mml_err("[dle]still waiting tasks in wq during destroy config %p", cfg);
 		list_for_each_entry_safe(task, tmp, &cfg->await_tasks, entry) {
 			/* unable to handling error,
 			 * print error but not destroy
@@ -139,7 +140,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 	}
 
 	if (WARN_ON(!list_empty(&cfg->tasks))) {
-		mml_err("[dle]still busy tasks during destroy config");
+		mml_err("[dle]still busy tasks during destroy config %p", cfg);
 		list_for_each_entry_safe(task, tmp, &cfg->tasks, entry) {
 			/* unable to handling error,
 			 * print error but not destroy

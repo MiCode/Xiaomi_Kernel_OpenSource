@@ -615,7 +615,18 @@ struct sdhci_host {
 
 	u64			data_timeout;
 
-	ANDROID_KABI_RESERVE(1);
+	/*
+	 * ANDROID:
+	 * drv_type and reinit_uhs are here to preserve the ABI changes in commit 57ee7bc4c60a
+	 * ("mmc: sdhci: Fix voltage switch delay")
+	 */
+	ANDROID_KABI_USE(1, struct {
+			 u8 reinit_uhs	:1;
+			 u8 reserve01	:7;
+			 u8 drv_type;
+			 u16 reserve02;
+			 u32 reserve03;
+			 });
 
 	unsigned long private[] ____cacheline_aligned;
 };

@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
-
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -15,28 +14,25 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <tcpm.h>
+#include "mtk_charger.h"
 
 #define MTK_CTD_DRV_VERSION	"1.0.0_MTK"
 
 struct mtk_ctd_info {
 	struct device *dev;
-	/* device tree */
 	u32 bc12_sel;
 	struct power_supply *bc12_psy;
-	/* typec notify */
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block pd_nb;
-	/* chg det */
 	wait_queue_head_t attach_wq;
 	atomic_t chrdet_start;
 	struct task_struct *attach_task;
 	struct mutex attach_lock;
-	int typec_attach;
+	bool typec_attach;
 	bool tcpc_kpoc;
-	/* suspend notify */
 	struct notifier_block pm_nb;
 	bool is_suspend;
-	bool pd_rdy;
+	bool audio_adapter_chg_flg;
 };
 
 enum {
@@ -45,30 +41,19 @@ enum {
 	MTK_CTD_BY_EXTCHG,
 };
 
-#define FAST_CHG_WATT 7500000 /* mW */
-/* map with charger.c */
-enum attach_type {
-	ATTACH_TYPE_NONE,
-	ATTACH_TYPE_PWR_RDY,
-	ATTACH_TYPE_TYPEC,
-	ATTACH_TYPE_PD,
-	ATTACH_TYPE_PD_SDP,
-	ATTACH_TYPE_PD_DCP,
-	ATTACH_TYPE_PD_NONSTD,
-};
-
-static int mtk_ext_get_charger_type(struct mtk_ctd_info *mci, int attach)
+static int mtk_ext_get_charger_type(struct mtk_ctd_info *mci, bool attach)
 {
 	union power_supply_propval prop;
 	static struct power_supply *bc12_psy;
+	int ret = 0;
 
 	if (mci->bc12_sel == MTK_CTD_BY_MAINPMIC)
 		bc12_psy = power_supply_get_by_name("mtk_charger_type");
 	else if (mci->bc12_sel == MTK_CTD_BY_EXTCHG)
-		bc12_psy = power_supply_get_by_name("ext_charger_type");
+		bc12_psy = power_supply_get_by_name("xmusb350");
 	if (IS_ERR_OR_NULL(bc12_psy)) {
 		pr_notice("%s Couldn't get bc12_psy\n", __func__);
-		return -ENODEV;
+		return ret;
 	}
 
 	prop.intval = attach;
@@ -79,26 +64,17 @@ static int mtk_ext_get_charger_type(struct mtk_ctd_info *mci, int attach)
 static int typec_attach_thread(void *data)
 {
 	struct mtk_ctd_info *mci = data;
-	int ret = 0, attach;
+	int ret = 0;
+	bool attach;
 	union power_supply_propval val;
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
-		if (mci == NULL) {
-			pr_notice("%s: mci is null\n", __func__);
-			return -ENODEV;
-		}
 		ret = wait_event_interruptible(mci->attach_wq,
 			   atomic_read(&mci->chrdet_start) > 0 ||
 							 kthread_should_stop());
-		if (ret == -ERESTARTSYS) {
-			pr_notice("%s: error when wait_event_interruptible\n",
-				__func__);
-			break;
-		}
 		if (ret < 0) {
-			pr_notice("%s: wait event been interrupted(%d)\n",
-				  __func__, ret);
+			pr_notice("%s: wait event been interrupted(%d)\n", __func__, ret);
 			continue;
 		}
 		if (kthread_should_stop())
@@ -107,81 +83,48 @@ static int typec_attach_thread(void *data)
 		attach = mci->typec_attach;
 		atomic_set(&mci->chrdet_start, 0);
 		mutex_unlock(&mci->attach_lock);
-		pr_notice("%s bc12_sel:%d, attach:%d\n",
+		val.intval = attach;
+		pr_info("%s bc12_sel:%d, attach:%d\n",
 			  __func__, mci->bc12_sel, attach);
-
-		if (mci->bc12_sel != MTK_CTD_BY_SUBPMIC)
-			ret = mtk_ext_get_charger_type(mci, attach);
-		else {
-			val.intval = attach;
+		if (mci->bc12_sel == MTK_CTD_BY_SUBPMIC) {
 			ret = power_supply_set_property(mci->bc12_psy,
 						POWER_SUPPLY_PROP_ONLINE, &val);
-		}
-		if (ret < 0)
-			dev_info(mci->dev,
-				 "%s: fail to set online(%d)\n", __func__, ret);
+			if (ret < 0)
+				dev_info(mci->dev, "%s: set online fail(%d)\n",
+					__func__, ret);
+		} else
+			mtk_ext_get_charger_type(mci, attach);
 	}
 	return ret;
 }
 
-static void handle_typec_pd_attach(struct mtk_ctd_info *mci, int attach)
+static void handle_typec_attach(struct mtk_ctd_info *mci,
+				bool en)
 {
 	mutex_lock(&mci->attach_lock);
-	mci->typec_attach = attach;
-	mci->pd_rdy = attach ? mci->pd_rdy : false;
+	mci->typec_attach = en;
 	atomic_inc(&mci->chrdet_start);
 	wake_up_interruptible(&mci->attach_wq);
 	mutex_unlock(&mci->attach_lock);
 }
 
-static void handle_pd_rdy_attach(struct mtk_ctd_info *mci, struct tcp_notify *noti)
+static int get_source_mode(struct tcp_notify *noti)
 {
-	int attach = 0, usb_comm = 0, watt = 0, pd_rdy = 0;
-	struct tcpm_remote_power_cap cap;
-	memset(&cap, 0, sizeof(cap));
+	if (noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC)
+		return POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
 
-	if (noti->pd_state.connected == PD_CONNECT_PE_READY_SNK ||
-	    noti->pd_state.connected == PD_CONNECT_PE_READY_SNK_PD30 ||
-	    noti->pd_state.connected == PD_CONNECT_PE_READY_SNK_APDO) {
-		mutex_lock(&mci->attach_lock);
-		pd_rdy = mci->pd_rdy;
-		if (pd_rdy) {
-			dev_info(mci->dev,
-				 "%s: pd_rdy is already done\n", __func__);
-			mutex_unlock(&mci->attach_lock);
-			return;
-		}
-		mci->pd_rdy = true;
-		mutex_unlock(&mci->attach_lock);
-
-		usb_comm = tcpm_is_comm_capable(mci->tcpc_dev);
-		tcpm_get_remote_power_cap(mci->tcpc_dev, &cap);
-		watt = cap.max_mv[0] * cap.ma[0];
-		dev_info(mci->dev, "%s: mv:%d, ma:%d, watt: %d\n",
-			 __func__, cap.max_mv[0], cap.ma[0], watt);
-
-		if (usb_comm)
-			attach = ATTACH_TYPE_PD_SDP;
-		else
-			attach = watt >= FAST_CHG_WATT ? ATTACH_TYPE_PD_DCP :
-				 ATTACH_TYPE_PD_NONSTD;
-		pr_notice("%s: pd_attach:%d\n", __func__, attach);
-		handle_typec_pd_attach(mci, attach);
+	switch (noti->typec_state.rp_level) {
+	case TYPEC_CC_VOLT_SNK_1_5:
+		return POWER_SUPPLY_TYPEC_SOURCE_MEDIUM;
+	case TYPEC_CC_VOLT_SNK_3_0:
+		return POWER_SUPPLY_TYPEC_SOURCE_HIGH;
+	case TYPEC_CC_VOLT_SNK_DFT:
+		return POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
+	default:
+		break;
 	}
-}
 
-static void handle_audio_attach(struct mtk_ctd_info *mci, struct tcp_notify *noti)
-{
-	int attach;
-	uint8_t attach_state;
-
-	attach_state = tcpm_inquire_typec_attach_state(mci->tcpc_dev);
-	if (attach_state == TYPEC_ATTACHED_AUDIO) {
-		attach = !!noti->vbus_state.mv ? ATTACH_TYPE_PD_NONSTD :
-			 ATTACH_TYPE_NONE;
-		pr_notice("%s: audio_attach:%d\n", __func__, attach);
-		handle_typec_pd_attach(mci, attach);
-	}
+	return POWER_SUPPLY_TYPEC_NONE;
 }
 
 static int pd_tcp_notifier_call(struct notifier_block *nb,
@@ -190,62 +133,83 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	struct tcp_notify *noti = data;
 	struct mtk_ctd_info *mci = (struct mtk_ctd_info *)container_of(nb,
 						    struct mtk_ctd_info, pd_nb);
-	int counter = 0;
+	enum power_supply_typec_mode typec_mode = POWER_SUPPLY_TYPEC_NONE;
+	int vbus = 0;
 
 	switch (event) {
-	case TCP_NOTIFY_SINK_VBUS:
-		handle_audio_attach(mci, noti);
-		break;
-	case TCP_NOTIFY_PD_STATE:
-		handle_pd_rdy_attach(mci, noti);
-		break;
 	case TCP_NOTIFY_TYPEC_STATE:
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 		    (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
-			pr_info("%s USB Plug in, pol = %d\n", __func__,
-					noti->typec_state.polarity);
-			handle_typec_pd_attach(mci, ATTACH_TYPE_TYPEC);
+			pr_info("%s USB Plug in\n", __func__);
+			typec_mode = get_source_mode(noti);
+			handle_typec_attach(mci, true);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
+			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			pr_info("%s USB Plug out\n", __func__);
 			if (mci->tcpc_kpoc) {
 				pr_info("%s: typec unattached, power off\n",
 					__func__);
 				while (1) {
-					if (counter >= 20000) {
-						kernel_power_off();
-						break;		/* for coverity */
-					}
 					if (mci->is_suspend == false) {
 						pr_info("%s, not in suspend, shutdown\n", __func__);
-						kernel_power_off();
 					} else {
 						pr_info("%s, suspend, cannot shutdown\n", __func__);
 						msleep(20);
 					}
-					counter++;
 				}
 			}
-			handle_typec_pd_attach(mci, ATTACH_TYPE_NONE);
+			typec_mode = POWER_SUPPLY_TYPEC_NONE;
+			handle_typec_attach(mci, false);
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
-			pr_info("%s Source_to_Sink, turn to PD Flow\n", __func__);
+			pr_info("%s Source_to_Sink\n", __func__);
+			typec_mode = POWER_SUPPLY_TYPEC_SINK;
+			handle_typec_attach(mci, true);
 		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			pr_info("%s Sink_to_Source\n", __func__);
-			handle_typec_pd_attach(mci, ATTACH_TYPE_NONE);
+			typec_mode = get_source_mode(noti);
+			handle_typec_attach(mci, false);
 		}
+
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		    noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
+			typec_mode = POWER_SUPPLY_TYPEC_SINK;
+		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		    noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			typec_mode = POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER;
+			usb_get_property(USB_PROP_PMIC_VBUS, &vbus);
+			if (vbus > 3600) {
+				pr_info("%s audio && vbus charger 2/1 connecter plugin\n", __func__);
+				mci->audio_adapter_chg_flg = true;
+				handle_typec_attach(mci, true);
+			}
+		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
+			noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO) &&
+		    noti->typec_state.new_state == TYPEC_UNATTACHED) {
+		    if (noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO && mci->audio_adapter_chg_flg) {
+				pr_info("%s audio && vbus charger 2/1 connecter plugout\n", __func__);
+				mci->audio_adapter_chg_flg = false;
+				handle_typec_attach(mci, false);
+			}
+			typec_mode = POWER_SUPPLY_TYPEC_NONE;
+		}
+
+		pr_info("%s [old_state new_state typec_mode polarity] = [%d %d %d %d]\n", __func__, noti->typec_state.old_state,
+			noti->typec_state.new_state, typec_mode, noti->typec_state.polarity);
+		usb_set_property(USB_PROP_TYPEC_CC_ORIENTATION, noti->typec_state.polarity);
+		usb_set_property(USB_PROP_TYPEC_MODE, typec_mode);
 		break;
 	case TCP_NOTIFY_EXT_DISCHARGE:
-		if (noti->en_state.en)
+		if (noti->en_state.en) {
 			pr_info("%s turn on charger discharge\n", __func__);
-		else
+		} else {
 			pr_info("%s turn off charger discharge\n", __func__);
+		}
 		break;
 	default:
 		break;
@@ -302,7 +266,6 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mci->dev = &pdev->dev;
-	mci->bc12_sel = MTK_CTD_BY_SUBPMIC;
 	init_waitqueue_head(&mci->attach_wq);
 	atomic_set(&mci->chrdet_start, 0);
 	mutex_init(&mci->attach_lock);
@@ -310,7 +273,8 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 
 	mtk_ctd_parse_dt(mci);
 
-	mci->bc12_psy = power_supply_get_by_name("primary_chg");
+	mci->bc12_psy = devm_power_supply_get_by_phandle(&pdev->dev,
+							"bc12");
 	if (IS_ERR_OR_NULL(mci->bc12_psy)) {
 		dev_notice(&pdev->dev, "Failed to get charger psy\n");
 		return PTR_ERR(mci->bc12_psy);
@@ -326,14 +290,13 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 	mci->pd_nb.notifier_call = pd_tcp_notifier_call;
 
 	ret = register_pm_notifier(&mci->pm_nb);
-	if (ret)
+	if (ret < 0)
 		pr_notice("%s: register pm failed\n", __func__);
 
 	ret = register_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {
 		pr_notice("%s: register tcpc notifer fail\n", __func__);
-		unregister_pm_notifier(&mci->pm_nb);
 		return -EINVAL;
 	}
 
@@ -341,9 +304,6 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 				       "attach_thread");
 	if (IS_ERR(mci->attach_task)) {
 		pr_notice("%s: run typec attach kthread fail\n", __func__);
-		unregister_pm_notifier(&mci->pm_nb);
-		unregister_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
-					TCP_NOTIFY_TYPE_ALL);
 		return PTR_ERR(mci->attach_task);
 	}
 	dev_info(mci->dev, "%s: successfully\n", __func__);

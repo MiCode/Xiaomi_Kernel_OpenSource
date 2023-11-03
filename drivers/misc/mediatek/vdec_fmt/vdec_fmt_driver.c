@@ -1381,7 +1381,6 @@ static const struct of_device_id vdec_fmt_match[] = {
 static int vdec_fmt_remove(struct platform_device *pdev)
 {
 	struct mtk_vdec_fmt *fmt = platform_get_drvdata(pdev);
-
 	flush_workqueue(fmt->cmdq_cb_workqueue);
 	destroy_workqueue(fmt->cmdq_cb_workqueue);
 	fmt_unprepare_dvfs_emi_bw();

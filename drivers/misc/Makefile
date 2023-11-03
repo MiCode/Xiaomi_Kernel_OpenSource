@@ -61,4 +61,7 @@ obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_HI6421V600_IRQ)	+= hi6421v600-irq.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-y				+= mediatek/
+obj-$(CONFIG_MI_MEMORY_SYSFS)   += mi-memory/
 obj-$(CONFIG_OPEN_DICE)		+= open-dice.o
+obj-$(CONFIG_MI_HARDWARE_ID)	+= hwid/
+obj-$(CONFIG_XIAOMI_SIMTRAY_STATUS) += simtray/

@@ -1,0 +1,317 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&sound {
+	compatible = "mediatek,mt6886-mt6368-sound";
+	mediatek,platform = <&afe>;
+	mediatek,snd_audio_dsp = <&snd_audio_dsp>;
+	mediatek,spk-i2s = <3 9>;
+	/* mtk_spk_i2s_mck = <3>; */
+	mediatek,speaker-codec {
+		sound-dai = <&spk1>, <&spk2>;
+	};
+};
+
+&i2c6 {
+	clock-frequency = <400000>;
+	status = "okay";
+	/* TOP Smart PA */
+	spk1: aw882xx_smartpa@34 {
+		compatible = "awinic,aw882xx_smartpa";
+		#sound-dai-cells = <0>;
+		reg = <0x34>;
+		reset-gpio = <&pio 189 0>;
+		irq-gpio = <&pio 92 0x0>;
+		spk-sw-gpio = <&pio 93 0x0>;
+		sound-channel = <0>;
+		aw-re-min = <4000>;
+		aw-re-max= <30000>;
+		/*aw-cali-mode = "none";*/
+		status = "okay";
+	};
+
+	/* BOT Smart PA */
+	 spk2: aw882xx_smartpa@35 {
+		compatible = "awinic,aw882xx_smartpa";
+		#sound-dai-cells = <0>;
+		reg = <0x35>;
+		reset-gpio = <&pio 188 0>;
+		irq-gpio = <&pio 101 0x0>;
+		sound-channel = <1>;
+		aw-re-min = <4000>;
+		aw-re-max= <30000>;
+		/*aw-cali-mode = "none";*/
+		status = "okay";
+        };
+};
+
+/* Audio Switch start */
+&pio {
+	uart_gpio_enable: uart_gpio_enable@gpio0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+	uart_gpio_disable: uart_gpio_disable@gpio0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			slew-rate = <1>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+&i2c0 {
+	et7480: et7480@42 {
+		status = "ok";
+		compatible = "mediatek,et7480-audioswitch";
+		reg = <0x42>;
+		pinctrl-names = "uart_enable", "uart_disable";
+		pinctrl-0 = <&uart_gpio_enable>;
+		pinctrl-1 = <&uart_gpio_disable>;
+	};
+};
+&accdet {
+	et7480-i2c-handle = <&et7480>;
+};
+/* Audio Switch end */
+
+
+/* AWINIC Haptic start */
+&i2c0 {
+	clock-frequency = <400000>;
+	status = "ok";
+	aw869x_haptic@5a {
+		compatible = "awinic,awinic_haptic";
+		reg = <0x5A>;
+		reset-gpio = <&pio 131 0>;
+		irq-gpio = <&pio 14 0>;
+		pinctrl-names = "awinic_reset_low","awinic_reset_high","awinic_interrupt_high";
+		pinctrl-0 = <&awinic_reset_low>;
+		pinctrl-1 = <&awinic_reset_high>;
+		pinctrl-2 = <&awinic_interrupt>;
+		/*----------------------aw869x----------------------*/
+		aw869x_vib_mode = < 0 >; /*mode:   RAM mode->0; CONT mode -> 1*/
+		aw869x_vib_f0_pre = < 1700 >;
+		aw869x_vib_f0_cali_percen = < 7 >;
+		aw869x_vib_cont_drv_lev = < 105 >;
+		aw869x_vib_cont_drv_lvl_ov = < 125 >;
+		aw869x_vib_cont_td = < 0x009A >;
+		aw869x_vib_cont_zc_thr = < 0x0FF1 >;
+		aw869x_vib_cont_num_brk = < 3 >;
+		aw869x_vib_f0_coeff = < 260 >; /*Don't modify it 2.604167*/
+		aw869x_vib_f0_trace_parameter = < 0x05 0x03 0x02 0x0f >;
+		aw869x_vib_bemf_config = < 0x10 0x08 0x03 0xf8 >;
+		aw869x_vib_sw_brake = < 0x2c >;
+		aw869x_vib_tset = < 0x12 >;
+		aw869x_vib_r_spare = < 0x68 >;
+		aw869x_vib_bstdbg = < 0x30 0xeb 0xd4 0 0 0 >;
+		aw869x_vib_trig_config = < 0 1 0 1 2
+					   0 1 0 1 2
+					   0 1 0 1 2 >;
+		aw869x_vib_bst_vol_default = < 0x21 >;
+		aw869x_vib_bst_vol_ram = < 0x21 >;
+		aw869x_vib_bst_vol_rtp = < 0x21 >;
+		/*----------------------aw8692x----------------------*/
+		aw86927_vib_mode = < 0 >; /* mode: RAM mode->0; CONT mode->1 */
+		aw86927_vib_f0_pre = < 1700 >;
+		aw86927_vib_f0_cali_percen = < 8 >;
+		aw86927_vib_cont_drv1_lvl = < 0x7F >;
+		aw86927_vib_cont_drv2_lvl = < 0x34 >;
+		aw86927_vib_cont_lra_vrms = < 1200 >;
+		aw86927_vib_cont_drv1_time = < 0x04 >;
+		aw86927_vib_cont_drv2_time = < 0x06 >;
+		aw86927_vib_cont_drv_width = < 0x6A >;
+		aw86927_vib_cont_wait_num = < 0x06 >;
+		aw86927_vib_cont_brk_time = < 0x00 >;
+		aw86927_vib_cont_track_margin = < 0x0C >;
+		aw86927_vib_brk_bst_md = < 0 >;
+		aw86927_vib_cont_tset = < 0x06 >;
+		aw86927_vib_cont_bemf_set = < 0x02 >;
+		aw86927_vib_cont_bst_brk_gain = < 0x05 >;
+		aw86927_vib_cont_brk_gain = < 0x08 >;
+		aw86927_vib_d2s_gain = < 0x04 >;
+		aw86927_vib_trig_config = < 0 0 0 1 0 2 0 0
+					    0 0 0 1 0 2 0 0
+					    0 0 0 1 0 2 0 0 >;
+		aw86927_vib_bst_vol_default = < 0x57 >;
+		aw86927_vib_bst_vol_ram = < 0x57 >;
+		aw86927_vib_bst_vol_rtp = < 0x57 >;
+		/*----------------------aw8692x----------------------*/
+		aw86907_vib_mode = < 0 >; /* mode: RAM mode->0; CONT mode->1 */
+		aw86907_vib_brk_bst_md = < 0 >;
+		aw86907_vib_f0_ref = < 1700 >;
+		aw86907_vib_f0_cali_percent = < 7 >;
+		aw86907_vib_cont_drv1_lvl = < 0x7F >;
+		aw86907_vib_cont_drv2_lvl = < 0x36 >;
+		aw86907_vib_cont_brk_time = < 0x00 >;
+		aw86907_vib_cont_tset = < 0x06 >;
+		aw86907_vib_cont_bemf_set = < 0x02 >;
+		aw86907_vib_cont_drv_width = < 0x6A >;
+		aw86907_vib_cont_wait_num = < 0x06 >;
+		aw86907_vib_cont_bst_brk_gain = < 0x05 >;
+		aw86907_vib_cont_brk_gain = < 0x08 >;
+		aw86907_vib_cont_drv1_time = < 0x04 >;
+		aw86907_vib_cont_drv2_time = < 0x14 >;
+		aw86907_vib_cont_track_margin = < 0x12 >;
+		aw86907_vib_sine_array = < 0x05 0xB2 0xFF 0xEF >;
+		aw86907_vib_d2s_gain = < 0x04 >;
+		aw86907_vib_bstcfg = < 0x20 0x24 0x96 0x40 0x11 >;
+		aw86907_vib_prctmode = < 0x2D 0x3E 0x3F >;
+		aw86907_vib_trig_config = < 0 0 0 1 0 2 0 0
+					    0 0 0 1 0 2 0 0
+					    0 0 0 1 0 2 0 0 >;
+		aw86907_vib_bst_vol_default = < 0x1A >;
+		aw86907_vib_bst_vol_ram = < 0x1A >;
+		aw86907_vib_bst_vol_rtp = < 0x1A >;
+		/*--------------------common--------------------*/
+		vib_effect_id_boundary = < 10 >;
+		vib_effect_max = < 197 >; /*vib_effect_max must bigger than vib_effect_id*/
+		vib_rtp_time = < 20 20 20 20 20 20 20 20 20000 15000
+				15000 20000 25000 15000 30000 25000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				20000 20000 20000 20000 20000 >;
+		status = "ok";
+		wf_0 {
+			/*CLICK*/
+			mtk,effect-id = <0>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_1 {
+			/*DOUBLE CLICK*/
+			mtk,effect-id = <1>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [7e 3e];
+			mtk,wf-brake-pattern = [03 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_2 {
+			/*TICK*/
+			mtk,effect-id = <2>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [7e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_3 {
+			/*THUD*/
+			mtk,effect-id = <3>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_4 {
+			/*POP*/
+			mtk,effect-id = <4>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <28000>;
+		};
+		wf_5 {
+			/*HEAVY CLICK*/
+			mtk,effect-id = <5>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [7e 7e 7e];
+			mtk,wf-brake-pattern = [03 03 01 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_6 {
+			/*id 6*/
+			mtk,effect-id = <6>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_7 {
+			/*id 7*/
+			mtk,effect-id = <7>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_8 {
+			/*id 8*/
+			mtk,effect-id = <8>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_9 {
+			/*id 9*/
+			mtk,effect-id = <9>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+	};
+};
+
+&pio {
+	awinic_reset_low: awinic_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
+			drive-strength = <2>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+	awinic_reset_high: awinic_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
+			drive-strength = <2>;
+			slew-rate = <1>;
+			bias-disable;
+			output-high;
+		};
+	};
+	awinic_interrupt: awinic_interrupt_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			drive-strength = <2>;
+			slew-rate = <0>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+};
+
+
+/* AWINIC Haptic end */
+

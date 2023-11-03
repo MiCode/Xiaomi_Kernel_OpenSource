@@ -162,3 +162,7 @@ x509.genkey
 
 # Documentation toolchain
 sphinx_*/
+
+# Xiaomi Add
+drivers/misc/hwid/
+drivers/misc/simtray/

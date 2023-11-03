@@ -571,18 +571,6 @@ static int mtu3_gadget_set_self_powered(struct usb_gadget *gadget,
 	return 0;
 }
 
-static void mtu3_gadget_set_ready(struct usb_gadget *gadget)
-{
-	struct mtu3 *mtu = gadget_to_mtu3(gadget);
-	struct device_node *np = mtu->dev->of_node;
-
-	dev_info(mtu->dev, "remove cdp-block property\n");
-
-	of_remove_property(np, of_find_property(np, "cdp-block", NULL));
-
-	mtu->is_gadget_ready = 1;
-}
-
 static void mtu3_nuke_all_ep(struct mtu3 *mtu)
 {
 	int i;
@@ -623,8 +611,7 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	spin_unlock_irqrestore(&mtu->lock, flags);
 
 	if (!mtu->is_gadget_ready && is_on)
-		mtu3_gadget_set_ready(gadget);
-
+		mtu->is_gadget_ready = 1;
 	pm_runtime_put(mtu->dev);
 
 	return 0;
@@ -866,11 +853,17 @@ void mtu3_gadget_suspend(struct mtu3 *mtu)
 /* called when VBUS drops below session threshold, and in other cases */
 void mtu3_gadget_disconnect(struct mtu3 *mtu)
 {
+	struct usb_gadget_driver *driver;
 	dev_dbg(mtu->dev, "gadget DISCONNECT\n");
 	if (mtu->async_callbacks && mtu->gadget_driver &&
 			mtu->gadget_driver->disconnect) {
+		driver = mtu->gadget_driver;
 		spin_unlock(&mtu->lock);
-		mtu->gadget_driver->disconnect(&mtu->g);
+		/*
+		 * avoid kernel panic because mtu3_gadget_stop() assigned NULL
+		 * to mtu->gadget_driver.
+		 */
+		driver->disconnect(&mtu->g);
 		spin_lock(&mtu->lock);
 	}
 

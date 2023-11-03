@@ -62,6 +62,10 @@ mediatek-drm-y := mtk_drm_drv.o \
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o
 
+ifeq ($(CONFIG_MI_DISP), y)
+include $(src)/mi_disp/Makefile
+endif
+
 ifeq ($(CONFIG_DRM_MEDIATEK_DEBUG_FS),y)
 mediatek-drm-y += mtk_drm_debugfs.o
 endif
@@ -136,3 +140,12 @@ ccflags-y += -DCCORR_SUPPORT
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/
+ifeq (${CONFIG_PXLW_IRIS},y)
+$(warning The feature of pixelworks iris will be added to the kernel)
+PWATOP=$(srctree)/..
+include $(PWATOP)/vendor/pixelworks/libpwiriskernel/display-drivers/Makefile.include
+ccflags-y += -I$(PWATOP)/vendor/pixelworks/libpwiriskernel/display-drivers/
+endif

@@ -39,10 +39,17 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/reboot.h>
+#include <linux/stat.h>
+#include <linux/ctype.h>
+#include <linux/irq.h>
+#include <linux/irqdesc.h>
+#include <linux/vmalloc.h>
+#include <linux/preempt.h>
 
 /* PD */
 #include <tcpm.h>
 #include "adapter_class.h"
+#include "mtk_charger.h"
 
 #define PHY_MODE_DPDMPULLDOWN_SET 3
 #define PHY_MODE_DPDMPULLDOWN_CLR 4
@@ -53,6 +60,7 @@ struct mtk_pd_adapter_info {
 	struct notifier_block pd_nb;
 	struct adapter_device *adapter_dev;
 	struct task_struct *adapter_task;
+	struct tcpm_svid_list *adapter_svid_list;
 	const char *adapter_dev_name;
 	bool enable_kpoc_shdn;
 	int pd_type;
@@ -61,6 +69,7 @@ struct mtk_pd_adapter_info {
 	u32 bootmode;
 	u32 boottype;
 	bool enable_pp;
+	bool pd_reset_state;
 };
 
 struct apdo_pps_range {
@@ -69,12 +78,25 @@ struct apdo_pps_range {
 	u32 max_mv;
 };
 
-static struct apdo_pps_range __maybe_unused apdo_pps_tbl[] = {
+static struct apdo_pps_range apdo_pps_tbl[] = {
 	{5000, 3300, 5900},	/* 5VProg */
 	{9000, 3300, 11000},	/* 9VProg */
 	{15000, 3300, 16000},	/* 15VProg */
 	{20000, 3300, 21000},	/* 20VProg */
 };
+
+enum {
+	SSDEV_APDO_MAX_120W = 120,
+	SSDEV_APDO_MAX_100W = 100,
+	SSDEV_APDO_MAX_90W = 90,
+	SSDEV_APDO_MAX_67W = 67,
+	SSDEV_APDO_MAX_65W = 65,
+	SSDEV_APDO_MAX_55W = 55,
+	SSDEV_APDO_MAX_50W = 50,
+	SSDEV_APDO_MAX_33W = 33
+};
+
+static int product_name = COROT;
 
 //void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 //	void *val);
@@ -165,26 +187,38 @@ static int usb_dpdm_pulldown(struct adapter_device *adapter,
 		return 0;
 }
 
-
+#define BOOT_UP_TIME 25
 static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
 	struct mtk_pd_adapter_info *pinfo;
 	struct adapter_device *adapter;
+	struct timespec64 time_now;
+	ktime_t ktime_now;
 	int ret = 0, sink_mv, sink_ma;
 
 	pinfo = container_of(pnb, struct mtk_pd_adapter_info, pd_nb);
 	adapter = pinfo->adapter_dev;
 
+	ktime_now = ktime_get_boottime();
+	time_now = ktime_to_timespec64(ktime_now);
 	pr_notice("PD charger event:%d %d\n", (int)event,
 		(int)noti->pd_state.connected);
-
+	if (noti->pd_state.connected == PD_CONNECT_HARD_RESET && time_now.tv_sec <= BOOT_UP_TIME) {
+		pr_err("%s [time_now.tv_sec] %d\n", __func__,time_now.tv_sec);
+		return ret;
+	}
 	switch (event) {
 	case TCP_NOTIFY_PD_STATE:
 		switch (noti->pd_state.connected) {
 		case  PD_CONNECT_NONE:
 			pinfo->pd_type = MTK_PD_CONNECT_NONE;
+			pinfo->adapter_dev->adapter_id = 0;
+			pinfo->adapter_dev->adapter_svid = 0;
+			pinfo->adapter_dev->uvdm_state = USBPD_UVDM_DISCONNECT;
+			pinfo->adapter_dev->verifed = 0;
+			pinfo->adapter_dev->verify_process = 0;
 			ret = srcu_notifier_call_chain(&adapter->evt_nh,
 				MTK_PD_CONNECT_NONE, NULL);
 //			notify_adapter_event(MTK_PD_ADAPTER,
@@ -193,6 +227,7 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 
 		case PD_CONNECT_HARD_RESET:
 			pinfo->pd_type = MTK_PD_CONNECT_NONE;
+			pinfo->pd_reset_state = true;
 			ret = srcu_notifier_call_chain(&adapter->evt_nh,
 				MTK_PD_CONNECT_HARD_RESET, NULL);
 //			notify_adapter_event(MTK_PD_ADAPTER,
@@ -209,6 +244,7 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 
 		case PD_CONNECT_PE_READY_SNK_PD30:
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_PD30;
+			pinfo->adapter_dev->uvdm_state = USBPD_UVDM_CONNECT;
 			ret = srcu_notifier_call_chain(&adapter->evt_nh,
 				MTK_PD_CONNECT_PE_READY_SNK_PD30, NULL);
 //			notify_adapter_event(MTK_PD_ADAPTER,
@@ -217,6 +253,7 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 
 		case PD_CONNECT_PE_READY_SNK_APDO:
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_APDO;
+			pinfo->adapter_dev->uvdm_state = USBPD_UVDM_CONNECT;
 			ret = srcu_notifier_call_chain(&adapter->evt_nh,
 				MTK_PD_CONNECT_PE_READY_SNK_APDO, NULL);
 //			notify_adapter_event(MTK_PD_ADAPTER,
@@ -265,6 +302,16 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				pd_adapter_high_voltage_enable(1);
 		}
 		break;
+	case TCP_NOTIFY_UVDM:
+		pr_info("%s: tcpc received uvdm message.\n", __func__);
+		ret = srcu_notifier_call_chain(&adapter->evt_nh,
+			MTK_PD_UVDM, &noti->uvdm_msg);
+		break;
+	case TCP_NOTIFY_SOFT_RESET:
+		pr_info("%s: tcpc received soft reset.\n", __func__);
+		ret = srcu_notifier_call_chain(&adapter->evt_nh,
+			MTK_PD_CONNECT_SOFT_RESET, NULL);
+		break;
 	case TCP_NOTIFY_SINK_VBUS:
 		sink_mv = noti->vbus_state.mv;
 		sink_ma = noti->vbus_state.ma;
@@ -282,8 +329,331 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 			}
 		}
 		break;
+	case TCP_NOTIFY_HARD_RESET_STATE:
+		if (noti->pd_state.connected == PD_CONNECT_NONE) {
+			pr_info("pd hard reset done, clean pd reset state\n", __func__);
+			pinfo->pd_reset_state = false;
+		}
+		break;
 	}
 	return ret;
+}
+
+static int pd_set_cap_xm(struct adapter_device *dev, enum adapter_cap_type type,
+		int mV, int mA)
+{
+	int ret = MTK_ADAPTER_OK;
+	int tcpm_ret = TCPM_SUCCESS;
+	struct mtk_pd_adapter_info *info = NULL;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL) {
+		chr_err("[%s] info null\n", __func__);
+		return -1;
+	}
+
+	if (info->adapter_dev->verify_process) {
+		chr_err("verify_processing, skip pd_set_cap_xm\n");
+		return -1;
+	}
+
+	if (type == MTK_PD_APDO_START)
+		tcpm_ret = tcpm_set_apdo_charging_policy(info->tcpc, DPM_CHARGING_POLICY_PPS, mV, mA, NULL);
+	else if (type == MTK_PD_APDO_END)
+		tcpm_ret = tcpm_set_pd_charging_policy(info->tcpc, DPM_CHARGING_POLICY_VSAFE5V, NULL);
+	else if (type == MTK_PD_APDO)
+		tcpm_ret = tcpm_dpm_pd_request(info->tcpc, mV, mA, NULL);
+	else if (type == MTK_PD)
+		tcpm_ret = tcpm_dpm_pd_request(info->tcpc, mV, mA, NULL);
+
+	chr_err("[%s] type:%d mV:%d mA:%d ret:%d\n", __func__, type, mV, mA, tcpm_ret);
+
+
+	if (tcpm_ret == TCP_DPM_RET_REJECT)
+		return MTK_ADAPTER_REJECT;
+	else if (tcpm_ret == TCP_DPM_RET_DENIED_INVALID_REQUEST)
+		return MTK_ADAPTER_ADJUST;
+	else if (tcpm_ret != 0)
+		return MTK_ADAPTER_ERROR;
+
+	return ret;
+}
+
+static int pd_set_pd_verify_process(struct adapter_device *dev, int verifying)
+{
+	struct mtk_pd_adapter_info *info = NULL;
+	int ret = 0;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL) {
+		chr_err("[%s] info null\n", __func__);
+		return -1;
+	}
+
+	chr_err("[%s] pd verify in process:%d\n", __func__, verifying);
+	ret = usb_set_property(USB_PROP_PD_VERIFYING, verifying);
+	ret = usb_set_property(USB_PROP_PD_VERIFY_DONE, !verifying);
+
+	return ret;
+}
+
+static int pd_get_svid(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info;
+	struct pd_source_cap_ext cap_ext;
+	int ret;
+	int i = 0;
+	uint32_t pd_vdos[8];
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL)
+		return MTK_ADAPTER_ERROR;
+
+	pr_info("%s: enter\n", __func__);
+	if (info->adapter_dev->adapter_svid != 0)
+		return MTK_ADAPTER_OK;
+
+	if (info->adapter_svid_list == NULL) {
+		if (in_interrupt()) {
+			info->adapter_svid_list = kmalloc(sizeof(struct tcpm_svid_list), GFP_ATOMIC);
+		} else {
+			info->adapter_svid_list = kmalloc(sizeof(struct tcpm_svid_list), GFP_KERNEL);
+		}
+		if (info->adapter_svid_list == NULL)
+			chr_err("[%s] adapter_svid_list is still NULL!\n", __func__);
+	}
+
+	ret = tcpm_inquire_pd_partner_inform(info->tcpc, pd_vdos);
+	if (ret == TCPM_SUCCESS) {
+		pr_info("find adapter id success.\n");
+		for (i = 0; i < 8; i++)
+			pr_info("VDO[%d] : %08x\n", i, pd_vdos[i]);
+
+		info->adapter_dev->adapter_svid = pd_vdos[0] & 0x0000FFFF;
+		info->adapter_dev->adapter_id = pd_vdos[2] & 0x0000FFFF;
+		pr_info("adapter_svid = %04x\n", info->adapter_dev->adapter_svid);
+		pr_info("adapter_id = %08x\n", info->adapter_dev->adapter_id);
+
+		ret = tcpm_inquire_pd_partner_svids(info->tcpc, info->adapter_svid_list);
+		pr_info("[%s] tcpm_inquire_pd_partner_svids, ret=%d!\n", __func__, ret);
+		if (ret == TCPM_SUCCESS) {
+			pr_info("discover svid number is %d\n", info->adapter_svid_list->cnt);
+			for (i = 0; i < info->adapter_svid_list->cnt; i++) {
+				pr_info("SVID[%d] : %04x\n", i, info->adapter_svid_list->svids[i]);
+				if (info->adapter_svid_list->svids[i] == USB_PD_MI_SVID)
+					info->adapter_dev->adapter_svid = USB_PD_MI_SVID;
+			}
+		}
+	} else {
+		ret = tcpm_dpm_pd_get_source_cap_ext(info->tcpc,
+			NULL, &cap_ext);
+		if (ret == TCPM_SUCCESS) {
+			info->adapter_dev->adapter_svid = cap_ext.vid & 0x0000FFFF;
+			info->adapter_dev->adapter_id = cap_ext.pid & 0x0000FFFF;
+			info->adapter_dev->adapter_fw_ver = cap_ext.fw_ver & 0x0000FFFF;
+			info->adapter_dev->adapter_hw_ver = cap_ext.hw_ver & 0x0000FFFF;
+			pr_info("adapter_svid = %04x\n", info->adapter_dev->adapter_svid);
+			pr_info("adapter_id = %08x\n", info->adapter_dev->adapter_id);
+			pr_info("adapter_fw_ver = %08x\n", info->adapter_dev->adapter_fw_ver);
+			pr_info("adapter_hw_ver = %08x\n", info->adapter_dev->adapter_hw_ver);
+		} else {
+			chr_err("[%s] get adapter message failed!\n", __func__);
+			return MTK_ADAPTER_ERROR;
+		}
+	}
+
+	return MTK_ADAPTER_OK;
+}
+
+#define BSWAP_32(x) \
+	(u32)((((u32)(x) & 0xff000000) >> 24) | \
+			(((u32)(x) & 0x00ff0000) >> 8) | \
+			(((u32)(x) & 0x0000ff00) << 8) | \
+			(((u32)(x) & 0x000000ff) << 24))
+
+static void usbpd_sha256_bitswap32(unsigned int *array, int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++)
+		array[i] = BSWAP_32(array[i]);
+}
+
+static void charToint(char *str, int input_len, unsigned int *out, unsigned int *outlen)
+{
+	int i;
+
+	if (outlen != NULL)
+		*outlen = 0;
+	for (i = 0; i < (input_len / 4 + 1); i++) {
+		out[i] = ((str[i*4 + 3] * 0x1000000) |
+				(str[i*4 + 2] * 0x10000) |
+				(str[i*4 + 1] * 0x100) |
+				str[i*4]);
+		*outlen = *outlen + 1;
+	}
+
+	pr_info("%s: outlen = %d\n", __func__, *outlen);
+	for (i = 0; i < *outlen; i++)
+		pr_info("%s: out[%d] = %08x\n", __func__, i, out[i]);
+	pr_info("%s: char to int done.\n", __func__);
+}
+
+static int tcp_dpm_event_cb_uvdm(struct tcpc_device *tcpc, int ret,
+				 struct tcp_dpm_event *event)
+{
+	int i;
+	struct tcp_dpm_custom_vdm_data vdm_data = event->tcp_dpm_data.vdm_data;
+
+	pr_info("%s: vdm_data.cnt = %d\n", __func__, vdm_data.cnt);
+	for (i = 0; i < vdm_data.cnt; i++)
+		pr_info("%s vdm_data.vdos[%d] = 0x%08x", __func__, i,
+			vdm_data.vdos[i]);
+	return 0;
+}
+
+const struct tcp_dpm_event_cb_data cb_data = {
+	.event_cb = tcp_dpm_event_cb_uvdm,
+};
+
+static int pd_request_vdm_cmd(struct adapter_device *dev,
+	enum uvdm_state cmd,
+	unsigned char *data,
+	unsigned int data_len)
+{
+	u32 vdm_hdr = 0;
+	int rc = 0;
+	struct tcp_dpm_custom_vdm_data *vdm_data;
+	struct mtk_pd_adapter_info *info;
+	unsigned int *int_data;
+	unsigned int outlen;
+	int i;
+
+	if (in_interrupt()) {
+		int_data = kmalloc(40, GFP_ATOMIC);
+		vdm_data = kmalloc(sizeof(*vdm_data), GFP_ATOMIC);
+		pr_info("%s: kmalloc atomic ok.\n", __func__);
+	} else {
+		int_data = kmalloc(40, GFP_KERNEL);
+		vdm_data = kmalloc(sizeof(*vdm_data), GFP_KERNEL);
+		pr_info("%s: kmalloc kernel ok.\n", __func__);
+	}
+	memset(int_data, 0, 40);
+
+	charToint(data, data_len, int_data, &outlen);
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL) {
+		rc = MTK_ADAPTER_ERROR;
+		goto done;
+	}
+
+	vdm_hdr = VDM_HDR(info->adapter_dev->adapter_svid, USBPD_VDM_REQUEST, cmd);
+	vdm_data->wait_resp = true;
+	vdm_data->vdos[0] = vdm_hdr;
+
+	switch (cmd) {
+	case USBPD_UVDM_CHARGER_VERSION:
+	case USBPD_UVDM_CHARGER_TEMP:
+	case USBPD_UVDM_CHARGER_VOLTAGE:
+		vdm_data->cnt = 1;
+		rc = tcpm_dpm_send_custom_vdm(info->tcpc, vdm_data, &cb_data);//&tcp_dpm_evt_cb_null
+		if (rc < 0) {
+			chr_err("failed to send %d\n", cmd);
+			goto done;
+		}
+		break;
+	case USBPD_UVDM_VERIFIED:
+	case USBPD_UVDM_REMOVE_COMPENSATION:
+		vdm_data->cnt = 1 + USBPD_UVDM_VERIFIED_LEN;
+
+		for (i = 0; i < USBPD_UVDM_VERIFIED_LEN; i++)
+			vdm_data->vdos[i + 1] = int_data[i];
+		pr_info("verify-0: %08x\n", vdm_data->vdos[1]);
+
+		rc = tcpm_dpm_send_custom_vdm(info->tcpc, vdm_data, &cb_data);//&tcp_dpm_evt_cb_null
+		if (rc < 0) {
+			chr_err("failed to send %d\n", cmd);
+			goto done;
+		}
+		break;
+	case USBPD_UVDM_SESSION_SEED:
+	case USBPD_UVDM_AUTHENTICATION:
+	case USBPD_UVDM_REVERSE_AUTHEN:
+		usbpd_sha256_bitswap32(int_data, USBPD_UVDM_SS_LEN);
+		vdm_data->cnt = 1 + USBPD_UVDM_SS_LEN;
+		for (i = 0; i < USBPD_UVDM_SS_LEN; i++)
+			vdm_data->vdos[i + 1] = int_data[i];
+
+		for (i = 0; i < USBPD_UVDM_SS_LEN; i++)
+			pr_info("%08x\n", vdm_data->vdos[i+1]);
+
+		rc = tcpm_dpm_send_custom_vdm(info->tcpc, vdm_data, &cb_data);//&tcp_dpm_evt_cb_null
+		if (rc < 0) {
+			chr_err("failed to send %d\n", cmd);
+			goto done;
+		}
+		break;
+	default:
+		chr_err("cmd:%d is not support\n", cmd);
+		break;
+	}
+
+done:
+	if (int_data != NULL)
+		kfree(int_data);
+	if (vdm_data != NULL)
+		kfree(vdm_data);
+	return rc;
+}
+
+static int pd_get_power_role(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL)
+		return MTK_ADAPTER_ERROR;
+
+	info->adapter_dev->role = tcpm_inquire_pd_power_role(info->tcpc);
+	chr_err("[%s] power role is %d\n", __func__, info->adapter_dev->role);
+	return MTK_ADAPTER_OK;
+}
+
+static int pd_get_current_state(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL)
+		return MTK_ADAPTER_ERROR;
+
+	info->adapter_dev->current_state = tcpm_inquire_pd_state_curr(info->tcpc);
+	chr_err("[%s] current state is %d\n", __func__, info->adapter_dev->current_state);
+	return MTK_ADAPTER_OK;
+}
+
+static int pd_get_pdos(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info;
+	struct tcpm_power_cap cap;
+	int ret, i;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL)
+		return MTK_ADAPTER_ERROR;
+
+	ret = tcpm_inquire_pd_source_cap(info->tcpc, &cap);
+	chr_err("[%s] tcpm_inquire_pd_source_cap is %d.\n", __func__, ret);
+	if (ret)
+		return MTK_ADAPTER_ERROR;
+	for (i = 0; i < 7; i++) {
+		info->adapter_dev->received_pdos[i] = cap.pdos[i];
+		chr_err("[%s]: pdo[%d] { received_pdos is %08x, cap.pdos is %08x}\n",
+			__func__, i, info->adapter_dev->received_pdos[i], cap.pdos[i]);
+	}
+
+	return MTK_ADAPTER_OK;
 }
 
 static int pd_get_property(struct adapter_device *dev,
@@ -335,9 +705,8 @@ static int pd_set_cap(struct adapter_device *dev, enum adapter_cap_type type,
 		tcpm_ret = tcpm_set_apdo_charging_policy(info->tcpc,
 			DPM_CHARGING_POLICY_PPS, mV, mA, NULL);
 	} else if (type == MTK_PD_APDO_END) {
-		// tcpm_ret = tcpm_set_pd_charging_policy(info->tcpc,
-		//	DPM_CHARGING_POLICY_VSAFE5V, NULL);
-		tcpm_ret = tcpm_reset_pd_charging_policy(info->tcpc, NULL);
+		tcpm_ret = tcpm_set_pd_charging_policy(info->tcpc,
+			DPM_CHARGING_POLICY_VSAFE5V, NULL);
 	} else if (type == MTK_PD_APDO) {
 		tcpm_ret = tcpm_dpm_pd_request(info->tcpc, mV, mA, NULL);
 	} else if (type == MTK_PD) {
@@ -413,24 +782,62 @@ int pd_get_status(struct adapter_device *dev,
 
 }
 
+static int ssdev_typec_filter_apdo_power_for_report(int apdo_max, int  maxium_pps_adv_current_ma)
+{
+	// 2S or 120W 1S add project type here
+	if(product_name == COROT)
+	{
+		if (apdo_max >= 110 && apdo_max < 130 )
+		    return SSDEV_APDO_MAX_120W;
+		else if (apdo_max >= 96 && apdo_max < 110 )
+			return SSDEV_APDO_MAX_100W;
+		else if (apdo_max >= 68 && apdo_max < 96)
+			return SSDEV_APDO_MAX_90W;
+		else if (apdo_max >= 66 && apdo_max < 68)
+		    return SSDEV_APDO_MAX_67W;
+		else if (apdo_max >= 65 && apdo_max < 66)
+		    return SSDEV_APDO_MAX_65W;
+		else if (apdo_max > 50 && apdo_max < 65)
+		    return SSDEV_APDO_MAX_55W;
+		else if (apdo_max == 50)
+		   return SSDEV_APDO_MAX_50W;
+		else //other such as 40W, we do not show the animaton below 50w
+		   return SSDEV_APDO_MAX_33W;
+	}
+	else //1S and maxium power is 67w projects,3A cable apdo max only 33W for non-1/4 charger ic
+	{
+		if (apdo_max >=  66)
+		    return SSDEV_APDO_MAX_67W;
+		else if (apdo_max >= 60 && apdo_max < 66)
+		    return SSDEV_APDO_MAX_65W;
+		else if (apdo_max >= 55 && apdo_max < 60)
+		    return SSDEV_APDO_MAX_55W;
+		else if (apdo_max >= 50 && apdo_max < 55)
+		    return SSDEV_APDO_MAX_50W;
+		else //other such as 40W, we do not show the animaton below 50w
+		    return SSDEV_APDO_MAX_33W;
+	}
+}
+
 static int pd_get_cap(struct adapter_device *dev,
 	enum adapter_cap_type type,
 	struct adapter_power_cap *tacap)
 {
-	struct tcpm_power_cap_val apdo_cap = {};
-	struct tcpm_remote_power_cap pd_cap = {};
-	struct pd_source_cap_ext cap_ext = {};
-
+	struct tcpm_power_cap_val apdo_cap;
+	struct tcpm_remote_power_cap pd_cap;
+	struct pd_source_cap_ext cap_ext;
 	uint8_t cap_i = 0;
-	int ret;
-	unsigned int idx = 0;
-	unsigned int i, j;
+	int apdo_max = 0, ret = 0, idx = 0, i = 0, timeout = 0;
 	struct mtk_pd_adapter_info *info;
 
-	memset(&pd_cap, 0, sizeof(pd_cap));
 	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
 	if (info == NULL || info->tcpc == NULL)
 		return MTK_ADAPTER_ERROR;
+
+	if (info->adapter_dev->verify_process) {
+		chr_err("verify_processing, skip pd_get_cap\n");
+		return -1;
+	}
 
 	if (type == MTK_PD_APDO) {
 		while (1) {
@@ -440,7 +847,7 @@ static int pd_get_cap(struct adapter_device *dev,
 			if (ret == TCPM_ERROR_NOT_FOUND) {
 				break;
 			} else if (ret != TCPM_SUCCESS) {
-				pr_notice("[%s] tcpm_inquire_pd_source_apdo failed(%d)\n",
+				chr_err("[%s] tcpm_inquire_pd_source_apdo failed(%d)\n",
 					__func__, ret);
 				break;
 			}
@@ -451,86 +858,86 @@ static int pd_get_cap(struct adapter_device *dev,
 				tacap->pdp = cap_ext.source_pdp;
 			else {
 				tacap->pdp = 0;
-				pr_notice("[%s] tcpm_dpm_pd_get_source_cap_ext failed(%d)\n",
+				chr_err("[%s] tcpm_dpm_pd_get_source_cap_ext failed(%d)\n",
 					__func__, ret);
 			}
 
 			tacap->pwr_limit[idx] = apdo_cap.pwr_limit;
-			/* If TA has PDP, we set pwr_limit as true */
-			if (tacap->pdp > 0 && !tacap->pwr_limit[idx])
-				tacap->pwr_limit[idx] = 1;
 			tacap->ma[idx] = apdo_cap.ma;
 			tacap->max_mv[idx] = apdo_cap.max_mv;
 			tacap->min_mv[idx] = apdo_cap.min_mv;
 			tacap->maxwatt[idx] = apdo_cap.max_mv * apdo_cap.ma;
 			tacap->minwatt[idx] = apdo_cap.min_mv * apdo_cap.ma;
 			tacap->type[idx] = MTK_PD_APDO;
-			idx++;
 
-			pr_notice("pps_boundary[%d], %d mv ~ %d mv, %d ma pl:%d\n",
+			idx++;
+			chr_err("pps_boundary[%d], %d mv ~ %d mv, %d ma pl:%d\n",
 				cap_i,
 				apdo_cap.min_mv, apdo_cap.max_mv,
 				apdo_cap.ma, apdo_cap.pwr_limit);
 			if (idx >= ADAPTER_CAP_MAX_NR) {
-				pr_notice("CAP NR > %d\n", ADAPTER_CAP_MAX_NR);
+				chr_err("CAP NR > %d\n", ADAPTER_CAP_MAX_NR);
 				break;
 			}
 		}
 		tacap->nr = idx;
 
 		for (i = 0; i < tacap->nr; i++) {
-			pr_notice("pps_cap[%d:%d], %d mv ~ %d mv, %d ma pl:%d pdp:%d\n",
+			chr_err("pps_cap[%d:%d], %d mv ~ %d mv, %d ma pl:%d pdp:%d\n",
 				i, (int)tacap->nr, tacap->min_mv[i],
 				tacap->max_mv[i], tacap->ma[i],
 				tacap->pwr_limit[i], tacap->pdp);
 		}
 
 		if (cap_i == 0)
-			pr_notice("no APDO for pps\n");
+			chr_err("no APDO for pps\n");
 
 	} else if (type == MTK_PD) {
+APDO_REGAIN:
 		pd_cap.nr = 0;
 		pd_cap.selected_cap_idx = 0;
 		tcpm_get_remote_power_cap(info->tcpc, &pd_cap);
 
 		if (pd_cap.nr != 0) {
-
+			tacap->nr = pd_cap.nr;
 			tacap->selected_cap_idx = pd_cap.selected_cap_idx - 1;
-			pr_notice("[%s] nr:%d idx:%d\n",
-			__func__, pd_cap.nr, pd_cap.selected_cap_idx - 1);
-
-			j = 0;
-			pr_notice("adapter cap: nr:%d\n", pd_cap.nr);
 			for (i = 0; i < pd_cap.nr; i++) {
-				if (!pd_cap.type[i] &&
-					j < ADAPTER_CAP_MAX_NR) {
-					tacap->type[j] = MTK_PD;
-					tacap->ma[j] = pd_cap.ma[i];
-					tacap->max_mv[j] = pd_cap.max_mv[i];
-					tacap->min_mv[j] = pd_cap.min_mv[i];
-					tacap->maxwatt[j] =
-					tacap->max_mv[j] * tacap->ma[i];
-					tacap->minwatt[j] =
-					tacap->min_mv[j] * tacap->ma[i];
-					j++;
-				}
+				tacap->ma[i] = pd_cap.ma[i];
+				tacap->max_mv[i] = pd_cap.max_mv[i];
+				tacap->min_mv[i] = pd_cap.min_mv[i];
+				tacap->maxwatt[i] = tacap->max_mv[i] * tacap->ma[i];
+				tacap->type[i] = pd_cap.type[i];
+				if (tacap->maxwatt[i] > apdo_max)
+					apdo_max = tacap->maxwatt[i];
 
-				pr_notice("[%s]:%d mv:[%d,%d] mA:%d type:%d %d\n",
-					__func__, i, pd_cap.min_mv[i],
-					pd_cap.max_mv[i], pd_cap.ma[i],
-					pd_cap.type[i], pd_cap.type[i]);
+				chr_err("[%s]VBUS = [%d,%d], IBUS = %d, WATT = %d, TYPE = %d\n",
+					__func__, tacap->min_mv[i], tacap->max_mv[i], tacap->ma[i], tacap->maxwatt[i], tacap->type[i]);
 			}
-
-			tacap->nr = j;
-			pr_notice("pd cap: nr:%d\n", tacap->nr);
-			for (i = 0; i < tacap->nr; i++) {
-				pr_notice("[%s]:%d mv:[%d,%d] mA:%d max:%d min:%d type:%d %d\n",
-					__func__, i, tacap->min_mv[i],
-					tacap->max_mv[i], tacap->ma[i],
-					tacap->maxwatt[i], tacap->minwatt[i],
-					tacap->type[i], tacap->type[i]);
+			apdo_max = apdo_max / 1000000;
+			apdo_max = ssdev_typec_filter_apdo_power_for_report(apdo_max, tacap->ma[i]);
+			usb_set_property(USB_PROP_APDO_MAX, apdo_max);
+		}
+	} else if (type == MTK_PD_APDO_REGAIN) {
+		while (timeout < 15) {
+			ret = tcpm_dpm_pd_get_source_cap(info->tcpc, NULL);
+			chr_err("[%s] ret=%d\n", __func__, ret);
+			if (ret == TCPM_SUCCESS) {
+				chr_err("[%s] ready to get pps info\n", __func__);
+				ret = usb_set_property(USB_PROP_PD_AUTHENTICATION, 1);
+				if (ret < 0)
+					chr_err("[%s] failed to set authentication\n", __func__);
+				goto APDO_REGAIN;
+			} else {
+				chr_err("[%s] retry times = %d, for PPS ready\n", __func__, timeout);
+				timeout++;
+				msleep(80);
 			}
 		}
+	} else if (type == MTK_CAP_TYPE_UNKNOWN) {
+		chr_err("[%s] xiaomi pd adapter auth failed\n", __func__);
+		ret = usb_set_property(USB_PROP_PD_AUTHENTICATION, 0);
+		if (ret < 0)
+			chr_err("[%s] failed to set authentication\n", __func__);
 	}
 
 	return MTK_ADAPTER_OK;
@@ -538,11 +945,10 @@ static int pd_get_cap(struct adapter_device *dev,
 
 #define PPS_STATUS_VTA_NOTSUPP	(-1)
 #define PPS_STATUS_ITA_NOTSUPP	(-1)
-
-static int __maybe_unused pd_authentication(struct adapter_device *dev,
+static int pd_authentication(struct adapter_device *dev,
 			     struct adapter_auth_data *data)
 {
-	int ret = 0, ret_check = 0, apdo_idx = -1, i;
+	int ret = 0, apdo_idx = -1, i;
 	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
 	struct tcpm_power_cap_val apdo_cap;
 	struct tcpm_power_cap_val selected_apdo_cap;
@@ -552,6 +958,7 @@ static int __maybe_unused pd_authentication(struct adapter_device *dev,
 	u32 vta_meas, ita_meas, prog_mv;
 	int apdo_pps_cnt = ARRAY_SIZE(apdo_pps_tbl);
 
+	pr_info("%s ++\n", __func__);
 	if (check_typec_attached_snk(info->tcpc) < 0)
 		return MTK_ADAPTER_ERROR;
 
@@ -568,13 +975,16 @@ static int __maybe_unused pd_authentication(struct adapter_device *dev,
 	/* select TA boundary */
 	cap_idx = 0;
 	while (1) {
-		ret_check = (int)tcpm_inquire_pd_source_apdo(info->tcpc,
+		ret = tcpm_inquire_pd_source_apdo(info->tcpc,
 						  TCPM_POWER_CAP_APDO_TYPE_PPS,
 						  &cap_idx, &apdo_cap);
-		if (ret_check != (int)TCPM_SUCCESS) {
-			if (apdo_idx == -1)
+		if (ret != (int)TCP_DPM_RET_SUCCESS) {
+			if (apdo_idx == -1) {
 				pr_info("%s inquire pd apdo fail(%d)\n",
-				       __func__, ret_check);
+				       __func__, ret);
+				ret = (int)MTK_ADAPTER_ERROR;
+			} else
+				ret = (int)MTK_ADAPTER_OK;
 			break;
 		}
 
@@ -610,16 +1020,16 @@ static int __maybe_unused pd_authentication(struct adapter_device *dev,
 		data->vta_step = 20;
 		data->ita_step = 50;
 		data->ita_gap_per_vstep = 200;
-		ret_check = tcpm_dpm_pd_get_source_cap_ext(info->tcpc, NULL,
+		ret = tcpm_dpm_pd_get_source_cap_ext(info->tcpc, NULL,
 						     &src_cap_ext);
-		if (ret_check != (int)TCP_DPM_RET_SUCCESS) {
+		if (ret != (int)TCP_DPM_RET_SUCCESS) {
 			pr_info("%s inquire pdp fail(%d)\n", __func__, ret);
 			if (data->pwr_lmt) {
 				for (i = 0; i < apdo_pps_cnt; i++) {
 					if (apdo_pps_tbl[i].max_mv <
 					    data->vta_max)
 						continue;
-					prog_mv = min_t(u32, apdo_pps_tbl[i].prog_mv,
+					prog_mv = min(apdo_pps_tbl[i].prog_mv,
 						      (u32)data->vta_max);
 					data->pdp = prog_mv * data->ita_max /
 						    1000000;
@@ -665,7 +1075,7 @@ out:
 	return ret;
 }
 
-static int __maybe_unused pd_is_cc(struct adapter_device *dev, bool *cc)
+static int pd_is_cc(struct adapter_device *dev, bool *cc)
 {
 	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
 	int ret;
@@ -704,6 +1114,17 @@ int pd_send_hardreset(struct adapter_device *dev)
 	return to_mtk_adapter_ret(ret);
 }
 
+bool pd_get_hardreset_state(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
+
+	if(info == NULL)
+		return false;
+
+	pr_info("%s pinfo->pd_reset=%d\n", __func__, info->pd_reset_state);
+	return info->pd_reset_state;
+}
+
 static struct adapter_ops adapter_ops = {
 	.get_status = pd_get_status,
 	.set_cap = pd_set_cap,
@@ -714,7 +1135,15 @@ static struct adapter_ops adapter_ops = {
 	.is_cc = pd_is_cc,
 	.set_wdt = pd_set_wdt,
 	.enable_wdt = pd_enable_wdt,
+	.get_pd_hardreset_state = pd_get_hardreset_state,
 	.send_hardreset = pd_send_hardreset,
+	.set_cap_xm = pd_set_cap_xm,
+	.get_svid = pd_get_svid,
+	.request_vdm_cmd = pd_request_vdm_cmd,
+	.get_power_role = pd_get_power_role,
+	.get_pd_current_state = pd_get_current_state,
+	.get_pdos = pd_get_pdos,
+	.set_pd_verify_process = pd_set_pd_verify_process,
 };
 
 static int adapter_parse_dt(struct mtk_pd_adapter_info *info,
@@ -729,12 +1158,6 @@ static int adapter_parse_dt(struct mtk_pd_adapter_info *info,
 		u32 boot_type;
 	} *tag;
 
-	if (of_property_read_string(np, "adapter_name",
-		&info->adapter_dev_name) < 0)
-		pr_notice("%s: no adapter name\n", __func__);
-	info->force_cv = of_property_read_bool(np, "force_cv");
-	of_property_read_u32(np, "ita_min", &info->ita_min);
-
 	pr_notice("%s\n", __func__);
 
 	if (!np) {
@@ -744,22 +1167,30 @@ static int adapter_parse_dt(struct mtk_pd_adapter_info *info,
 
 	/* mediatek boot mode */
 	boot_np = of_parse_phandle(np, "boot_mode", 0);
-	if (!boot_np)
+	if (!boot_np) {
 		pr_info("%s: failed to get bootmode phandle\n", __func__);
+		return -ENODEV;
+	}
 
 	tag = of_get_property(boot_np, "atag,boot", NULL);
 	if (!tag) {
 		pr_info("%s: failed to get atag,boot\n", __func__);
-		info->bootmode = 8;
-		info->boottype = 2;
-		pr_notice("%s: set bootmode=8, boottype=2\n", __func__);
-	} else {
-		info->bootmode = tag->boot_mode;
-		info->boottype = tag->boot_type;
-		pr_notice("%s: sz:0x%x tag:0x%x mode:0x%x type:0x%x\n",
-	__func__, tag->size, tag->tag, tag->boot_mode, tag->boot_type);
+		return -EINVAL;
 	}
 
+	pr_notice("%s: sz:0x%x tag:0x%x mode:0x%x type:0x%x\n",
+	__func__, tag->size, tag->tag, tag->boot_mode, tag->boot_type);
+
+	info->bootmode = tag->boot_mode;
+	info->boottype = tag->boot_type;
+
+	if (of_property_read_string(np, "adapter_name",
+		&info->adapter_dev_name) < 0)
+		pr_notice("%s: no adapter name\n", __func__);
+	info->force_cv = of_property_read_bool(np, "force_cv");
+	of_property_read_u32(np, "ita_min", &info->ita_min);
+	of_property_read_u32(np, "product_index", &product_name);
+	pr_notice("%s: product_index = %d\n", __func__, product_name);
 	return 0;
 }
 
@@ -801,8 +1232,8 @@ static int mtk_pd_adapter_probe(struct platform_device *pdev)
 
 	info->pd_nb.notifier_call = pd_tcp_notifier_call;
 	ret = register_tcp_dev_notifier(info->tcpc, &info->pd_nb,
-				TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC |
-				TCP_NOTIFY_TYPE_VBUS);
+				TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC | 
+					TCP_NOTIFY_TYPE_VBUS | TCP_NOTIFY_TYPE_MODE);
 	if (ret < 0) {
 		pr_info("%s: register tcpc notifer fail\n", __func__);
 		ret = -EINVAL;

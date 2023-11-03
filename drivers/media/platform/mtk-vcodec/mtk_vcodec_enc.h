@@ -21,6 +21,8 @@
  * @enc_params: Encode parameters changed before encode this buffer
  * @flags:  flags derived from v4l2_buffer for cache operations
  */
+#define VENC_FLAG_MULTINAL 0x00000001
+
 struct mtk_video_enc_buf {
 	struct vb2_v4l2_buffer vb;
 	struct list_head list;

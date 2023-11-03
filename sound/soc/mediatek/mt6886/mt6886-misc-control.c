@@ -20,6 +20,10 @@
 #define SGEN_MUTE_CH1_KCONTROL_NAME "Audio_SineGen_Mute_Ch1"
 #define SGEN_MUTE_CH2_KCONTROL_NAME "Audio_SineGen_Mute_Ch2"
 
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+extern unsigned int elliptic_add_platform_controls(void *component);
+#endif
+
 static const char *const mt6886_sgen_mode_str[] = {
 	"I0I1",   "I2",     "I3I4",   "I5I6",
 	"I7I8",   "I9",     "I10I11", "I12I13",
@@ -330,7 +334,19 @@ static int mt6886_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 	if (!dl_memif->substream) {
 		dev_info(afe->dev, "%s(), dl_memif->substream == NULL\n",
 			 __func__);
-		return -EINVAL;
+		if (afe_priv->usb_call_echo_ref_reallocate) {
+			dev_info(afe->dev, "%s(), free area: %llx\n", __func__,
+				 dl_memif->dma_area);
+			/* free previous allocate */
+			dma_free_coherent(afe->dev,
+					  dl_memif->dma_bytes,
+					  dl_memif->dma_area,
+					  dl_memif->dma_addr);
+
+			afe_priv->usb_call_echo_ref_reallocate = false;
+			afe_priv->usb_call_echo_ref_enable = false;
+		}
+		return 0;
 	}
 
 	if (!ul_memif->substream) {
@@ -357,6 +373,9 @@ static int mt6886_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 			unsigned char *dma_area;
 
 			if (afe_priv->usb_call_echo_ref_reallocate) {
+				dev_info(afe->dev, "%s(), free area: %llx\n",
+					 __func__,
+					 dl_memif->dma_area);
 				/* free previous allocate */
 				dma_free_coherent(afe->dev,
 						  dl_memif->dma_bytes,
@@ -419,6 +438,8 @@ static int mt6886_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 		mtk_memif_set_disable(afe, ul_id);
 
 		if (afe_priv->usb_call_echo_ref_reallocate) {
+			dev_info(afe->dev, "%s(), free area: %llx\n", __func__,
+				 dl_memif->dma_area);
 			/* free previous allocate */
 			dma_free_coherent(afe->dev,
 					  dl_memif->dma_bytes,
@@ -632,6 +653,11 @@ int mt6886_add_misc_control(struct snd_soc_component *component)
 	snd_soc_add_component_controls(component,
 				       mt6886_afe_barge_in_controls,
 				       ARRAY_SIZE(mt6886_afe_barge_in_controls));
+
+ //for ellipitc mixer control
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	elliptic_add_platform_controls(component);
+#endif
 
 	return 0;
 }

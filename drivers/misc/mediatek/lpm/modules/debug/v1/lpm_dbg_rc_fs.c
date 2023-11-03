@@ -755,8 +755,11 @@ int lpm_rc_fs_init(void)
 	for_each_set_bit(idx, &rc_trace.bitmap, 32) {
 		LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
 				MT_LPM_SMC_ACT_SET, idx, 0);
+		LPM_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_RES_CTRL,
+				MT_LPM_SMC_ACT_SET, idx, 0);
 	}
 
+	lpm_timer_start(&rc_ratio_timer);
 	return 0;
 }
 EXPORT_SYMBOL(lpm_rc_fs_init);

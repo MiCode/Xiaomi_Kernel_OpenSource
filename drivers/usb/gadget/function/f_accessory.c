@@ -29,6 +29,7 @@
 #include <linux/kthread.h>
 #include <linux/freezer.h>
 #include <linux/kref.h>
+#include <linux/kernel.h>
 
 #include <linux/types.h>
 #include <linux/file.h>
@@ -1076,11 +1077,32 @@ err:
 }
 EXPORT_SYMBOL_GPL(acc_ctrlrequest);
 
+int acc_ctrlrequest_composite(struct usb_composite_dev *cdev,
+			      const struct usb_ctrlrequest *ctrl)
+{
+	u16 w_length = le16_to_cpu(ctrl->wLength);
+
+	if (w_length > USB_COMP_EP0_BUFSIZ) {
+		if (ctrl->bRequestType & USB_DIR_IN) {
+			/* Cast away the const, we are going to overwrite on purpose. */
+			__le16 *temp = (__le16 *)&ctrl->wLength;
+
+			*temp = cpu_to_le16(USB_COMP_EP0_BUFSIZ);
+			w_length = USB_COMP_EP0_BUFSIZ;
+		} else {
+			return -EINVAL;
+		}
+	}
+	return acc_ctrlrequest(cdev, ctrl);
+}
+EXPORT_SYMBOL_GPL(acc_ctrlrequest_composite);
+
 static int
 __acc_function_bind(struct usb_configuration *c,
 			struct usb_function *f, bool configfs)
 {
 	struct usb_composite_dev *cdev = c->cdev;
+	struct usb_string *us;
 	struct acc_dev	*dev = func_to_dev(f);
 	int			id;
 	int			ret;
@@ -1088,13 +1110,11 @@ __acc_function_bind(struct usb_configuration *c,
 	DBG(cdev, "acc_function_bind dev: %p\n", dev);
 
 	if (configfs) {
-		if (acc_string_defs[INTERFACE_STRING_INDEX].id == 0) {
-			ret = usb_string_id(c->cdev);
-			if (ret < 0)
-				return ret;
-			acc_string_defs[INTERFACE_STRING_INDEX].id = ret;
-			acc_interface_desc.iInterface = ret;
-		}
+		us = usb_gstrings_attach(cdev, acc_strings, ARRAY_SIZE(acc_string_defs));
+		if (IS_ERR(us))
+			return PTR_ERR(us);
+		ret = us[INTERFACE_STRING_INDEX].id;
+		acc_interface_desc.iInterface = ret;
 		dev->cdev = c->cdev;
 	}
 	ret = hid_register_driver(&acc_hid_driver);
@@ -1116,12 +1136,22 @@ __acc_function_bind(struct usb_configuration *c,
 		return ret;
 
 	/* support high speed hardware */
-	if (gadget_is_dualspeed(c->cdev->gadget)) {
-		acc_highspeed_in_desc.bEndpointAddress =
-			acc_fullspeed_in_desc.bEndpointAddress;
-		acc_highspeed_out_desc.bEndpointAddress =
-			acc_fullspeed_out_desc.bEndpointAddress;
-	}
+	acc_highspeed_in_desc.bEndpointAddress =
+		acc_fullspeed_in_desc.bEndpointAddress;
+	acc_highspeed_out_desc.bEndpointAddress =
+		acc_fullspeed_out_desc.bEndpointAddress;
+
+	/* support super speed hardware */
+	acc_superspeed_in_desc.bEndpointAddress =
+		acc_fullspeed_in_desc.bEndpointAddress;
+	acc_superspeed_out_desc.bEndpointAddress =
+		acc_fullspeed_out_desc.bEndpointAddress;
+
+	/* support super speed plus hardware */
+	acc_superspeedplus_in_desc.bEndpointAddress =
+		acc_fullspeed_in_desc.bEndpointAddress;
+	acc_superspeedplus_out_desc.bEndpointAddress =
+		acc_fullspeed_out_desc.bEndpointAddress;
 
 	DBG(cdev, "%s speed %s: IN/%s, OUT/%s\n",
 			gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",

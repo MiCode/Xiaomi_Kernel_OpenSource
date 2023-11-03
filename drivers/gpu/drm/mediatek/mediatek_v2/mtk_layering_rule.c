@@ -27,6 +27,10 @@
 
 #include <soc/mediatek/mmqos.h>
 
+#if defined(CONFIG_PXLW_IRIS)
+#include "dsi_iris_mtk_api.h"
+#endif
+
 static unsigned int sp_hrt_idx[MAX_CRTC];
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
@@ -789,10 +793,27 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	if (dvfs_bw < 200) {
 		// disp_aee_print("avail BW less than 2 layers, BW: %llu\n",
 		//	dvfs_bw);
+#if defined(CONFIG_PXLW_IRIS)
+		/* disable error log in crtc3, MTK suggestion */
+		if (is_mi_dev_support_iris()) {
+			if (drm_crtc_index(crtc) != 3) {
+				cam_bw = mtk_mmqos_get_cam_hrt();
+				DDPPR_ERR("IRIS:disp %u avail BW < 2 layers\n", disp_idx);
+				DDPPR_ERR("IRIS:dvfsbw:%llu, availbw:%llu, querybw(%d):%llu, tmp=%llu, cambw=%llu\n",
+					dvfs_bw, avail_bw, already_query, query_bw, tmp, cam_bw);
+			}
+		} else {
+			cam_bw = mtk_mmqos_get_cam_hrt();
+			DDPPR_ERR("disp %u avail BW < 2 layers\n", disp_idx);
+			DDPPR_ERR("dvfsbw:%llu, availbw:%llu, querybw(%d):%llu, tmp=%llu, cambw=%llu\n",
+			dvfs_bw, avail_bw, already_query, query_bw, tmp, cam_bw);
+		}
+#else
 		cam_bw = mtk_mmqos_get_cam_hrt();
 		DDPPR_ERR("disp %u avail BW < 2 layers\n", disp_idx);
 		DDPPR_ERR("dvfsbw:%llu, availbw:%llu, querybw(%d):%llu, tmp=%llu, cambw=%llu\n",
 			dvfs_bw, avail_bw, already_query, query_bw, tmp, cam_bw);
+#endif
 		dvfs_bw = 200;
 	}
 

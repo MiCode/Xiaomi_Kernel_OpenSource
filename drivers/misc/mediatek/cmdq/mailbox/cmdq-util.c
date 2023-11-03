@@ -161,6 +161,19 @@ void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 }
 EXPORT_SYMBOL(cmdq_util_set_fp);
 
+bool cmdq_util_check_hw_trace_work(u8 hwid)
+{
+
+	if (hwid >= util.mbox_cnt) {
+		cmdq_err("hwid:%d mbox_cnt:%u",
+			hwid, util.mbox_cnt);
+		return false;
+	}
+
+	return (&util.hw_trace[hwid])->clt ? true : false;
+}
+EXPORT_SYMBOL(cmdq_util_check_hw_trace_work);
+
 const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread)
 {
 	const char *mod = NULL;

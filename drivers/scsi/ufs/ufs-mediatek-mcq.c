@@ -96,7 +96,6 @@ static void ufs_mtk_mcq_print_trs(void *data, struct ufs_hba *hba, bool pr_prdt)
 
 
 /* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 static void ufs_mtk_mcq_add_command_trace(struct ufs_hba *hba, unsigned int tag,
 				     enum ufs_trace_str_t str_t)
 {
@@ -139,7 +138,6 @@ static void ufs_mtk_mcq_add_command_trace(struct ufs_hba *hba, unsigned int tag,
 	trace_ufs_mtk_mcq_command(dev_name(hba->dev), str_t, tag,
 			doorbell, transfer_len, intr, lba, opcode, group_id);
 }
-#endif
 
 static u32 ufs_mtk_q_entry_offset(struct ufs_queue *q, union utp_q_entry *ptr)
 {
@@ -178,8 +176,22 @@ static bool ufs_mtk_is_sq_full(struct ufs_hba *hba, struct ufs_queue *q)
 
 static inline void ufs_mtk_write_sq_tail(struct ufs_hba *hba, struct ufs_queue *sq_ptr)
 {
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+#endif
+
 	ufshcd_writel(hba, ufs_mtk_q_virt_to_dma(sq_ptr, sq_ptr->tail),
 		MCQ_ADDR(REG_UFS_SQ_TAIL, sq_ptr->qid));
+
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	/* Re-write sq tail */
+	while (host->cpu_serror == (smp_processor_id() + 1)) {
+		host->cpu_serror = 0;
+		ufshcd_writel(hba, ufs_mtk_q_virt_to_dma(sq_ptr, sq_ptr->tail),
+			MCQ_ADDR(REG_UFS_SQ_TAIL, sq_ptr->qid));
+	}
+#endif
+
 	sq_ptr->tail_written = sq_ptr->tail;
 }
 
@@ -203,6 +215,9 @@ static void ufs_mtk_inc_cq_head(struct ufs_hba *hba, struct ufs_queue *q)
 	u8 head_offset;
 	u8 head_next_offset;
 	u32 head_next_offset_addr;
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+#endif
 
 	head_offset = ufs_mtk_q_entry_offset(q, q->head);
 	head_next_offset = (head_offset+1) % q->q_depth;
@@ -210,6 +225,15 @@ static void ufs_mtk_inc_cq_head(struct ufs_hba *hba, struct ufs_queue *q)
 	head_next_offset_addr = head_next_offset * CQE_SIZE;
 
 	ufshcd_writel(hba, head_next_offset_addr, MCQ_ADDR(REG_UFS_CQ_HEAD, q->qid));
+
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	/* Re-write cq head */
+	while (host->cpu_serror == (smp_processor_id() + 1)) {
+		host->cpu_serror = 0;
+		ufshcd_writel(hba, head_next_offset_addr,
+			MCQ_ADDR(REG_UFS_CQ_HEAD, q->qid));
+	}
+#endif
 }
 
 static void ufs_mtk_transfer_req_compl_handler(struct ufs_hba *hba,
@@ -219,6 +243,7 @@ static void ufs_mtk_transfer_req_compl_handler(struct ufs_hba *hba,
 	struct scsi_cmnd *cmd;
 	int result;
 	bool update_scaling = false;
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 
 	lrbp = &hba->lrb[index];
 	lrbp->compl_time_stamp = ktime_get();
@@ -227,11 +252,11 @@ static void ufs_mtk_transfer_req_compl_handler(struct ufs_hba *hba,
 		trace_android_vh_ufs_compl_command(hba, lrbp);
 
 /* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-		ufs_mtk_mcq_add_command_trace(hba, index, UFS_CMD_COMP);
-#else
-		ufshcd_add_command_trace(hba, index, UFS_CMD_COMP);
-#endif
+		if (hba_priv->is_mcq_enabled)
+			ufs_mtk_mcq_add_command_trace(hba, index, UFS_CMD_COMP);
+		else
+			ufshcd_add_command_trace(hba, index, UFS_CMD_COMP);
+
 		result = retry_requests ? DID_BUS_BUSY << 16 :
 			ufshcd_transfer_rsp_status(hba, lrbp);
 		scsi_dma_unmap(cmd);
@@ -249,11 +274,13 @@ static void ufs_mtk_transfer_req_compl_handler(struct ufs_hba *hba,
 			trace_android_vh_ufs_compl_command(hba, lrbp);
 
 /* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-		ufs_mtk_mcq_add_command_trace(hba, index, UFS_DEV_COMP);
-#else
-		ufshcd_add_command_trace(hba, index, UFS_DEV_COMP);
-#endif
+			if (hba_priv->is_mcq_enabled) {
+				ufs_mtk_mcq_add_command_trace(hba, index, UFS_DEV_COMP);
+			}
+			else {
+				ufshcd_add_command_trace(hba, index, UFS_DEV_COMP);
+			}
+
 			complete(hba->dev_cmd.complete);
 			update_scaling = true;
 		}
@@ -348,6 +375,9 @@ static irqreturn_t ufs_mtk_mcq_intr(int irq, void *__intr_info)
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 	int hwq;
 	irqreturn_t retval = IRQ_NONE;
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+#endif
 
 	if (hba_priv->mcq_nr_intr == 0)
 		return IRQ_NONE;
@@ -355,6 +385,15 @@ static irqreturn_t ufs_mtk_mcq_intr(int irq, void *__intr_info)
 	hwq = mcq_intr_info->qid;
 
 	ufshcd_writel(hba, (1 << hwq), REG_UFS_MMIO_CQ_IS);
+
+#if IS_ENABLED(CONFIG_MT6985_UFS_SERROR)
+	/* Re-write cq is */
+	while (host->cpu_serror == (smp_processor_id() + 1)) {
+		host->cpu_serror = 0;
+		ufshcd_writel(hba, (1 << hwq), REG_UFS_MMIO_CQ_IS);
+	}
+#endif
+
 	retval = ufs_mtk_mcq_cq_ring_handler(hba, hwq);
 
 	return retval;
@@ -404,11 +443,11 @@ static void ufs_mtk_mcq_send_hw_cmd(struct ufs_hba *hba, unsigned int task_tag)
 	trace_android_vh_ufs_send_command(hba, lrbp);
 
 /* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	ufs_mtk_mcq_add_command_trace(hba, task_tag, UFS_CMD_SEND);
-#else
-	ufshcd_add_command_trace(hba, task_tag, UFS_CMD_SEND);
-#endif
+	if (hba_priv->is_mcq_enabled)
+		ufs_mtk_mcq_add_command_trace(hba, task_tag, UFS_CMD_SEND);
+	else
+		ufshcd_add_command_trace(hba, task_tag, UFS_CMD_SEND);
+
 	ufshcd_clk_scaling_start_busy(hba);
 
 	spin_lock_irqsave(&sq_ptr->q_lock, flags);
@@ -1230,10 +1269,13 @@ void ufs_mtk_mcq_request_irq(struct ufs_hba *hba)
 									&hba_priv->mcq_intr_info[i]);
 		if (ret) {
 			dev_err(hba->dev, "request irq %d failed\n", irq);
+			hba_priv->is_mcq_irq_enabled = false;
 			return;
 		}
 		dev_info(hba->dev, "request_irq: %d\n", irq);
 	}
+
+	hba_priv->is_mcq_irq_enabled = true;
 }
 
 void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba)
@@ -1264,6 +1306,56 @@ void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba)
 			return;
 		}
 		dev_info(hba->dev, "Set irq %d to CPU: %d\n", irq, _cpu);
+	}
+}
+
+void ufs_mtk_mcq_disable_irq(struct ufs_hba *hba)
+{
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	struct blk_mq_tag_set *tag_set = &hba->host->tag_set;
+	struct blk_mq_queue_map	*map = &tag_set->map[HCTX_TYPE_DEFAULT];
+	unsigned int nr = map->nr_queues;
+	unsigned int q_index, cpu, irq;
+
+	if (!hba_priv->is_mcq_enabled)
+		return;
+
+	if (hba_priv->is_mcq_irq_enabled) {
+		if (hba_priv->mcq_nr_intr == 0)
+			return;
+
+		for (cpu = 0; cpu < nr; cpu++) {
+			q_index = map->mq_map[cpu];
+			irq = hba_priv->mcq_intr_info[q_index].intr;
+			disable_irq(irq);
+		}
+
+		hba_priv->is_mcq_irq_enabled = false;
+	}
+}
+
+void ufs_mtk_mcq_enable_irq(struct ufs_hba *hba)
+{
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	struct blk_mq_tag_set *tag_set = &hba->host->tag_set;
+	struct blk_mq_queue_map	*map = &tag_set->map[HCTX_TYPE_DEFAULT];
+	unsigned int nr = map->nr_queues;
+	unsigned int q_index, cpu, irq;
+
+	if (!hba_priv->is_mcq_enabled)
+		return;
+
+	if (!hba_priv->is_mcq_irq_enabled) {
+		if (hba_priv->mcq_nr_intr == 0)
+			return;
+
+		for (cpu = 0; cpu < nr; cpu++) {
+			q_index = map->mq_map[cpu];
+			irq = hba_priv->mcq_intr_info[q_index].intr;
+			enable_irq(irq);
+		}
+
+		hba_priv->is_mcq_irq_enabled = true;
 	}
 }
 

@@ -28,11 +28,14 @@
 #include <linux/version.h>
 #include <linux/sizes.h>
 #include <linux/sched/clock.h>
+#include <linux/percpu.h>
+#include <linux/smp.h>
 #if IS_ENABLED(CONFIG_MTK_GZ_KREE)
 #include <tz_cross/ta_mem.h>
 #include <tz_cross/trustzone.h>
 #include <kree/mem.h>
 #include <kree/system.h>
+#include <user.h>
 
 #define TZ_TA_SECMEM_UUID   "com.mediatek.geniezone.srv.mem"
 
@@ -306,12 +309,21 @@ int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
 		return TMEM_PARAMETER_ERROR;
 
 	start = sched_clock();
+	teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP,1);
+	teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP,1);
+	//teeperf_set_cpu_group_to_high_freq(CPU_SUPER_GROUP,1);
 	info = ssheap_alloc_non_contig(size, 0, mem_type);
 	if (!info) {
 		*buf_info = NULL;
 		pr_err("[%d] alloc non contig failed! sz:0x%x\n", mem_type, size);
+		teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP,0);
+		teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP,0);
+		//teeperf_set_cpu_group_to_high_freq(CPU_SUPER_GROUP,0);
 		return TMEM_GENERAL_ERROR;
 	}
+	teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP,0);
+	teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP,0);
+	//teeperf_set_cpu_group_to_high_freq(CPU_SUPER_GROUP,0);
 	end = sched_clock();
 	if (end - start > 10000000ULL) {/* unit is ns */
 		pr_info("%s alloc_non_contig len: 0x%lx time: %lld ns\n",

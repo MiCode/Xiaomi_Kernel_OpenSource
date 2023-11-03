@@ -317,6 +317,31 @@ static inline ssize_t dvfsrc_emi_mon_policy_store(struct device *dev,
 }
 DEVICE_ATTR_RW(dvfsrc_emi_mon_policy);
 
+static inline ssize_t dvfsrc_gps_mask_opp0_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", dvfsrc->gps_mask_opp0);
+}
+
+static inline ssize_t dvfsrc_gps_mask_opp0_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int enable = 0;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	if (kstrtouint(buf, 0, &enable) != 0)
+		return -EINVAL;
+
+	mtk_dvfsrc_dynamic_opp0(VCOREOPP_GPS, enable);
+
+	dvfsrc->gps_mask_opp0 = enable;
+
+	return count;
+}
+DEVICE_ATTR_RW(dvfsrc_gps_mask_opp0);
+
 
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
@@ -333,6 +358,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_spm_timer_latch_dump.attr,
 	&dev_attr_dvfsrc_qos_mode.attr,
 	&dev_attr_dvfsrc_emi_mon_policy.attr,
+	&dev_attr_dvfsrc_gps_mask_opp0.attr,
 	NULL,
 };
 

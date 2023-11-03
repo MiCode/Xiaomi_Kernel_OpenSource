@@ -22,8 +22,8 @@
  * Wy Chuang
  *
  */
-#include <linux/init.h>		/* For init/exit macros */
-#include <linux/module.h>	/* For MODULE_ marcros  */
+#include <linux/init.h>
+#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -56,7 +56,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/reboot.h>
-#include <linux/mfd/mt6397/core.h>/* PMIC MFD core header */
+#include <linux/mfd/mt6397/core.h>
 #include <linux/regmap.h>
 #include <linux/of_platform.h>
 
@@ -71,13 +71,11 @@ int get_uisoc(struct mtk_charger *info)
 	bat_psy = info->bat_psy;
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s retry to get bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "gauge");
 		info->bat_psy = bat_psy;
 	}
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
 	} else {
 		ret = power_supply_get_property(bat_psy,
@@ -99,13 +97,11 @@ int get_battery_voltage(struct mtk_charger *info)
 	bat_psy = info->bat_psy;
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s retry to get bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "gauge");
 		info->bat_psy = bat_psy;
 	}
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 3999;
 	} else {
 		ret = power_supply_get_property(bat_psy,
@@ -113,8 +109,6 @@ int get_battery_voltage(struct mtk_charger *info)
 		ret = prop.intval / 1000;
 	}
 
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 
@@ -128,13 +122,11 @@ int get_battery_temperature(struct mtk_charger *info)
 	bat_psy = info->bat_psy;
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s retry to get bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "gauge");
 		info->bat_psy = bat_psy;
 	}
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 27;
 	} else {
 		tmp_ret = power_supply_get_property(bat_psy,
@@ -142,8 +134,6 @@ int get_battery_temperature(struct mtk_charger *info)
 		ret = prop.intval / 10;
 	}
 
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 
@@ -157,13 +147,11 @@ int get_battery_current(struct mtk_charger *info)
 	bat_psy = info->bat_psy;
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s retry to get bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "gauge");
 		info->bat_psy = bat_psy;
 	}
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 0;
 	} else {
 		tmp_ret = power_supply_get_property(bat_psy,
@@ -171,8 +159,6 @@ int get_battery_current(struct mtk_charger *info)
 		ret = prop.intval / 1000;
 	}
 
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 
@@ -185,7 +171,6 @@ static int get_pmic_vbus(struct mtk_charger *info, int *vchr)
 	if (chg_psy == NULL)
 		chg_psy = power_supply_get_by_name("mtk_charger_type");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		chr_err("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
 		ret = power_supply_get_property(chg_psy,
@@ -193,8 +178,6 @@ static int get_pmic_vbus(struct mtk_charger *info, int *vchr)
 	}
 	*vchr = prop.intval;
 
-	chr_debug("%s vbus:%d\n", __func__,
-		prop.intval);
 	return ret;
 }
 
@@ -208,8 +191,6 @@ int get_vbus(struct mtk_charger *info)
 	ret = charger_dev_get_vbus(info->chg1_dev, &vchr);
 	if (ret < 0) {
 		ret = get_pmic_vbus(info, &vchr);
-		if (ret < 0)
-			chr_err("%s: get vbus failed: %d\n", __func__, ret);
 	} else
 		vchr /= 1000;
 
@@ -224,8 +205,6 @@ int get_ibat(struct mtk_charger *info)
 	if (info == NULL)
 		return -EINVAL;
 	ret = charger_dev_get_ibat(info->chg1_dev, &ibat);
-	if (ret < 0)
-		chr_err("%s: get ibat failed: %d\n", __func__, ret);
 
 	return ibat / 1000;
 }
@@ -238,8 +217,6 @@ int get_ibus(struct mtk_charger *info)
 	if (info == NULL)
 		return -EINVAL;
 	ret = charger_dev_get_ibus(info->chg1_dev, &ibus);
-	if (ret < 0)
-		chr_err("%s: get ibus failed: %d\n", __func__, ret);
 
 	return ibus / 1000;
 }
@@ -254,13 +231,11 @@ bool is_battery_exist(struct mtk_charger *info)
 	bat_psy = info->bat_psy;
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s retry to get bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "gauge");
 		info->bat_psy = bat_psy;
 	}
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
-		chr_err("%s Couldn't get bat_psy\n", __func__);
 		ret = 1;
 	} else {
 		tmp_ret = power_supply_get_property(bat_psy,
@@ -283,13 +258,11 @@ bool is_charger_exist(struct mtk_charger *info)
 	chg_psy = info->chg_psy;
 
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		chr_err("%s retry to get chg_psy\n", __func__);
-		chg_psy = power_supply_get_by_name("primary_chg");
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "charger");
 		info->chg_psy = chg_psy;
 	}
 
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
 		tmp_ret = power_supply_get_property(chg_psy,
@@ -297,79 +270,67 @@ bool is_charger_exist(struct mtk_charger *info)
 		ret = prop.intval;
 	}
 
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 
 int get_charger_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop = {0};
-	union power_supply_propval prop2 = {0};
-	union power_supply_propval prop3 = {0};
-	static struct power_supply *bc12_psy;
+	union power_supply_propval prop, prop2, prop3;
+	static struct power_supply *chg_psy;
 	int ret;
 
-	bc12_psy = info->bc12_psy;
+	chg_psy = info->chg_psy;
 
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s retry to get bc12_psy\n", __func__);
-		bc12_psy = power_supply_get_by_name("primary_chg");
-		info->bc12_psy = bc12_psy;
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "charger");
+		info->chg_psy = chg_psy;
 	}
 
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s Couldn't get bc12_psy\n", __func__);
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_TYPE, &prop2);
 
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop3);
 
-		if (prop.intval == 0 ||
+		if ((prop.intval == 0 && info->input_suspend == 0 ) ||
 		    (prop2.intval == POWER_SUPPLY_TYPE_USB &&
 		    prop3.intval == POWER_SUPPLY_USB_TYPE_UNKNOWN))
 			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
 	}
 
-	chr_debug("%s online:%d type:%d usb_type:%d\n", __func__,
-		prop.intval,
-		prop2.intval,
-		prop3.intval);
 
 	return prop2.intval;
 }
 
 int get_usb_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop = {0};
-	union power_supply_propval prop2 = {0};
-	static struct power_supply *bc12_psy;
-
+	union power_supply_propval prop, prop2;
+	static struct power_supply *chg_psy;
 	int ret;
 
-	bc12_psy = info->bc12_psy;
+	chg_psy = info->chg_psy;
 
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s retry to get bc12_psy\n", __func__);
-		bc12_psy = power_supply_get_by_name("primary_chg");
-		info->bc12_psy = bc12_psy;
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s retry to get chg_psy\n", __func__);
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
+						       "charger");
+		info->chg_psy = chg_psy;
 	}
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s Couldn't get bc12_psy\n", __func__);
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
 	}
-	chr_debug("%s online:%d usb_type:%d\n", __func__,
-		prop.intval,
-		prop2.intval);
+
 	return prop2.intval;
 }
 
@@ -407,8 +368,6 @@ int get_charger_charging_current(struct mtk_charger *info,
 	else
 		ret = olduA;
 
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 
@@ -426,8 +385,6 @@ int get_charger_input_current(struct mtk_charger *info,
 	else
 		ret = olduA;
 
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 
@@ -445,8 +402,6 @@ int get_charger_zcv(struct mtk_charger *info,
 		chr_err("%s: get charger zcv failed: %d\n", __func__, ret);
 	else
 		ret = zcv;
-	chr_debug("%s:%d\n", __func__,
-		ret);
 	return ret;
 }
 

@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+&odm {
+	xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+};
+
+&spi6 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	mediatek,fifo-polling = <1>;
+	mediatek,autosuspend-delay = <10>;
+	xiaomi_touch@0 {
+		status = "ok";
+		compatible = "xiaomi,touch-spi";
+		reg = <0x0>;
+		interrupt-parent = <&pio>;
+		interrupts = <8 0x2008>;
+		spi-max-frequency = <15000000>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_gt_spi_mode";
+		pinctrl-0 = <&ts_reset_active &ts_int_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+		goodix,avdd-name = "avdd";
+		goodix,iovdd-name = "vdd";
+		vdd-supply = <&mt6373_vtp>;
+		avdd-supply = <&mt6373_vcn33_3>;
+		goodix,irq-gpio = <&pio 8 0x2008>;
+		goodix,reset-gpio = <&pio 3 0x00>;
+		goodix,irq-flags = <2>;
+		goodix,panel-max-x = <12200>;
+		goodix,panel-max-y = <27120>;
+		goodix,panel-max-w = <255>;
+		goodix,panel-max-p = <4096>;
+		game_boost_support;
+		game_cpu_mask = <0x0f>;
+		game_irq_boost_target = <800000>;
+		goodix,firmware-name = "goodix_firmware_corot";
+		goodix,config-name = "goodix_cfg_group_corot";
+		goodix,touch-expert-array = <2 3 2 2
+					     4 3 3 2
+					     3 3 4 2>;
+	};
+};
+
+&mt6373_vtp {
+	regulator-boot-on;
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+&mt6373_vcn33_3 {
+	regulator-boot-on;
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+};
+&pio {
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-low;
+		};
+	};
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			input-enable;
+			bias-disable;
+		};
+	};
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO164__FUNC_SPI6_B_MI>,
+				<PINMUX_GPIO165__FUNC_SPI6_B_CSB>,
+				<PINMUX_GPIO166__FUNC_SPI6_B_MO>,
+				<PINMUX_GPIO167__FUNC_SPI6_B_CLK>;
+			drive-strength = <1>;
+		};
+	};
+};
+/* TOUCH end */

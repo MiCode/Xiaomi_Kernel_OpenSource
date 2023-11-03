@@ -14,7 +14,7 @@
 #define DRIVER_NAME "dw9800v"
 #define DW9800V_I2C_SLAVE_ADDR 0x18
 #define AK7314_I2C_SLAVE_ADDR  0x18
-#define EEPROM_I2C_SLAVE_ADDR  0xA2
+#define EEPROM_I2C_SLAVE_ADDR  0xA8
 
 
 #define LOG_INF(format, args...)                                               \
@@ -116,20 +116,7 @@ static int dw9800v_set_position(struct dw9800v_device *dw9800v, u16 val)
 
 static int dw9800v_release(struct dw9800v_device *dw9800v)
 {
-	int ret, val;
 	struct i2c_client *client = v4l2_get_subdevdata(&dw9800v->sd);
-
-	for (val = round_down(dw9800v->focus->val, DW9800V_MOVE_STEPS);
-	     val >= 0; val -= DW9800V_MOVE_STEPS) {
-		ret = dw9800v_set_position(dw9800v, val);
-		if (ret) {
-			LOG_INF("%s I2C failure: %d",
-				__func__, ret);
-			return ret;
-		}
-		usleep_range(DW9800V_MOVE_DELAY_US,
-			     DW9800V_MOVE_DELAY_US + 1000);
-	}
 
 	i2c_smbus_write_byte_data(client, 0x02, 0x20);
 	msleep(20);
@@ -150,23 +137,12 @@ static int dw9800v_init(struct dw9800v_device *dw9800v)
 	int ret = 0;
 	int i = 0;
 	unsigned char cmd_number = 7;
-#if defined(MATISSE_CAM)
-	char puSendCmdArray[8][2] = {
-	{0x02, 0x01}, {0x02, 0x00}, {0xFE, 0xFE},
-	{0x02, 0x02}, {0x06, 0x40}, {0x07, 0x07}, {0x10, 0x01}, {0xFE, 0xFE},
-	};
-	cmd_number = 8;
-#elif defined(RUBENS_CAM)
+
 	char puSendCmdArray[7][2] = {
 	{0x02, 0x01}, {0x02, 0x00}, {0xFE, 0xFE},
-	{0x02, 0x02}, {0x06, 0x80}, {0x07, 0x7C}, {0xFE, 0xFE},
+	{0x02, 0x02}, {0x06, 0x80}, {0x07, 0x03},  {0xFE, 0xFE},
 	};
-#else
-	char puSendCmdArray[7][2] = {
-	{0x02, 0x01}, {0x02, 0x00}, {0xFE, 0xFE},
-	{0x02, 0x02}, {0x06, 0x80}, {0x07, 0x7C}, {0xFE, 0xFE},
-	};
-#endif
+
 
 	LOG_INF("+\n");
 

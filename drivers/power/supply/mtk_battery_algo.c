@@ -1402,8 +1402,7 @@ void fgr_int_end_flow(struct mtk_battery *gm, unsigned int intr_no)
 	if (gm->disableGM30)
 		vbat = 4000;
 	else
-		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
-			&vbat, 0);
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
 
 	curr_temp = force_get_tbat(gm, true);
 
@@ -1819,8 +1818,7 @@ void battery_algo_init(struct mtk_battery *gm)
 	algo->fg_bat_tmp_c_gap = 1;
 	algo->aging_factor = 10000;
 	algo->DC_ratio = 100;
-	gauge_get_property_control(gm, GAUGE_PROP_BATTERY_EXIST,
-		&is_bat_exist, 0);
+	gauge_get_property(GAUGE_PROP_BATTERY_EXIST, &is_bat_exist);
 	bm_err("MTK Battery algo init bat_exist:%d\n",
 		is_bat_exist);
 

@@ -6,6 +6,10 @@
 #ifndef __MTKFB_DEBUG_H
 #define __MTKFB_DEBUG_H
 
+#if defined(CONFIG_PXLW_IRIS)
+#include "mtk_drm_plane.h"
+#endif
+
 #define LOGGER_BUFFER_SIZE (16 * 1024)
 #define ERROR_BUFFER_COUNT 4
 #define FENCE_BUFFER_COUNT 22
@@ -23,12 +27,12 @@
 #define DEBUG_BUFFER_SIZE 10240
 #endif
 
-extern void disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
+extern int disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
 extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl, void *param);
 extern void mtk_aal_regdump(void);
@@ -53,11 +57,14 @@ enum mtk_pq_persist_property {
 	DISP_PQ_CCORR_SILKY_BRIGHTNESS,
 	DISP_PQ_GAMMA_SILKY_BRIGHTNESS,
 	DISP_PQ_DITHER_COLOR_DETECT,
+	DISP_PQ_MI_SOFT_BRIGHTNESS,
 	DISP_PQ_PROPERTY_MAX,
 };
 
 int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+
+int mtk_drm_set_disp_pq_unrelay(struct drm_crtc *crtc);
 
 extern int mtk_disp_hrt_bw_dbg(void);
 
@@ -106,6 +113,7 @@ enum mtk_drm_mml_dbg {
 	MMP_ADDON_DISCONNECT = 0x2000,
 	MMP_MML_SUBMIT = 0x4000,
 	MMP_MML_IDLE = 0x8000,
+	MMP_MML_REPAINT = 0x10000,
 };
 
 #if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)

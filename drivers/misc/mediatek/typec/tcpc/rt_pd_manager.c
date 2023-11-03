@@ -12,6 +12,7 @@
 #include <linux/usb/typec_mux.h>
 
 #include "inc/tcpci_typec.h"
+#include "../../../hwid/hwid.h"
 #if IS_ENABLED(CONFIG_MTK_CHARGER)
 #include <charger_class.h>
 #endif /* CONFIG_MTK_CHARGER */
@@ -375,15 +376,16 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		typec_mux_set(rpmd->typec_port->mux, &state);
 		break;
 	case TCP_NOTIFY_WD0_STATE:
+		dev_info(rpmd->dev, "%s wd0 en= %d,state = %d\n",
+				__func__, rpmd->wd0_enable,noti->wd0_state.wd0);
 		if (rpmd->wd0_enable) {
 			if (noti->wd0_state.wd0)
-				tcpm_typec_change_role(rpmd->tcpc,
-						       rpmd->role_def);
+				tcpm_typec_change_role_postpone(rpmd->tcpc,
+						       rpmd->role_def, true);
 			else
 				tcpm_typec_change_role_postpone(rpmd->tcpc,
 								TYPEC_ROLE_SNK,
 								true);
-
 		}
 		break;
 	default:
@@ -551,7 +553,7 @@ static int tcpc_typec_port_type_set(struct typec_port *port, enum typec_port_typ
 			typec_role = TYPEC_ROLE_TRY_SNK;
 		else
 			typec_role = TYPEC_ROLE_DRP;
-		return tcpm_typec_change_role(rpmd->tcpc, typec_role);
+		return tcpm_typec_change_role_postpone(rpmd->tcpc, typec_role, true);
 	default:
 		return 0;
 	}
@@ -610,6 +612,10 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct rt_pd_manager_data *rpmd = NULL;
+	const char * hw_sku = product_name_get();
+	uint32_t hw_ver_major = get_hw_version_major() & 0x000F;
+ 	uint32_t hw_ver_min = get_hw_version_minor();
+
 
 	dev_info(&pdev->dev, "%s (%s)\n", __func__, RT_PD_MANAGER_VERSION);
 
@@ -664,12 +670,20 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 				      __func__, ret);
 		goto err_init_typec;
 	}
-
+	dev_err(rpmd->dev, "sku=%s, major=%d, minor=%d \n", hw_sku, hw_ver_major, hw_ver_min);
 	if (of_property_read_bool(pdev->dev.of_node, "wd0_enable"))
 		rpmd->wd0_enable = true;
 	else
 		rpmd->wd0_enable = false;
 
+	if(strcmp(hw_sku, "corot") && strcmp(hw_sku, "zircon"))
+	{
+		rpmd->wd0_enable = false;
+		dev_err(rpmd->dev, "won't enable wd0 unless it's corot or zircon, wd0_enable=%d\n", rpmd->wd0_enable);
+	}else if (!strcmp(hw_sku, "corot") && (hw_ver_major == 0 || (hw_ver_major == 1 && hw_ver_min == 0))) {
+		rpmd->wd0_enable = false;
+		dev_err(rpmd->dev, "do not enable wd0 in special version, wd0_enable=%d\n", rpmd->wd0_enable);
+	}
 	rpmd->role_def = tcpm_inquire_typec_role_def(rpmd->tcpc);
 	if (rpmd->wd0_enable && tcpm_is_floating_ground(rpmd->tcpc))
 		tcpm_typec_change_role_postpone(rpmd->tcpc, TYPEC_ROLE_SNK, true);

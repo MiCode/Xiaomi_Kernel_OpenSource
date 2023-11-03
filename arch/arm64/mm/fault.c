@@ -319,7 +319,7 @@ static void die_kernel_fault(const char *msg, unsigned long addr,
 	show_pte(addr);
 	die("Oops", regs, esr);
 	bust_spinlocks(0);
-	do_exit(SIGKILL);
+	make_task_dead(SIGKILL);
 }
 
 #ifdef CONFIG_KASAN_HW_TAGS
@@ -542,7 +542,6 @@ static int __kprobes do_page_fault(unsigned long far, unsigned int esr,
 	unsigned int mm_flags = FAULT_FLAG_DEFAULT;
 	unsigned long addr = untagged_addr(far);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	struct vm_area_struct *orig_vma = NULL;
 	struct vm_area_struct *vma;
 	struct vm_area_struct pvma;
 	unsigned long seq;
@@ -618,41 +617,29 @@ static int __kprobes do_page_fault(unsigned long far, unsigned int esr,
 		count_vm_spf_event(SPF_ABORT_ODD);
 		goto spf_abort;
 	}
-	rcu_read_lock();
-	vma = __find_vma(mm, addr);
-	if (!vma || vma->vm_start > addr) {
-		rcu_read_unlock();
+	vma = get_vma(mm, addr);
+	if (!vma) {
 		count_vm_spf_event(SPF_ABORT_UNMAPPED);
 		goto spf_abort;
 	}
 	if (!vma_can_speculate(vma, mm_flags)) {
-		rcu_read_unlock();
+		put_vma(vma);
 		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;
 	}
-	if (vma->vm_file) {
-		if (!vma_get_file_ref(vma)) {
-			rcu_read_unlock();
-			count_vm_spf_event(SPF_ABORT_UNMAPPED);
-			goto spf_abort;
-		}
-		orig_vma = vma;
-	}
 	pvma = *vma;
-	rcu_read_unlock();
 	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY)) {
-		vma_put_file_ref(orig_vma);
+		put_vma(vma);
 		goto spf_abort;
 	}
-	vma = &pvma;
-	if (!(vma->vm_flags & vm_flags)) {
+	if (!(pvma.vm_flags & vm_flags)) {
+		put_vma(vma);
 		count_vm_spf_event(SPF_ABORT_ACCESS_ERROR);
-		vma_put_file_ref(orig_vma);
 		goto spf_abort;
 	}
-	fault = do_handle_mm_fault(vma, addr & PAGE_MASK,
+	fault = do_handle_mm_fault(&pvma, addr & PAGE_MASK,
 			mm_flags | FAULT_FLAG_SPECULATIVE, seq, regs);
-	vma_put_file_ref(orig_vma);
+	put_vma(vma);
 
 	/* Quick path to respond to signals */
 	if (fault_signal_pending(fault, regs)) {

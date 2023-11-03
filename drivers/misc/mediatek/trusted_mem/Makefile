@@ -91,6 +91,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssheap
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/tee/teeperf/
 
 #==========================================================================
 # Other Modules Include Header Paths

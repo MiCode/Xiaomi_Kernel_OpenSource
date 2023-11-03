@@ -161,6 +161,7 @@ struct cmdq_util_platform_fp {
 };
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform);
+bool cmdq_util_check_hw_trace_work(u8 hwid);
 const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread);
 const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);
 u32 cmdq_util_get_hw_id(u32 pa);

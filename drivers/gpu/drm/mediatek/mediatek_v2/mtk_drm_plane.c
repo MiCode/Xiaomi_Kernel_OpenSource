@@ -19,6 +19,10 @@
 #include "slbc_ops.h"
 #include "../mml/mtk-mml.h"
 
+#if defined(CONFIG_PXLW_IRIS)
+#include "dsi_iris_mtk_api.h"
+#endif
+
 #define MTK_DRM_PLANE_SCALING_MIN 16
 #define MTK_DRM_PLANE_SCALING_MAX (1 << 16)
 
@@ -327,34 +331,71 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 		return PTR_ERR(crtc_state);
 
 	mtk_crtc = to_mtk_crtc(new_plane_state->crtc);
-	if ((mtk_crtc->res_switch != RES_SWITCH_NO_USE)
-		&& (drm_crtc_index(new_plane_state->crtc) == 0)) {
-		struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc_state);
-		struct mtk_crtc_state *old_mtk_state =
-			to_mtk_crtc_state(new_plane_state->crtc->state);
+#if defined(CONFIG_PXLW_IRIS)
+		/* Support mode switch in 2nd DSI display */
+	if (is_mi_dev_support_iris()) {
+		if ((mtk_crtc->res_switch != RES_SWITCH_NO_USE)
+			&& (drm_crtc_index(new_plane_state->crtc) == 0
+			|| drm_crtc_index(new_plane_state->crtc) == 3)) {
+			struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc_state);
+			struct mtk_crtc_state *old_mtk_state =
+				to_mtk_crtc_state(new_plane_state->crtc->state);
 
-		if (mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]
-			!= old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
-			struct drm_display_mode *mode =
-				mtk_drm_crtc_avail_disp_mode(new_plane_state->crtc,
-					mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+			if (mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]
+				!= old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
+				struct drm_display_mode *mode =
+					mtk_drm_crtc_avail_disp_mode(new_plane_state->crtc,
+						mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
-			DDPDBG("%s++ from %u to %u\n", __func__,
-					old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
-					mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+				DDPDBG("%s++ IRIS:from %u to %u\n", __func__,
+						old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+						mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
-			if (crtc_state->mode.hdisplay < mode->hdisplay
-				|| crtc_state->mode.vdisplay < mode->vdisplay) {
-				crtc_state->mode.hdisplay = mode->hdisplay;
-				crtc_state->mode.vdisplay = mode->vdisplay;
+				if (crtc_state->mode.hdisplay < mode->hdisplay
+					|| crtc_state->mode.vdisplay < mode->vdisplay) {
+					crtc_state->mode.hdisplay = mode->hdisplay;
+					crtc_state->mode.vdisplay = mode->vdisplay;
 
-				DDPDBG("%s: new_plane_state dst:%dx%d, src:%dx%d; crtc:%dx%d\n",
-					__func__, new_plane_state->crtc_w, new_plane_state->crtc_h,
-					new_plane_state->src_w, new_plane_state->src_h,
-					crtc_state->mode.hdisplay, crtc_state->mode.vdisplay);
+					DDPDBG("%s: IRIS: new_plane_state dst:%dx%d, src:%dx%d; crtc:%dx%d\n",
+						__func__, new_plane_state->crtc_w, new_plane_state->crtc_h,
+						new_plane_state->src_w, new_plane_state->src_h,
+						crtc_state->mode.hdisplay, crtc_state->mode.vdisplay);
+				}
 			}
 		}
+	} else {
+#endif
+		if ((mtk_crtc->res_switch != RES_SWITCH_NO_USE)
+			&& (drm_crtc_index(new_plane_state->crtc) == 0)) {
+			struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc_state);
+			struct mtk_crtc_state *old_mtk_state =
+				to_mtk_crtc_state(new_plane_state->crtc->state);
+
+			if (mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]
+				!= old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
+				struct drm_display_mode *mode =
+					mtk_drm_crtc_avail_disp_mode(new_plane_state->crtc,
+						mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+				DDPDBG("%s++ from %u to %u\n", __func__,
+						old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+						mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+				if (crtc_state->mode.hdisplay < mode->hdisplay
+					|| crtc_state->mode.vdisplay < mode->vdisplay) {
+					crtc_state->mode.hdisplay = mode->hdisplay;
+					crtc_state->mode.vdisplay = mode->vdisplay;
+
+					DDPDBG("%s: new_plane_state dst:%dx%d, src:%dx%d; crtc:%dx%d\n",
+						__func__, new_plane_state->crtc_w, new_plane_state->crtc_h,
+						new_plane_state->src_w, new_plane_state->src_h,
+						crtc_state->mode.hdisplay, crtc_state->mode.vdisplay);
+				}
+			}
+		}
+#if defined(CONFIG_PXLW_IRIS)
 	}
+#endif
 
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_RPO))
 		return drm_atomic_helper_check_plane_state(

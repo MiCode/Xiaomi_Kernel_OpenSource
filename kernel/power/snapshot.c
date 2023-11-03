@@ -1719,8 +1719,8 @@ static unsigned long minimum_image_size(unsigned long saveable)
  * /sys/power/reserved_size, respectively).  To make this happen, we compute the
  * total number of available page frames and allocate at least
  *
- * ([page frames total] + PAGES_FOR_IO + [metadata pages]) / 2
- *  + 2 * DIV_ROUND_UP(reserved_size, PAGE_SIZE)
+ * ([page frames total] - PAGES_FOR_IO - [metadata pages]) / 2
+ *  - 2 * DIV_ROUND_UP(reserved_size, PAGE_SIZE)
  *
  * of them, which corresponds to the maximum size of a hibernation image.
  *
@@ -2078,6 +2078,7 @@ unsigned long snapshot_get_image_size(void)
 {
 	return nr_copy_pages + nr_meta_pages + 1;
 }
+EXPORT_SYMBOL_GPL(snapshot_get_image_size);
 
 static int init_header(struct swsusp_info *info)
 {

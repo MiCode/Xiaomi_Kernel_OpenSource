@@ -172,6 +172,11 @@ int cmdq_hw_trace_set(const char *val, const struct kernel_param *kp)
 	if (ret)
 		return ret;
 
+	if (!cmdq_util_check_hw_trace_work(bit.hwid)) {
+		cmdq_err("hw trace disable");
+		return -EINVAL;
+	}
+
 	cmdq_hw_trace = bit.enable ? 1 : 0;
 
 	if (bit.dump && (bit.hwid & 0x1))
@@ -569,6 +574,14 @@ static void cmdq_task_connect_buffer(struct cmdq_task *task,
 	task_base = (u64 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE -
 		task->pkt->avail_buf_size - CMDQ_INST_SIZE);
 	inst = *task_base;
+
+	if (!next_task) {
+		*task_base = (u64)CMDQ_JUMP_BY_OFFSET << 32 | 0x00000001;
+		cmdq_log("%s connect to null change last inst %#018llx to %#018llx connect 0x%p -> NULL",
+			__func__, inst, *task_base, task->pkt);
+		return;
+	}
+
 	*task_base = (u64)CMDQ_JUMP_BY_PA << 32 |
 		CMDQ_REG_SHIFT_ADDR(next_task->pa_base);
 
@@ -778,6 +791,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	size_t offset = 0;
 	bool thrd_suspend = false;
 	unsigned long flags;
+	s32 i = 0, alloc_retry_cnt = 5;
 
 	cmdq = dev_get_drvdata(thread->chan->mbox->dev);
 
@@ -807,11 +821,18 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		}
 	}
 
-	task = kzalloc(sizeof(*task), GFP_ATOMIC);
+	do {
+		task = kzalloc(sizeof(*task), GFP_ATOMIC);
+		if (task)
+			break;
+		cmdq_err("alloc task fail, retry cnt:%d", i);
+	} while (++i < alloc_retry_cnt);
+
 	if (!task) {
 		cmdq_task_callback(pkt, -ENOMEM);
 		return;
 	}
+
 	pkt->task_alloc = true;
 
 #if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
@@ -1860,7 +1881,7 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 {
 	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
-	struct cmdq_task *task, *tmp;
+	struct cmdq_task *task, *tmp, *next_task, *prev_task;
 	unsigned long flags;
 	dma_addr_t pa_curr;
 	bool curr_task = false;
@@ -1912,6 +1933,12 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 			/* task during error handling, skip */
 			spin_unlock_irqrestore(&thread->chan->lock, flags);
 			return;
+		}
+
+		if (!curr_task) {
+			next_task = last_task ? NULL : list_next_entry(task, list_entry);
+			prev_task = list_prev_entry(task, list_entry);
+			cmdq_task_connect_buffer(prev_task, next_task);
 		}
 
 		cmdq_task_exec_done(task, curr_task ? -ECONNABORTED : 0);

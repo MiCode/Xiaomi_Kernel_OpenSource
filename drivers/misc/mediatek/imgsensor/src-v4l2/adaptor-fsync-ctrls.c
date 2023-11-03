@@ -890,8 +890,9 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 
 	adaptor_logd(ctx,
-		"sidx:%d, exp(%u, %u/%u/%u/%u/%u, cnt(mode:%u/ae:%u), readout_len:%u, read_margin:%u), margin:%u, min_fl:%u, flk:%u, line_time:%u(ns), readout_time_us:%u(mode_id:%u/height:%u/linetime_readout_ns:%u), set_exp_with_fl(%u, %u/%u), req_id:%d, sof_cnt:%u\n",
+		"sidx:%d, CurrentSensorMode:%d, exp(%u, %u/%u/%u/%u/%u, cnt(mode:%u/ae:%u), readout_len:%u, read_margin:%u), margin:%u, min_fl:%u, flk:%u, line_time:%u(ns), readout_time_us:%u(mode_id:%u/height:%u/linetime_readout_ns:%u), set_exp_with_fl(%u, %u/%u), req_id:%d, sof_cnt:%u\n",
 		ctx->idx,
+		mode_id,
 		pf_ctrl.shutter_lc,
 		pf_ctrl.hdr_exp.exp_lc[0],
 		pf_ctrl.hdr_exp.exp_lc[1],

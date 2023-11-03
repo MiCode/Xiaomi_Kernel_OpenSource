@@ -1,0 +1,142 @@
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+	backlight {
+		label = "lcd-backlight";
+		max-brightness = <16383>;
+		min-brightness = <1>;
+		max-hw-brightness = <4095>;
+		pq-max-51backlight-threshold = <96>;
+		led_mode = <4>;
+		default-state = "FifteenPercent";
+	};
+};
+
+&pio {
+	mtkfb_pins_lcm_dvdd_enp1: lcm_dvdd_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO91__FUNC_GPIO91>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_enp0: lcm_dvdd_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO91__FUNC_GPIO91>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_vddio_enn1: lcm_vddio_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO95__FUNC_GPIO95>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_vddio_enn0: lcm_vddio_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO95__FUNC_GPIO95>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO48__FUNC_GPIO48>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO48__FUNC_GPIO48>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO47__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_err_flag: lcm_err_flag {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_dvdd_enp1_gpio", "lcm_dvdd_enp0_gpio",
+		"lcm_vddio_enn1_gpio", "lcm_vddio_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "err_flag_init";
+	pinctrl-0 = <&mtkfb_pins_lcm_dvdd_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcm_dvdd_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_vddio_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcm_vddio_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_err_flag>;
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names = "lcm_dvdd_enp1_gpio", "lcm_dvdd_enp0_gpio",
+		"lcm_vddio_enn1_gpio", "lcm_vddio_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "err_flag_init";
+	pinctrl-0 = <&mtkfb_pins_lcm_dvdd_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcm_dvdd_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_vddio_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcm_vddio_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_err_flag>;
+	status = "okay";
+};
+
+&mt6368_vtp {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "n16u_42_02_0a_dsc_vdo,lcm";
+		reg = <0>;
+		reset-gpios = <&pio 48 0>;
+		vddio18-gpios = <&pio 91 0>;
+		vibr30-supply = <&mt6368_vtp>;
+		dvdd-gpios = <&pio 95 0>;
+		mi,esd-err-irq-gpio = <&pio 3 0x2002>;
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+

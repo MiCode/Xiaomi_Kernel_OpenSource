@@ -48,13 +48,14 @@
 int vma_dump_enable;
 int dmabuf_rb_check;
 int dump_all_attach;
-
+int pss_by_mmap_enable;
 
 #define _HEAP_FD_FLAGS_           (O_CLOEXEC|O_RDWR)
 #define DMA_HEAP_CMDLINE_LEN      (30)
 #define DMA_HEAP_DUMP_ALLOC_GFP   (GFP_ATOMIC)
 #define OOM_DUMP_INTERVAL         (2000)  /* unit: ms */
 #define SET_PID_CMDLINE_LEN       (16)
+#define EGL_DUMP_INTERVAL         (500)  /* unit: ms */
 
 /* Bit map for error */
 #define DBG_ALLOC_MEM_FAIL        (1 << 0)
@@ -124,6 +125,7 @@ const struct dma_heap_dbg heap_helper[] = {
 	{"vma_dump:", &vma_dump_enable},
 	{"dmabuf_rb_check:", &dmabuf_rb_check},
 	{"dump_all_attach:", &dump_all_attach},
+	{"pss_by_mmap:", &pss_by_mmap_enable},
 };
 
 struct heap_status_s {
@@ -141,6 +143,8 @@ struct fd_const {
 struct pid_map {
 	pid_t id;
 	char name[TASK_COMM_LEN];
+	size_t PSS;
+	size_t RSS;
 };
 
 /* 100 is enough for most cases */
@@ -214,6 +218,12 @@ int oom_nb_status; /* 0 means register pass */
 unsigned long long last_oom_time;/* ms */
 unsigned long debug_alloc_sz;
 
+static unsigned long long egl_last_time;
+static unsigned long egl_kernl_rss;
+static unsigned int egl_pid_cnt;
+static struct pid_map *egl_pid_map;
+static DEFINE_SPINLOCK(egl_cache_lock);
+
 struct heap_status_s debug_heap_list[] = {
 	{"mtk_mm", NULL, 0},
 	{"system", NULL, 0},
@@ -286,14 +296,12 @@ dmabuf_root_to_dump_fd_data(const struct rb_root *root)
 	return container_of(root, struct dump_fd_data, dmabuf_root);
 }
 
-void dump_pid_map(struct dump_fd_data *fd_data)
+void dump_pid_map(struct seq_file *s, struct pid_map *map, unsigned int map_cnt)
 {
-	struct pid_map *map = fd_data->pid_map;
-	struct seq_file *s = fd_data->constd.s;
 	int i;
 
 	dmabuf_dump(s, "pid table:\n");
-	for (i = 0; i < TOTAL_PID_CNT; i++) {
+	for (i = 0; i < map_cnt; i++) {
 		if (!map[i].id)
 			break;
 		dmabuf_dump(s, "\tpid:%-6d name:%s\n", map[i].id, map[i].name);
@@ -337,7 +345,7 @@ int add_pid_map_entry(struct dump_fd_data *fddata, pid_t num, const char *comm)
 	if (idx >= TOTAL_PID_CNT) {
 		/* full */
 		dmabuf_dump(s, "%s err, entry is full, %d\n", __func__, idx);
-		dump_pid_map(fddata);
+		dump_pid_map(s, map, TOTAL_PID_CNT);
 		return -ENOMEM;
 	}
 
@@ -719,7 +727,8 @@ unsigned long dmabuf_dbg_rbtree_clear(struct dump_fd_data *fd_data)
 }
 
 static unsigned long dmabuf_rbtree_get_stats(struct rb_root *root, pid_t pid,
-					     enum stats_type type)
+					     enum stats_type type,
+					     unsigned long flag)
 {
 	struct rb_root *rbroot = root;
 	struct rb_node *tmp_rb;
@@ -739,20 +748,33 @@ static unsigned long dmabuf_rbtree_get_stats(struct rb_root *root, pid_t pid,
 		buf_pss = 0;
 		dmabuf = dbg_node->dmabuf;
 
-		/* pid=0 means kerel rss */
-		if (!pid && !dbg_node->fd_cnt_total && !dbg_node->vm_cnt_total) {
-			krn_rss += dmabuf->size;
-			continue;
+		if (flag & HEAP_DUMP_PSS_BYFD) {
+			if (!pid && !dbg_node->fd_cnt_total) {
+				krn_rss += dmabuf->size;
+				continue;
+			}
+		} else {
+			if (!pid && !dbg_node->fd_cnt_total &&  !dbg_node->vm_cnt_total) {
+				krn_rss += dmabuf->size;
+				continue;
+			}
 		}
 
 		list_for_each(pid_node, &dbg_node->pids_res) {
 			pid_info = list_entry(pid_node, struct dmabuf_pid_res, pid_res);
 			if (pid_info->pid == pid) {
 				rss += dmabuf->size;
-				if (!dbg_node->mmap_size)
-					continue;
 
-				buf_pss = dmabuf->size * pid_info->map_size / dbg_node->mmap_size;
+				if (flag & HEAP_DUMP_PSS_BYFD) {
+					buf_pss = dmabuf->size * pid_info->fd_cnt /
+						  dbg_node->fd_cnt_total;
+				} else {
+					if (!dbg_node->mmap_size)
+						continue;
+
+					buf_pss = dmabuf->size * pid_info->map_size /
+						  dbg_node->mmap_size;
+				}
 				break;
 			}
 		}
@@ -1062,7 +1084,8 @@ int dmabuf_rbtree_dbg_add_cb(const struct dma_buf *dmabuf, void *priv)
 static noinline
 void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 			       struct dma_heap *heap,
-			       struct seq_file *s, int pid)
+			       struct seq_file *s, int pid,
+			       unsigned long flag)
 {
 	int ret = 0;
 	int found_vma = 0;
@@ -1084,12 +1107,15 @@ void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 	}
 
 	fddata->constd.p = p;
-	fddata->err = 0;
-	fddata->ret = 0;
-	ret = dmabuf_rbtree_add_vmas(fddata);
-	found_vma = fddata->ret;
-	if (ret)
-		dmabuf_dump(s, "%s: add vma fail:%d\n", __func__, ret);
+
+	if (!(flag & HEAP_DUMP_EGL)) {
+		fddata->err = 0;
+		fddata->ret = 0;
+		ret = dmabuf_rbtree_add_vmas(fddata);
+		found_vma = fddata->ret;
+		if (ret)
+			dmabuf_dump(s, "%s: add vma fail:%d\n", __func__, ret);
+	}
 
 	task_lock(p);
 	fddata->ret = 0;
@@ -1117,7 +1143,8 @@ void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
 /* add 'noinline' to let it show in callstack */
 static noinline
 struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
-					   struct seq_file *s, int pid)
+					   struct seq_file *s, int pid,
+					   unsigned long flag)
 {
 	struct task_struct *p;
 	struct dump_fd_data *fddata;
@@ -1140,7 +1167,7 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 
 	if (pid > 0) {
 		get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
-		dmabuf_rbtree_add_all_pid(fddata, heap, s, pid);
+		dmabuf_rbtree_add_all_pid(fddata, heap, s, pid, flag);
 		return fddata;
 	}
 
@@ -1179,7 +1206,7 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 
 	get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
 	while (pid_count) {
-		dmabuf_rbtree_add_all_pid(fddata, heap, s, pids[pid_count-1]);
+		dmabuf_rbtree_add_all_pid(fddata, heap, s, pids[pid_count-1], flag);
 		pid_count--;
 	}
 
@@ -1187,14 +1214,34 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 	return fddata;
 }
 
-void dmabuf_rbtree_dump_stats(struct dump_fd_data *fd_data)
+unsigned int dmabuf_rbtree_cal_stats(struct dump_fd_data *fd_data,
+			     unsigned long *krn_rss, unsigned long flag)
 {
-	unsigned long pss = 0, rss = 0;
-	unsigned long krn_rss = 0;
-	unsigned long total_rss = 0, total_pss = 0;
 	struct rb_root *rbroot = &fd_data->dmabuf_root;
-	struct seq_file *s = fd_data->constd.s;
-	int i = 0;
+	unsigned long pss, rss;
+	unsigned int i;
+
+	for (i = 0; i < TOTAL_PID_CNT; i++) {
+		int pid = fd_data->pid_map[i].id;
+
+		if (pid == 0)
+			break;
+
+		pss = dmabuf_rbtree_get_stats(rbroot, pid, STATS_PSS, flag);
+		rss = dmabuf_rbtree_get_stats(rbroot, pid, STATS_RSS, flag);
+
+		fd_data->pid_map[i].PSS = pss;
+		fd_data->pid_map[i].RSS = rss;
+	}
+	*krn_rss = dmabuf_rbtree_get_stats(rbroot, 0, STATS_KRN_RSS, flag);
+	return i;
+}
+
+void dmabuf_rbtree_dump_stats(struct seq_file *s, struct pid_map *map,
+			      unsigned int map_cnt, unsigned long krn_rss)
+{
+	unsigned long total_rss = 0, total_pss = 0;
+	unsigned int i;
 
 	/* used for memtrack
 	 *      file: aidl/default/Memtrack.cpp
@@ -1204,22 +1251,17 @@ void dmabuf_rbtree_dump_stats(struct dump_fd_data *fd_data)
 	 */
 	dmabuf_dump(s, "PID     PSS(KB)   RSS(KB)\n");
 
-	total_rss = 0;
-	for (i = 0; i < TOTAL_PID_CNT; i++) {
-		int pid = fd_data->pid_map[i].id;
+	for (i = 0; i < map_cnt; i++) {
+		int pid = map[i].id;
 
 		if (pid == 0)
 			break;
 
-		pss = dmabuf_rbtree_get_stats(rbroot, pid, STATS_PSS);
-		rss = dmabuf_rbtree_get_stats(rbroot, pid, STATS_RSS);
-		total_rss += rss;
-		total_pss += pss;
-
+		total_pss += map[i].PSS;
+		total_rss += map[i].RSS;
 		dmabuf_dump(s, "%-5d   %-7ld   %ld\n",
-			    pid, pss/1024, rss/1024);
+			    pid, map[i].PSS/1024, map[i].RSS/1024);
 	}
-	krn_rss = dmabuf_rbtree_get_stats(rbroot, 0, STATS_KRN_RSS);
 
 	dmabuf_dump(s, "-----EGL memtrack data end\n");
 	dmabuf_dump(s, "--sum: userspace_pss:%ld KB rss:%ld KB\n",
@@ -1227,7 +1269,7 @@ void dmabuf_rbtree_dump_stats(struct dump_fd_data *fd_data)
 	dmabuf_dump(s, "--sum: kernel rss: %ld KB\n\n", krn_rss/1024);
 
 	/* dump pid map below for debugging more easier.*/
-	dump_pid_map(fd_data);
+	dump_pid_map(s, map, map_cnt);
 }
 
 static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long flag)
@@ -1310,6 +1352,53 @@ static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long fl
 	}
 }
 
+static void dmabuf_rbtree_dump_egl(struct seq_file *s, int pid)
+{
+	struct pid_map *map = NULL;
+	unsigned int map_cnt, i;
+	unsigned long flags, krn_rss = 0;
+
+	spin_lock_irqsave(&egl_cache_lock, flags);
+	if (pid > 0) {
+		for (i = 0; i < egl_pid_cnt; i++)
+			if (egl_pid_map[i].id == pid)
+				break;
+
+		if (i >= egl_pid_cnt) {
+			spin_unlock_irqrestore(&egl_cache_lock, flags);
+			return;
+		}
+
+		map_cnt = 1;
+		map = kzalloc(sizeof(*map), DMA_HEAP_DUMP_ALLOC_GFP);
+		if (IS_ERR_OR_NULL(map)) {
+			spin_unlock_irqrestore(&egl_cache_lock, flags);
+			dmabuf_dump(s, "[%s]err: no memory map\n", __func__);
+			return;
+		}
+
+		memcpy(map, &egl_pid_map[i], sizeof(*map));
+	} else {
+		map_cnt = egl_pid_cnt;
+		map = kcalloc(map_cnt, sizeof(*map), DMA_HEAP_DUMP_ALLOC_GFP);
+		if (IS_ERR_OR_NULL(map)) {
+			spin_unlock_irqrestore(&egl_cache_lock, flags);
+			dmabuf_dump(s, "[%s]err: no memory map\n", __func__);
+			return;
+		}
+
+		memcpy(map, egl_pid_map, sizeof(*map) * egl_pid_cnt);
+	}
+
+	krn_rss = egl_kernl_rss;
+	spin_unlock_irqrestore(&egl_cache_lock, flags);
+
+	dmabuf_rbtree_dump_stats(s, map, map_cnt, krn_rss);
+	kfree(map);
+	return;
+
+}
+
 /* add 'noinline' to let it show in callstack */
 static noinline
 void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag,
@@ -1318,25 +1407,50 @@ void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag,
 	struct dump_fd_data *fddata;
 	unsigned long long time1, time2, time3;
 	unsigned long free_size = 0;
+	unsigned long krn_rss = 0;
+	unsigned int pid_cnt = 0;
+	bool dump_egl = ((flag & HEAP_DUMP_EGL) && egl_pid_map);
 
 	debug_alloc_sz = 0;
 	time1 = get_current_time_ms();
 
-	fddata = dmabuf_rbtree_add_all(heap, s, pid);
-	if (IS_ERR_OR_NULL(fddata))
+	if (dump_egl && (time1 - egl_last_time < EGL_DUMP_INTERVAL)) {
+		dmabuf_rbtree_dump_egl(s, pid);
 		return;
+	}
+
+	fddata = dmabuf_rbtree_add_all(heap, s, -1, flag);
+	if (IS_ERR_OR_NULL(fddata)) {
+		dmabuf_dump(s, "[%s]err: no memory fddata\n", __func__);
+		return;
+	}
 
 	time2 = get_current_time_ms();
+	pid_cnt = dmabuf_rbtree_cal_stats(fddata, &krn_rss, flag);
 
-	dmabuf_rbtree_dump_stats(fddata);
+	if (dump_egl) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&egl_cache_lock, flags);
+		egl_kernl_rss = krn_rss;
+		egl_pid_cnt = pid_cnt;
+		memcpy(egl_pid_map, fddata->pid_map,
+		       sizeof(*egl_pid_map) * pid_cnt);
+		egl_last_time = get_current_time_ms();
+		spin_unlock_irqrestore(&egl_cache_lock, flags);
+
+		dmabuf_rbtree_dump_egl(s, pid);
+
+		time3 = get_current_time_ms();
+		dmabuf_dbg_rbtree_clear(fddata);
+
+		return;
+	}
+
+	dmabuf_rbtree_dump_stats(s, fddata->pid_map, TOTAL_PID_CNT, krn_rss);
 	if (!(flag & HEAP_DUMP_STATS))
 		dmabuf_rbtree_dump_buf(fddata, flag);
 
-	/* In case of log too much, Dump again after buffer dump */
-	if (flag & HEAP_DUMP_OOM) {
-		dmabuf_dump(s, "dump again after buffer dump\n");
-		dmabuf_rbtree_dump_stats(fddata);
-	}
 	time3 = get_current_time_ms();
 	free_size = dmabuf_dbg_rbtree_clear(fddata);
 
@@ -1600,19 +1714,25 @@ static int dma_heap_proc_show(struct seq_file *s, void *v)
 
 static int all_heaps_proc_show(struct seq_file *s, void *v)
 {
+	int flag = 0;
 	if (!s)
 		return -EINVAL;
 
-	mtk_dmabuf_dump_all(s, 0);
+	if (!pss_by_mmap_enable)
+		flag = HEAP_DUMP_PSS_BYFD;
+	mtk_dmabuf_dump_all(s, flag);
 	return 0;
 }
 
 static int heap_stats_proc_show(struct seq_file *s, void *v)
 {
+	int flag = 0;
 	if (!s)
 		return -EINVAL;
 
-	mtk_dmabuf_stats_show(s, 0);
+	if (!pss_by_mmap_enable)
+		flag = HEAP_DUMP_PSS_BYFD;
+	mtk_dmabuf_stats_show(s, flag);
 	return 0;
 }
 
@@ -1645,10 +1765,8 @@ static int heap_stat_pid_proc_show(struct seq_file *s, void *v)
 	if (!s)
 		return -EINVAL;
 
-	if (pid > 0) {
-		g_stat_pid = 0;
-		dmabuf_rbtree_dump_all(NULL, HEAP_DUMP_STATS, s, pid);
-	}
+	g_stat_pid = 0;
+	dmabuf_rbtree_dump_all(NULL, HEAP_DUMP_STATS | HEAP_DUMP_EGL | HEAP_DUMP_PSS_BYFD, s, pid);
 
 	return 0;
 }
@@ -1905,6 +2023,12 @@ static int __init mtk_dma_heap_debug(void)
 	register_hang_callback(mtk_dmabuf_dump_for_hang);
 #endif
 
+	egl_pid_map = kzalloc(sizeof(*egl_pid_map) * TOTAL_PID_CNT, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(egl_pid_map)) {
+		pr_info("%s create egl_pid_map fail\n", __func__);
+		egl_pid_map = NULL;
+	}
+
 	return 0;
 }
 
@@ -1927,6 +2051,7 @@ static void __exit mtk_dma_heap_debug_exit(void)
 
 #endif
 
+	kfree(egl_pid_map);
 	dma_buf_uninit_procfs();
 }
 module_init(mtk_dma_heap_debug);

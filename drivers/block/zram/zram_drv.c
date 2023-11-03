@@ -34,7 +34,7 @@
 #include <linux/debugfs.h>
 #include <linux/cpuhotplug.h>
 #include <linux/part_stat.h>
-
+#include <linux/memcontrol.h>
 #include "zram_drv.h"
 
 static DEFINE_IDR(zram_index_idr);

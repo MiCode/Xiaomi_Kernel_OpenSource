@@ -11,7 +11,7 @@
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-i2c.h"
 
-#define GAIN_TBL_SIZE 4096
+#define GAIN_TBL_SIZE 32768
 #define sd_to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
 
 #define F_READ 1
@@ -45,7 +45,11 @@ static int workbuf_get(struct workbuf *workbuf, void *ubuf, int size, int flags)
 	if (!ubuf || !size)
 		return -EINVAL;
 
+#ifdef TRUE
+	kbuf = vmalloc(size);
+#else
 	kbuf = kmalloc(size, GFP_KERNEL);
+#endif
 	if (!kbuf)
 		return -ENOMEM;
 
@@ -78,7 +82,11 @@ static int workbuf_put(struct workbuf *workbuf)
 		}
 	}
 
+#ifdef TRUE
+	vfree(workbuf->kbuf);
+#else
 	kfree(workbuf->kbuf);
+#endif
 
 	return 0;
 }
@@ -157,6 +165,9 @@ static enum VC_FEATURE fd_desc_to_vc_feature(
 	case VC_GENERAL_EMBEDDED:
 		ret = VC_GENERAL_EMBEDDED;
 		break;
+	case VC_RAW_FLICKER_DATA:
+		ret = VC_RAW_FLICKER_DATA;
+		break;
 	default:
 		ret = VC_NONE;
 		break;
@@ -189,9 +200,16 @@ static void frame_desc_to_vcinfo2(
 		vc->VC_SIZEH_PIXEL = entry->hsize;
 		vc->VC_SIZEV = entry->vsize;
 		vc->DT_REMAP_TO_TYPE = entry->dt_remap_to_type;
+		vc->valid_bit = entry->valid_bit;
 		if (vc->VC_DataType == 0x2b ||
 			vc->DT_REMAP_TO_TYPE == MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)
 			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL * 10 / 8;
+		else if (vc->VC_DataType == 0x2c ||
+			vc->DT_REMAP_TO_TYPE == MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12)
+			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL * 12 / 8;
+		else if (vc->VC_DataType == 0x2d ||
+			vc->DT_REMAP_TO_TYPE == MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14)
+			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL * 14 / 8;
 		else
 			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL;
 	}
@@ -335,6 +353,9 @@ static void vcinfo2_fill_pad(
 		case VC_RAW_SE_W_DATA:
 			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_W2;
 			break;
+		case VC_RAW_FLICKER_DATA:
+			vcinfo2->vc_info[i].pad = PAD_SRC_FLICKER;
+			break;
 		case VC_RAW_PROCESSED_DATA:
 			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_EXT0;
 			break;
@@ -382,12 +403,22 @@ static void vcinfo2_fill_output_format(
 			vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = fmt;
 		} else {
 			/* stat data */
-			vcinfo2->vc_info[i].VC_OUTPUT_FORMAT =
-				((vcinfo2->vc_info[i].VC_DataType == 0x2b) ||
-				 (vcinfo2->vc_info[i].DT_REMAP_TO_TYPE ==
-					MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)) ?
-				SENSOR_OUTPUT_FORMAT_RAW_B :
-				SENSOR_OUTPUT_FORMAT_RAW8_B;
+			if (vcinfo2->vc_info[i].VC_DataType == 0x2b ||
+				vcinfo2->vc_info[i].DT_REMAP_TO_TYPE ==
+					MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)
+				vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = SENSOR_OUTPUT_FORMAT_RAW_B;
+
+			else if (vcinfo2->vc_info[i].VC_DataType == 0x2c ||
+				vcinfo2->vc_info[i].DT_REMAP_TO_TYPE ==
+					MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12)
+				vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = SENSOR_OUTPUT_FORMAT_RAW12_B;
+
+			else if (vcinfo2->vc_info[i].VC_DataType == 0x2d ||
+				vcinfo2->vc_info[i].DT_REMAP_TO_TYPE ==
+					MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14)
+				vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = SENSOR_OUTPUT_FORMAT_RAW14_B;
+			else
+				vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = SENSOR_OUTPUT_FORMAT_RAW8_B;
 		}
 	}
 }
@@ -1215,6 +1246,97 @@ static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_dcg_gain_ratio_table_size_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_DCG_gain_ratio_table *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DCG_GAIN_RATIO_TABLE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->size = para.u64[1];
+
+	return 0;
+}
+
+static int g_dcg_gain_ratio_table_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_DCG_gain_ratio_table *info = arg;
+	union feature_para para;
+	u32 len;
+	struct workbuf workbuf;
+	int ret;
+
+	if (!info->size || !info->p_buf)
+		return -EINVAL;
+
+	if (info->size > GAIN_TBL_SIZE)
+		return -E2BIG;
+
+	ret = workbuf_get(&workbuf, info->p_buf, info->size, F_ZERO | F_WRITE);
+	if (ret)
+		return ret;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = info->size;
+	para.u64[2] = (u64)workbuf.kbuf;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DCG_GAIN_RATIO_TABLE_BY_SCENARIO,
+		para.u8, &len);
+
+	ret = workbuf_put(&workbuf);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int g_dcg_gain_ratio_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_DCG_gain_ratio_range_by_scenario *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DCG_GAIN_RATIO_RANGE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->min_gain_ratio = para.u64[1];
+	info->max_gain_ratio = para.u64[2];
+
+	return 0;
+}
+
+static int g_dcg_type_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_DCG_type_by_scenario *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DCG_TYPE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->dcg_mode = para.u64[1];
+	info->dcg_gain_mode = para.u64[2];
+
+	return 0;
+}
 
 static int g_fine_integ_line_by_scenario(struct adaptor_ctx *ctx, void *arg)
 {
@@ -1453,6 +1575,17 @@ static int s_tg(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+#ifdef TRUE
+static int s_af_data(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 len;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_SET_CURR_LENS_DATA,
+		arg, &len);
+	return 0;
+}
+#endif
+
 struct ioctl_entry {
 	unsigned int cmd;
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
@@ -1502,6 +1635,11 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_DIG_GAIN_RANGE_BY_SCENARIO, g_dig_gain_range_by_scenario},
 	{VIDIOC_MTK_G_DIG_GAIN_STEP, g_dig_gain_step},
 	{VIDIOC_MTK_G_FS_FRAME_LENGTH_INFO, g_fsync_frame_length_info},
+	{VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_SIZE_BY_SCENARIO,
+		g_dcg_gain_ratio_table_size_by_scenario},
+	{VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_BY_SCENARIO, g_dcg_gain_ratio_table_by_scenario},
+	{VIDIOC_MTK_G_DCG_GAIN_RATIO_RANGE_BY_SCENARIO, g_dcg_gain_ratio_range_by_scenario},
+	{VIDIOC_MTK_G_DCG_TYPE_BY_SCENARIO, g_dcg_type_by_scenario},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},
@@ -1513,6 +1651,9 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_S_LSC_TBL, s_lsc_tbl},
 	{VIDIOC_MTK_S_CONTROL, s_control},
 	{VIDIOC_MTK_S_TG, s_tg},
+#ifdef TRUE
+	{VIDIOC_MTK_S_AF_DATA, s_af_data},
+#endif
 };
 
 long adaptor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

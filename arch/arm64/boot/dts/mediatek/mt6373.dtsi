@@ -37,23 +37,23 @@
 			};
 			vin1-open {
 				channel = <AUXADC_VIN1>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin2-open {
 				channel = <AUXADC_VIN2>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin3-open {
 				channel = <AUXADC_VIN3>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin4-open {
 				channel = <AUXADC_VIN4>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin5-open {
 				channel = <AUXADC_VIN5>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 		};
 
@@ -253,8 +253,8 @@
 			mt6373_vio28: vio28 {
 				regulator-compatible = "VIO28";
 				regulator-name = "mt6373_vio28";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3500000>;
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
 				regulator-enable-ramp-delay = <210>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -262,10 +262,11 @@
 			mt6373_vfp: vfp {
 				regulator-compatible = "VFP";
 				regulator-name = "mt6373_vfp";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3500000>;
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
 				regulator-enable-ramp-delay = <210>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			mt6373_vtp: vtp {
 				regulator-compatible = "VTP";
@@ -302,10 +303,11 @@
 			mt6373_vcn33_1: vcn33_1 {
 				regulator-compatible = "VCN33_1";
 				regulator-name = "mt6373_vcn33_1";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3500000>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <210>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			mt6373_vcn33_2: vcn33_2 {
 				regulator-compatible = "VCN33_2";

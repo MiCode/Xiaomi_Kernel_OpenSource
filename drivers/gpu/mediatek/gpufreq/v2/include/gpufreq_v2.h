@@ -131,20 +131,22 @@ enum gpuppm_reserved_idx {
 };
 
 enum gpuppm_limiter {
-	LIMIT_SEGMENT      = 0,
-	LIMIT_DEBUG        = 1,
-	LIMIT_GPM3         = 2,
-	LIMIT_TEMPER_COMP  = 3,
-	LIMIT_THERMAL_AP   = 4,
-	LIMIT_THERMAL_EB   = 5,
-	LIMIT_SRAMRC       = 6,
-	LIMIT_BATT_OC      = 7,
-	LIMIT_BATT_PERCENT = 8,
-	LIMIT_LOW_BATT     = 9,
-	LIMIT_PBM          = 10,
-	LIMIT_APIBOOST     = 11,
-	LIMIT_FPSGO        = 12,
-	LIMIT_NUM          = 13,
+	LIMIT_SEGMENT       = 0,
+	LIMIT_DEBUG         = 1,
+	LIMIT_GPM3          = 2,
+	LIMIT_TEMPER_COMP   = 3,
+	LIMIT_PEAK_POWER_AP = 4,
+	LIMIT_PEAK_POWER_EB = 5,
+	LIMIT_THERMAL_AP    = 6,
+	LIMIT_THERMAL_EB    = 7,
+	LIMIT_SRAMRC        = 8,
+	LIMIT_BATT_OC       = 9,
+	LIMIT_BATT_PERCENT  = 10,
+	LIMIT_LOW_BATT      = 11,
+	LIMIT_PBM           = 12,
+	LIMIT_APIBOOST      = 13,
+	LIMIT_FPSGO         = 14,
+	LIMIT_NUM           = 15,
 };
 
 enum gpuppm_limit_type {

@@ -61,6 +61,13 @@ void drm_trace_tag_mark(const char *tag)
 	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_ID, tag, 0);
 }
 
+#if defined(CONFIG_PXLW_IRIS)
+void drm_trace_tag_value(const char *tag, unsigned int value)
+{
+	mtk_drm_print_trace("C|%d|%s|%d\n", DRM_TRACE_ID, tag, value);
+}
+#endif
+
 void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 {
 	char tag_name[30] = {'\0'};

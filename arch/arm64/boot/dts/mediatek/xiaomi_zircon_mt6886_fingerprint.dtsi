@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* fingerprint start */
+
+
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		netlink-event = <30>;
+		vfp-supply = <&mt6368_vfp>;
+		power-type = <1>;
+		status = "okay";
+	};
+};
+
+&goodix_fp {
+	pinctrl-names = "spiio_gpio_mode", "spiio_spi_mode", "reset_high", "reset_low", "eint_default", "eint_pulldown";
+	pinctrl-0 = <&fingerprint_spiio_gpio_mode>;
+	pinctrl-1 = <&fingerprint_spiio_spi_mode>;
+	pinctrl-2 = <&fingerprint_reset_high>;
+	pinctrl-3 = <&fingerprint_reset_low>;
+	pinctrl-4 = <&fingerprint_eint_default>;
+	pinctrl-5 = <&fingerprint_eint_pulldown>;
+	fpc,gpio_irq = <&pio 167 0>;
+	interrupt-parent = <&pio>;
+	interrupts = <167 IRQ_TYPE_EDGE_RISING 167 0>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_spiio_gpio_mode: state_gpio_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO107__FUNC_GPIO107>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd3_dat {
+			pinmux = <PINMUX_GPIO108__FUNC_GPIO108>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd4_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_GPIO109>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+	};
+
+	fingerprint_spiio_spi_mode: state_spi_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO106__FUNC_SPI1_CLK>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO107__FUNC_SPI1_CSB>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd3_dat {
+			pinmux = <PINMUX_GPIO108__FUNC_SPI1_MO>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd4_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_SPI1_MI>;
+            drive-strength = <MTK_DRIVE_6mA>;
+			input-enable;
+			bias-disable;
+		};
+	};
+
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO166__FUNC_GPIO166>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO166__FUNC_GPIO166>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_eint_default: state_eint_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO167__FUNC_GPIO167>;
+			slew-rate = <0>;
+			input-enable;
+			bias-diable;
+			input-schmitt-enable;
+		};
+	};
+	fingerprint_eint_pulldown: state_eint_pulldown {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO167__FUNC_GPIO167>; //mt6886-pinfunc.h
+			slew-rate = <0>;
+			input-enable;
+			bias-pull-down;
+			input-schmitt-enable;
+		};
+	};
+};
+
+/* fingerprint end */

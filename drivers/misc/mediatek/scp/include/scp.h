@@ -58,6 +58,10 @@
 #define IPI_OUT_SIZE_SCP_PM_NOTIFY_1     1
 #define PIN_IN_SIZE_NPU_SCP		 4
 #define PIN_OUT_SIZE_SCP_NPU		 4
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#define PIN_IN_SIZE_ELLIPTIC_ULTRA_0     10
+#define PIN_OUT_SIZE_ELLIPTIC_ULTRA_0    10
+#endif
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -114,6 +118,10 @@ enum {
 	IPI_IN_SCP_NPU		  = 44,
 	IPI_OUT_SCP_PM_NOTIFY_0	  = 45,
 	IPI_OUT_SCP_PM_NOTIFY_1   = 46,
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	IPI_OUT_ELLIPTIC_ULTRA_0  = 47,
+	IPI_IN_ELLIPTIC_ULTRA_0   = 48,
+#endif
 	SCP_IPI_COUNT
 };
 
@@ -158,6 +166,9 @@ enum scp_reserve_mem_id_t {
 	SCP_AOV_MEM_ID,
 	SCP_SPK_MEM_ID,
 	SCP_AOD_MEM_ID,
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+	SCP_ELLIPTIC_DEBUG_MEM,
+#endif
 	NUMS_MEM_ID,
 };
 
@@ -241,4 +252,3 @@ extern int get_scp_dram_region_manage(void);
 extern void scp_send_thermal_wq(enum SCP_THERMAL_TYPE type);
 
 #endif
-

@@ -994,7 +994,6 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 
 	ts[0] = sched_clock();
 #endif
-
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
 	if (!(flags & (WF_TTWU | WF_FORK))) {
@@ -1028,8 +1027,8 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 		select_reason = LB_RT_FAIL_PD;
 		goto source;
 	}
-
 	for (; pd; pd = pd->next) {
+
 		min_exit_lat = UINT_MAX;
 		occupied_cap_per_gear = ULONG_MAX;
 		best_idle_cpu_per_gear = -1;

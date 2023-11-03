@@ -906,6 +906,42 @@ config MTK_CHARGER
 	  maintains charging status.
 	  Say no if not using MediaTek charging driver.
 
+config XMUSB350_CHARGER_DET
+	tristate "xmusb350 qc charger type detect"
+	help
+	  Say yes here to enable xmusb350 qc charger type detect driver.
+	  Say no if not using xmusb350 qc charger type detect driver.
+
+config XMEXT_TI_GAUGE
+	tristate "xmext use bq28z601 gauge"
+	help
+	  Say yes here to enable xmext use bq28z601 gauge driver.
+	  Say no if not using xmext use bq28z601 gauge driver.
+
+config XMEXT_CHG_PUMP
+	tristate "xmext use sc8561 charger_pump"
+	help
+	  Say yes here to enable xmext use sc8561 charger_pump driver.
+	  Say no if not using xmext use sc8561 charger_pump driver.
+
+config XMEXT_SC8551A_CHG_PUMP
+	tristate "xmext use sc8551A charger_pump"
+	help
+	  Say yes here to enable xmext use sc8551A charger_pump driver.
+	  Say no if not using xmext use sc8551A charger_pump driver.
+
+config XM_PD_MANAGER
+	tristate "pd_cp_manager contral pd adapter charging"
+	help
+	  Say yes here to enable pd_cp_manager contral pd adapter charging driver.
+	  Say no if not using pd_cp_manager contral pd adapter charging driver.
+
+config XM_QC_MANAGER
+	tristate "qc_cp_manager contral qc adapter charging"
+	help
+	  Say yes here to enable qc_cp_manager contral qc adapter charging driver.
+	  Say no if not using qc_cp_manager contral qc adapter charging driver.
+
 config MTK_PUMP_EXPRESS_PLUS_SUPPORT
 	tristate "MediaTek PUMP EXPRESS PLUS"
 	depends on MTK_CHARGER
@@ -1031,5 +1067,11 @@ config CHARGER_SURFACE
 	  Say M or Y here to include AC status support for 7th-generation
 	  Microsoft Surface devices, i.e. Surface Pro 7, Surface Laptop 3,
 	  Surface Book 3, and Surface Laptop Go.
+
+config RUST_DETECTION
+	bool "support rust detection"
+	default n
+	help
+	support rust detection.
 
 endif # POWER_SUPPLY

@@ -121,7 +121,7 @@ obj-$(CONFIG_GAUGE_BQ28Z610)      += k6985v1_64_alpha/
 endif
 obj-$(CONFIG_MTK_CHARGER_TYPE_DETECT)	+= mtk_chg_type_det.o
 obj-$(CONFIG_MTK_CHARGER) += mtk_charger_framework.o mtk_pd_charging.o charger_class.o adapter_class.o mtk_charger_algorithm_class.o mtk_pd_adapter.o
-mtk_charger_framework-objs := mtk_charger.o mtk_charger_intf.o mtk_basic_charger.o mtk_pulse_charger.o
+mtk_charger_framework-objs := mtk_charger.o mtk_charger_intf.o mtk_basic_charger.o mtk_pulse_charger.o pmic_voter.o step_jeita_charge.o
 mtk_pd_charging-objs := mtk_pd.o mtk_pd_hal.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT) += mtk_pep20.o
 mtk_pep20-objs := mtk_pe2.o mtk_pe2_hal.o
@@ -131,11 +131,19 @@ obj-$(CONFIG_MTK_PUMP_EXPRESS_40_SUPPORT) += mtk_pep40.o
 mtk_pep40-objs := mtk_pe4.o mtk_pe4_hal.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_50_SUPPORT) += mtk_pep50.o
 mtk_pep50-objs := mtk_pe5.o mtk_pe5_hal.o
-obj-$(CONFIG_MTK_PUMP_EXPRESS_50_PLUS_SUPPORT) += mtk_pep50p.o
-mtk_pep50p-objs := mtk_pe5p.o mtk_pe5p_hal.o
-obj-$(CONFIG_MTK_HVBP_SUPPORT) += mtk_hvbpc.o
-mtk_hvbpc-objs := mtk_hvbp.o mtk_hvbp_hal.o
+obj-$(CONFIG_XMUSB350_CHARGER_DET) += xmusb350.o
+obj-$(CONFIG_XMEXT_TI_GAUGE) += bq28z610.o
+obj-$(CONFIG_XMEXT_CHG_PUMP) += ln8410.o
+obj-$(CONFIG_XMEXT_CHG_PUMP) += sc8561.o
+obj-$(CONFIG_XMEXT_SC8551A_CHG_PUMP) += sc8551.o
+obj-$(CONFIG_XM_PD_MANAGER) += pd_cp_manager.o
+obj-$(CONFIG_XM_QC_MANAGER) += qc_cp_manager.o
 
 obj-$(CONFIG_BATTERY_ACER_A500)	+= acer_a500_battery.o
 obj-$(CONFIG_BATTERY_SURFACE)	+= surface_battery.o
 obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
+
+ifneq ($(filter "zircon", $(CONFIG_BUILD_PRODUCT_NAME)),)
+CDEFINES += -DCONFIG_PRODUCT_ZIRCON
+KBUILD_CPPFLAGS += $(CDEFINES)
+endif

@@ -781,7 +781,7 @@ static pkvm_id completer_owner_id(const struct pkvm_mem_transition *tx)
 
 struct check_walk_data {
 	enum pkvm_page_state	desired;
-	enum pkvm_page_state	(*get_page_state)(kvm_pte_t pte);
+	enum pkvm_page_state	(*get_page_state)(kvm_pte_t pte, u64 addr);
 };
 
 static int __check_page_state_visitor(u64 addr, u64 end, u32 level,
@@ -792,10 +792,7 @@ static int __check_page_state_visitor(u64 addr, u64 end, u32 level,
 	struct check_walk_data *d = arg;
 	kvm_pte_t pte = *ptep;
 
-	if (kvm_pte_valid(pte) && !addr_is_allowed_memory(kvm_pte_to_phys(pte)))
-		return -EINVAL;
-
-	return d->get_page_state(pte) == d->desired ? 0 : -EPERM;
+	return d->get_page_state(pte, addr) == d->desired ? 0 : -EPERM;
 }
 
 static int check_page_state_range(struct kvm_pgtable *pgt, u64 addr, u64 size,
@@ -810,8 +807,11 @@ static int check_page_state_range(struct kvm_pgtable *pgt, u64 addr, u64 size,
 	return kvm_pgtable_walk(pgt, addr, size, &walker);
 }
 
-static enum pkvm_page_state host_get_page_state(kvm_pte_t pte)
+static enum pkvm_page_state host_get_page_state(kvm_pte_t pte, u64 addr)
 {
+	if (!addr_is_allowed_memory(addr))
+		return PKVM_NOPAGE;
+
 	if (!kvm_pte_valid(pte) && pte)
 		return PKVM_NOPAGE;
 
@@ -929,6 +929,9 @@ static int host_complete_share(u64 addr, const struct pkvm_mem_transition *tx,
 {
 	u64 size = tx->nr_pages * PAGE_SIZE;
 
+	if (tx->initiator.id == PKVM_ID_GUEST)
+		psci_mem_protect_dec();
+
 	return __host_set_page_state_range(addr, size, PKVM_PAGE_SHARED_BORROWED);
 }
 
@@ -936,6 +939,9 @@ static int host_complete_unshare(u64 addr, const struct pkvm_mem_transition *tx)
 {
 	u64 size = tx->nr_pages * PAGE_SIZE;
 	pkvm_id owner_id = initiator_owner_id(tx);
+
+	if (tx->initiator.id == PKVM_ID_GUEST)
+		psci_mem_protect_inc();
 
 	return host_stage2_set_owner_locked(addr, size, owner_id);
 }
@@ -948,12 +954,12 @@ static int host_complete_donation(u64 addr, const struct pkvm_mem_transition *tx
 	return host_stage2_set_owner_locked(addr, size, host_id);
 }
 
-static enum pkvm_page_state hyp_get_page_state(kvm_pte_t pte)
+static enum pkvm_page_state hyp_get_page_state(kvm_pte_t pte, u64 addr)
 {
 	if (!kvm_pte_valid(pte))
 		return PKVM_NOPAGE;
 
-	return pkvm_getstate(kvm_pgtable_stage2_pte_prot(pte));
+	return pkvm_getstate(kvm_pgtable_hyp_pte_prot(pte));
 }
 
 static int __hyp_check_page_state_range(u64 addr, u64 size,
@@ -1060,7 +1066,7 @@ static int hyp_complete_donation(u64 addr,
 	return pkvm_create_mappings_locked(start, end, prot);
 }
 
-static enum pkvm_page_state guest_get_page_state(kvm_pte_t pte)
+static enum pkvm_page_state guest_get_page_state(kvm_pte_t pte, u64 addr)
 {
 	if (!kvm_pte_valid(pte))
 		return PKVM_NOPAGE;
@@ -1174,7 +1180,7 @@ static int __guest_request_page_transition(u64 *completer_addr,
 	if (ret)
 		return ret;
 
-	state = guest_get_page_state(pte);
+	state = guest_get_page_state(pte, tx->initiator.addr);
 	if (state == PKVM_NOPAGE)
 		return -EFAULT;
 
@@ -1915,7 +1921,14 @@ static int hyp_zero_page(phys_addr_t phys)
 	if (!addr)
 		return -EINVAL;
 	memset(addr, 0, PAGE_SIZE);
-	__clean_dcache_guest_page(addr, PAGE_SIZE);
+	/*
+	 * Prefer kvm_flush_dcache_to_poc() over __clean_dcache_guest_page()
+	 * here as the latter may elide the CMO under the assumption that FWB
+	 * will be enabled on CPUs that support it. This is incorrect for the
+	 * host stage-2 and would otherwise lead to a malicious host potentially
+	 * being able to read the content of newly reclaimed guest pages.
+	 */
+	kvm_flush_dcache_to_poc(addr, PAGE_SIZE);
 
 	return hyp_fixmap_unmap();
 }
@@ -1933,7 +1946,7 @@ int __pkvm_host_reclaim_page(u64 pfn)
 	if (ret)
 		goto unlock;
 
-	if (host_get_page_state(pte) == PKVM_PAGE_OWNED)
+	if (host_get_page_state(pte, addr) == PKVM_PAGE_OWNED)
 		goto unlock;
 
 	page = hyp_phys_to_page(addr);

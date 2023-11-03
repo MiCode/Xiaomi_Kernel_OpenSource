@@ -37,6 +37,8 @@
 #define GT9764_MOVE_STEPS			100
 #define GT9764_MOVE_DELAY_US			5000
 
+#define GT9764_SLAVE_ADDR                       0x18
+
 /* gt9764 device structure */
 struct gt9764_device {
 	struct v4l2_ctrl_handler ctrls;
@@ -120,6 +122,12 @@ static int gt9764_init(struct gt9764_device *gt9764)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&gt9764->sd);
 	int ret;
+	int i = 0;
+	unsigned char cmd_number = 4;
+
+	char puSendCmdArray[4][2] = {
+	{0x02, 0x02}, {0x06, 0x80}, {0x07, 0x04}, {0xFE, 0xFE},
+	};
 
 	LOG_INF("+\n");
 
@@ -127,7 +135,20 @@ static int gt9764_init(struct gt9764_device *gt9764)
 
 	LOG_INF("Check HW version: %x\n", ret);
 
-	ret = i2c_smbus_write_byte_data(client, 0x02, 0x00);
+	for (i = 0; i < cmd_number; i++) {
+		if (puSendCmdArray[i][0] != 0xFE) {
+			LOG_INF("0x%02x <= 0x%02x\n", puSendCmdArray[i][0],
+				puSendCmdArray[i][1]);
+			ret = i2c_smbus_write_byte_data(client,
+					puSendCmdArray[i][0],
+					puSendCmdArray[i][1]);
+
+			if (ret < 0)
+				return -1;
+		} else {
+			mdelay(3);
+		}
+	}
 
 	LOG_INF("-\n");
 
@@ -328,6 +349,8 @@ static int gt9764_probe(struct i2c_client *client)
 	int ret;
 
 	LOG_INF("+\n");
+
+	client->addr = GT9764_SLAVE_ADDR >> 1;
 
 	gt9764 = devm_kzalloc(dev, sizeof(*gt9764), GFP_KERNEL);
 	if (!gt9764)

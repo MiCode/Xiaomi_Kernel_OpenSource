@@ -90,6 +90,7 @@
 #define ASYNC_SEND              0
 
 static struct mtk_hcp *hcp_mtkdev;
+static unsigned int vm_set;
 
 #define IPI_MAX_BUFFER_COUNT    (8)
 
@@ -1582,6 +1583,12 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "- E. hcp driver probe.\n");
 	hcp_dev = devm_kzalloc(&pdev->dev, sizeof(*hcp_dev), GFP_KERNEL);
+	vm_set = 0;
+	if (hcp_dev == NULL){
+		dev_info(&pdev->dev, "devm_kzalloc hcp_dev failed change to use vmalloc\n");
+		hcp_dev = vmalloc(sizeof(*hcp_dev));
+		vm_set = 1;
+	}
 	if (hcp_dev == NULL)
 		return -ENOMEM;
 
@@ -1721,8 +1728,11 @@ err_alloc:
 			hcp_dev->daemon_notify_wq[i] = NULL;
 		}
 	}
-
-	devm_kfree(&pdev->dev, hcp_dev);
+	if(vm_set){
+		vfree(hcp_dev);
+	} else {
+		devm_kfree(&pdev->dev, hcp_dev);
+	}
 
 	dev_info(&pdev->dev, "- X. hcp driver probe fail.\n");
 
@@ -1758,7 +1768,11 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 		hcp_dev->is_open = false;
 		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
 	}
-	devm_kfree(&pdev->dev, hcp_dev);
+	if(vm_set){
+		vfree(hcp_dev);
+	} else {
+		devm_kfree(&pdev->dev, hcp_dev);
+	}
 
 	cdev_del(&hcp_dev->hcp_cdev);
 	unregister_chrdev_region(hcp_dev->hcp_devno, 1);

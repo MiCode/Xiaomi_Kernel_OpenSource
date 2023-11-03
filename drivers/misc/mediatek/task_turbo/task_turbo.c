@@ -30,6 +30,10 @@
 #include <trace/hooks/sys.h>
 
 #include <task_turbo.h>
+// MIUI ADD: START
+#include "binder_internal.h"
+#include "binder_trace.h"
+// END
 
 #define CREATE_TRACE_POINTS
 #include <trace_task_turbo.h>
@@ -147,6 +151,15 @@ static void init_turbo_attr(struct task_struct *p);
 static inline unsigned long cpu_util(int cpu);
 static inline unsigned long task_util(struct task_struct *p);
 static inline unsigned long _task_util_est(struct task_struct *p);
+
+// MIUI ADD: START
+typedef struct binder_transaction_extra {
+	int from_pid;
+	int from_tid;
+	u64 times_record;
+	u64 task;
+}transaction_extra;
+// END
 
 #if IS_ENABLED(CONFIG_MTK_SCHEDULER)
 extern bool sysctl_util_est;
@@ -300,15 +313,84 @@ static void probe_android_vh_rwsem_wake(void *ignore, struct rw_semaphore *sem)
 
 static void probe_android_vh_binder_transaction_init(void *ignore, struct binder_transaction *t)
 {
-	t->android_vendor_data1 = 0;
+	// MIUI MOD: START
+	//t->android_vendor_data1 = 0;
+	transaction_extra *te = kzalloc(sizeof(*te), GFP_ATOMIC);
+	if (!te)
+		return;
+	te->times_record = trace_clock_local();
+	te->from_pid = current->tgid;
+	te->from_tid = current->pid;
+	te->task = 0;
+	t->android_vendor_data1 = (u64)te;
+	// END 
 }
+
+// MIUI ADD: START
+static void binder_txn_latency_free_hook(void *data,
+					struct binder_transaction *t,
+					int from_proc,
+					int from_thread,
+					int to_proc,
+					int to_thread)
+{
+	transaction_extra *te = (transaction_extra *)t->android_vendor_data1;
+	if (te)  {
+		kfree(te);
+		t->android_vendor_data1 = 0;
+	}
+}
+
+static void binder_print_transaction_info_hook(void *data,
+						struct seq_file *m,
+						struct binder_proc *proc,
+						const char *prefix,
+						struct binder_transaction *t)
+{
+	transaction_extra *te = NULL;
+	struct binder_proc *to_proc = NULL;
+	int from_pid = 0;
+	int from_tid = 0;
+	int to_pid = 0;
+	int to_tid = 0;
+	u64 now;
+	u64 duration = 0;
+
+	te = (transaction_extra *)t->android_vendor_data1;
+	if (!te)
+		return;
+	to_proc = t->to_proc;
+	from_pid = t->from ? (t->from->proc ? t->from->proc->pid : 0) : te->from_pid;
+	from_tid = t->from ? t->from->pid : te->from_tid;
+	to_pid = to_proc ? to_proc->pid : 0;
+	to_tid = t->to_thread ? t->to_thread->pid : 0;
+	now = trace_clock_local();
+	if (te->times_record > 0)
+		duration = now > te->times_record ? (now - te->times_record) : 0;
+	seq_printf(m,
+		"MIUI%s: from %5d:%5d to %5d:%5d context:%s code:%3d duration:%6lld.%02lld s\n",
+		prefix,
+		from_pid, from_tid,
+		to_pid, to_tid,
+		proc->context->name,
+		t->code,
+		duration / 1000000000,
+		duration % 1000000000 / 10000000
+	);
+}
+// END
 
 static void probe_android_vh_binder_set_priority(void *ignore, struct binder_transaction *t,
 							struct task_struct *task)
 {
 	if (binder_start_turbo_inherit(t->from ?
 			t->from->task : NULL, task)) {
-		t->android_vendor_data1 = (u64)task;
+		// MIUI MOD: START
+		//t->android_vendor_data1 = (u64)task;
+		transaction_extra *te = (transaction_extra *)t->android_vendor_data1;
+		if (te)
+			te->task = (u64)task;
+		// END
 	}
 }
 
@@ -318,10 +400,16 @@ static void probe_android_vh_binder_restore_priority(void *ignore,
 	struct task_struct *inherit_task;
 
 	if (in_reply_to) {
+		transaction_extra *te;
 		inherit_task = get_inherit_task(in_reply_to);
 		if (cur && cur == inherit_task) {
 			binder_stop_turbo_inherit(cur);
-			in_reply_to->android_vendor_data1 = 0;
+			// MIUI MOD: START
+			//in_reply_to->android_vendor_data1 = 0;
+			te = (transaction_extra *)in_reply_to->android_vendor_data1;
+			if (te)
+				te->task = 0;
+			// END
 		}
 	} else
 		binder_stop_turbo_inherit(cur);
@@ -1390,6 +1478,22 @@ static int __init init_task_turbo(void)
 		ret_erri_line = __LINE__;
 		goto failed;
 	}
+
+	// MIUI ADD: START
+	ret = register_trace_android_vh_binder_print_transaction_info(
+			binder_print_transaction_info_hook, NULL);
+	if (ret) {
+		ret_erri_line = __LINE__;
+		goto failed;
+	}
+
+	ret = register_trace_binder_txn_latency_free(
+			binder_txn_latency_free_hook, NULL);
+	if (ret) {
+		ret_erri_line = __LINE__;
+		goto failed;
+	}
+	// END
 
 	ret = register_trace_android_vh_binder_set_priority(
 			probe_android_vh_binder_set_priority, NULL);

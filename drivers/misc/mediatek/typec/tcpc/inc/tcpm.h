@@ -121,9 +121,9 @@ enum {
 	TCP_NOTIFY_VBUS_END = TCP_NOTIFY_ATTACHWAIT_SRC,
 
 	/* TCP_NOTIFY_TYPE_USB */
-	TCP_NOTIFY_TYPEC_STATE,
+	TCP_NOTIFY_TYPEC_STATE, //14
 	TCP_NOTIFY_USB_START = TCP_NOTIFY_TYPEC_STATE,
-	TCP_NOTIFY_PD_STATE,
+	TCP_NOTIFY_PD_STATE,   //15
 	TCP_NOTIFY_USB_END = TCP_NOTIFY_PD_STATE,
 
 	/* TCP_NOTIFY_TYPE_MISC */
@@ -137,11 +137,12 @@ enum {
 	TCP_NOTIFY_REQUEST_BAT_INFO,
 	TCP_NOTIFY_WD_STATUS,
 	TCP_NOTIFY_FOD_STATUS,
-	TCP_NOTIFY_CABLE_TYPE,
+	TCP_NOTIFY_CABLE_TYPE,//25
 	TCP_NOTIFY_TYPEC_OTP,
 	TCP_NOTIFY_PLUG_OUT,
 	TCP_NOTIFY_WD0_STATE,
-	TCP_NOTIFY_MISC_END = TCP_NOTIFY_WD0_STATE,
+	TCP_NOTIFY_SOFT_RESET,
+	TCP_NOTIFY_MISC_END = TCP_NOTIFY_SOFT_RESET,
 };
 
 struct tcp_ny_pd_state {
@@ -913,6 +914,9 @@ extern uint8_t tcpm_inquire_pd_data_role(
 extern uint8_t tcpm_inquire_pd_power_role(
 	struct tcpc_device *tcpc);
 
+extern uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc_dev);
+
 extern uint8_t tcpm_inquire_pd_vconn_role(
 	struct tcpc_device *tcpc);
 
@@ -1426,6 +1430,12 @@ static inline uint8_t tcpm_inquire_pd_data_role(
 
 static inline uint8_t tcpm_inquire_pd_power_role(
 	struct tcpc_device *tcpc)
+{
+	return 0;
+}
+
+static inline uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc_dev)
 {
 	return 0;
 }

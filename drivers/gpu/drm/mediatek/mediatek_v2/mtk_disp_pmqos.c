@@ -17,6 +17,10 @@
 #include <soc/mediatek/mmqos.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 
+#if defined(CONFIG_PXLW_IRIS)
+#include "dsi_iris_mtk_api.h"
+#endif
+
 #define CRTC_NUM		4
 static struct drm_crtc *dev_crtc;
 /* add for mm qos */
@@ -224,8 +228,19 @@ void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller)
 	struct drm_display_mode *mode;
 	unsigned int bw = 0;
 
+#if defined(CONFIG_PXLW_IRIS)
+	if (is_mi_dev_support_iris()) {
+		if (drm_crtc_index(crtc) == 0)
+			dev_crtc = crtc;
+		mtk_crtc = to_mtk_crtc(crtc);
+	} else {
+		dev_crtc = crtc;
+		mtk_crtc = to_mtk_crtc(dev_crtc);
+	}
+#else
 	dev_crtc = crtc;
 	mtk_crtc = to_mtk_crtc(dev_crtc);
+#endif
 	mode = &crtc->state->adjusted_mode;
 
 	bw = _layering_get_frame_bw(crtc, mode);
@@ -246,6 +261,10 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 	if (!mtk_crtc->enabled) {
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
+		return 0;
+	}
+	if (drm_crtc_index(&mtk_crtc->base) != 0) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return 0;
 	}
 
@@ -301,8 +320,17 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_drm_private *priv;
 
+#if defined(CONFIG_PXLW_IRIS)
+	// ALPS-MP-T0.MP1.RC-V11.PRE.A_K6985V1_64_PRE_INHOUSE
+	/* dev_crtc is for crtc0(primary display) only */
+	if (drm_crtc_index(crtc) == 0)
+		dev_crtc = crtc;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+#else
 	dev_crtc = crtc;
 	mtk_crtc = to_mtk_crtc(dev_crtc);
+#endif
 
 	if (IS_ERR_OR_NULL(mtk_crtc)) {
 		DDPPR_ERR("%s:mtk_crtc is NULL\n", __func__);

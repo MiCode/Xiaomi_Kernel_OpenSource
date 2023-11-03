@@ -17,9 +17,6 @@
 
 #define MICTX_RESET_NS 1000000000
 
-/* To do: move atomic variables into ufs/mmc context */
-static atomic_t ufs_qd;
-static atomic64_t ufs_idle_begin, ufs_idle_total, ufs_win_begin;
 
 void mtk_btag_mictx_eval_tp(struct mtk_blocktag *btag, __u32 idx, bool write,
 			    __u64 usage, __u32 size)
@@ -129,22 +126,22 @@ void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 idx,
 			}
 		}
 		spin_unlock_irqrestore(&data[idx].lock, flags);
+
+		if (cmd_rsp == 0) {
+			/* cmd */
+			if (atomic_inc_return(&(mictx->ufs_qd)) == 1) {
+				idle_begin_tmp = atomic64_xchg(&(mictx->ufs_idle_begin), 0ULL);
+				if (idle_begin_tmp)
+					atomic64_add(t_cur - idle_begin_tmp,
+						&(mictx->ufs_idle_total));
+			}
+		} else {
+			/* rsp */
+			if (!atomic_dec_return(&(mictx->ufs_qd)))
+				atomic64_cmpxchg(&(mictx->ufs_idle_begin), 0ULL, t_cur);
+		}
 	}
 	rcu_read_unlock();
-
-	if (cmd_rsp == 0) {
-		/* cmd */
-		if (atomic_inc_return(&ufs_qd) == 1) {
-			idle_begin_tmp = atomic64_xchg(&ufs_idle_begin, 0ULL);
-			if (idle_begin_tmp)
-				atomic64_add(t_cur - idle_begin_tmp,
-					&ufs_idle_total);
-		}
-	} else {
-		/* rsp */
-		if (!atomic_dec_return(&ufs_qd))
-			atomic64_cmpxchg(&ufs_idle_begin, 0ULL, t_cur);
-	}
 
 	/*
 	 * Peek if I/O workload exceeds the threshold to send boosting
@@ -339,20 +336,20 @@ int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
 	iostat->wl = 100 - div64_u64(idle_total * 100, dur * btag->ctx.count);
 	*/
 
-	idle_begin_tmp = atomic64_read(&ufs_idle_begin);
+	idle_begin_tmp = atomic64_read(&(mictx->ufs_idle_begin));
 	if (idle_begin_tmp) {
-		idle_total = atomic64_read(&ufs_idle_total)
+		idle_total = atomic64_read(&(mictx->ufs_idle_total))
 			+ time_cur - idle_begin_tmp;
-		atomic64_cmpxchg(&ufs_idle_begin, idle_begin_tmp, time_cur);
+		atomic64_cmpxchg(&(mictx->ufs_idle_begin), idle_begin_tmp, time_cur);
 	}
 	/* Note: idle_total after eara_io's first get_data may be wrongly
 	 *	 regarded as 100% wl if idle_begin is 0 before enter here
 	 */
 
-	atomic64_set(&ufs_idle_total, 0ULL);
+	atomic64_set(&(mictx->ufs_idle_total), 0ULL);
 
 	/* To do: protect multi-threads call mtk_btag_mictx_get_data */
-	win_begin_tmp = atomic64_read(&ufs_win_begin);
+	win_begin_tmp = atomic64_read(&(mictx->ufs_win_begin));
 
 	/* To do: remove the "if case " after making sure idle_total is
 	 *        always calculated correctly
@@ -370,7 +367,7 @@ int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
 	else
 		iostat->top = top_total * 100 / rw_total;
 
-	atomic64_set(&ufs_win_begin, time_cur);
+	atomic64_set(&(mictx->ufs_win_begin), time_cur);
 
 	return 0;
 }
@@ -405,6 +402,11 @@ static int mtk_btag_mictx_alloc(enum mtk_btag_storage_type type)
 		spin_lock_init(&data[i].lock);
 	}
 	mictx->data = data;
+
+	atomic_set(&(mictx->ufs_qd), 0);
+	atomic64_set(&(mictx->ufs_idle_begin), sched_clock());
+	atomic64_set(&(mictx->ufs_idle_total), 0ULL);
+	atomic64_set(&(mictx->ufs_win_begin), sched_clock());
 
 	spin_lock_irqsave(&btag->ctx.mictx.list_lock, flags);
 	mictx->id = btag->ctx.mictx.last_unused_id;
@@ -476,9 +478,4 @@ void mtk_btag_mictx_init(struct mtk_blocktag *btag)
 	spin_lock_init(&btag->ctx.mictx.list_lock);
 	btag->ctx.mictx.nr_list = 0;
 	INIT_LIST_HEAD(&btag->ctx.mictx.list);
-
-	atomic_set(&ufs_qd, 0);
-	atomic64_set(&ufs_idle_begin, sched_clock());
-	atomic64_set(&ufs_idle_total, 0ULL);
-	atomic64_set(&ufs_win_begin, sched_clock());
 }

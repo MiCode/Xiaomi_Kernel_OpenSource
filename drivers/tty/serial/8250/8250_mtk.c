@@ -1242,6 +1242,11 @@ static int mtk8250_startup(struct uart_port *port)
 	if (uart_console(port))
 		up->dma = NULL;
 
+	if (!uart_console(port) && (data->dma != NULL) && (up->dma == NULL)) {
+		pr_info("[%s]: up->dma is null!!\n", __func__);
+		up->dma = data->dma;
+	}
+
 	if (up->dma) {
 		data->rx_status = DMA_RX_START;
 		uart_circ_clear(&port->state->xmit);

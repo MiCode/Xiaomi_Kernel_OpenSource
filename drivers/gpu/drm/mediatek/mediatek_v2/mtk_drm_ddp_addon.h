@@ -82,6 +82,7 @@ struct mtk_lye_ddp_state {
 	enum addon_scenario scn[HRT_DISP_TYPE_NUM];
 	uint8_t lc_tgt_layer;
 	uint8_t dmdp_tgt_layer;
+	bool need_repaint;
 };
 
 struct mtk_addon_path_data {

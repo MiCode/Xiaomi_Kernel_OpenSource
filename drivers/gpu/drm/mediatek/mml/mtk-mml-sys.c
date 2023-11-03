@@ -1166,27 +1166,23 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 {
 	struct mml_dle_ctx *ctx;
 
-	if (cfg->pipe == 0) {
-		ctx = sys_get_dle_ctx(sys, NULL);
-		if (IS_ERR_OR_NULL(ctx)) {
-			mml_err("%s fail to get mml ctx", __func__);
-			return;
-		}
-
-		cfg->task = mml_dle_stop(ctx);
-		if (!cfg->task) {
-			mml_err("%s fail to find task", __func__);
-			return;
-		}
-	}
-
-	if (!cfg->task || !cfg->task->config->path[cfg->pipe]) {
-		mml_err("%s no path for task %p pipe %u", __func__,
-			cfg->task, cfg->pipe);
+	ctx = sys_get_dle_ctx(sys, NULL);
+	if (IS_ERR_OR_NULL(ctx)) {
+		mml_err("%s fail to get mml ctx", __func__);
 		return;
 	}
 
-	/* sys_ddp_disable(sys, cfg->task, pipe); */
+	cfg->task = mml_dle_stop(ctx);
+	if (!cfg->task) {
+		mml_err("%s fail to find task", __func__);
+		return;
+	}
+	mml_msg("%s dle stop task %p", __func__, cfg->task);
+
+	if (!cfg->task || !cfg->task->config->path[cfg->pipe]) {
+		mml_err("%s no path for task %p pipe %u", __func__, cfg->task, cfg->pipe);
+		return;
+	}
 }
 
 static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
@@ -1617,6 +1613,18 @@ void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
 	if (sys->ddp_comp_en)
 		component_del(&pdev->dev, comp_ops);
 	devm_kfree(&pdev->dev, sys);
+}
+
+void mml_sys_put_dle_ctx(void *mml)
+{
+	struct mml_sys *sys = mml_get_sys(mml);
+
+	if (!sys) {
+		mml_err("%s no sys to put dle context", __func__);
+		return;
+	}
+	mml_dle_put_context(sys->dle_ctx);
+	sys->dle_ctx = NULL;
 }
 
 static int bind_mml(struct device *dev, struct device *master,

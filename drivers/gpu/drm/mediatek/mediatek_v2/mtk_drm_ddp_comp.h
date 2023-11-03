@@ -614,6 +614,12 @@ enum mtk_ddp_io_cmd {
 	/*Msync 2.0 cmd end*/
 	DUAL_TE_INIT,
 	OVL_GET_SOURCE_BPC,
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	ESD_RESTORE_BACKLIGHT,
+	MI_DISP_ESD_CHECK_READ,
+	MI_DISP_ESD_CHECK_CMP,
+#endif
+	MI_DSI_READ_DDIC_CMD,
 	DSI_GET_CMD_MODE_LINE_TIME,
 	DSI_DUMP_LCM_INFO,
 	DSI_SET_TARGET_LINE,
@@ -632,6 +638,7 @@ enum mtk_ddp_io_cmd {
 	DSI_PLL_SWITCH_ON_OFF,
 	MDP_RDMA_FILL_FRAME,
 	DSI_NULL_PKT_SET,
+	NOTIFY_MODE_SWITCH,
 };
 
 enum mtk_ddp_comp_apsrc_crtc_id {
@@ -685,6 +692,10 @@ struct mtk_oddmr_timing {
 	unsigned int vrefresh;
 	u16 hdisplay;
 	u16 vdisplay;
+};
+
+struct mtk_modeswitch_param {
+	unsigned int fps;
 };
 
 struct mtk_ddp_fb_info {
@@ -871,10 +882,6 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 {
 	if (comp && comp->funcs && comp->funcs->layer_config &&
 			!comp->blank_mode) {
-		DDPDBG("[DRM]func:%s, line:%d ==>\n",
-			__func__, __LINE__);
-		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
-			comp->funcs, comp->funcs->layer_config);
 
 		comp->funcs->layer_config(comp, idx, state, handle);
 	}

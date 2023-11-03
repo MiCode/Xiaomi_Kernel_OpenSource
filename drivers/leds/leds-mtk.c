@@ -301,14 +301,23 @@ int mtk_leds_brightness_set(char *name, int level,
 	led_dat = container_of(leds_info->leds[index],
 		struct mt_led_data, desp);
 
-	mutex_lock(&led_dat->led_access);
-	if (!led_dat->conf.aal_enable) {
+	if (!atomic_read(&led_dat->conf.aal_enable)) {
 		//pr_debug("aal not enable, set %s %d return", name, level);
 	} else {
+		mutex_lock(&led_dat->led_access);
 		mtk_set_hw_brightness(led_dat, level, params, params_flag);
 		led_dat->last_hw_brightness = level;
+		mutex_unlock(&led_dat->led_access);
+		pr_info("set brightness %d, %d mutx_unlock", level, params_flag);
+
+		if (led_dat->conf.cdev.brightness != level && led_dat->conf.cdev.brightness != 0 &&
+			level != 0 && level < led_dat->conf.pq_max_51backlight_threshold) {
+			led_dat->conf.cdev.brightness = level;
+			led_dat->last_brightness = level;
+			call_notifier(LED_BRIGHTNESS_CHANGED, &led_dat->conf);
+			pr_info("%s: backlight %d should be synchronize", __func__, level);
+		}
 	}
-	mutex_unlock(&led_dat->led_access);
 
 	return 0;
 }
@@ -330,8 +339,10 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 		led_dat->mtk_conn_id_get(led_dat, led_dat->desp.index);
 	}
 
-	if (led_dat->last_brightness == brightness)
+	if (led_dat->last_brightness == brightness) {
+		pr_info("led_dat->last_brightness == brightness so skip the %d\n", brightness);
 		return 0;
+	}
 
 	led_dat->last_brightness = brightness;
 
@@ -340,12 +351,15 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 	led_debug_log(led_dat, brightness, trans_level);
 
 	call_notifier(LED_BRIGHTNESS_CHANGED, led_conf);
-	mutex_lock(&led_dat->led_access);
-	if (!led_conf->aal_enable) {
-		mtk_set_hw_brightness(led_dat, trans_level, 0, 0);
-		led_dat->last_hw_brightness = trans_level;
-	}
-	mutex_unlock(&led_dat->led_access);
+	if (!atomic_read(&led_dat->conf.aal_enable)) {
+		mutex_lock(&led_dat->led_access);
+		if (!atomic_read(&led_dat->conf.aal_enable)) {
+			mtk_set_hw_brightness(led_dat, trans_level, 0, 0);
+			led_dat->last_hw_brightness = trans_level;
+		}
+		mutex_unlock(&led_dat->led_access);
+		pr_info("set brightness %d mutx_unlock", brightness);
+ 	}
 
 	return 0;
 
@@ -435,6 +449,12 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		mdev->conf.min_brightness = mdev->conf.min_hw_brightness;
 	}
 	ret = fwnode_property_read_u32(fwnode,
+		"pq-max-51backlight-threshold", &(mdev->conf.pq_max_51backlight_threshold));
+	if (ret) {
+		pr_info("No pq_max_51backlight_threshold, use default value 0");
+		mdev->conf.pq_max_51backlight_threshold = 0;
+	}
+	ret = fwnode_property_read_u32(fwnode,
 		"led_mode", &(mdev->conf.mode));
 	if (ret) {
 		pr_info("No min-brightness, use default value 1");
@@ -470,7 +490,7 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	leds_info = nleds_info;
 	leds_info->leds[leds_info->lens] = &mdev->desp;
 	leds_info->lens++;
-	mdev->conf.aal_enable = 0;
+	atomic_set(&mdev->conf.aal_enable, 0);
 	mutex_init(&mdev->led_access);
 
 	pr_info("parse led: %s, num: %d, max: %d, min: %d, max_hw: %d, min_hw: %d, brightness: %d",

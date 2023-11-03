@@ -55,6 +55,12 @@ static struct gpuppm_limit_info g_limit_table[] = {
 	LIMITOP(LIMIT_TEMPER_COMP, "TEMPER_COMP", GPUPPM_PRIO_7,
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE,
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
+	LIMITOP(LIMIT_PEAK_POWER_AP, "PEAK_POWER_AP", GPUPPM_PRIO_7,
+		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE,
+		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
+	LIMITOP(LIMIT_PEAK_POWER_EB, "PEAK_POWER_EB", GPUPPM_PRIO_7,
+		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE,
+		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
 	LIMITOP(LIMIT_THERMAL_AP, "THERMAL_AP", GPUPPM_PRIO_6,
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE,
 		GPUPPM_DEFAULT_IDX, LIMIT_ENABLE),
@@ -245,6 +251,32 @@ static int __gpuppm_convert_limit_to_idx(enum gpufreq_target target, enum gpuppm
 		/* limit info: OPP index */
 		*ceiling_idx = GPUPPM_KEEP_IDX;
 		*floor_idx = floor_info;
+		break;
+	case LIMIT_PEAK_POWER_AP:
+		/* limit info: freq */
+		if (ceiling_info > 0) {
+			if (target == TARGET_STACK)
+				*ceiling_idx = __gpufreq_get_idx_by_fstack(
+					(unsigned int)ceiling_info);
+			else
+				*ceiling_idx = __gpufreq_get_idx_by_fgpu(
+					(unsigned int)ceiling_info);
+		} else
+			*ceiling_idx = GPUPPM_RESET_IDX;
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_PEAK_POWER_EB:
+		/* limit info: freq */
+		if (ceiling_info > 0) {
+			if (target == TARGET_STACK)
+				*ceiling_idx = __gpufreq_get_idx_by_fstack(
+					(unsigned int)ceiling_info);
+			else
+				*ceiling_idx = __gpufreq_get_idx_by_fgpu(
+					(unsigned int)ceiling_info);
+		} else
+			*ceiling_idx = GPUPPM_RESET_IDX;
+		*floor_idx = GPUPPM_KEEP_IDX;
 		break;
 	case LIMIT_THERMAL_AP:
 		/* limit info: freq */

@@ -104,8 +104,9 @@ static DECLARE_WAIT_QUEUE_HEAD(g_gamma_sof_irq_wq);
 static atomic_t g_gamma_sof_irq_available = ATOMIC_INIT(0);
 static struct DISP_GAMMA_12BIT_LUT_T ioctl_data;
 struct mtk_ddp_comp *g_gamma_flip_comp[2];
-
-static atomic_t g_force_delay_check_trig = ATOMIC_INIT(0);
+// g_force_delay_check_trig: 0: non-delay 1: delay 2: default setting
+//                           3: not check trigge
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(2);
 
 /* TODO */
 /* static ddp_module_notify g_gamma_ddp_notify; */
@@ -512,6 +513,7 @@ static int mtk_gamma_set_gain(struct mtk_ddp_comp *comp,
 {
 
 	int ret = 0;
+	CRTC_MMP_MARK(0, gammawithbacklight, (unsigned long)handle, 0);
 
 	if (user_gamma_gain == NULL) {
 		ret = -EFAULT;
@@ -551,7 +553,17 @@ int mtk_drm_ioctl_set_12bit_gammalut(struct drm_device *dev, void *data,
 	atomic_set(&g_gamma_sof_filp, 1);
 	if (g_gamma_flip_comp[0]->mtk_crtc != NULL) {
 		mtk_drm_idlemgr_kick(__func__, &g_gamma_flip_comp[0]->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, true, true);
+
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 	}
 	DDPINFO("%s:update IOCTL g_gamma_sof_filp to 1\n", __func__);
 	CRTC_MMP_EVENT_END(0, gamma_ioctl, 0, 1);
@@ -776,28 +788,39 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 					SET_12BIT_GAMMALUT, (void *)&lut_12bit_data);
 			}
 		} else {
+			CRTC_MMP_EVENT_START(0, gamma_gain, gain[gain_r], bl);
 			mtk_crtc_user_cmd(crtc, default_comp,
 				SET_GAMMAGAIN, (void *)&g_sb_param);
+			CRTC_MMP_EVENT_END(0, gamma_gain, gain[gain_r], bl);
 		}
 		DDPINFO("[aal_kernel]ELVSSPN = %d, flag = %d",
 			ess20_spect_param->ELVSSPN, ess20_spect_param->flag);
+
+		CRTC_MMP_EVENT_START(0, gamma_backlight, gain[gain_r], bl);
 		mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
 					ess20_spect_param->flag);
+		CRTC_MMP_EVENT_END(0, gamma_backlight, gain[gain_r], bl);
 
-		if (atomic_read(&g_force_delay_check_trig) == 1)
-			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
-		else
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
 			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
+
 		DDPINFO("%s : gain = %d, backlight = %d",
 			__func__, g_sb_param.gain[gain_r], bl);
 	} else {
-		if ((g_sb_param.bl != bl) || (ess20_spect_param->flag & (1 << SET_ELVSS_PN))) {
-			g_sb_param.bl = bl;
-			mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
-						ess20_spect_param->flag);
-			DDPINFO("%s : backlight = %d, flag = %d, elvss = %d", __func__, bl,
-				ess20_spect_param->flag, ess20_spect_param->ELVSSPN);
-		}
+		g_sb_param.bl = bl;
+		mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
+					ess20_spect_param->flag);
+		CRTC_MMP_MARK(0, gamma_backlight, ess20_spect_param->flag, bl);
+		DDPINFO("%s : backlight = %d, flag = %d, elvss = %d", __func__, bl,
+			ess20_spect_param->flag, ess20_spect_param->ELVSSPN);
 	}
 }
 
@@ -826,8 +849,18 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			}
 		}
 
-		if (comp->mtk_crtc != NULL)
-			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		if (comp->mtk_crtc != NULL) {
+			if (atomic_read(&g_force_delay_check_trig) == 0)
+			        mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+			else if (atomic_read(&g_force_delay_check_trig) == 1)
+			        mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+			else if (atomic_read(&g_force_delay_check_trig) == 2)
+				mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+			else if (atomic_read(&g_force_delay_check_trig) == 3)
+				DDPINFO("%s: not check trigger\n", __func__);
+			else
+				DDPINFO("%s: value is not support!\n", __func__);
+		}
 	}
 	break;
 	case SET_12BIT_GAMMALUT:
@@ -851,8 +884,18 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			}
 		}
 
-		if (comp->mtk_crtc != NULL)
-			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		if (comp->mtk_crtc != NULL) {
+			if (atomic_read(&g_force_delay_check_trig) == 0)
+			        mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+			else if (atomic_read(&g_force_delay_check_trig) == 1)
+			        mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+			else if (atomic_read(&g_force_delay_check_trig) == 2)
+				mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+			else if (atomic_read(&g_force_delay_check_trig) == 3)
+				DDPINFO("%s: not check trigger\n", __func__);
+			else
+				DDPINFO("%s: value is not support!\n", __func__);
+		}
 	}
 	break;
 	case BYPASS_GAMMA:
@@ -1227,11 +1270,11 @@ struct platform_driver mtk_disp_gamma_driver = {
 		},
 };
 
-void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_GAMMA, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }

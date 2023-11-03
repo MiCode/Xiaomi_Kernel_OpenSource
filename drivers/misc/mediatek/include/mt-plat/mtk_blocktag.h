@@ -153,6 +153,10 @@ struct mtk_btag_mictx {
 	struct list_head list;
 	struct mtk_btag_mictx_data __rcu *data;
 	__s8 id;
+	atomic_t ufs_qd;
+	atomic64_t ufs_idle_begin;
+	atomic64_t ufs_idle_total;
+	atomic64_t ufs_win_begin;
 };
 
 struct mtk_btag_earaio_control {

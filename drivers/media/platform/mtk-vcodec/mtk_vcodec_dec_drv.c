@@ -113,8 +113,11 @@ static int fops_vcodec_open(struct file *file)
 	mutex_init(&ctx->worker_lock);
 	mutex_init(&ctx->hw_status);
 	mutex_init(&ctx->q_mutex);
-	mutex_init(&ctx->gen_buf_va_lock);
 	mutex_init(&ctx->detect_ts_param.lock);
+	mutex_init(&ctx->gen_buf_list_lock);
+#if ENABLE_META_BUF
+	mutex_init(&ctx->meta_buf_lock);
+#endif
 
 	ctx->type = MTK_INST_DECODER;
 	ret = mtk_vcodec_dec_ctrls_setup(ctx);
@@ -207,7 +210,6 @@ static int fops_vcodec_release(struct file *file)
 {
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
-	int i;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	int ret;
 #endif
@@ -244,38 +246,6 @@ static int fops_vcodec_release(struct file *file)
 	if (ctx->p_timeline_obj)
 		timeline_destroy(ctx->p_timeline_obj);
 #endif
-	for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
-		if (ctx->dma_buf_list[i].va && ctx->dma_buf_list[i].dmabuf) {
-			struct dma_buf_map map =
-				DMA_BUF_MAP_INIT_VADDR(ctx->dma_buf_list[i].va);
-			struct dma_buf *dmabuf = ctx->dma_buf_list[i].dmabuf;
-			struct dma_buf_attachment *buf_att = ctx->dma_buf_list[i].buf_att;
-			struct sg_table *sgt = ctx->dma_buf_list[i].sgt;
-
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
-			dma_buf_detach(dmabuf, buf_att);
-			dma_buf_vunmap(dmabuf, &map);
-			dma_buf_end_cpu_access(dmabuf,
-				DMA_TO_DEVICE);
-			dma_buf_put(dmabuf);
-		}
-	}
-	memset(ctx->dma_buf_list, 0,
-		sizeof(struct dma_gen_buf) * MAX_GEN_BUF_CNT);
-
-	for (i = 0; i < MAX_META_BUF_CNT; ++i) {
-		if (ctx->dma_meta_list[i].dmabuf) {
-			struct dma_buf *dmabuf = ctx->dma_meta_list[i].dmabuf;
-			struct dma_buf_attachment *buf_att = ctx->dma_meta_list[i].buf_att;
-			struct sg_table *sgt = ctx->dma_meta_list[i].sgt;
-
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
-			dma_buf_detach(dmabuf, buf_att);
-			dma_buf_put(dmabuf);
-		}
-	}
-	memset(ctx->dma_meta_list, 0,
-		sizeof(struct dma_meta_buf) * MAX_META_BUF_CNT);
 
 	kfree(ctx->dec_flush_buf);
 	kfree(ctx);

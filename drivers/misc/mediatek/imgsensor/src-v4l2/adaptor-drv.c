@@ -23,6 +23,17 @@
 #include "adaptor-trace.h"
 #include "imgsensor-glue/imgsensor-glue.h"
 #include "virt-sensor/virt-sensor-entry.h"
+#ifdef TRUE
+#include <linux/delay.h>
+unsigned int g_sensor_state = 0;
+#define PMIC_DEBUG 0
+#if PMIC_DEBUG
+extern int pmic1_dump_flag;
+extern int pmic2_dump_flag;
+extern void wl2866d1_dump(void);
+extern void wl2866d2_dump(void);
+#endif
+#endif
 
 #undef E
 #define E(__x__) (__x__##_entry)
@@ -43,74 +54,115 @@ static struct subdrv_entry *imgsensor_subdrvs[] = {
 module_param(sensor_debug, uint, 0644);
 MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
 
-static int get_outfmt_code(struct adaptor_ctx *ctx)
+static void get_outfmt_code(struct adaptor_ctx *ctx)
 {
-	int outfmt = ctx->sensor_info.SensorOutputDataFormat;
+	unsigned int i, outfmt;
 
-	switch (outfmt) {
-	case SENSOR_OUTPUT_FORMAT_RAW_B:
-		return MEDIA_BUS_FMT_SBGGR10_1X10;
-	case SENSOR_OUTPUT_FORMAT_RAW_Gb:
-		return MEDIA_BUS_FMT_SGBRG10_1X10;
-	case SENSOR_OUTPUT_FORMAT_RAW_Gr:
-		return MEDIA_BUS_FMT_SGRBG10_1X10;
-	case SENSOR_OUTPUT_FORMAT_RAW_R:
-		return MEDIA_BUS_FMT_SRGGB10_1X10;
+	for (i = 0; i < SENSOR_SCENARIO_ID_MAX; i++) {
 
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_B:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_B:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B:
-		pr_warn("unsupported 4cell output_format %d\n", outfmt);
-		return MEDIA_BUS_FMT_SBGGR10_1X10;
+		outfmt = (ctx->subctx.s_ctx.mode == NULL
+				|| i >= ctx->subctx.s_ctx.sensor_mode_num)
+			? ctx->sensor_info.SensorOutputDataFormat
+			: ctx->subctx.s_ctx.mode[i].sensor_output_dataformat;
+		switch (outfmt) {
+		case SENSOR_OUTPUT_FORMAT_RAW_B:
+		case SENSOR_OUTPUT_FORMAT_RAW_IR:
+		case SENSOR_OUTPUT_FORMAT_RAW_MONO:
+			ctx->fmt_code[i] =  MEDIA_BUS_FMT_SBGGR10_1X10;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW_Gb:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG10_1X10;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW_Gr:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG10_1X10;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW_R:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB10_1X10;
+			break;
 
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gb:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gb:
-		pr_warn("unsupported 4cell output_format %d\n", outfmt);
-		return MEDIA_BUS_FMT_SGBRG10_1X10;
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_B:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_B:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B:
+			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
+			break;
 
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gr:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gr:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gr:
-		pr_warn("unsupported 4cell output_format %d\n", outfmt);
-		return MEDIA_BUS_FMT_SGRBG10_1X10;
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gb:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gb:
+			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG10_1X10;
+			break;
 
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_R:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_R:
-	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R:
-		pr_warn("unsupported 4cell output_format %d\n", outfmt);
-		return MEDIA_BUS_FMT_SRGGB10_1X10;
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gr:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gr:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gr:
+			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG10_1X10;
+			break;
 
-	case SENSOR_OUTPUT_FORMAT_RAW8_MONO:
-	case SENSOR_OUTPUT_FORMAT_RAW8_B:
-		return MEDIA_BUS_FMT_SBGGR8_1X8;
-	case SENSOR_OUTPUT_FORMAT_RAW8_Gb:
-		return MEDIA_BUS_FMT_SGBRG8_1X8;
-	case SENSOR_OUTPUT_FORMAT_RAW8_Gr:
-		return MEDIA_BUS_FMT_SGRBG8_1X8;
-	case SENSOR_OUTPUT_FORMAT_RAW8_R:
-		return MEDIA_BUS_FMT_SRGGB8_1X8;
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_R:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_R:
+		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R:
+			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB10_1X10;
+			break;
 
-	case SENSOR_OUTPUT_FORMAT_RAW12_B:
-		return MEDIA_BUS_FMT_SBGGR12_1X12;
-	case SENSOR_OUTPUT_FORMAT_RAW12_Gb:
-		return MEDIA_BUS_FMT_SGBRG12_1X12;
-	case SENSOR_OUTPUT_FORMAT_RAW12_Gr:
-		return MEDIA_BUS_FMT_SGRBG12_1X12;
-	case SENSOR_OUTPUT_FORMAT_RAW12_R:
-		return MEDIA_BUS_FMT_SRGGB12_1X12;
+		case SENSOR_OUTPUT_FORMAT_RAW8_MONO:
+		case SENSOR_OUTPUT_FORMAT_RAW8_B:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR8_1X8;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW8_Gb:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG8_1X8;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW8_Gr:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG8_1X8;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW8_R:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB8_1X8;
+			break;
 
-	case SENSOR_OUTPUT_FORMAT_NV12:
-	case SENSOR_OUTPUT_FORMAT_NV21:
-		return MEDIA_BUS_FMT_SBGGR8_1X8;
-	case SENSOR_OUTPUT_FORMAT_YUV_P010:
-	case SENSOR_OUTPUT_FORMAT_YVU_P010:
-		return MEDIA_BUS_FMT_SBGGR10_1X10;
+		case SENSOR_OUTPUT_FORMAT_RAW12_B:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR12_1X12;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW12_Gb:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG12_1X12;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW12_Gr:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG12_1X12;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW12_R:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB12_1X12;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW14_B:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR14_1X14;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW14_Gb:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG14_1X14;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW14_Gr:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG14_1X14;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RAW14_R:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB14_1X14;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_NV12:
+		case SENSOR_OUTPUT_FORMAT_NV21:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR8_1X8;
+			break;
+		case SENSOR_OUTPUT_FORMAT_YUV_P010:
+		case SENSOR_OUTPUT_FORMAT_YVU_P010:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
+			break;
+		default:
+			dev_info(ctx->dev, "unknown output format %d\n", outfmt);
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
+			break;
+		}
+		dev_info(ctx->dev, "scenario id : %d, fmt_code = 0x%04x\n", i, ctx->fmt_code[i]);
 	}
-
-	pr_warn("unknown output format %d\n", outfmt);
-
-	return MEDIA_BUS_FMT_SBGGR10_1X10;
 }
 
 static void add_sensor_mode(struct adaptor_ctx *ctx,
@@ -318,7 +370,7 @@ static int init_sensor_info(struct adaptor_ctx *ctx)
 	init_sensor_mode(ctx);
 	set_sensor_mode(ctx, &ctx->mode[0], 0);
 	ctx->try_format_mode = &ctx->mode[0];
-	ctx->fmt_code = get_outfmt_code(ctx);
+	get_outfmt_code(ctx);
 	return 0;
 }
 
@@ -377,8 +429,50 @@ static int search_sensor(struct adaptor_ctx *ctx)
 	for (i = 0; i < subdrvs_cnt; i++) {
 		u32 sensor_id;
 
+#ifdef TRUE
+		int retry = 3;
+#endif
+
 		ctx->subdrv = subdrvs[i];
 		ctx->subctx.i2c_client = ctx->i2c_client;
+#ifdef TRUE
+		do{
+			adaptor_hw_power_on(ctx);
+			subdrv_call(ctx, init_ctx, ctx->i2c_client,
+					ctx->subctx.i2c_write_id);
+			ret = subdrv_call(ctx, get_id, &sensor_id);
+#if PMIC_DEBUG
+			if(ret != 0 && retry == 1){
+			    pr_err("=== Sensor %s probe failed dump PMIC state begin ===\n", ctx->subdrv->name);
+			    if(pmic1_dump_flag)
+				wl2866d1_dump();
+			    if(pmic2_dump_flag)
+				wl2866d2_dump();
+			    pr_err("=== Sensor %s probe failed dump PMIC state end ===\n", ctx->subdrv->name);
+			}
+#endif
+			adaptor_hw_power_off(ctx);
+			if (!ret) {
+				dev_info(ctx->dev, "sensor %s found\n",
+					ctx->subdrv->name);
+				subdrv_call(ctx, init_ctx, ctx->i2c_client,
+					ctx->subctx.i2c_write_id);
+				ctx->ctx_pw_seq = kmalloc_array(ctx->subdrv->pw_seq_cnt,
+						sizeof(struct subdrv_pw_seq_entry),
+						GFP_KERNEL);
+				if (ctx->ctx_pw_seq) {
+					memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
+					       ctx->subdrv->pw_seq_cnt *
+					       sizeof(struct subdrv_pw_seq_entry));
+				}
+				return 0;
+			}
+			retry--;
+			msleep(30);
+			dev_info(ctx->dev, "sensor %s read id failed retry again !\n",
+				ctx->subdrv->name);
+		}while(retry > 0);
+#else
 		adaptor_hw_power_on(ctx);
 		subdrv_call(ctx, init_ctx, ctx->i2c_client,
 				ctx->subctx.i2c_write_id);
@@ -399,6 +493,7 @@ static int search_sensor(struct adaptor_ctx *ctx)
 			}
 			return 0;
 		}
+#endif
 	}
 
 	return -EIO;
@@ -419,7 +514,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Initialize try_fmt */
 	try_fmt->width = ctx->cur_mode->width;
 	try_fmt->height = ctx->cur_mode->height;
-	try_fmt->code = ctx->fmt_code;
+	try_fmt->code = ctx->fmt_code[ctx->cur_mode->id];
 	try_fmt->field = V4L2_FIELD_NONE;
 
 #ifdef POWERON_ONCE_OPENED
@@ -482,7 +577,8 @@ static int imgsensor_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->index >= ctx->mode_cnt)
 		return -EINVAL;
 
-	code->code = to_mtk_ext_fmt_code(ctx->fmt_code, ctx->mode[code->index].id);
+	code->code = to_mtk_ext_fmt_code(ctx->fmt_code[ctx->mode[code->index].id],
+			ctx->mode[code->index].id);
 	// dev_info(ctx->dev, "enum mbus fmt code = 0x%x\n", code->code);
 
 	return 0;
@@ -557,7 +653,7 @@ static void update_pad_format(struct adaptor_ctx *ctx,
 {
 	fmt->format.width = mode->width;
 	fmt->format.height = mode->height;
-	fmt->format.code = to_mtk_ext_fmt_code(ctx->fmt_code, mode->id);
+	fmt->format.code = to_mtk_ext_fmt_code(ctx->fmt_code[mode->id], mode->id);
 	fmt->format.field = V4L2_FIELD_NONE;
 }
 
@@ -600,7 +696,7 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	mutex_lock(&ctx->mutex);
 
 	/* Only one raw bayer order is supported */
-	set_std_parts_fmt_code(fmt->format.code, ctx->fmt_code);
+	set_std_parts_fmt_code(fmt->format.code, ctx->fmt_code[ctx->cur_mode->id]);
 
 
 	/* Returns the best match or NULL if the Length of the array is zero */

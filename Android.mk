@@ -7,6 +7,33 @@ ifeq ($(notdir $(LOCAL_PATH)),$(strip $(LINUX_KERNEL_VERSION)))
 
 include $(LOCAL_PATH)/kenv.mk
 
+ifeq ($(FACTORY_BUILD),1)
+PRIVATE_FACTORY_BUILD := 1
+else
+PRIVATE_FACTORY_BUILD := 0
+endif
+
+ifdef TARGET_MOD_DEVICE
+TARGET_MOD_DEVICE_REGION := $(word 3,$(subst _, ,${TARGET_MOD_DEVICE}))
+TARGET_MOD_DEVICE_PRE := $(word 2,$(subst _, ,${TARGET_MOD_DEVICE}))
+TARGET_MOD_DEVICE_NAME := $(word 1,$(subst _, ,${TARGET_MOD_DEVICE}))
+ifneq (, $(filter $(TARGET_MOD_DEVICE_NAME), corot))
+ifneq (factory, $(TARGET_MOD_DEVICE_PRE))
+ifeq (, $(TARGET_MOD_DEVICE_REGION))
+PRIVATE_OKGOOGLE_BUILD := cn
+else
+PRIVATE_OKGOOGLE_BUILD := global
+endif
+else
+PRIVATE_OKGOOGLE_BUILD := nofile
+endif
+else
+PRIVATE_OKGOOGLE_BUILD := nofile
+endif
+else
+PRIVATE_OKGOOGLE_BUILD := nofile
+endif
+
 ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
 KERNEL_MAKE_DEPENDENCIES := $(shell find $(KERNEL_DIR) -name .git -prune -o -type f | sort)
 KERNEL_MAKE_DEPENDENCIES += $(shell find vendor/mediatek/kernel_modules -name .git -prune -o -type f | sort)
@@ -24,7 +51,7 @@ $(GEN_KERNEL_BUILD_CONFIG): PRIVATE_KERNEL_BUILD_CONFIG_OVERLAYS := $(addprefix 
 $(GEN_KERNEL_BUILD_CONFIG): $(KERNEL_DIR)/kernel/configs/ext_modules.list
 $(GEN_KERNEL_BUILD_CONFIG): $(KERNEL_DIR)/scripts/gen_build_config.py $(wildcard $(KERNEL_DIR)/build.config.*) $(build_config_file) $(KERNEL_CONFIG_FILE) $(LOCAL_PATH)/Android.mk
 	$(hide) mkdir -p $(dir $@)
-	$(hide) cd kernel && python $< --kernel-defconfig $(PRIVATE_KERNEL_DEFCONFIG) --kernel-defconfig-overlays "$(PRIVATE_KERNEL_DEFCONFIG_OVERLAYS)" --kernel-build-config-overlays "$(PRIVATE_KERNEL_BUILD_CONFIG_OVERLAYS)" -m $(TARGET_BUILD_VARIANT) -o $(PRIVATE_KERNEL_BUILD_CONFIG) && cd ..
+	$(hide) cd kernel && python $< --kernel-defconfig $(PRIVATE_KERNEL_DEFCONFIG) --kernel-defconfig-overlays "$(PRIVATE_KERNEL_DEFCONFIG_OVERLAYS)" --kernel-build-config-overlays "$(PRIVATE_KERNEL_BUILD_CONFIG_OVERLAYS)" -m $(TARGET_BUILD_VARIANT) -o $(PRIVATE_KERNEL_BUILD_CONFIG) -f $(PRIVATE_FACTORY_BUILD) -g $(PRIVATE_OKGOOGLE_BUILD) && cd ..
 
 .KATI_RESTAT: $(TARGET_KERNEL_CONFIG)
 $(TARGET_KERNEL_CONFIG): PRIVATE_KERNEL_OUT := $(REL_KERNEL_OUT)

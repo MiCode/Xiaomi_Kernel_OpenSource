@@ -2540,6 +2540,11 @@ static int mtk_venc_encode_header(void *priv)
 
 	ctx->state = MTK_STATE_HEADER;
 	if (!already_put) {
+		if (enc_result.flags&VENC_FLAG_MULTINAL) {
+			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_MULTINAL;
+			pr_info("%s %d enc_result.flags 0x%x\n", __func__, __LINE__, enc_result.flags);
+		}
+
 		dst_buf->planes[0].bytesused = enc_result.bs_size;
 		v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_DONE);
 	}
@@ -3288,7 +3293,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 		0, V4L2_MPEG_VIDEO_H264_LEVEL_1_0);
 	v4l2_ctrl_new_std_menu(handler, ops,
 		V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
-		V4L2_MPEG_VIDEO_HEVC_LEVEL_4,
+		V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2,
 		0, V4L2_MPEG_VIDEO_HEVC_LEVEL_1);
 	v4l2_ctrl_new_std_menu(handler, ops,
 		V4L2_CID_MPEG_VIDEO_HEVC_TIER,

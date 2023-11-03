@@ -1059,8 +1059,13 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
 	memset(&sd_fmt, 0, sizeof(sd_fmt));
 	/* reset all bandwidth info. */
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
+#ifdef TRUE
+		sv_qos_bw_peak[i] = dvfs_info->sv_qos_bw_peak[i];
+		sv_qos_bw_avg[i] = dvfs_info->sv_qos_bw_avg[i];
+#else
 		sv_qos_bw_peak[i] = 0;
 		sv_qos_bw_avg[i] = 0;
+#endif
 	}
 
 	if (ctx->sensor) {
@@ -1079,6 +1084,15 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
 		dev_info(cam->dev, "[%s] camsv device is NULL\n", __func__);
 		return;
 	}
+
+#ifdef TRUE
+	for (i = 0; i < sv_qos_port_num; i++) {
+		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + i;
+
+		sv_qos_bw_peak[qos_port_id] = 0;
+		sv_qos_bw_avg[qos_port_id] = 0;
+	}
+#endif
 
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
 		if (!(ctx->sv_dev->enabled_tags & (1 << i)))
@@ -1240,10 +1254,29 @@ void mtk_cam_qos_mraw_bw_calc(struct mtk_cam_ctx *ctx,
 	memset(&fi, 0, sizeof(fi));
 	memset(&sd_fmt, 0, sizeof(sd_fmt));
 	/* reset all bandwidth info. */
+
+#ifdef TRUE
+	for (i = 0; i < MTK_CAM_MRAW_PORT_NUM; i++) {
+		mraw_qos_bw_peak[i] = dvfs_info->mraw_qos_bw_peak[i];
+		mraw_qos_bw_avg[i] = dvfs_info->mraw_qos_bw_avg[i];
+	}
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		for (j = 0; j < mraw_qos_port_num; j++) {
+			qos_port_id = ((ctx->mraw_pipe[i]->id - MTKCAM_SUBDEV_MRAW_START)
+							* mraw_qos_port_num)
+							+ j;
+
+			mraw_qos_bw_peak[qos_port_id] = 0;
+			mraw_qos_bw_avg[qos_port_id] = 0;
+		}
+	}
+#else
 	for (i = 0; i < MTK_CAM_MRAW_PORT_NUM; i++) {
 		mraw_qos_bw_peak[i] = 0;
 		mraw_qos_bw_avg[i] = 0;
 	}
+#endif
 
 	if (ctx->sensor) {
 		fi.pad = 0;

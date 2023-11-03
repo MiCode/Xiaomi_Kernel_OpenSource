@@ -31,6 +31,9 @@
 #include "mtk_disp_rdma.h"
 #include "platform/mtk_drm_platform.h"
 //#include "swpm_me.h"
+#if defined(CONFIG_PXLW_IRIS)
+#include "dsi_iris_mtk_api.h"
+#endif
 
 int disp_met_set(void *data, u64 val);
 
@@ -347,7 +350,11 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+#if defined(CONFIG_PXLW_IRIS)
+			if ( (is_mi_dev_support_iris() && iris_is_chip_supported()) || rdma->id == DDP_COMPONENT_RDMA0) {
+#else
 			if (rdma->id == DDP_COMPONENT_RDMA0) {
+#endif
 				struct mtk_drm_private *drm_priv =
 					mtk_crtc->base.dev->dev_private;
 				struct drm_crtc *crtc = &mtk_crtc->base;
