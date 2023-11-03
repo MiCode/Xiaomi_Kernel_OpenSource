@@ -193,3 +193,4 @@
 | bsp-aristotle-s-oss | Xiaomi 13T | Android T | alps-mp-s0.mp1.tc8sp2-mt6983-V1.0.1 | [bsp-aristotle-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-aristotle-s-oss) |
 | garnet-t-oss | Redmi Note 13 Pro | Android T | KERNEL.PLATFORM.1.0.r1-15100-kernel.0-1* | [garnet-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/garnet-t-oss) |
 | xun-t-oss | Redmi Pad SE | Android T | AU_LINUX_ANDROID_LA.VENDOR.13.2.1.R1.11.00.00.587.064 | [xun-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xun-t-oss) |
+| zircon-t-oss  | Redmi Note 13 Pro+ | Android T | t-alps-release-t0.mp1.tc8sp2-V1.14 | [zircon-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zircon-t-oss) |
