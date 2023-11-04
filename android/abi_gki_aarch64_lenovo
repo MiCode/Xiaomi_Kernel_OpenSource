@@ -1,0 +1,10 @@
+[abi_symbol_list]
+# required by raid0.ko
+    bio_split
+    blk_queue_max_write_same_sectors
+    disk_stack_limits
+    submit_bio_noacct
+    __traceiter_block_bio_remap
+    __tracepoint_block_bio_remap
+# required by lenovo-fan.ko
+    clk_set_duty_cycle

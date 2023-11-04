@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree for the TVK1281618 R2 UIB
+ */
+
+#include "ste-href-tvk1281618.dtsi"
+
+/ {
+	soc {
+		i2c@80128000 {
+			accelerometer@19 {
+				compatible = "st,lsm303dlhc-accel";
+				st,drdy-int-pin = <1>;
+				reg = <0x19>;
+				vdd-supply = <&ab8500_ldo_aux1_reg>;
+				vddio-supply = <&db8500_vsmps2_reg>;
+				interrupt-parent = <&gpio2>;
+				interrupts = <18 IRQ_TYPE_EDGE_RISING>,
+					     <19 IRQ_TYPE_EDGE_RISING>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&accel_tvk_mode>;
+				mount-matrix = "0", "-1", "0",
+					       "-1", "0", "0",
+					       "0", "0", "-1";
+			};
+			magnetometer@1e {
+				compatible = "st,lsm303dlm-magn";
+				st,drdy-int-pin = <1>;
+				reg = <0x1e>;
+				vdd-supply = <&ab8500_ldo_aux1_reg>;
+				vddio-supply = <&db8500_vsmps2_reg>;
+				// This interrupt is not properly working with the driver
+				// interrupt-parent = <&gpio1>;
+				// interrupts = <0 IRQ_TYPE_EDGE_RISING>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&magn_tvk_mode>;
+			};
+			gyroscope@68 {
+				/* Gyroscope */
+				compatible = "st,l3g4200d-gyro";
+				reg = <0x68>;
+				vdd-supply = <&ab8500_ldo_aux1_reg>;
+				vddio-supply = <&db8500_vsmps2_reg>;
+			};
+			pressure@5c {
+				/* Barometer/pressure sensor */
+				compatible = "st,lps001wp-press";
+				reg = <0x5c>;
+				vdd-supply = <&ab8500_ldo_aux1_reg>;
+				vddio-supply = <&db8500_vsmps2_reg>;
+			};
+		};
+
+		mcde@a0350000 {
+			status = "okay";
+
+			dsi-controller@a0351000 {
+				panel {
+					compatible = "sony,acx424akp";
+					reg = <0>;
+					vddi-supply = <&ab8500_ldo_aux1_reg>;
+					reset-gpios = <&gpio2 1 GPIO_ACTIVE_LOW>;
+				};
+			};
+		};
+
+		pinctrl {
+			accelerometer {
+				accel_tvk_mode: accel_tvk {
+					/* Accelerometer interrupt lines 1 & 2 */
+					tvk_cfg {
+						pins = "GPIO82_C1", "GPIO83_D3";
+						ste,config = <&gpio_in_pd>;
+					};
+				};
+			};
+			magnetometer {
+				magn_tvk_mode: magn_tvk {
+					/* GPIO 32 used for DRDY, pull this down */
+					tvk_cfg {
+						pins = "GPIO32_V2";
+						ste,config = <&gpio_in_pd>;
+					};
+				};
+			};
+		};
+	};
+};

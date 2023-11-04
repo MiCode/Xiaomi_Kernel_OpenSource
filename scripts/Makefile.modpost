@@ -1,0 +1,186 @@
+# SPDX-License-Identifier: GPL-2.0
+# ===========================================================================
+# Module versions
+# ===========================================================================
+#
+# Stage one of module building created the following:
+# a) The individual .o files used for the module
+# b) A <module>.o file which is the .o files above linked together
+# c) A <module>.mod file, listing the name of the preliminary <module>.o file,
+#    plus all .o files
+# d) modules.order, which lists all the modules
+
+# Stage 2 is handled by this file and does the following
+# 1) Find all modules listed in modules.order
+# 2) modpost is then used to
+# 3)  create one <module>.mod.c file pr. module
+# 4)  create one Module.symvers file with CRC for all exported symbols
+
+# Step 3 is used to place certain information in the module's ELF
+# section, including information such as:
+#   Version magic (see include/linux/vermagic.h for full details)
+#     - Kernel release
+#     - SMP is CONFIG_SMP
+#     - PREEMPT is CONFIG_PREEMPT[_RT]
+#     - GCC Version
+#   Module info
+#     - Module version (MODULE_VERSION)
+#     - Module alias'es (MODULE_ALIAS)
+#     - Module license (MODULE_LICENSE)
+#     - See include/linux/module.h for more details
+
+# Step 4 is solely used to allow module versioning in external modules,
+# where the CRC of each module is retrieved from the Module.symvers file.
+
+# KBUILD_MODPOST_WARN can be set to avoid error out in case of undefined
+# symbols in the final module linking stage
+# KBUILD_MODPOST_NOFINAL can be set to skip the final link of modules.
+# This is solely useful to speed up test compiles
+
+PHONY := __modpost
+__modpost:
+
+include include/config/auto.conf
+include scripts/Kbuild.include
+
+# for ld_flags
+include scripts/Makefile.lib
+
+mixed-build-prefix = $(if $(KBUILD_MIXED_TREE),$(KBUILD_MIXED_TREE)/)
+
+MODPOST = scripts/mod/modpost								\
+	$(if $(CONFIG_MODVERSIONS),-m)							\
+	$(if $(CONFIG_MODULE_SRCVERSION_ALL),-a)					\
+	$(if $(CONFIG_SECTION_MISMATCH_WARN_ONLY),,-E)					\
+	$(if $(KBUILD_MODPOST_WARN),-w) \
+	-o $@
+
+ifdef MODPOST_VMLINUX
+
+quiet_cmd_modpost = MODPOST $@
+      cmd_modpost = $(MODPOST) $<
+
+vmlinux.symvers: vmlinux.o
+	$(call cmd,modpost)
+
+__modpost: vmlinux.symvers
+
+else
+
+ifeq ($(KBUILD_EXTMOD),)
+
+input-symdump := $(mixed-build-prefix)vmlinux.symvers
+output-symdump := modules-only.symvers
+module_srcpath := $(srctree)
+
+quiet_cmd_cat = GEN     $@
+      cmd_cat = cat $(real-prereqs) > $@
+
+ifneq ($(wildcard $(mixed-build-prefix)vmlinux.symvers),)
+
+__modpost: Module.symvers
+Module.symvers: $(mixed-build-prefix)vmlinux.symvers modules-only.symvers FORCE
+	$(call if_changed,cat)
+
+targets += Module.symvers
+
+endif
+
+else
+
+# set src + obj - they may be used in the modules's Makefile
+obj := $(KBUILD_EXTMOD)
+src := $(obj)
+
+# Include the module's Makefile to find KBUILD_EXTRA_SYMBOLS
+include $(if $(wildcard $(src)/Kbuild), $(src)/Kbuild, $(src)/Makefile)
+
+# modpost option for external modules
+MODPOST += -e
+
+input-symdump := Module.symvers $(KBUILD_EXTRA_SYMBOLS)
+output-symdump := $(KBUILD_EXTMOD)/Module.symvers
+
+# Get the external module's source path. KBUILD_EXTMOD could either be an
+# absolute path or relative path from $(srctree). This makes sure that we
+# aren't using a relative path from a separate working directory (O= or
+# KBUILD_OUTPUT) since that may not be the actual module's SCM project path. So
+# check the path relative to $(srctree) first.
+ifneq ($(realpath $(srctree)/$(KBUILD_EXTMOD) 2>/dev/null),)
+	module_srcpath := $(srctree)/$(KBUILD_EXTMOD)
+else
+	module_srcpath := $(KBUILD_EXTMOD)
+endif
+
+endif
+
+ifeq ($(CONFIG_MODULE_SCMVERSION),y)
+# Get the SCM version of the module. `sed` verifies setlocalversion returns
+# a proper revision based on the SCM type, e.g. git, mercurial, or svn.
+module_scmversion := $(shell $(srctree)/scripts/setlocalversion $(module_srcpath) | \
+	sed -n 's/.*-\(\(g\|hg\)[a-fA-F0-9]\+\(-dirty\)\?\|svn[0-9]\+\).*/\1/p')
+ifneq ($(module_scmversion),)
+MODPOST += -v $(module_scmversion)
+endif
+endif
+
+# modpost options for modules (both in-kernel and external)
+MODPOST += \
+	$(addprefix -i ,$(wildcard $(input-symdump))) \
+	$(if $(KBUILD_NSDEPS),-d $(MODULES_NSDEPS)) \
+	$(if $(CONFIG_MODULE_ALLOW_MISSING_NAMESPACE_IMPORTS)$(KBUILD_NSDEPS),-N)
+
+# 'make -i -k' ignores compile errors, and builds as many modules as possible.
+ifneq ($(findstring i,$(filter-out --%,$(MAKEFLAGS))),)
+MODPOST += -n
+endif
+
+# Clear VPATH to not search for *.symvers in $(srctree). Check only $(objtree).
+VPATH :=
+$(input-symdump):
+	@echo >&2 'WARNING: Symbol version dump "$@" is missing.'
+	@echo >&2 '         Modules may not have dependencies or modversions.'
+
+ifdef CONFIG_LTO_CLANG
+# With CONFIG_LTO_CLANG, .o files might be LLVM bitcode, so we need to run
+# LTO to compile them into native code before running modpost
+prelink-ext := .lto
+
+quiet_cmd_cc_lto_link_modules = LTO [M] $@
+cmd_cc_lto_link_modules =						\
+	$(LD) $(ld_flags) -r -o $@					\
+		$(shell [ -s $(@:.lto.o=.o.symversions) ] &&		\
+			echo -T $(@:.lto.o=.o.symversions))		\
+		--whole-archive $^
+
+%.lto.o: %.o
+	$(call if_changed,cc_lto_link_modules)
+endif
+
+modules := $(sort $(shell cat $(MODORDER)))
+
+# Read out modules.order to pass in modpost.
+# Otherwise, allmodconfig would fail with "Argument list too long".
+quiet_cmd_modpost = MODPOST $@
+      cmd_modpost = sed 's/\.ko$$/$(prelink-ext)\.o/' $< | $(MODPOST) -T -
+
+$(output-symdump): $(MODORDER) $(input-symdump) $(modules:.ko=$(prelink-ext).o) FORCE
+	$(call if_changed,modpost)
+
+targets += $(output-symdump)
+
+__modpost: $(output-symdump)
+ifneq ($(KBUILD_MODPOST_NOFINAL),1)
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modfinal
+endif
+
+PHONY += FORCE
+FORCE:
+
+existing-targets := $(wildcard $(sort $(targets)))
+
+-include $(foreach f,$(existing-targets),$(dir $(f)).$(notdir $(f)).cmd)
+
+endif
+
+.PHONY: $(PHONY)
