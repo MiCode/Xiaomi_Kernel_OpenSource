@@ -12,9 +12,11 @@
 #include <linux/iommu.h>
 #include <linux/version.h>
 #include <linux/delay.h>
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
+#endif
 #include <soc/qcom/memory_dump.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
@@ -110,15 +112,18 @@ struct msm11ad_ctx {
 	/* subsystem restart */
 	struct wil_platform_rops rops;
 	void *wil_handle;
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 	struct subsys_desc subsysdesc;
 	struct subsys_device *subsys;
 	void *subsys_handle;
 	bool recovery_in_progress;
-
+#endif
 	/* ramdump */
 	void *ramdump_addr;
 	struct msm_dump_data dump_data;
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 	struct ramdump_device *ramdump_dev;
+#endif
 	u32 ramdump_size;
 
 	/* external vregs and clocks */
@@ -138,6 +143,7 @@ struct msm11ad_ctx {
 	bool keep_radio_on_during_sleep;
 	bool use_ap_ps;
 	int features;
+	struct notifier_block panic_notifier;
 };
 
 static LIST_HEAD(dev_list);
@@ -808,6 +814,7 @@ out:
 	return rc;
 }
 
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 static int msm_11ad_ssr_shutdown(const struct subsys_desc *subsys,
 				 bool force_stop)
 {
@@ -906,7 +913,7 @@ static void msm_11ad_ssr_crash_shutdown(const struct subsys_desc *subsys)
 		(void)msm_11ad_ssr_copy_ramdump(ctx);
 }
 
-static void msm_11ad_ssr_deinit(struct msm11ad_ctx *ctx)
+static void msm_11ad_ssr_ramdump_deinit(struct msm11ad_ctx *ctx)
 {
 	if (ctx->ramdump_dev) {
 		destroy_ramdump_device(ctx->ramdump_dev);
@@ -927,7 +934,7 @@ static void msm_11ad_ssr_deinit(struct msm11ad_ctx *ctx)
 	}
 }
 
-static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
+static int msm_11ad_ssr_ramdump_init(struct msm11ad_ctx *ctx)
 {
 	int rc;
 	struct msm_dump_entry dump_entry;
@@ -975,9 +982,96 @@ static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
 	return 0;
 
 out_rc:
-	msm_11ad_ssr_deinit(ctx);
+	msm_11ad_ssr_ramdump_deinit(ctx);
 	return rc;
 }
+#elif IS_ENABLED(CONFIG_QCOM_RAMDUMP)
+static int msm_11ad_ramdump(struct msm11ad_ctx *ctx)
+{
+	if (ctx->rops.ramdump && ctx->wil_handle) {
+		int rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
+					   ctx->ramdump_size);
+		if (rc) {
+			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+static int msm_11ad_panic_notifier(struct notifier_block *nb,
+				   unsigned long action, void *data)
+{
+	struct msm11ad_ctx *ctx;
+
+	ctx = container_of(nb, struct msm11ad_ctx, panic_notifier);
+	msm_11ad_ramdump(ctx);
+	return 0;
+}
+
+static void msm_11ad_panic_notifier_unregister(struct msm11ad_ctx *ctx)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					  &ctx->panic_notifier);
+}
+
+static int msm_11ad_panic_notifier_register(struct msm11ad_ctx *ctx)
+{
+	ctx->panic_notifier.notifier_call = msm_11ad_panic_notifier;
+	ctx->panic_notifier.priority = INT_MAX;
+	return atomic_notifier_chain_register(&panic_notifier_list,
+					      &ctx->panic_notifier);
+}
+
+static void msm_11ad_ssr_ramdump_deinit(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_panic_notifier_unregister(ctx);
+	kfree(ctx->ramdump_addr);
+	ctx->ramdump_addr = NULL;
+}
+
+static int msm_11ad_ssr_ramdump_init(struct msm11ad_ctx *ctx)
+{
+	int rc;
+	struct msm_dump_entry dump_entry;
+
+	ctx->ramdump_addr = kmalloc(ctx->ramdump_size, GFP_KERNEL);
+	if (!ctx->ramdump_addr)
+		return -ENOMEM;
+
+	ctx->dump_data.addr = virt_to_phys(ctx->ramdump_addr);
+	ctx->dump_data.len = ctx->ramdump_size;
+	ctx->dump_data.version = WIGIG_DUMP_FORMAT_VER;
+	ctx->dump_data.magic = WIGIG_DUMP_MAGIC_VER_V1;
+	strlcpy(ctx->dump_data.name, WIGIG_SUBSYS_NAME,
+		sizeof(ctx->dump_data.name));
+
+	dump_entry.id = MSM_DUMP_DATA_WIGIG;
+	dump_entry.addr = virt_to_phys(&ctx->dump_data);
+
+	rc = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (rc) {
+		dev_err(ctx->dev, "Dump table setup failed: %d\n", rc);
+		goto free_ramdump;
+	}
+	msm_11ad_panic_notifier_register(ctx);
+	return 0;
+
+free_ramdump:
+	kfree(ctx->ramdump_addr);
+	ctx->ramdump_addr = NULL;
+	return rc;
+}
+#else
+static void msm_11ad_ssr_ramdump_deinit(struct msm11ad_ctx *ctx)
+{
+}
+
+static int msm_11ad_ssr_ramdump_init(struct msm11ad_ctx *ctx)
+{
+	return 0;
+}
+#endif
 
 static void msm_11ad_init_cpu_boost(struct msm11ad_ctx *ctx)
 {
@@ -1294,10 +1388,10 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* register for subsystem restart */
-	rc = msm_11ad_ssr_init(ctx);
+	/* register for ramdump and subsystem restart */
+	rc = msm_11ad_ssr_ramdump_init(ctx);
 	if (rc)
-		dev_err(ctx->dev, "msm_11ad_ssr_init failed: %d\n", rc);
+		dev_err(ctx->dev, "msm_11ad_ssr_ramdump_init failed: %d\n", rc);
 
 	msm_11ad_init_cpu_boost(ctx);
 
@@ -1375,7 +1469,7 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	struct msm11ad_ctx *ctx = platform_get_drvdata(pdev);
 
 	msm_pcie_deregister_event(&ctx->pci_event);
-	msm_11ad_ssr_deinit(ctx);
+	msm_11ad_ssr_ramdump_deinit(ctx);
 	list_del(&ctx->list);
 	dev_dbg(ctx->dev, "%s: pdev %pK pcidev %pK\n", __func__, pdev,
 		ctx->pcidev);
@@ -1559,6 +1653,7 @@ static void ops_uninit(void *handle)
 	msm_11ad_suspend_power_off(ctx);
 }
 
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
 {
 	int rc;
@@ -1578,6 +1673,26 @@ static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
 
 	return 0;
 }
+#elif IS_ENABLED(CONFIG_QCOM_RAMDUMP)
+static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
+{
+	if (ctx->rops.ramdump && ctx->wil_handle) {
+		int rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
+					   ctx->ramdump_size);
+		if (rc) {
+			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+#else
+static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
+{
+	return 0;
+}
+#endif
 
 static int ops_notify(void *handle, enum wil_platform_event evt)
 {
@@ -1728,6 +1843,27 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 }
 EXPORT_SYMBOL(msm_11ad_dev_init);
 
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
+static void msm_11ad_ssr_subsys_init(struct msm11ad_ctx *ctx)
+{
+	ctx->subsys_handle = subsystem_get(WIGIG_SUBSYS_NAME);
+}
+static void msm_11ad_ssr_subsys_deinit(struct msm11ad_ctx *ctx)
+{
+	if (ctx->subsys_handle) {
+		subsystem_put(ctx->subsys_handle);
+		ctx->subsys_handle = NULL;
+	}
+}
+#else
+static void msm_11ad_ssr_subsys_init(struct msm11ad_ctx *ctx)
+{
+}
+static void msm_11ad_ssr_subsys_deinit(struct msm11ad_ctx *ctx)
+{
+}
+#endif
+
 int msm_11ad_modinit(void)
 {
 	struct msm11ad_ctx *ctx = list_first_entry_or_null(&dev_list,
@@ -1739,8 +1875,7 @@ int msm_11ad_modinit(void)
 		return -EINVAL;
 	}
 
-	ctx->subsys_handle = subsystem_get(ctx->subsysdesc.name);
-
+	msm_11ad_ssr_subsys_init(ctx);
 	return msm_11ad_resume_power_on(ctx);
 }
 EXPORT_SYMBOL(msm_11ad_modinit);
@@ -1756,10 +1891,7 @@ void msm_11ad_modexit(void)
 		return;
 	}
 
-	if (ctx->subsys_handle) {
-		subsystem_put(ctx->subsys_handle);
-		ctx->subsys_handle = NULL;
-	}
+	msm_11ad_ssr_subsys_deinit(ctx);
 }
 EXPORT_SYMBOL(msm_11ad_modexit);
 
