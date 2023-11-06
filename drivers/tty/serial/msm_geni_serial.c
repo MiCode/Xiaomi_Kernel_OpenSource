@@ -1271,8 +1271,7 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 
 		msm_geni_serial_enable_interrupts(uport);
 		port->m_cmd = false;
-	} else if ((geni_status & M_GENI_CMD_ACTIVE) &&
-						!port->cur_tx_remaining) {
+	} else if (geni_status & M_GENI_CMD_ACTIVE) {
 		/* It seems we can interrupt existing transfers unless all data
 		 * has been sent, in which case we need to look for done first.
 		 */
