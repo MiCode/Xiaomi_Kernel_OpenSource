@@ -551,25 +551,35 @@ static ssize_t store_spm_freq_map(struct kobject *kobj,
 	sptr = str;
 	for (i = 0; i < MAX_SPM_FREQ_MAP; i++) {
 		token = strsep(&sptr, ":");
-		if (!token)
-			return -EINVAL;
+		if (!token) {
+			ret =  -EINVAL;
+			goto out;
+		}
 		ret = kstrtouint(token, 10, &val);
-		if (ret < 0)
-			return -EINVAL;
+		if (ret < 0) {
+			ret =  -EINVAL;
+			goto out;
+		}
 		val = max(val, 0U);
 		val = min(val, U32_MAX);
 		mon->spm_freq_map[i].cpufreq_mhz = val;
 		token = strsep(&sptr, " ");
-		if (!token)
-			return -EINVAL;
+		if (!token) {
+			ret =  -EINVAL;
+			goto out;
+		}
 		ret = kstrtouint(token, 10, &val);
-		if (ret < 0)
-			return -EINVAL;
+		if (ret < 0) {
+			ret =  -EINVAL;
+			goto out;
+		}
 		val = max(val, mon->min_freq);
 		val = min(val, mon->mon_max_freq);
 		mon->spm_freq_map[i].memfreq_khz = val;
 	}
 	ret = count;
+out:
+	kfree(str);
 	return ret;
 }
 
