@@ -1902,6 +1902,92 @@ geni_i2c_panic_notifier_callback(struct notifier_block *nb, unsigned long action
 	return NOTIFY_OK;
 }
 
+/**
+ * geni_i2c_resources_init: initialize clk, icc vote, read dt property
+ * @pdev: Platform driver handle
+ * @gi2c: geni i2c structure as a pointer
+ *
+ * Function to initialize clock and icc vote configuration and read require
+ * DTSI property.
+ *
+ * Return: 0 on success OR negative error code for failure.
+ */
+static int geni_i2c_resources_init(struct platform_device *pdev, struct geni_i2c_dev *gi2c)
+{
+	int ret;
+
+	/*
+	 * For LE, clocks, gpio and icb voting will be provided by
+	 * LA. The I2C operates in GSI mode only for LE usecase,
+	 * se irq not required. Below properties will not be present
+	 * in I2C LE dt.
+	 */
+	if (gi2c->is_le_vm)
+		return 0;
+
+	gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
+	if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
+		dev_err(&pdev->dev, "Err getting SE Core clk %d\n", ret);
+		return ret;
+	}
+
+	gi2c->i2c_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
+	if (IS_ERR(gi2c->i2c_rsc.m_ahb_clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.m_ahb_clk);
+		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
+		return ret;
+	}
+
+	gi2c->i2c_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
+	if (IS_ERR(gi2c->i2c_rsc.s_ahb_clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.s_ahb_clk);
+		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
+		return ret;
+	}
+
+	ret = geni_se_resources_init(&gi2c->i2c_rsc, I2C_CORE2X_VOTE,
+				(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	if (ret) {
+		dev_err(gi2c->dev, "geni_se_resources_init\n");
+		return ret;
+	}
+
+	gi2c->i2c_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_pinctrl)) {
+		dev_err(&pdev->dev, "No pinctrl config specified\n");
+		ret = PTR_ERR(gi2c->i2c_rsc.geni_pinctrl);
+		return ret;
+	}
+	gi2c->i2c_rsc.geni_gpio_active =
+		pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl, PINCTRL_DEFAULT);
+	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_active)) {
+		dev_err(&pdev->dev, "No default config specified\n");
+		ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_active);
+		return ret;
+	}
+	gi2c->i2c_rsc.geni_gpio_sleep =
+		pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl, PINCTRL_SLEEP);
+	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_sleep)) {
+		dev_err(&pdev->dev, "No sleep config specified\n");
+		ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
+		return ret;
+	}
+
+	gi2c->irq = platform_get_irq(pdev, 0);
+	if (gi2c->irq < 0)
+		return gi2c->irq;
+
+	irq_set_status_flags(gi2c->irq, IRQ_NOAUTOEN);
+	ret = devm_request_irq(gi2c->dev, gi2c->irq, geni_i2c_irq, 0, "i2c_geni", gi2c);
+	if (ret) {
+		dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n", gi2c->irq, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int geni_i2c_probe(struct platform_device *pdev)
 {
 	struct geni_i2c_dev *gi2c;
@@ -1964,76 +2050,13 @@ static int geni_i2c_probe(struct platform_device *pdev)
 
 	/*
 	 * For LE, clocks, gpio and icb voting will be provided by
-	 * by LA. The I2C operates in GSI mode only for LE usecase,
+	 * LA. The I2C operates in GSI mode only for LE usecase,
 	 * se irq not required. Below properties will not be present
 	 * in I2C LE dt.
 	 */
-	if (!gi2c->is_le_vm) {
-		gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
-		if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
-			ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
-			dev_err(&pdev->dev, "Err getting SE Core clk %d\n",
-				ret);
-			return ret;
-		}
-
-		gi2c->i2c_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
-		if (IS_ERR(gi2c->i2c_rsc.m_ahb_clk)) {
-			ret = PTR_ERR(gi2c->i2c_rsc.m_ahb_clk);
-			dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
-			return ret;
-		}
-
-		gi2c->i2c_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
-		if (IS_ERR(gi2c->i2c_rsc.s_ahb_clk)) {
-			ret = PTR_ERR(gi2c->i2c_rsc.s_ahb_clk);
-			dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
-			return ret;
-		}
-
-		ret = geni_se_resources_init(&gi2c->i2c_rsc, I2C_CORE2X_VOTE,
-				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-		if (ret) {
-			dev_err(gi2c->dev, "geni_se_resources_init\n");
-			return ret;
-		}
-
-		gi2c->i2c_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
-		if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_pinctrl)) {
-			dev_err(&pdev->dev, "No pinctrl config specified\n");
-			ret = PTR_ERR(gi2c->i2c_rsc.geni_pinctrl);
-			return ret;
-		}
-		gi2c->i2c_rsc.geni_gpio_active =
-			pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
-							PINCTRL_DEFAULT);
-		if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_active)) {
-			dev_err(&pdev->dev, "No default config specified\n");
-			ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_active);
-			return ret;
-		}
-		gi2c->i2c_rsc.geni_gpio_sleep =
-			pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
-							PINCTRL_SLEEP);
-		if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_sleep)) {
-			dev_err(&pdev->dev, "No sleep config specified\n");
-			ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
-			return ret;
-		}
-
-		gi2c->irq = platform_get_irq(pdev, 0);
-		if (gi2c->irq < 0)
-			return gi2c->irq;
-
-		irq_set_status_flags(gi2c->irq, IRQ_NOAUTOEN);
-		ret = devm_request_irq(gi2c->dev, gi2c->irq, geni_i2c_irq,
-					0, "i2c_geni", gi2c);
-		if (ret) {
-			dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n",
-					   gi2c->irq, ret);
-			return ret;
-		}
-	}
+	ret = geni_i2c_resources_init(pdev, gi2c);
+	if (ret)
+		return ret;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared")) {
 		gi2c->is_shared = true;
