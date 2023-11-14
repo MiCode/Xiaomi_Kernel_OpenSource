@@ -244,6 +244,13 @@ void fg_daemon_send_data(struct mtk_battery *gm,
 				struct VersionControl),
 				prcv->total_size);
 			}
+			if ((prcv->idx + prcv->size) >
+				sizeof(struct VersionControl)) {
+				bm_err("size is different %d size %d idx %d\n",
+					(int)sizeof(struct VersionControl),
+					prcv->size, prcv->idx);
+				return;
+			}
 
 			ptr = (char *)&gm->fg_version;
 			memcpy(&ptr[prcv->idx],
