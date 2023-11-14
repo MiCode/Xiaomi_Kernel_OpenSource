@@ -106,6 +106,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_wakeup_ilocked);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_send_sig_info);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_process_killed);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_killed_process);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_percpu_rwsem_wq_add);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
@@ -468,12 +469,17 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_free_swap_slot);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_free_swap_slot);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_get_swap_page);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_get_swap_page);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_add_to_avail_list);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_del_from_avail_list);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh___cgroup_throttle_swaprate);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_madvise_cold_or_pageout);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_page_isolated_for_reclaim);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_should_end_madvise);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_inactive_is_low);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_snapshot_refaults);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_account_swap_pages);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_unuse_swap_page);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_swap_avail_heads_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_init_swap_info_struct);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_si_swapinfo);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_alloc_si);
@@ -492,6 +498,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dma_buf_stats_teardown);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_madvise_cold_or_pageout_abort);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_compact_finished);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wakeup_bypass);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_swapcache);
 /*
  * For type visibility
  */
