@@ -5972,6 +5972,8 @@ static void mt6357_codec_init_reg(struct snd_soc_component *component)
 	Ana_Set_Reg(AUDDEC_ANA_CON3, 0x1 << 4, 0x1 << 4);
 	/* disable LO buffer left short circuit protection */
 	Ana_Set_Reg(AUDDEC_ANA_CON4, 0x1 << 4, 0x1 << 4);
+	/* AUDENC_ANA_CON10 bit12 EINTHIRENB 0:2M 1:500k */
+	Ana_Set_Reg(AUDENC_ANA_CON10, 0x1c07, 0xffff);
 	/* set gpio */
 	set_playback_gpio(false);
 	set_capture_gpio(false);
