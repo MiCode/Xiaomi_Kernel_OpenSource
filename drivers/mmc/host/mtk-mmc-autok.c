@@ -5,6 +5,7 @@
 
 #include "mtk-mmc-autok.h"
 #include "mtk-mmc.h"
+#include "../core/card.h"
 
 #define MSDC_CLKTXDLY		0
 #define MSDC_PB0_DEFAULT_VAL		0x403C0007
@@ -280,6 +281,30 @@ static void msdc_reset_hw(struct msdc_host *host)
 
 	val = readl(host->base + MSDC_INT);
 	writel(val, host->base + MSDC_INT);
+}
+
+/**********************************************************
+ * AutoK Utility interface Implenment                     *
+ **********************************************************/
+
+static int mtk_mmc_need_use_rising_edge(struct msdc_host *host)
+{
+	struct mmc_host *mmc;
+
+	mmc = mmc_from_priv(host);
+
+	if(!mmc->card) {
+		AUTOK_DBGPRINT(AUTOK_DBG_RES, "mtk-test card is null");
+		return 0;
+	}
+	AUTOK_DBGPRINT(AUTOK_DBG_RES, "mtk-test manfid: %d prod_nam: %s", mmc->card->cid.manfid,
+		mmc->card->cid.prod_name);
+	if ((mmc->card->cid.manfid == CID_MANFID_HONGXINYU) ||
+		(mmc->card->cid.manfid == CID_MANFID_CHANGCUN)) {
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 /**********************************************************
@@ -954,7 +979,7 @@ static int autok_pad_dly_sel(struct AUTOK_REF_INFO *pInfo)
 	FBound_Cnt_R = pBdInfo_R->fbd_cnt;
 	Bound_Cnt_R = pBdInfo_R->bd_cnt;
 	Bound_Cnt_F = pBdInfo_F->bd_cnt;
-
+	AUTOK_RAWPRINT("[AUTOK]FBound_Cnt_R=%d\n",FBound_Cnt_R);
 	switch (FBound_Cnt_R) {
 	case 4:	/* SSSS Corner may cover 2~3T */
 	case 3:
@@ -1502,6 +1527,7 @@ static int autok_pad_dly_sel(struct AUTOK_REF_INFO *pInfo)
 
 	/* Select Optimised Sample edge & delay count (the small one) */
 	pInfo->cycle_cnt = cycle_cnt;
+	AUTOK_RAWPRINT("[AUTOK]uDlySel_R=%d,uDlySel_F=%d\n",uDlySel_R,uDlySel_F);
 	if (uDlySel_R <= uDlySel_F) {
 		pInfo->opt_edge_sel = 0;
 		pInfo->opt_dly_cnt = uDlySel_R;
@@ -2756,6 +2782,15 @@ int autok_init_hs400(struct msdc_host *host)
 }
 EXPORT_SYMBOL(autok_init_hs400);
 
+#define DEFAULT_RAWDATA64_RISING 0X200000000LL
+#define DEFAULT_RAWDATA64_FALLING 0X300000000000100LL
+/*
+ *CMD 0          33      OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+ *0x200000000
+ *CMD 1          47      OOOOOOOOXOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOXXOOOOOO
+ *0x300000000000100
+ *[0 1 2 ...... 60 61 62 63]
+ */
 int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 {
 	unsigned int ret = 0;
@@ -2841,8 +2876,19 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 			}
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
-		AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]CMD %d \t %d \t %s\r\n",
-			uCmdEdge, score, tune_result_str64);
+		if (!RawData64 || (score==64)) {
+			if(!uCmdEdge){
+				AUTOK_DBGPRINT(AUTOK_DBG_RES,"[AUTOK]Handling when all result OOOOOO - rising\r\n");
+				RawData64 = DEFAULT_RAWDATA64_RISING;
+				score = autok_simple_score64(tune_result_str64, RawData64);
+			} else {
+				AUTOK_DBGPRINT(AUTOK_DBG_RES,"[AUTOK]Handling when all result OOOOOO - falling\r\n");
+				RawData64 = DEFAULT_RAWDATA64_FALLING;
+				score = autok_simple_score64(tune_result_str64, RawData64);
+			}
+		}
+		AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]CMD %d \t %d \t %s 0x%llx\r\n",
+			uCmdEdge, score, tune_result_str64, RawData64);
 		if (uCmdEdge)
 			autok_window_apply(CMD_FALL,
 			    RawData64, p_autok_tune_res);
@@ -3070,6 +3116,14 @@ int execute_cmd_online_tuning(struct msdc_host *host, u8 *res)
 		score = autok_simple_score64(tune_result_str64, RawData64);
 		AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]CMD %d \t %d \t %s\r\n",
 			uCmdEdge, score, tune_result_str64);
+
+		if (res != NULL) {
+			if (uCmdEdge)
+				autok_window_apply(CMD_FALL, RawData64, res);
+			else
+				autok_window_apply(CMD_RISE, RawData64, res);
+		}
+
 		if (autok_check_scan_res64(RawData64,
 			    &pBdInfo->scan_info[uCmdEdge],
 			    AUTOK_TUNING_INACCURACY) != 0)
@@ -4113,8 +4167,8 @@ int autok_vcore_merge_sel(struct msdc_host *host, unsigned int merge_cap)
 		}
 		score = autok_simple_score64(tune_result_str64, RawData64);
 		AUTOK_DBGPRINT(AUTOK_DBG_RES,
-			"[AUTOK]CMD %d \t %d \t %s merge\r\n",
-			uCmdEdge, score, tune_result_str64);
+			"[AUTOK]CMD %d \t %d \t %s merge 0x%llx\r\n",
+			uCmdEdge, score, tune_result_str64, RawData64);
 		if (autok_check_scan_res64_new(RawData64,
 			&pInfo->scan_info[uCmdEdge], 0) != 0)
 			goto fail;
@@ -4129,13 +4183,15 @@ int autok_vcore_merge_sel(struct msdc_host *host, unsigned int merge_cap)
 			    host->autok_res[AUTOK_VCORE_MERGE]);
 		uCmdEdge ^= 0x1;
 	} while (uCmdEdge);
-	if (max_win[0] >= max_win[1]) {
+
+	if (mtk_mmc_need_use_rising_edge(host) || (max_win[0] >= max_win[1])) {
 		pInfo->opt_edge_sel = 0;
 		pInfo->opt_dly_cnt = dly_sel[0];
 	} else {
 		pInfo->opt_edge_sel = 1;
 		pInfo->opt_dly_cnt = dly_sel[1];
 	}
+
 	AUTOK_DBGPRINT(AUTOK_DBG_RES,
 		"[AUTOK]cmd edge = %d cmd dly = %d max win = %d\r\n",
 		pInfo->opt_edge_sel,

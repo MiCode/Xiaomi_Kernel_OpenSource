@@ -27,6 +27,7 @@ static void msdc_request_done(struct msdc_host *host, struct mmc_request *mrq);
 #if IS_ENABLED(CONFIG_MMC_DEBUG)
 static void msdc_gpio_of_parse(struct msdc_host *host);
 #endif
+
 static int msdc_get_gpio_version(void)
 {
 	struct device_node *of_chosen = NULL;
@@ -235,7 +236,7 @@ static const struct mtk_mmc_compatible mt6765_compat = {
 	.support_64g = true,
 	.need_gate_cg = true,
 	.set_crypto_enable_in_sw = true,
-	.autok_ver = 0x17122120,
+	.autok_ver = 0x17122125,
 };
 
 static const struct mtk_mmc_compatible mt6768_compat = {

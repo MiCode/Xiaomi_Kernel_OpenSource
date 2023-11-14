@@ -758,4 +758,9 @@ static u32 bad_sd_forget[BAD_SD_DETECTER_COUNT] = {3};
  */
 static unsigned long bad_sd_timer[BAD_SD_DETECTER_COUNT] = {0};
 
+/*vendor manufacturer id
+ */
+#define CID_MANFID_HONGXINYU    0xD6
+#define CID_MANFID_CHANGCUN	0x9B
+
 #endif  /* _MTK_MMC_H_ */

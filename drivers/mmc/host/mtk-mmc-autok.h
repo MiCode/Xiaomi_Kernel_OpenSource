@@ -172,6 +172,10 @@ struct AUTOK_PLAT_FUNC {
 			autok_para_tx.msdc1_clktx = 4; \
 			autok_para_tx.msdc1_sdr104_clktx = 4; \
 			break; \
+		case 0x17122125: \
+			autok_para_tx.msdc1_clktx = 0; \
+			autok_para_tx.msdc1_sdr104_clktx = 0; \
+			break; \
 		default: \
 			break; \
 		} \
@@ -202,6 +206,25 @@ struct AUTOK_PLAT_FUNC {
 			autok_para_rx.latchck_switch_cnt_ddr208 = 3; \
 			autok_para_rx.ds_dly3_ddr208 = 20; \
 			break; \
+		case 0x17122125: \
+			autok_para_rx.latch_en_cmd_hs400 = 2; \
+			autok_para_rx.latch_en_crc_hs400 = 2; \
+			autok_para_rx.latch_en_cmd_hs200 = 1; \
+			autok_para_rx.latch_en_crc_hs200 = 1; \
+			autok_para_rx.latch_en_cmd_ddr208 = 2; \
+			autok_para_rx.latch_en_crc_ddr208 = 2; \
+			autok_para_rx.latch_en_cmd_sd_sdr104 = 1; \
+			autok_para_rx.latch_en_crc_sd_sdr104 = 1; \
+			autok_para_rx.latch_en_cmd_sdio_sdr104 = 1; \
+			autok_para_rx.latch_en_crc_sdio_sdr104 = 1; \
+			autok_para_rx.read_dat_cnt_hs400 = 1; \
+			autok_para_rx.read_dat_cnt_ddr208 = 1; \
+			autok_para_rx.end_bit_chk_cnt_hs400 = 3; \
+			autok_para_rx.end_bit_chk_cnt_ddr208 = 3; \
+			autok_para_rx.latchck_switch_cnt_hs400 = 5; \
+			autok_para_rx.latchck_switch_cnt_ddr208 = 3; \
+			autok_para_rx.ds_dly3_ddr208 = 20; \
+			break; \
 		default: \
 			break; \
 		} \
@@ -214,6 +237,8 @@ struct AUTOK_PLAT_FUNC {
 		case 0x18110817: \
 			break; \
 		case 0x17122120: \
+			break; \
+		case 0x17122125: \
 			break; \
 		default: \
 			break; \
@@ -228,6 +253,8 @@ struct AUTOK_PLAT_FUNC {
 			break; \
 		case 0x17122120: \
 			break; \
+		case 0x17122125: \
+			break; \
 		default: \
 			break; \
 		} \
@@ -240,6 +267,14 @@ struct AUTOK_PLAT_FUNC {
 		case 0x18110817: \
 			break; \
 		case 0x17122120: \
+			autok_para_func.r1b_check = 0; \
+			autok_para_func.ddr50_fix = 0; \
+			autok_para_func.fifo_1k = 0; \
+			autok_para_func.latch_enhance = 0; \
+			autok_para_func.msdc0_bypass_duty_modify = 0; \
+			autok_para_func.msdc1_bypass_duty_modify = 0; \
+			break; \
+		case 0x17122125: \
 			autok_para_func.r1b_check = 0; \
 			autok_para_func.ddr50_fix = 0; \
 			autok_para_func.fifo_1k = 0; \
