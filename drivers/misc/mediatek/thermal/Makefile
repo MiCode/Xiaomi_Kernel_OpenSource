@@ -148,6 +148,7 @@ ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
 thermal_monitor-y += common/coolers/mtk_cooler_mutt.o
 endif
 thermal_monitor-y += common/coolers/mtk_cooler_bcct_v1.o
+thermal_monitor-y += common/coolers/mtk_cooler_bcct_2nd.o
 thermal_monitor-y += v2/src/mtk_pmic_efuse.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_charger2.o
 endif

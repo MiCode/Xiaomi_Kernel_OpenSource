@@ -849,6 +849,7 @@ static int _cl_abcct_2nd_open(struct inode *inode, struct file *file)
 }
 
 static const struct proc_ops _cl_abcct_2nd_fops = {
+
 	.proc_open = _cl_abcct_2nd_open,
 	.proc_read = seq_read,
 	.proc_lseek = seq_lseek,
@@ -1131,7 +1132,7 @@ err_unreg:
 	return err;
 }
 
-void mtk_cooler_bcct_2nd_exit(void)
+void  mtk_cooler_bcct_2nd_exit(void)
 {
 	mtk_cooler_bcct_2nd_dprintk("%s\n", __func__);
 
@@ -1153,3 +1154,6 @@ void mtk_cooler_bcct_2nd_exit(void)
 
 	mtk_disp_notifier_unregister(&bcct_2nd_lcmoff_fb_notifier);
 }
+
+//module_init(mtk_cooler_bcct_2nd_init);
+//module_exit(mtk_cooler_bcct_2nd_exit);
