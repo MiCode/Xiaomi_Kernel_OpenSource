@@ -1645,6 +1645,52 @@ static bool is_inbound_req(int val)
 		val == QSEOS_RESULT_BLOCKED_ON_LISTENER);
 }
 
+static void process_piggyback_cb_data(uint8_t *outbuf, size_t buf_len)
+{
+	struct smcinvoke_tzcb_req *msg = NULL;
+	uint32_t max_offset = 0;
+	uint32_t buffer_size_max_offset = 0;
+	void *piggyback_buf = NULL;
+	size_t piggyback_buf_size;
+	size_t piggyback_offset = 0;
+	int i = 0;
+
+	if (outbuf == NULL) {
+		pr_err("%s: outbuf is NULL\n", __func__);
+		return;
+	}
+	msg = (void *) outbuf;
+	if ((buf_len < msg->args[0].b.offset) ||
+		(buf_len - msg->args[0].b.offset < msg->args[0].b.size)) {
+		pr_err("%s: invalid scenario\n", __func__);
+		return;
+	}
+	FOR_ARGS(i, msg->hdr.counts, BI)
+	{
+		if (msg->args[i].b.offset > max_offset) {
+			max_offset = msg->args[i].b.offset;
+			buffer_size_max_offset = msg->args[i].b.size;
+		}
+	}
+	FOR_ARGS(i, msg->hdr.counts, BO)
+	{
+		if (msg->args[i].b.offset > max_offset) {
+			max_offset = msg->args[i].b.offset;
+			buffer_size_max_offset = msg->args[i].b.size;
+		}
+	}
+	//Take out the offset after BI and BO objects end
+	if (max_offset)
+		piggyback_offset = max_offset + buffer_size_max_offset;
+	else
+		piggyback_offset = TZCB_BUF_OFFSET(msg);
+	piggyback_offset = size_align(piggyback_offset, SMCINVOKE_ARGS_ALIGN_SIZE);
+	// Jump to piggy back data offset
+	piggyback_buf = (uint8_t *)msg + piggyback_offset;
+	piggyback_buf_size = g_max_cb_buf_size - piggyback_offset;
+	process_piggyback_data(piggyback_buf, piggyback_buf_size);
+}
+
 static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 		size_t in_buf_len,
 		uint8_t *out_buf, phys_addr_t out_paddr,
@@ -1738,6 +1784,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 
 		if (response_type == SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
 			trace_status(__func__, "looks like inbnd req reqd");
+			process_piggyback_cb_data(out_buf, out_buf_len);
 			process_tzcb_req(out_buf, out_buf_len, arr_filp);
 			cmd = SMCINVOKE_CB_RSP_CMD;
 		}
