@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -212,7 +212,7 @@ ssize_t thermal_dbgfs_config_read(struct file *file, char __user *buf,
 {
 	struct thermal_zone_device *tz = NULL;
 	int offset = 0, buf_count = 0, ret;
-	char config_buf[PAGE_SIZE] = "";
+	char *config_buf = NULL;
 
 	tz = thermal_zone_get_zone_by_name((const char *)tzone_sensor_name);
 	if (IS_ERR(tz)) {
@@ -221,6 +221,10 @@ ssize_t thermal_dbgfs_config_read(struct file *file, char __user *buf,
 					tzone_sensor_name, ret);
 		return ret;
 	}
+
+	config_buf = kzalloc(sizeof(char) * PAGE_SIZE, GFP_KERNEL);
+	if (!config_buf)
+		return -ENOMEM;
 
 	offset += scnprintf(config_buf + offset, PAGE_SIZE - offset, "%*s%s\n",
 				-15, "sensor", tz->type);
@@ -241,7 +245,9 @@ ssize_t thermal_dbgfs_config_read(struct file *file, char __user *buf,
 			goto config_exit;
 		}
 		config_buf[offset] = '\0';
-		return simple_read_from_buffer(buf, count, ppos, config_buf, offset);
+		ret = simple_read_from_buffer(buf, count, ppos, config_buf, offset);
+		kfree(config_buf);
+		return ret;
 	}
 
 	ret = fetch_and_populate_trips(config_buf, tz, offset);
@@ -264,6 +270,8 @@ ssize_t thermal_dbgfs_config_read(struct file *file, char __user *buf,
 	buf_count = simple_read_from_buffer(buf, count, ppos, config_buf, offset);
 
 config_exit:
+	kfree(config_buf);
+
 	return (ret < 0) ? ret : buf_count;
 }
 
