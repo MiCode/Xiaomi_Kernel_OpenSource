@@ -2256,7 +2256,7 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 		/* Do not unconfigure GPIOs if shared se */
 		se_geni_clks_off(&gi2c->i2c_rsc);
 		gi2c->clocks_on = false;
-	} else {
+	} else if (!gi2c->is_le_vm) {
 		se_geni_resources_off(&gi2c->i2c_rsc);
 		gi2c->clocks_on = false;
 	}
