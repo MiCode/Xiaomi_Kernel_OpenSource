@@ -119,7 +119,6 @@ struct kxr_spi_xfer {
 	u8 rx_buff[256];
 
 	struct mutex mode_mutex;
-	struct mutex xchg_mutex;
 	bool (*handler)(struct kxr_aphost *apohst);
 };
 
