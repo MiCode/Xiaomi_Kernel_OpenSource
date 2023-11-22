@@ -18,8 +18,8 @@ int kxr_spi_xchg_read_response(struct kxr_aphost *aphost, char *buff, int size)
 	int times = 20;
 	int length;
 
-	while (header->ack == 0) {
-		if (times < 1)
+	while (header->ack == 0)
+		if (times < 1) {
 			return scnprintf(buff, PAGE_SIZE, "no need to ack\n");
 
 		msleep(21);
