@@ -3903,12 +3903,12 @@ static void msm_pcie_cesta_disable_drv(struct msm_pcie_dev_t *dev)
 	if (!dev->pcie_sm)
 		return;
 
-	msm_pcie_cesta_disable_l1ss_to(dev);
-
 	/* Use CESTA to turn on the resources into D0 state from DRV state*/
 	ret = msm_pcie_cesta_map_apply(dev, D0_STATE);
 	if (ret)
 		PCIE_ERR(dev, "Failed to move to D0 State %d\n", ret);
+
+	msm_pcie_cesta_disable_l1ss_to(dev);
 
 	/* Remove CLKREQ as wake up capable gpio */
 	ret = msm_gpio_mpm_wake_set(dev->clkreq_gpio, false);
@@ -9525,7 +9525,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
 	int ret, i;
-	unsigned long irqsave_flags;
+	unsigned long irqsave_flags, cfg_irqsave_flags;
 	u32 ab = 0, ib = 0;
 
 	/* If CESTA is available then drv is always supported */
@@ -9556,9 +9556,9 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	pcie_dev->user_suspend = true;
 	set_bit(pcie_dev->rc_idx, &pcie_drv.rc_drv_enabled);
 	spin_lock_irqsave(&pcie_dev->irq_lock, irqsave_flags);
-	spin_lock_irq(&pcie_dev->cfg_lock);
+	spin_lock_irqsave(&pcie_dev->cfg_lock, cfg_irqsave_flags);
 	pcie_dev->cfg_access = false;
-	spin_unlock_irq(&pcie_dev->cfg_lock);
+	spin_unlock_irqrestore(&pcie_dev->cfg_lock, cfg_irqsave_flags);
 	spin_unlock_irqrestore(&pcie_dev->irq_lock, irqsave_flags);
 	mutex_lock(&pcie_dev->setup_lock);
 	mutex_lock(&pcie_dev->aspm_lock);

@@ -43,6 +43,7 @@
 #define MAX_MARGIN_LEVELS (MAX_CLUSTERS - 1)
 
 extern bool walt_disabled;
+extern bool waltgov_disabled;
 
 enum task_event {
 	PUT_PREV_TASK	= 0,
@@ -350,6 +351,7 @@ extern char sched_lib_name[LIB_PATH_LENGTH];
 extern unsigned int sched_lib_mask_force;
 
 extern cpumask_t cpus_for_sbt_pause;
+extern unsigned int sysctl_sched_sbt_enable;
 extern unsigned int sysctl_sched_sbt_delay_windows;
 
 extern cpumask_t cpus_for_pipeline;
@@ -1126,11 +1128,14 @@ static inline bool has_internal_freq_limit_changed(struct walt_sched_cluster *cl
 	int i;
 
 	internal_freq = cluster->walt_internal_freq_limit;
-
 	cluster->walt_internal_freq_limit = cluster->max_freq;
-	for (i = 0; i < MAX_FREQ_CAP; i++)
-		cluster->walt_internal_freq_limit = min(fmax_cap[i][cluster->id],
+
+	if (likely(!waltgov_disabled)) {
+		for (i = 0; i < MAX_FREQ_CAP; i++)
+			cluster->walt_internal_freq_limit = min(fmax_cap[i][cluster->id],
 					     cluster->walt_internal_freq_limit);
+	}
+
 	return cluster->walt_internal_freq_limit != internal_freq;
 }
 

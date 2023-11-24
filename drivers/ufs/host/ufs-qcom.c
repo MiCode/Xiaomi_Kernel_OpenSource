@@ -1633,10 +1633,12 @@ static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 
 	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote) {
 		scale_up = 1;
-		ufs_qcom_toggle_pri_affinity(host->hba, true);
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(host->hba, true);
 	} else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote) {
 		scale_up = 0;
-		ufs_qcom_toggle_pri_affinity(host->hba, false);
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(host->hba, false);
 	} else
 		goto out;
 
@@ -2279,11 +2281,12 @@ struct ufs_qcom_dev_params ufs_qcom_cap;
 					       PA_NO_ADAPT);
 			}
 		}
+		if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TX_DEEMPHASIS_TUNING)
+			ufs_qcom_set_tx_hs_equalizer(hba,
+				dev_req_params->gear_tx, dev_req_params->lane_tx);
+
 		break;
 	case POST_CHANGE:
-		ufs_qcom_set_tx_hs_equalizer(hba,
-			dev_req_params->gear_tx, dev_req_params->lane_tx);
-
 		if (ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
 					dev_req_params->pwr_rx,
 					dev_req_params->hs_rate, false)) {
@@ -3155,6 +3158,9 @@ static void ufs_qcom_parse_irq_affinity(struct ufs_hba *hba)
 					UFS_QCOM_ESI_AFFINITY_MASK;
 		}
 	}
+	/* If device includes perf mask, enable dynamic irq affinity feature */
+	if (host->perf_mask.bits[0])
+		host->irq_affinity_support = true;
 }
 
 static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
@@ -3238,7 +3244,9 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 		/* Stop setting hi-pri to requests and set irq affinity to default value */
 		atomic_set(&host->therm_mitigation, 1);
 		cancel_dwork_unvote_cpufreq(hba);
-		ufs_qcom_toggle_pri_affinity(hba, false);
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(hba, false);
+
 		/* Set the default auto-hiberate idle timer to 1 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(1000));
 
@@ -3566,6 +3574,39 @@ static void ufs_qcom_parse_broken_ahit_workaround_flag(struct ufs_qcom_host *hos
 		return;
 
 	host->broken_ahit_wa = of_property_read_bool(np, str);
+}
+
+static void ufs_qcom_set_rate_a(struct ufs_qcom_host *host)
+{
+	size_t len;
+	u8 *data;
+	struct nvmem_cell *nvmem_cell;
+
+	nvmem_cell = nvmem_cell_get(host->hba->dev, "ufs_dev");
+	if (IS_ERR(nvmem_cell)) {
+		dev_err(host->hba->dev, "(%s) Failed to get nvmem cell\n", __func__);
+		return;
+	}
+
+	data = (u8 *)nvmem_cell_read(nvmem_cell, &len);
+	if (IS_ERR(data)) {
+		dev_err(host->hba->dev, "(%s) Failed to read from nvmem\n", __func__);
+		goto cell_put;
+	}
+
+	/*
+	 * data equal to zero shows that ufs 2.x card is connected while
+	 * non-zero value shows that ufs 3.x card is connected
+	 */
+	if (*data) {
+		host->limit_rate = PA_HS_MODE_A;
+		dev_dbg(host->hba->dev, "UFS 3.x device is detected, Mode is set to RATE A\n");
+	}
+
+	kfree(data);
+
+cell_put:
+	nvmem_cell_put(nvmem_cell);
 }
 
 /**
@@ -4737,6 +4778,9 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-rx-pwm-gear", &host->limit_rx_pwm_gear);
 	of_property_read_u32(np, "limit-rate", &host->limit_rate);
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
+
+	if (of_property_read_bool(np, "limit-rate-ufs3"))
+		ufs_qcom_set_rate_a(host);
 }
 
 /*
@@ -4835,7 +4879,8 @@ static struct ufs_dev_quirk ufs_qcom_dev_fixups[] = {
 	{ .wmanufacturerid = UFS_VENDOR_SAMSUNG,
 	  .model = UFS_ANY_MODEL,
 	  .quirk = UFS_DEVICE_QUIRK_PA_HIBER8TIME |
-			UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH},
+			UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH |
+			UFS_DEVICE_QUIRK_PA_TX_DEEMPHASIS_TUNING },
 	{ .wmanufacturerid = UFS_VENDOR_MICRON,
 	  .model = UFS_ANY_MODEL,
 	  .quirk = UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM },
@@ -5339,6 +5384,52 @@ static ssize_t ber_th_exceeded_show(struct device *dev,
 
 static DEVICE_ATTR_RO(ber_th_exceeded);
 
+static ssize_t irq_affinity_support_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool value;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &value))
+		return -EINVAL;
+
+	/* if current irq_affinity_support is same as requested one, don't proceed */
+	if (value == host->irq_affinity_support)
+		goto out;
+
+	/* if perf-mask is not set, don't proceed */
+	if (!host->perf_mask.bits[0])
+		goto out;
+
+	host->irq_affinity_support = !!value;
+	/* Reset cpu affinity accordingly */
+	if (host->irq_affinity_support)
+		ufs_qcom_set_affinity_hint(hba, true);
+	else
+		ufs_qcom_set_affinity_hint(hba, false);
+
+	return count;
+
+out:
+	return -EINVAL;
+}
+
+static ssize_t irq_affinity_support_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->irq_affinity_support);
+}
+
+static DEVICE_ATTR_RW(irq_affinity_support);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -5349,6 +5440,7 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_crash_on_err.attr,
 	&dev_attr_hibern8_count.attr,
 	&dev_attr_ber_th_exceeded.attr,
+	&dev_attr_irq_affinity_support.attr,
 	NULL
 };
 
@@ -5462,6 +5554,10 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 						ufshcd_readl(hba,
 							REG_UTP_TRANSFER_REQ_DOOR_BELL),
 						sz);
+
+			if ((host->irq_affinity_support) && atomic_read(&host->hi_pri_en) && rq)
+				rq->cmd_flags |= REQ_POLLED;
+
 			return;
 		}
 

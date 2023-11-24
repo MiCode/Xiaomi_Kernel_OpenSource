@@ -630,6 +630,7 @@ struct dwc3_msm {
 
 	bool			wcd_usbss;
 	bool			dynamic_disable;
+	bool			read_u1u2;
 
 	struct dentry		*dbg_dir;
 #define PM_QOS_REQ_DYNAMIC	0
@@ -3268,13 +3269,12 @@ static void mdwc3_usb2_phy_soft_reset(struct dwc3_msm *mdwc)
 static void mdwc3_update_u1u2_value(struct dwc3 *dwc)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	static bool read_u1u2;
 
 	/* cache DT based initial value once */
-	if (!read_u1u2) {
+	if (!mdwc->read_u1u2) {
 		mdwc->cached_dis_u1_entry_quirk = dwc->dis_u1_entry_quirk;
 		mdwc->cached_dis_u2_entry_quirk = dwc->dis_u2_entry_quirk;
-		read_u1u2 = true;
+		mdwc->read_u1u2 = true;
 		dbg_log_string("cached_dt_param: u1_disable:%d u2_disable:%d\n",
 			mdwc->cached_dis_u1_entry_quirk, mdwc->cached_dis_u2_entry_quirk);
 	}
@@ -3597,6 +3597,13 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
 }
 
+/* Force Gen1 speed on Gen2 controller if required */
+static void dwc3_force_gen1(struct dwc3_msm *mdwc)
+{
+	if (mdwc->force_gen1 && (mdwc->ip == DWC31_IP))
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
+}
+
 static int dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = NULL;
@@ -3644,9 +3651,7 @@ static int dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 			mdwc3_dis_sending_cm_l1(mdwc);
 	}
 
-	/* Force Gen1 speed on Gen2 controller if required */
-	if (mdwc->force_gen1 && mdwc->ip == DWC31_IP)
-		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
+	dwc3_force_gen1(mdwc);
 	return 0;
 }
 
@@ -5851,6 +5856,7 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	if (!mdwc->xhci_pm_ops)
 		goto free_dwc_pm_ops;
 
+	dwc3_force_gen1(mdwc);
 	dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC, 0);
 	pm_runtime_set_autosuspend_delay(dwc->dev, 0);
 	pm_runtime_allow(dwc->dev);

@@ -8,6 +8,7 @@ def define_pitti():
     _pitti_in_tree_modules = [
         # keep sorted
         # TODO: Need to add GKI modules
+        "drivers/char/rdbg.ko",
         "drivers/clk/qcom/clk-dummy.ko",
         "drivers/clk/qcom/clk-qcom.ko",
         "drivers/clk/qcom/gcc-pitti.ko",
@@ -20,19 +21,32 @@ def define_pitti():
         "drivers/iommu/msm_dma_iommu_mapping.ko",
         "drivers/iommu/qcom_iommu_util.ko",
         "drivers/irqchip/qcom-mpm.ko",
+        "drivers/mailbox/msm_qmp.ko",
         "drivers/mailbox/qcom-ipcc.ko",
+        "drivers/mmc/host/cqhci.ko",
+        "drivers/mmc/host/sdhci-msm.ko",
+        "drivers/nvmem/nvmem_qfprom.ko",
+        "drivers/phy/qualcomm/phy-qcom-ufs.ko",
+        "drivers/phy/qualcomm/phy-qcom-ufs-qmp-v4.ko",
+        "drivers/phy/qualcomm/phy-qcom-ufs-qrbtc-sdm845.ko",
         "drivers/pinctrl/qcom/pinctrl-msm.ko",
         "drivers/pinctrl/qcom/pinctrl-pitti.ko",
         "drivers/regulator/stub-regulator.ko",
         "drivers/rpmsg/rpm-smd.ko",
+        "drivers/slimbus/slimbus.ko",
         "drivers/soc/qcom/mem-hooks.ko",
         "drivers/soc/qcom/mem_buf/mem_buf.ko",
         "drivers/soc/qcom/mem_buf/mem_buf_dev.ko",
+        "drivers/soc/qcom/pdr_interface.ko",
+        "drivers/soc/qcom/qcom_ramdump.ko",
         "drivers/soc/qcom/qcom_stats.ko",
+        "drivers/soc/qcom/qfprom-sys.ko",
+        "drivers/soc/qcom/qmi_helpers.ko",
         "drivers/soc/qcom/rpm_master_stat.ko",
         "drivers/soc/qcom/smem.ko",
         "drivers/soc/qcom/socinfo.ko",
         "drivers/soc/qcom/wcd_usbss_i2c.ko",
+        "drivers/ufs/host/ufs_qcom.ko",
     ]
 
     _pitti_consolidate_in_tree_modules = _pitti_in_tree_modules + [
@@ -69,7 +83,7 @@ def define_pitti():
             variant = variant,
             in_tree_module_list = mod_list,
             boot_image_opts = boot_image_opts(
-                earlycon_addr = "qcom_geni,0x04a90000",
+                earlycon_addr = "qcom_geni,0x4C8C000",
                 kernel_vendor_cmdline_extras = kernel_vendor_cmdline_extras,
                 board_kernel_cmdline_extras = board_kernel_cmdline_extras,
                 board_bootconfig_extras = board_bootconfig_extras,

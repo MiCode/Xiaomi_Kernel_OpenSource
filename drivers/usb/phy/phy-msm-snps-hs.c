@@ -565,6 +565,7 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	bool eud_active = false;
 
 	if (phy->suspended && suspend) {
 		if (phy->phy.flags & PHY_SUS_OVERRIDE)
@@ -575,9 +576,20 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 		return 0;
 	}
 
+	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg))
+		eud_active = true;
+
 suspend:
 	if (suspend) { /* Bus suspend */
-		if (phy->cable_connected) {
+	       /*
+		* The HUB class drivers calls usb_phy_notify_disconnect() upon a device
+		* disconnect. Consider a scenario where a USB device is disconnected without
+		* detaching the OTG cable. phy->cable_connected is marked false due to above
+		* mentioned call path. Now, while entering low power mode (host bus suspend),
+		* we come here and turn off regulators thinking no cable is connected. Prevent
+		* this by not turning off regulators while in host mode.
+		*/
+		if (phy->cable_connected || (phy->phy.flags & PHY_HOST_MODE)) {
 			/* Enable auto-resume functionality during host mode
 			 * bus suspend with some FS/HS peripheral connected.
 			 */
@@ -604,7 +616,7 @@ suspend:
 				phy->re_enable_eud = false;
 			}
 
-			if (!phy->dpdm_enable) {
+			if (!phy->dpdm_enable && !eud_active) {
 				if (!(phy->phy.flags & EUD_SPOOF_DISCONNECT)) {
 					dev_dbg(uphy->dev, "turning off clocks/ldo\n");
 					if (!(phy->phy.flags & PHY_HOST_MODE)) {
