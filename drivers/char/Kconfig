@@ -473,6 +473,13 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+# N17 code for HQ-296367 by hujianyu at 2023/5/29 start
+config XLOGCHAR
+	tristate "xlogchar driver"
+	default m
+	help
+	  Implements a high performance log driver
+# N17 code for HQ-296367 by hujianyu at 2023/5/29 end
 config RANDOM_TRUST_CPU
 	bool "Initialize RNG using CPU RNG instructions"
 	default y

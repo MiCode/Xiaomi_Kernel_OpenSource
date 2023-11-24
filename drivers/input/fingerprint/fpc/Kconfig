@@ -1,0 +1,5 @@
+config FPC_FINGERPRINT
+	tristate "FingerPrint Cards fingerprint drvier support"
+	depends on MTK_FINGERPRINT_SUPPORT
+	help
+	  Say Y here to enable fpc fingerprint driver support!

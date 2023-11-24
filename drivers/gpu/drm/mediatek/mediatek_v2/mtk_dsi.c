@@ -56,6 +56,19 @@
 #include "mtk_dsi.h"
 #include "mtk_reg_disp_bdg.h"
 /* ************end bridge ic ************* */
+
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+#ifdef CONFIG_MI_DISP
+
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_dsi_display.h"
+#include "mi_disp/mi_panel_ext.h"
+#endif
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+#include <linux/pm_wakeup.h>
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 //#define DSI_SELF_PATTERN
 #define DSI_START 0x00
 #define SKEWCAL_START BIT(4)
@@ -356,10 +369,36 @@ unsigned int line_back_to_LP = 1;
 
 unsigned int data_phy_cycle;
 struct mtk_dsi;
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+
+#ifndef CONFIG_MI_DISP
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 struct mtk_dsi_mgr {
 	struct mtk_dsi *master;
 	struct mtk_dsi *slave;
 };
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+#endif
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
+
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+static bool lcm_power_inited = 0;
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+#define WAIT_RESUME_TIMEOUT 200
+int panel_event = 0;
+EXPORT_SYMBOL(panel_event);
+struct mtk_ddp_comp *g_output_comp;
+struct mipi_dsi_device *dsi_panel_device;
+static struct delayed_work mtk_drm_suspend_delayed_work;
+static struct wakeup_source prim_panel_wakelock;
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
+
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+static int blank = 0;
+#endif
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 
 struct DSI_T0_INS {
 	unsigned CONFG : 8;
@@ -400,8 +439,29 @@ enum DSI_SET_MMCLK_TYPE {
 	SET_MMCLK_TYPE_END,
 };
 
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+struct drm_connector *dsi_to_connector(void *dsi)
+{
+	return &(((struct mtk_dsi *)dsi)->conn);
+}
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
 
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+#define DSI_CMDQ0 0xd00
+#define DSI_CMDQ1 0xd04
+
+static int mi_mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle);
+static int mi_mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp);
+static int mi_mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
+			struct cmdq_pkt *handle,
+			struct mtk_drm_crtc *mtk_crtc,
+			struct mtk_ddic_dsi_msg *cmd_msg);
+#endif
+
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 static inline struct mtk_dsi *encoder_to_dsi(struct drm_encoder *e)
 {
 	return container_of(e, struct mtk_dsi, encoder);
@@ -976,9 +1036,13 @@ unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		&& dsi->ext && dsi->ext->params
 		&& dsi->ext->params->dyn_fps.data_rate) {
 		data_rate = dsi->ext->params->dyn_fps.data_rate;
-	} else if (dsi->ext && dsi->ext->params->data_rate) {
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	} else if (dsi->ext && dsi->ext->params
+		&& dsi->ext->params->data_rate) {
 		data_rate = dsi->ext->params->data_rate;
-	} else if (dsi->ext && dsi->ext->params->pll_clk) {
+	} else if (dsi->ext && dsi->ext->params
+		&& dsi->ext->params->pll_clk) {
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 		data_rate = dsi->ext->params->pll_clk * 2;
 	} else {
 		u64 pixel_clock, total_bits;
@@ -1504,10 +1568,24 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 	u32 ps_wc, size, val;
 	u32 value = 0, mask = 0;
 	u32 width, height;
-	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
-	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
-	struct mtk_panel_spr_params *spr_params = &ext->params->spr_params;
-	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	u32 dsi_buf_bpp = 0;
+	struct mtk_panel_ext *ext = NULL;
+	struct mtk_panel_dsc_params *dsc_params = NULL;
+	struct mtk_panel_spr_params *spr_params = NULL;
+
+	if (IS_ERR_OR_NULL(dsi))
+		return;
+
+	ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	if (IS_ERR_OR_NULL(ext))
+		return;
+
+	dsc_params = &ext->params->dsc_params;
+	spr_params = &ext->params->spr_params;
+
+	dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -1632,13 +1710,25 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	u32 width, height, tmp = 0, rw_times;
 	u32 preultra_hi, preultra_lo, ultra_hi, ultra_lo, urgent_hi, urgent_lo;
 	u32 fill_rate, sodi_hi, sodi_lo;
-	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
-	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
-	struct mtk_drm_crtc *mtk_crtc =
-		dsi->is_slave ?
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	u32 dsi_buf_bpp = 0;
+	struct mtk_panel_ext *ext = NULL;
+	struct mtk_panel_dsc_params *dsc_params = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	if (IS_ERR_OR_NULL(dsi))
+		return;
+
+	ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	if (IS_ERR_OR_NULL(ext))
+		return;
+
+	dsc_params = &ext->params->dsc_params;
+
+	mtk_crtc = dsi->is_slave ?
 		dsi->master_dsi->ddp_comp.mtk_crtc
 		: dsi->ddp_comp.mtk_crtc;
-	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+	dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -2636,9 +2726,44 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	mtk_dsi_reset_engine(dsi);
 }
 
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+int mtk_drm_early_resume(int timeout)
+{
+	int ret = 0;
+	struct drm_connector *connector = NULL;
+	if (!g_output_comp) {
+		pr_err("[XMFP]: %s: invalid output comp g_output_comp is nullptr\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+	ret = wait_event_timeout(resume_wait_q,
+		!atomic_read(&resume_pending),
+		msecs_to_jiffies(WAIT_RESUME_TIMEOUT));
+	if (!ret) {
+		pr_err("[XMFP]: Primary fb resume timeout\n");
+		return -ETIMEDOUT;
+	}
+	mutex_lock(&g_output_comp->panel_lock);
+	__pm_stay_awake(&prim_panel_wakelock);
+	connector = dsi_to_connector((void *)g_output_comp);
+	panel_event = 1;
+	pr_info("[XMFP]: %s panel_event=%d, dev_name = %s\n", __func__, panel_event, dev_name(&dsi_panel_device->dev));
+	sysfs_notify(&dsi_panel_device->dev.kobj, NULL, "panel_event");
+	if (timeout > 0)
+		schedule_delayed_work(&mtk_drm_suspend_delayed_work, msecs_to_jiffies(timeout));
+	else
+		__pm_relax(&prim_panel_wakelock);
+	mutex_unlock(&g_output_comp->panel_lock);
+	return ret;
+}
+EXPORT_SYMBOL(mtk_drm_early_resume);
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
 
-static void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 					  const void *data, size_t len);
 
 static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -2667,9 +2792,31 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 	if (doze_enabled && panel_funcs->doze_enable_start)
 		panel_funcs->doze_enable_start(dsi->panel, dsi,
 			mipi_dsi_dcs_write_gce2, NULL);
-	else if (!doze_enabled && panel_funcs->doze_disable)
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+	else if (!doze_enabled && panel_funcs->doze_disable) {
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 		panel_funcs->doze_disable(dsi->panel, dsi,
 			mipi_dsi_dcs_write_gce2, NULL);
+
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		mi_disp_err_flag_esd_check_switch(&dsi->ddp_comp.mtk_crtc->base, true);
+		mtk_disp_esd_check_switch(&dsi->ddp_comp.mtk_crtc->base, true);
+#endif
+	}
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
+
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	if (doze_enabled) {
+		blank = MI_DISP_DPMS_LP1;
+		g_notify_data.data = &blank;
+		g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+		mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+		mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_POWER, sizeof(blank), blank);
+	}
+#endif
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
 
 	/* Display mode switch */
 	if (panel_funcs->doze_get_mode_flags) {
@@ -2808,7 +2955,9 @@ void DSI_MIPI_deskew(struct mtk_dsi *dsi)
 }
 
 void mtk_mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
 				const struct mipi_dsi_msg *msg)
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 {
 	const char *tx_buf = msg->tx_buf;
 	u8 config, cmdq_size, cmdq_off, type = msg->type;
@@ -2821,7 +2970,9 @@ void mtk_mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		config = (msg->tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
 
 	/* AP read/write 6382 configs only support hs */
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
 	config |= HSTX;
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 
 	if (msg->tx_len > 2) {
 		cmdq_size = 1 + (msg->tx_len + 3) / 4;
@@ -2876,12 +3027,14 @@ void mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 	msg.type = 0x79;
 
 	mtk_dsi_poll_for_idle(dsi, handle);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
 	mtk_mipi_dsi_write_6382(dsi, handle, &msg);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 
 	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
-		dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+			dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
 	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
-		dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+			dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
 
 	mtk_dsi_poll_for_idle(dsi, handle);
 }
@@ -2903,9 +3056,11 @@ static void _mtk_dsi_read_ddic_by6382(struct mtk_dsi *dsi,
 				void *ptr)
 {
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-//	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	/*N17 code for HQ-290803 by p-chenzimo at 2023/05/30 start*/
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	struct DSI_T0_INS t0, t1;
-	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+//	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+	/*N17 code for HQ-290803 by p-chenzimo at 2023/05/30 end*/
 	dma_addr_t read_slot;
 	const char *tx_buf = msg->tx_buf;
 	unsigned char rxbypass0[] = {0x84, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x84
@@ -3568,10 +3723,26 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int mode_chg_index = 0;
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 start*/
+	struct mi_esd_ctx *mi_esd_ctx = mtk_crtc->mi_esd_ctx;
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 end*/
 
 	DDPINFO("%s +\n", __func__);
 
 	if (dsi->output_en) {
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+		if (!new_doze_state) {
+			blank = MI_DISP_DPMS_ON;
+			g_notify_data.data = &blank;
+			g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+			mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+			mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"),
+				MI_DISP_EVENT_POWER, sizeof(blank), blank);
+		}
+#endif
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
+
 		if (mtk_dsi_doze_status_change(dsi)) {
 			mtk_dsi_pre_cmd(dsi, crtc);
 			mtk_output_en_doze_switch(dsi);
@@ -3596,6 +3767,17 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		return;
 	}
 
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 start*/
+/*N17 code for HQ-299519 by p-lizongrui at 2023/07/10 start*/
+/*N17 code for HQ-308987 by p-chenzimo at 2023/07/31 start*/
+	if (!IS_ERR_OR_NULL(mi_esd_ctx) && atomic_read(&mi_esd_ctx->err_flag_event) && dsi->panel
+		&& dsi->ext->funcs && dsi->ext->funcs->init_power) {
+/*N17 code for HQ-308987 by p-chenzimo at 2023/07/31 end*/
+/*N17 code for HQ-299519 by p-lizongrui at 2023/07/10 end*/
+		DDPINFO("[ESD]lcm power init\n");
+		dsi->ext->funcs->init_power(dsi->panel);
+	}
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 end*/
 	if (dsi->panel) {
 		DDP_PROFILE("[PROFILE] %s panel init start\n", __func__);
 		if (((!dsi->doze_enabled && !dsi->pending_switch) || force_lcm_update)
@@ -3603,6 +3785,13 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
 		}
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		if (dsi->ddp_comp.mtk_crtc && dsi->ddp_comp.mtk_crtc->mi_esd_ctx) {
+			dsi->ddp_comp.mtk_crtc->mi_esd_ctx->panel_init = true;
+		}
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 		DDP_PROFILE("[PROFILE] %s panel init end\n", __func__);
 		mode_chg_index = mtk_crtc->mode_change_index;
 
@@ -3697,7 +3886,12 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			DDPPR_ERR("failed to enable the panel\n");
 			goto err_dsi_power_off;
 		}
-
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		if (!new_doze_state)
+			mi_disp_err_flag_esd_check_switch(&dsi->ddp_comp.mtk_crtc->base, true);
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 		/* Suspend to Doze */
 		if (mtk_dsi_doze_status_change(dsi)) {
 			/* We use doze_get_mode_flags to determine if
@@ -3717,6 +3911,20 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	dsi->pending_switch = false;
 	dsi->output_en = true;
 	dsi->doze_enabled = new_doze_state;
+
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	if (new_doze_state)
+		blank = MI_DISP_DPMS_LP1;
+	else
+		blank = MI_DISP_DPMS_ON;
+	g_notify_data.data = &blank;
+	g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+	mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"),
+		MI_DISP_EVENT_POWER, sizeof(blank), blank);
+#endif
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
 
 	DDPINFO("%s -\n", __func__);
 	return;
@@ -3788,15 +3996,46 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
 	bool skip_panel_switch = mtk_dsi_skip_panel_switch(dsi);
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 start*/
+	struct mi_esd_ctx *mi_esd_ctx = mtk_crtc->mi_esd_ctx;
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 end*/
 
 	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
 		return;
 
 	mtk_drm_crtc_wait_blank(mtk_crtc);
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	if (dsi->ddp_comp.mtk_crtc && dsi->ddp_comp.mtk_crtc->mi_esd_ctx) {
+		dsi->ddp_comp.mtk_crtc->mi_esd_ctx->panel_init = false;
+	}
+#endif
+
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	if (new_doze_state) {
+		blank = MI_DISP_DPMS_LP2;
+	} else {
+		blank = MI_DISP_DPMS_POWERDOWN;
+	}
+	g_notify_data.data = &blank;
+	g_notify_data.disp_id = MI_DISPLAY_PRIMARY;
+	mi_disp_notifier_call_chain(MI_DISP_DPMS_EARLY_EVENT, &g_notify_data);
+	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_POWER, sizeof(blank), blank);
+#endif
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
 
 	/* 1. If not doze mode, turn off backlight */
 	if (dsi->panel && ((!new_doze_state && !skip_panel_switch) || force_lcm_update)) {
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+		if (dsi->ddp_comp.mtk_crtc) {
+			mi_disp_err_flag_esd_check_switch(&dsi->ddp_comp.mtk_crtc->base, false);
+		}
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 		if (drm_panel_disable(dsi->panel)) {
 			DRM_ERROR("failed to disable the panel\n");
 			return;
@@ -3835,13 +4074,26 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 			mtk_output_en_doze_switch(dsi);
 		}
 	}
-
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 start*/
+/*N17 code for HQ-299519 by p-lizongrui at 2023/07/10 start*/
+	if (!IS_ERR_OR_NULL(mi_esd_ctx) && atomic_read(&mi_esd_ctx->err_flag_event) && dsi->panel && dsi->ext->funcs->power_down) {
+/*N17 code for HQ-299519 by p-lizongrui at 2023/07/10 end*/
+		DDPINFO("[ESD] lcm power down after dsi\n");
+		dsi->ext->funcs->power_down(dsi->panel);
+	}
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 end*/
 	/* set DSI into ULPS mode */
 	mtk_dsi_reset_engine(dsi);
 	mtk_dsi_enter_ulps(dsi);
 	mtk_dsi_disable(dsi);
 	mtk_dsi_stop(dsi);
 	mtk_dsi_poweroff(dsi);
+
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+#ifdef CONFIG_MI_DISP_NOTIFIER
+	mi_disp_notifier_call_chain(MI_DISP_DPMS_EVENT, &g_notify_data);
+#endif
+/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
 
 	if (dsi->slave_dsi) {
 		/* set DSI into ULPS mode */
@@ -3924,7 +4176,17 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	mtk_output_dsi_disable(dsi, NULL, false, true);
 	if (is_bdg_supported())
 		bdg_common_deinit(DISP_BDG_DSI0, NULL);
-
+	/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+	/*N17 code for HQ-291618 by p-chenzimo at 2023/05/09 start*/
+	if (dsi->panel && dsi->ext->funcs->power_down && lcm_power_inited) {
+//		if (!new_doze_state) {
+			dsi->ext->funcs->power_down(dsi->panel);
+			DDPINFO("lcm power down after dsi\n");
+			lcm_power_inited = 0;
+//		}
+	}
+	/*N17 code for HQ-291618 by p-chenzimo at 2023/05/09 end*/
+	/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
 	if (comp->id == DDP_COMPONENT_DSI0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
 					&data);
@@ -3975,6 +4237,19 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 					&data);
 		DDP_PROFILE("[PROFILE] %s before notify end\n", __func__);
 	}
+	/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+	/*N17 code for HQ-291618 by p-chenzimo at 2023/05/09 start*/
+/*N17 code for HQ-308987 by p-chenzimo at 2023/07/31 start*/
+	if (dsi->panel && dsi->ext->funcs && dsi->ext->funcs->init_power && !lcm_power_inited) {
+/*N17 code for HQ-308987 by p-chenzimo at 2023/07/31 end*/
+//		if (!dsi->doze_enabled) {
+			dsi->ext->funcs->init_power(dsi->panel);
+			DDPINFO("lcm power up before dsi\n");
+			lcm_power_inited = 1;
+//		}
+	}
+	/*N17 code for HQ-291618 by p-chenzimo at 2023/05/09 end*/
+	/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
 	if (is_bdg_supported())
 		mtk_output_bdg_enable(dsi, false);
 
@@ -4163,12 +4438,30 @@ static int mtk_dsi_create_connector(struct drm_device *drm, struct mtk_dsi *dsi)
 	return 0;
 }
 
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+static void mtk_drm_suspend_delayed_work_handle(struct work_struct *work)
+{
+	struct drm_connector *connector = NULL;
+	mutex_lock(&g_output_comp->panel_lock);
+	connector = dsi_to_connector((void *)g_output_comp);
+	panel_event = 0;
+	pr_info("[XMFP]: %s panel_event=%d\n", __func__, panel_event);
+	sysfs_notify(&dsi_panel_device->dev.kobj, NULL, "panel_event");
+	__pm_relax(&prim_panel_wakelock);
+	mutex_unlock(&g_output_comp->panel_lock);
+}
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 {
 	int ret;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	int possible_crtcs = 0;
 	int panel_id = 0;
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+	enum mtk_ddp_comp_type type;
+	struct drm_connector *connector = NULL;
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 
 	ret = drm_encoder_init(drm, &dsi->encoder, &mtk_dsi_encoder_funcs,
 			       DRM_MODE_ENCODER_DSI, NULL);
@@ -4207,6 +4500,23 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 	mtk_dsi_attach_property(drm, dsi);
 	dsi->prop_val[CONNECTOR_PROP_PANEL_ID] = panel_id;
 
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+	type = mtk_ddp_comp_get_type(comp->id);
+	if (type == MTK_DSI) {
+		pr_info("[XMFP]: %s init mtk ealry resume resources\n", __func__);
+		connector = dsi_to_connector((void *)comp);
+		mutex_init(&comp->panel_lock);
+		g_output_comp = comp;
+		atomic_set(&resume_pending, 0);
+//		wakeup_source_init(&prim_panel_wakelock, "prim_panel_wakelock");
+		memset(&prim_panel_wakelock, 0, sizeof(*&prim_panel_wakelock));
+		prim_panel_wakelock.name = "prim_panel_wakelock";
+		wakeup_source_add(&prim_panel_wakelock);
+		init_waitqueue_head(&resume_wait_q);
+		INIT_DELAYED_WORK(&mtk_drm_suspend_delayed_work, mtk_drm_suspend_delayed_work_handle);
+	}
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 	return 0;
 
 err_encoder_cleanup:
@@ -4216,6 +4526,17 @@ err_encoder_cleanup:
 
 static void mtk_dsi_destroy_conn_enc(struct mtk_dsi *dsi)
 {
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	if (comp == g_output_comp) {
+		pr_info("%s destroy mtk ealry resume resources\n", __func__);
+		cancel_delayed_work_sync(&mtk_drm_suspend_delayed_work);
+//		wakeup_source_trash(&prim_panel_wakelock);
+		wakeup_source_remove(&prim_panel_wakelock);
+		__pm_relax(&prim_panel_wakelock);
+	}
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 	drm_encoder_cleanup(&dsi->encoder);
 	/* Skip connector cleanup if creation was delegated to the bridge */
 	if (dsi->conn.dev)
@@ -4295,6 +4616,9 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 	mtk_dsi_poll_for_idle(dsi, handle);
 	if (is_bdg_supported()) {
 		mipi_dsi_write_6382(dsi, handle, stopdsi, 8);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
+		cmdq_pkt_sleep(handle,CMDQ_US_TO_TICK(25),CMDQ_GPR_R07);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 		mipi_dsi_write_6382(dsi, handle, sw_reset0, 8);
 		mipi_dsi_write_6382(dsi, handle, sw_reset1, 8);
 		mipi_dsi_write_6382(dsi, handle, setcmd, 8);
@@ -4315,7 +4639,6 @@ static int mtk_dsi_start_vdo_mode(struct mtk_ddp_comp *comp, void *handle)
 	unsigned char stopdsi[] = {0x00, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x00
 	unsigned char startdsi[] = {0x00, 0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x00
 	unsigned char setrxvdo[] = {0x70, 0x31, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
-
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
 			vid_mode = BURST_MODE;
@@ -5480,6 +5803,9 @@ static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 	/* ********Panel Master********** */
 	dsi->dev_for_PM = device;
 	/* ******end Panel Master**** */
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+	dsi_panel_device = device;
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 	if (dsi->conn.dev)
 		drm_helper_hpd_irq_event(dsi->conn.dev);
 
@@ -5978,7 +6304,9 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		.tx_buf = data,
 		.tx_len = len
 	};
-
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
+	char flag = 0;
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 	switch (len) {
 	case 0:
 		return;
@@ -5995,8 +6323,13 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		msg.type = MIPI_DSI_DCS_LONG_WRITE;
 		break;
 	}
-
-	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
+	if (len > 3)
+		flag = 1;
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)|| is_bdg_supported()) {
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 		mtk_dsi_poll_for_idle(dsi, handle);
 		mtk_dsi_cmdq_gce(dsi, handle, &msg);
 		if (dsi->slave_dsi) {
@@ -6045,6 +6378,10 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 			dsi->ddp_comp.regs_pa + DSI_INTSTA,
 			VM_CMD_DONE_INT_EN, VM_CMD_DONE_INT_EN);
 	}
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
+	if (flag)
+		cmdq_pkt_sleep(handle, CMDQ_US_TO_TICK(25), CMDQ_GPR_R07);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 }
 
 void mipi_dsi_dcs_write_gce_dyn(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -6284,6 +6621,23 @@ static void _mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 	DDPMSG("%s -\n", __func__);
 }
 
+/*N17 code for HQ-325108 by p-luozhibin1 at 2023/09/23 start*/
+int polling_mode_status(struct mtk_dsi *dsi, int mode)
+{
+	unsigned int timeout = 10;
+	unsigned int dsi_mode = 0;
+	while (timeout) {
+		dsi_mode = readl(dsi->regs + DSI_MODE_CTRL) & MODE;
+		if (dsi_mode == mode)
+			break;
+		mdelay(1);
+		timeout--;
+	}
+	DDPINFO(" timeout is %d\n",timeout);
+	return dsi_mode;
+}
+/*N17 code for HQ-325108 by p-luozhibin1 at 2023/09/23 end*/
+
 int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 			struct cmdq_pkt *handle,
 			struct mtk_drm_crtc *mtk_crtc,
@@ -6294,9 +6648,16 @@ int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 	struct mipi_dsi_msg msg;
 	unsigned int use_lpm = cmd_msg->flags & MIPI_DSI_MSG_USE_LPM;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+/*N17 code for HQ-325108 by p-luozhibin1 at 2023/09/23 start*/
+	DDPINFO("%s + dsi_mode is %d,mode is %d\n", __func__, dsi_mode, mtk_dsi_is_cmd_mode(&dsi->ddp_comp));
 
-	DDPMSG("%s +\n", __func__);
-
+// #ifdef CONFIG_MTK_MT6382_BDG
+	if (is_bdg_supported() && ((!dsi_mode) != mtk_dsi_is_cmd_mode(&dsi->ddp_comp))) {  //dsi mode 0 cmd mode  1 vdo mode
+		DDPINFO("gcc cmd mode\n");
+		dsi_mode = polling_mode_status(dsi,!dsi_mode);
+	}
+// #endif
+/*N17 code for HQ-325108 by p-luozhibin1 at 2023/09/23 end*/
 	/* Check cmd_msg param */
 	if (cmd_msg->tx_cmd_num == 0 ||
 		cmd_msg->tx_cmd_num > MAX_TX_CMD_NUM) {
@@ -7021,8 +7382,12 @@ void mtk_dsi_send_switch_cmd(struct mtk_dsi *dsi,
 		if (dfps_cmd->cmd_num == 0)
 			break;
 
-		if (dfps_cmd->src_fps == 0 || drm_mode_vrefresh(old_mode) == dfps_cmd->src_fps)
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
+		if (dfps_cmd->src_fps == 0 || dst_mode == dfps_cmd->src_fps)
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
 			mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 				dfps_cmd->cmd_num);
 	}
 }
@@ -7779,7 +8144,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	if (dsi->slave_dsi)
 		mtk_dsi_enter_idle(dsi->slave_dsi);
 
-	if (dsi->mipi_hopping_sta && dsi->ext->params->dyn.switch_en) {
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	if (dsi->ext && dsi->ext->params && dsi->mipi_hopping_sta
+		&& dsi->ext->params->dyn.switch_en) {
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 		mtk_mipi_tx_pll_rate_set_adpt(dsi->phy,
 			dsi->ext->params->dyn.data_rate);
 		if (dsi->slave_dsi)
@@ -7877,7 +8245,9 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	unsigned int fps_chg_index = 0;
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
-	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	struct mtk_ddp_comp *comp = NULL;
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 	struct mtk_crtc_state *state =
 	    to_mtk_crtc_state(mtk_crtc->base.state);
 	struct mtk_cmdq_cb_data *cb_data;
@@ -7907,6 +8277,9 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		return;
 	}
 
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	comp = &dsi->ddp_comp;
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
 		dsi->ext->funcs->ext_param_set(dsi->panel, &dsi->conn,
@@ -8074,6 +8447,8 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		}
 		if (is_bdg_supported()) {
 			mtk_dsi_vfp_porch_setting_6382(dsi, vfp, handle);
+			mtk_dsi_send_switch_cmd(dsi, handle, mtk_crtc, src_mode,
+						drm_mode_vrefresh(&adjusted_mode));
 			mtk_dsi_start_vdo_mode(comp, handle);
 			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 			mtk_dsi_trigger(comp, handle);
@@ -8383,6 +8758,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	unsigned int vfp_low_power = 0;
 	unsigned int vfp_lp_dyn = 0;
 
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 start*/
+	if (dsi == NULL) {
+		DDPINFO("%s dsi = NULL\n", __func__);
+		return 0;
+	}
+
+/*N17 code for HQ-299573 by p-chenzimo at 2023/06/19 end*/
 	switch (cmd) {
 	case REQ_PANEL_EXT:
 		ext = (struct mtk_panel_ext **)params;
@@ -8450,6 +8832,14 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case DSI_VFP_IDLE_MODE:
 	{
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
+		unsigned int i;
+		struct dfps_switch_cmd *dfps_cmd = NULL;
+		struct mtk_panel_params *tmp_params = NULL;
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		if (dsi->ext && dsi->ext->params)
+			tmp_params = crtc->panel_ext->params;
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
 		if (panel_ext && panel_ext->params
@@ -8472,6 +8862,17 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					vfp_lp_dyn);
 			if (is_bdg_supported()) {
 				mtk_dsi_vfp_porch_setting_6382(dsi, vfp_low_power, handle);
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
+				for (i = 0; i < MAX_DYN_CMD_NUM; i++) {
+					dfps_cmd = &tmp_params->dyn_fps.dfps_cmd_table[i];
+					if (dfps_cmd->cmd_num == 0)
+						break;
+
+					if (dfps_cmd->src_fps == 0 || 60 == dfps_cmd->src_fps)
+						mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
+							dfps_cmd->cmd_num);
+				}
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
 				mtk_dsi_start_vdo_mode(comp, handle);
 				mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 				mtk_dsi_trigger(comp, handle);
@@ -8481,6 +8882,11 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case DSI_VFP_DEFAULT_MODE:
 	{
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
+		unsigned int i;
+		struct dfps_switch_cmd *dfps_cmd = NULL;
+		struct mtk_panel_params *tmp_params = NULL;
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
 		unsigned int vfront_porch = 0;
 		unsigned int mod_vfront_porch = 0;
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
@@ -8488,6 +8894,14 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_private *priv = (crtc->base).dev->dev_private;
 		struct mtk_crtc_state *state =
 			to_mtk_crtc_state(crtc->base.state);
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
+		struct drm_display_mode adjusted_mode = state->base.adjusted_mode;
+		if (dsi->ext && dsi->ext->params) {
+			tmp_params = crtc->panel_ext->params;
+		} else {
+			break;
+		}
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
 
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
@@ -8535,6 +8949,17 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					mod_vfront_porch);
 		if (is_bdg_supported()) {
 			mtk_dsi_vfp_porch_setting_6382(dsi, vfront_porch, handle);
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
+			for (i = 0; i < MAX_DYN_CMD_NUM; i++) {
+				dfps_cmd = &tmp_params->dyn_fps.dfps_cmd_table[i];
+				if (dfps_cmd->cmd_num == 0)
+					break;
+
+				if (dfps_cmd->src_fps == 0 || drm_mode_vrefresh(&adjusted_mode) == dfps_cmd->src_fps)
+					mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
+						dfps_cmd->cmd_num);
+			}
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
 			mtk_dsi_start_vdo_mode(comp, handle);
 			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 			mtk_dsi_trigger(comp, handle);
@@ -8567,9 +8992,6 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		struct drm_display_mode *mode, *next;
 		unsigned int *cont;
-
-		if (dsi == NULL)
-			break;
 
 		cont = (unsigned int *)params;
 		*cont = 0;
@@ -8723,14 +9145,14 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		struct mtk_dsi *dsi =
 			container_of(comp, struct mtk_dsi, ddp_comp);
-
-
 		panel_ext = mtk_dsi_get_panel_ext(comp);
-		if (panel_ext && panel_ext->funcs
-			&& panel_ext->funcs->set_backlight_cmdq)
-			panel_ext->funcs->set_backlight_cmdq(dsi,
+			if (panel_ext && panel_ext->funcs
+					&& panel_ext->funcs->set_backlight_cmdq)
+				panel_ext->funcs->set_backlight_cmdq(dsi,
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
 					mipi_dsi_dcs_write_gce,
-					handle, *(int *)params);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
+						handle, *(int *)params);
 	}
 		break;
 	case DSI_SET_BL_AOD:
@@ -8767,10 +9189,12 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		if (!(panel_ext && panel_ext->funcs &&
 		      panel_ext->funcs->hbm_set_cmdq))
 			break;
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
 
 		panel_ext->funcs->hbm_set_cmdq(dsi->panel, dsi,
-					       mipi_dsi_dcs_write_gce, handle,
-					       *(bool *)params);
+						mipi_dsi_dcs_write_gce, handle,
+			*(bool *)params);
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 		break;
 	}
 	case DSI_HBM_GET_STATE:
@@ -9183,6 +9607,40 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		dual_te_init((struct drm_crtc *)params);
 	}
 		break;
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	case ESD_RESTORE_BACKLIGHT:
+	{
+		struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs &&
+				panel_ext->funcs->esd_restore_backlight) {
+			panel_ext->funcs->esd_restore_backlight(dsi, dsi->panel);
+		}
+	}
+		break;
+	case MI_DISP_ESD_CHECK_READ:
+	{
+		mi_mtk_dsi_esd_read(comp, handle);
+	}
+		break;
+	case MI_DISP_ESD_CHECK_CMP:
+	{
+		return mi_mtk_dsi_esd_cmp(comp);
+	}
+		break;
+	case MI_DSI_READ_DDIC_CMD:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		struct mtk_ddic_dsi_msg *cmd_msg =
+			(struct mtk_ddic_dsi_msg *)params;
+
+		return mi_mtk_mipi_dsi_read_gce(dsi, handle, crtc, cmd_msg);
+	}
+		break;
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 	case DSI_GET_CMD_MODE_LINE_TIME:
 	{
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
@@ -9229,6 +9687,18 @@ static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)
 		goto err_unregister;
 	}
 
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+#ifdef CONFIG_MI_DISP
+	ret = mi_disp_feature_attach_display(dsi,
+				MI_DISP_PRIMARY, MI_INTF_DSI);
+	if (ret) {
+		pr_err("failed to attach %s display(%s intf)\n",
+				get_disp_id_name(MI_DISP_PRIMARY),
+				get_disp_intf_type_name(MI_INTF_DSI));
+	}
+#endif
+
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	DDPINFO("%s-\n", __func__);
 	return 0;
 
@@ -9247,6 +9717,12 @@ static void mtk_dsi_unbind(struct device *dev, struct device *master,
 	if (dsi->is_slave)
 		return;
 
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_detach_display(dsi, MI_DISP_PRIMARY, MI_INTF_DSI);
+#endif
+
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	mtk_dsi_destroy_conn_enc(dsi);
 	mipi_dsi_host_unregister(&dsi->host);
 	mtk_ddp_comp_unregister(drm, &dsi->ddp_comp);
@@ -10591,4 +11067,476 @@ done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return ret;
 }
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+static int mi_mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle)
+{
+	int i;
+	struct mtk_ddic_dsi_msg *cmd_msg_read = NULL, *cmd_msg_send = NULL;
+	u8 tx[ESD_CHECK_NUM] = {0};
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct mtk_panel_params *params;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+
+	if (dsi->ext && dsi->ext->params) {
+		params = dsi->ext->params;
+	} else {
+		/* can't find panel ext information, stop esd read */
+		return 0;
+	}
+
+	cmd_msg_read = vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	if (unlikely(!cmd_msg_read)) {
+		pr_err("%s vmalloc mtk_ddic_dsi_msg is failed, return\n", __func__);
+		return 0;
+	}
+	memset(cmd_msg_read, 0, sizeof(struct mtk_ddic_dsi_msg));
+
+	if (dsi->ext->funcs && dsi->ext->funcs->get_esd_check_read_prepare_cmdmesg) {
+			cmd_msg_send = dsi->ext->funcs->get_esd_check_read_prepare_cmdmesg();
+		if (unlikely(!cmd_msg_send)) {
+			pr_err("%s get_esd_check_read_prepare_cmdmesg is failed, return\n", __func__);
+			vfree(cmd_msg_read);
+			return 0;
+		}
+	}
+
+	for (i = 0 ; i < ESD_CHECK_NUM ; i++) {
+		if (params->lcm_esd_check_table[i].cmd == 0)
+			break;
+
+		cmd_msg_read->type[i] = 0x06;
+		tx[i] = params->lcm_esd_check_table[i].cmd;
+		cmd_msg_read->tx_buf[i] = &tx[i];
+		cmd_msg_read->tx_len[i] = 1;
+		cmd_msg_read->rx_buf[i] = &esd_ctx->esd_read_result[i][0];
+		memset(cmd_msg_read->rx_buf[i], 0, params->lcm_esd_check_table[i].count);
+		cmd_msg_read->rx_len[i] = params->lcm_esd_check_table[i].count;
+	}
+
+	if (i > 0) {
+		cmd_msg_read->channel = 0;
+		cmd_msg_read->tx_cmd_num = i;
+		cmd_msg_read->rx_cmd_num = i;
+
+		if (cmd_msg_send) {
+			mtk_ddp_comp_io_cmd(comp, handle, DSI_SEND_DDIC_CMD, cmd_msg_send);
+		}
+		mtk_ddp_comp_io_cmd(comp, handle, MI_DSI_READ_DDIC_CMD, cmd_msg_read);
+	}
+
+	vfree(cmd_msg_read);
+	if (cmd_msg_send)
+		vfree(cmd_msg_send);
+	return 0;
+}
+
+static int mi_mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp)
+{
+	int i, j, ret = 0;
+	u32 chk_val;
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct esd_check_item *lcm_esd_tb;
+	struct mtk_panel_params *params;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+
+	if (dsi->ext && dsi->ext->params)
+		params = dsi->ext->params;
+	else /* can't find panel ext information, stop esd read */
+		return 0;
+
+	if (dsi->doze_enabled || dsi->mi_cfg.feature_val[DISP_FEATURE_DOZE_BRIGHTNESS])
+		params->lcm_esd_check_table[1].para_list[0] = 0xDC;
+	else
+		params->lcm_esd_check_table[1].para_list[0] = 0x9C;
+
+	for (i = 0; i < ESD_CHECK_NUM; i++) {
+		if (dsi->ext->params->lcm_esd_check_table[i].cmd == 0)
+			break;
+
+		lcm_esd_tb = &params->lcm_esd_check_table[i];
+
+		for (j = 0; j < lcm_esd_tb->count; j++) {
+			chk_val = esd_ctx->esd_read_result[i][j];
+
+			if (lcm_esd_tb->mask_list[0])
+				chk_val = chk_val & lcm_esd_tb->mask_list[0];
+
+			if (chk_val == lcm_esd_tb->para_list[j]) {
+				ret = 0;
+			} else {
+				DDPPR_ERR("[DSI]cmp fail: register:0x%x read(0x%x)!=expect(0x%x)\n",
+						lcm_esd_tb->cmd, chk_val, lcm_esd_tb->para_list[j]);
+				ret = -1;
+				break;
+			}
+		}
+		if (ret != 0)
+			break;
+	}
+
+	memset(esd_ctx->esd_read_result, 0, sizeof(esd_ctx->esd_read_result));
+	return ret;
+}
+
+static void _mi_mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
+				struct cmdq_pkt *handle,
+				struct mipi_dsi_msg *msg,
+				unsigned int cmd_idx)
+{
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct DSI_T0_INS t0, t1;
+	dma_addr_t read_slot = mtk_crtc->gce_obj.buf.pa_base +
+					DISP_SLOT_READ_DDIC_BASE + cmd_idx * 0x10;
+	const char *tx_buf = msg->tx_buf;
+
+	DDPINFO("%s +\n", __func__);
+
+	DDPINFO("%s type=0x%x, tx_len=%d, tx_buf[0]=0x%x, rx_len=%d\n",
+		__func__, msg->type, (int)msg->tx_len,
+		tx_buf[0], (int)msg->rx_len);
+
+	if (msg->tx_len > 2) {
+		DDPPR_ERR("%s: msg->tx_len is more than 2\n", __func__);
+		goto done;
+	}
+
+	t0.CONFG = 0x00;
+	t0.Data_ID = 0x37;
+	t0.Data0 = msg->rx_len;
+	t0.Data1 = 0;
+
+	t1.CONFG = BTA;
+	t1.Data_ID = msg->type;
+	t1.Data0 = tx_buf[0];
+	if (msg->tx_len == 2)
+		t1.Data1 = tx_buf[1];
+	else
+		t1.Data1 = 0;
+
+	if (dsi->slave_dsi) {
+		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
+				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
+				0, DSI_DUAL_EN);
+	}
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ0,
+		AS_UINT32(&t0), ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ1,
+		AS_UINT32(&t1), ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+		0x2, ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
+		0x0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
+		0x1, ~0);
+
+	mtk_dsi_cmdq_poll(comp, handle, comp->regs_pa + DSI_INTSTA, 0x1, 0x1);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
+		0x0, 0x1);
+
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA0, read_slot,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA1, read_slot + 1 * 0x4,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA2, read_slot + 2 * 0x4,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA3, read_slot + 3 * 0x4,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_RACK,
+		0x1, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
+		0x0, 0x1);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+	if (dsi->slave_dsi) {
+		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
+				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
+				DSI_DUAL_EN, DSI_DUAL_EN);
+	}
+
+done:
+	DDPINFO("%s -\n", __func__);
+}
+
+static int mi_mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
+			struct cmdq_pkt *handle,
+			struct mtk_drm_crtc *mtk_crtc,
+			struct mtk_ddic_dsi_msg *cmd_msg)
+{
+	unsigned int i = 0, j = 0;
+	int dsi_mode = readl(dsi->regs + DSI_MODE_CTRL) & MODE;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mipi_dsi_msg msg;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
+	int ret = 0;
+	struct DSI_RX_DATA_REG read_data0 = {0, 0, 0, 0};
+	struct DSI_RX_DATA_REG read_data1 = {0, 0, 0, 0};
+	struct DSI_RX_DATA_REG read_data2 = {0, 0, 0, 0};
+	struct DSI_RX_DATA_REG read_data3 = {0, 0, 0, 0};
+	unsigned char packet_type;
+	unsigned int recv_data_cnt = 0;
+
+	DDPINFO("%s +\n", __func__);
+
+	/* Check cmd_msg param */
+	if (cmd_msg->tx_cmd_num == 0 ||
+		cmd_msg->rx_cmd_num == 0 ||
+		cmd_msg->tx_cmd_num > MAX_TX_CMD_NUM ||
+		cmd_msg->rx_cmd_num > MAX_RX_CMD_NUM) {
+		DDPPR_ERR(
+			"%s: type is %s, tx_cmd_num is %d, rx_cmd_num is %d\n",
+			__func__, cmd_msg->type,
+			(int)cmd_msg->tx_cmd_num, (int)cmd_msg->rx_cmd_num);
+		return -EINVAL;
+	}
+
+	if (cmd_msg->tx_cmd_num != cmd_msg->rx_cmd_num) {
+		DDPPR_ERR("%s: tx_cmd_num is %d, rx_cmd_num is %d\n",
+			__func__, (int)cmd_msg->tx_cmd_num,
+			(int)cmd_msg->rx_cmd_num);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+		if (cmd_msg->tx_buf[i] == 0 || cmd_msg->tx_len[i] == 0) {
+			DDPPR_ERR("%s: tx_buf[%d] is %s, tx_len[%d] is %d\n",
+				__func__, i, (char *)cmd_msg->tx_buf[i], i,
+				(int)cmd_msg->tx_len[i]);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		if (cmd_msg->rx_buf[i] == 0 || cmd_msg->rx_len[i] == 0) {
+			DDPPR_ERR("%s: rx_buf[%d] is %s, rx_len[%d] is %d\n",
+				__func__, i, (char *)cmd_msg->rx_buf[i], i,
+				(int)cmd_msg->rx_len[i]);
+			return -EINVAL;
+		}
+
+		if (cmd_msg->rx_len[i] > RT_MAX_NUM) {
+			DDPPR_ERR("%s: only supprt read 10 bytes params\n",
+				__func__);
+			cmd_msg->rx_len[i] = RT_MAX_NUM;
+		}
+	}
+
+	/* Debug info */
+	DDPINFO("%s: channel=%d, flags=0x%x, tx_cmd_num=%d, rx_cmd_num=%d\n",
+		__func__, cmd_msg->channel,
+		cmd_msg->flags, (int)cmd_msg->tx_cmd_num,
+		(int)cmd_msg->rx_cmd_num);
+
+	for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+		DDPINFO("type[%d]=0x%x, tx_len[%d]=%d\n",
+			i, cmd_msg->type[i], i, (int)cmd_msg->tx_len[i]);
+		for (j = 0; j < (int)cmd_msg->tx_len[i]; j++) {
+			DDPINFO("tx_buf[%d]--byte:%d,val:0x%x\n",
+				i, j, *(char *)(cmd_msg->tx_buf[i] + j));
+		}
+	}
+
+	msg.channel = cmd_msg->channel;
+	msg.flags = cmd_msg->flags;
+
+	if (handle == NULL)
+		cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	else
+		cmdq_handle = handle;
+
+	cmdq_handle->err_cb.cb = ddic_read_timeout_cb;
+	cmdq_handle->err_cb.data = crtc;
+
+	/* Reset DISP_SLOT_READ_DDIC_BASE to 0xff00ff00 */
+	for (i = 0; i < READ_DDIC_SLOT_NUM; i++) {
+		cmdq_pkt_write(cmdq_handle,
+			mtk_crtc->gce_obj.base,
+			(mtk_crtc->gce_obj.buf.pa_base +
+				DISP_SLOT_READ_DDIC_BASE + i * 0x4),
+			0xff00ff00, ~0);
+	}
+
+	if (dsi_mode == 0) { /* CMD mode LP */
+		mtk_dsi_poll_for_idle(dsi, cmdq_handle);
+
+		for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+			msg.rx_len = cmd_msg->rx_len[i];
+			msg.rx_buf = cmd_msg->rx_buf[i];
+			_mi_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg, i);
+		}
+
+		cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+	} else { /* VDO to CMD mode LP */
+		cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+
+		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
+
+		for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+			msg.rx_len = cmd_msg->rx_len[i];
+			msg.rx_buf = cmd_msg->rx_buf[i];
+			_mi_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg, i);
+		}
+
+		mtk_dsi_start_vdo_mode(comp, cmdq_handle);
+		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], cmdq_handle);
+		mtk_dsi_trigger(comp, cmdq_handle);
+	}
+
+	read_ddic_chk_sta = 0;
+	cmdq_pkt_flush(cmdq_handle);
+
+	mtk_dsi_clear_rxrd_irq(dsi);
+
+	if (read_ddic_chk_sta == 0xff) {
+		ret = -EINVAL;
+		/* CMD mode error handle */
+		if (dsi_mode == 0) {
+			/* TODO: set ESD_EOF event through CPU is better */
+			mtk_crtc_pkt_create(&cmdq_handle2, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+			cmdq_pkt_set_event(
+				cmdq_handle2,
+				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+			cmdq_pkt_flush(cmdq_handle2);
+			cmdq_pkt_destroy(cmdq_handle2);
+		}
+		goto done;
+	}
+
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		/* Copy slot data to data array */
+		memcpy((void *)&read_data0,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (0 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+		memcpy((void *)&read_data1,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (1 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+		memcpy((void *)&read_data2,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (2 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+		memcpy((void *)&read_data3,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (3 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+
+		DDPINFO("%s:cmd_idx(%d) readback\n", __func__, i);
+
+		DDPINFO("%s: read_data0 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data0.byte0, read_data0.byte1
+			, read_data0.byte2, read_data0.byte3);
+		DDPINFO("%s: read_data1 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data1.byte0, read_data1.byte1
+			, read_data1.byte2, read_data1.byte3);
+		DDPINFO("%s: read_data2 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data2.byte0, read_data2.byte1
+			, read_data2.byte2, read_data2.byte3);
+		DDPINFO("%s: read_data3 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data3.byte0, read_data3.byte1
+			, read_data3.byte2, read_data3.byte3);
+
+		/*parse packet*/
+		packet_type = read_data0.byte0;
+			/* 0x02: acknowledge & error report */
+			/* 0x11: generic short read response(1 byte return) */
+			/* 0x12: generic short read response(2 byte return) */
+			/* 0x1a: generic long read response */
+			/* 0x1c: dcs long read response */
+			/* 0x21: dcs short read response(1 byte return) */
+			/* 0x22: dcs short read response(2 byte return) */
+		if (packet_type == 0x1A || packet_type == 0x1C) {
+			recv_data_cnt = read_data0.byte1
+					+ read_data0.byte2 * 16;
+
+			if (recv_data_cnt > RT_MAX_NUM) {
+				DDPMSG("DSI read long packet data exceeds 10 bytes\n");
+					recv_data_cnt = RT_MAX_NUM;
+			}
+			if (recv_data_cnt > cmd_msg->rx_len[i])
+				recv_data_cnt = cmd_msg->rx_len[i];
+
+			DDPINFO("DSI read long packet size: %d\n",
+				recv_data_cnt);
+			if (recv_data_cnt <= 4) {
+				memcpy((void *)cmd_msg->rx_buf[i],
+					(void *)&read_data1, recv_data_cnt);
+			} else if (recv_data_cnt <= 8) {
+				memcpy((void *)cmd_msg->rx_buf[i],
+					(void *)&read_data1, 4);
+				memcpy((void *)(cmd_msg->rx_buf[i] + 4),
+					(void *)&read_data2, recv_data_cnt - 4);
+			} else {
+				memcpy((void *)cmd_msg->rx_buf[i],
+						(void *)&read_data1, 4);
+				memcpy((void *)(cmd_msg->rx_buf[i] + 4),
+						(void *)&read_data2, 4);
+				memcpy((void *)(cmd_msg->rx_buf[i] + 8),
+					(void *)&read_data3, recv_data_cnt - 8);
+			}
+
+		} else if (packet_type == 0x11 || packet_type == 0x21) {
+			recv_data_cnt = 1;
+			memcpy((void *)cmd_msg->rx_buf[i],
+				(void *)&read_data0.byte1, recv_data_cnt);
+
+		} else if (packet_type == 0x12 || packet_type == 0x22) {
+			recv_data_cnt = 2;
+			if (recv_data_cnt > cmd_msg->rx_len[i])
+				recv_data_cnt = cmd_msg->rx_len[i];
+
+			memcpy((void *)cmd_msg->rx_buf[i],
+				(void *)&read_data0.byte1, recv_data_cnt);
+
+		} else if (packet_type == 0x02) {
+			DDPINFO("read return type is 0x02, re-read\n");
+		} else {
+			DDPINFO("return faulty type, type = 0x%x\n",
+					packet_type);
+		}
+		cmd_msg->rx_len[i] = recv_data_cnt;
+		DDPINFO("[DSI]packet_type~recv_data_cnt = 0x%x~0x%x\n",
+				packet_type, recv_data_cnt);
+	}
+
+	/* Debug info */
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		DDPINFO("rx_len[%d]=%d\n", i, (int)cmd_msg->rx_len[i]);
+		for (j = 0; j < cmd_msg->rx_len[i]; j++) {
+			DDPINFO("rx_buf[%d]--byte:%d,val:0x%x\n",
+				i, j, *(char *)(cmd_msg->rx_buf[i] + j));
+		}
+	}
+
+done:
+	if (handle == NULL)
+		cmdq_pkt_destroy(cmdq_handle);
+
+	DDPINFO("%s -\n", __func__);
+	return 0;
+}
+#endif
+
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 /* ******************* end PanelMaster ***************** */

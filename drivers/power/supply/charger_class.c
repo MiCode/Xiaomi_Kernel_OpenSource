@@ -50,6 +50,48 @@ int charger_dev_is_enabled(struct charger_device *chg_dev, bool *en)
 }
 EXPORT_SYMBOL(charger_dev_is_enabled);
 
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+int xm_get_cp_work_mode(struct charger_device *chg_dev, int *work_mode)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->get_cp_work_mode)
+		return chg_dev->ops->get_cp_work_mode(chg_dev, work_mode);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(xm_get_cp_work_mode);
+
+int xm_set_cp_work_mode(struct charger_device *chg_dev, int work_mode)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->set_cp_work_mode)
+		return chg_dev->ops->set_cp_work_mode(chg_dev, work_mode);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(xm_set_cp_work_mode);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
+/* N17 code for HQHW-4906 by p-gucheng at 20230812 start */
+int charger_dev_get_online(struct charger_device *chg_dev)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->get_online)
+		return chg_dev->ops->get_online(chg_dev);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_get_online);
+/* N17 code for HQHW-4906 by p-gucheng at 20230812 end */
+
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 start*/
+int xm_get_cp_device(struct charger_device *chg_dev)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->get_cp_device)
+		return chg_dev->ops->get_cp_device();
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(xm_get_cp_device);
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 end*/
+
 int charger_dev_plug_in(struct charger_device *chg_dev)
 {
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->plug_in)

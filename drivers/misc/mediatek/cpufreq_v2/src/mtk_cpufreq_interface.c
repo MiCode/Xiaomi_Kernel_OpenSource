@@ -728,6 +728,17 @@ static ssize_t cpufreq_imax_thermal_protect_proc_write(struct file *file,
 
 #endif
 
+unsigned long cpufreq_max_freq;
+static int cpumaxfreq_proc_show(struct seq_file *m, void *v)
+{
+	/* freq (GHz) */
+	int ret;
+	pr_debug("cpufreq_max_freq: %u kHz\n", cpufreq_max_freq);
+	ret = cpufreq_max_freq/1000 + 5;
+	seq_printf(m, "%u.%u\n", ret/1000, ret%1000/10);
+	return 0;
+}
+
 PROC_FOPS_RW(cpufreq_debug);
 PROC_FOPS_RW(cpufreq_stress_test);
 PROC_FOPS_RW(cpufreq_power_mode);
@@ -747,6 +758,7 @@ PROC_FOPS_RW(cpufreq_oppidx);
 PROC_FOPS_RW(cpufreq_freq);
 PROC_FOPS_RW(cpufreq_volt);
 PROC_FOPS_RW(cpufreq_turbo_mode);
+PROC_FOPS_RO(cpumaxfreq);
 
 int cpufreq_procfs_init(void)
 {
@@ -784,6 +796,7 @@ int cpufreq_procfs_init(void)
 		PROC_ENTRY(cpufreq_volt),
 		PROC_ENTRY(cpufreq_turbo_mode),
 	};
+	const struct pentry cpumaxfreq_entry = PROC_ENTRY(cpumaxfreq);
 
 	dir = proc_mkdir("cpufreq", NULL);
 
@@ -799,6 +812,13 @@ int cpufreq_procfs_init(void)
 			tag_pr_notice("%s(), create /proc/cpufreq/%s failed\n",
 				__func__, entries[i].name);
 	}
+
+	if (!proc_create("cpumaxfreq", 0444, NULL, cpumaxfreq_entry.fops))
+		tag_pr_notice("%s(), create /proc/%s failed\n",
+			__func__, cpumaxfreq_entry.name);
+	else
+		tag_pr_notice("%s(), create /proc/%s success\n",
+			__func__, cpumaxfreq_entry.name);
 
 	for_each_cpu_dvfs(j, p) {
 		cpu_dir = proc_mkdir(p->name, dir);

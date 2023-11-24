@@ -29,6 +29,11 @@
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_disp_pmqos.h"
 #include "slbc_ops.h"
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_esd_check.h"
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 
 #if IS_ENABLED(CONFIG_ARM64)
 #define MAX_CRTC 4
@@ -373,6 +378,7 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_MSYNC2_0_ENABLE,
 	CRTC_PROP_SKIP_CONFIG,
 	CRTC_PROP_OVL_DSI_SEQ,
+	CRTC_PROP_OUTPUT_SCENARIO,
 	CRTC_PROP_MAX,
 };
 
@@ -853,6 +859,11 @@ struct mtk_drm_crtc {
 	int force_high_enabled;
 	bool is_dsc_output_swap;
 	bool resume_frame;
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	struct mi_esd_ctx *mi_esd_ctx;
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 };
 
 struct mtk_crtc_state {

@@ -1,0 +1,73 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+
+/* TOUCH start */
+&spi4 {
+	/* N17 code for HQ-291634 by liunianliang at 2023/5/26 start */
+	mediatek,pad-select = <0>,<1>;
+	/* N17 code for HQ-291634 by liunianliang at 2023/5/26 end */
+
+	goodix-touch@0 {
+		compatible = "goodix,9916r-spi";
+		reg = <0>;
+		status = "ok";
+		/*N17 code for HQ-292221 by gaoxue at 2023/4/19 start*/
+		spi-max-frequency = <5000000>;
+		/*N17 code for HQ-292221 by gaoxue at 2023/4/19 end*/
+		goodix,avdd-name = "avdd";
+		avdd-supply = <&mt_pmic_vtp_ldo_reg>;
+		goodix,iovdd-name = "iovdd";
+		goodix,iovdd-gpio = <&pio 138 0x00>;
+		goodix,reset-gpio = <&pio 15 0x0>;
+		goodix,irq-gpio = <&pio 14 0x2001>;
+		goodix,irq-flags = <2>; /* 1:trigger rising, 2:trigger falling; */
+/* N17 code for HQ-305170 by jiangyue at 2023/7/7 start */
+		goodix,panel-max-x = <17280>;
+		goodix,panel-max-y = <38400>;
+/* N17 code for HQ-305170 by jiangyue at 2023/7/7 end */
+		goodix,panel-max-w = <255>;
+		/* optional properties */
+		goodix,panel-max-p = <4096>; /* max pressure that pen device supported */
+		//goodix,pen-enable; /* support active stylus device*/
+/* N17 code for HQ-308632 by p-zhangzhijian5 at 2023/7/28 start */
+		goodix,sleep-enable; /* enter sleep mode */
+/* N17 code for HQ-308632 by p-zhangzhijian5 at 2023/7/28 end */
+		goodix,firmware-name = "gt9916r_ts_fw_tm.bin";
+		goodix,config-name = "goodix_cfg_group.bin";
+/* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
+		goodix,touch-expert-array = <2 3 2 2
+					4 3 3 2
+					3 3 4 2>;
+/* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
+	};
+
+	/* N17 code for HQ-291634 by liunianliang at 2023/5/26 start */
+	focaltech@0 {
+		compatible = "focaltech,fts";
+		reg = <1>;
+		status = "ok";
+		spi-max-frequency = <6000000>;
+		interrupt-parent = <&pio>;
+		interrupts = <1 0x2>;
+		focaltech,avdd-name = "avdd";
+		avdd-supply = <&mt_pmic_vtp_ldo_reg>;
+		focaltech,iovdd-name = "iovdd";
+		focaltech,iovdd-gpio = <&pio 138 0x00>;
+		focaltech,reset-gpio =  <&pio 15 0x00>;
+		focaltech,irq-gpio = <&pio 14 0x2001>;
+		focaltech,max-touch-number = <10>;
+		/* N17 code for HQ-305170 by liunianliang at 2023/07/08 start */
+		focaltech,display-coords =  <0 0 17280 38400>;
+		/* N17 code for HQ-305170 by liunianliang at 2023/07/08 end */
+		/* N17 code for HQ-299546 by liunianliang at 2023/6/13 start */
+		focaltech,touch-range-array = <1 5 10 15 20>;
+		focaltech,touch-def-array = <3 3 3 3>;
+		focaltech,touch-expert-array = <10 10 10 10
+						 20 20 15 10
+						 20 20 20 10>;
+		/* N17 code for HQ-299546 by liunianliang at 2023/6/13 end */
+	};
+	/* N17 code for HQ-291634 by liunianliang at 2023/5/26 end */
+};

@@ -1,0 +1,11 @@
+config HQ_SYSFS_SUPPORT
+  tristate "Enable Huaqin Sysfs Driver"
+  default n
+  help
+    Huaqin Sysfs information driver includes specific information about hardware info and other info for HQ tools
+
+config SERIAL_NUM
+  tristate "serial num setting"
+  default n
+  help
+    serial num setting

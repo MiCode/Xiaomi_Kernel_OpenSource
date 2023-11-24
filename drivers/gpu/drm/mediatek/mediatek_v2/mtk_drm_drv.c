@@ -60,6 +60,13 @@
 #include "dvfsrc-exp.h"
 #endif
 
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
+
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
@@ -89,6 +96,11 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 void disp_dbg_deinit(void);
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *dev);
@@ -2207,6 +2219,10 @@ static const struct mtk_addon_module_data addon_mml_rsz_v2[] = {
 	{MML_RSZ, ADDON_BETWEEN, DDP_COMPONENT_DLO_ASYNC7}, /* OVL0 is dummy position */
 };
 
+static const struct mtk_addon_module_data mt6833_addon_wdma0_data_v2[] = {
+	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_OVL0_2L},
+};
+
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
 
@@ -2647,6 +2663,16 @@ static const struct mtk_addon_scenario_data mt6833_addon_main[ADDON_SCN_NR] = {
 		[TWO_SCALING] = {
 				.module_num = ARRAY_SIZE(addon_rsz_data),
 				.module_data = addon_rsz_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[WDMA_WRITE_BACK] = {
+				.module_num = ARRAY_SIZE(addon_wdma0_data),
+				.module_data = addon_wdma0_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[WDMA_WRITE_BACK_OVL] = {
+				.module_num = ARRAY_SIZE(mt6833_addon_wdma0_data_v2),
+				.module_data = mt6833_addon_wdma0_data_v2,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
@@ -4078,7 +4104,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	caps_info->lcm_degree = 180;
 #endif
 
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -6498,6 +6524,20 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -6560,8 +6600,17 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+//static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
+//			 mtk_drm_sys_resume);
+
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",
@@ -6653,6 +6702,13 @@ static int __init mtk_drm_init(void)
 	int i;
 
 	DDPINFO("%s+\n", __func__);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		DDPINFO("%s register %s driver\n",
 			__func__, mtk_drm_drivers[i]->driver.name);

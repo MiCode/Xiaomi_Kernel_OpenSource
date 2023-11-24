@@ -1993,5 +1993,7 @@ config SND_SOC_NAU8825
 config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
-
+# N17 code for HQ-293960 by zhouchenghua at 2023/4/27 start
+source "sound/soc/codecs/aw87559/Kconfig"
+# N17 code for HQ-293960 by zhouchenghua at 2023/4/27 end
 endmenu

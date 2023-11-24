@@ -96,6 +96,10 @@ obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
 obj-$(CONFIG_CHARGER_RT9465)	+= rt9465.o
 obj-$(CONFIG_BATTERY_MT6357) += mt6357_battery.o
+#/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+obj-$(CONFIG_SC8551X_CHARGER)	+= sc8551x_charger.o
+obj-$(CONFIG_LN8000_CHARGER)	+= ln8000_charger.o
+#/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 mt6357_battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o mt6357-gauge.o mtk_battery_daemon.o
 obj-$(CONFIG_BATTERY_MT6358) += mt6358_battery.o
 mt6358_battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o mt6358-gauge.o mtk_battery_daemon.o
@@ -121,7 +125,9 @@ mt6375-battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_a
 obj-$(CONFIG_CHARGER_TYPE_MT6357) += mt6357-charger-type.o
 obj-$(CONFIG_MTK_CHARGER_TYPE_DETECT)	+= mtk_chg_type_det.o
 obj-$(CONFIG_MTK_CHARGER) += mtk_charger_framework.o mtk_pd_charging.o charger_class.o adapter_class.o mtk_charger_algorithm_class.o mtk_pd_adapter.o
-mtk_charger_framework-objs := mtk_charger.o mtk_charger_intf.o mtk_basic_charger.o mtk_pulse_charger.o
+#/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+mtk_charger_framework-objs := mtk_charger.o mtk_charger_intf.o mtk_basic_charger.o mtk_pulse_charger.o mtk_jeita.o
+#/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 mtk_pd_charging-objs := mtk_pd.o mtk_pd_hal.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT) += mtk_pep20.o
 mtk_pep20-objs := mtk_pe2.o mtk_pe2_hal.o
@@ -132,6 +138,17 @@ mtk_pep40-objs := mtk_pe4.o mtk_pe4_hal.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_50_SUPPORT) += mtk_pep50.o
 mtk_pep50-objs := mtk_pe5.o mtk_pe5_hal.o
 
+#/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+subdir-ccflags-y += -DCONFIG_MTK_SOFT_HVDCP_2
+#/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
+# N17 code for HQ-293392 by tongjiacheng at 20230427 start
+obj-y += battery_secrete/
+# N17 code for HQ-293392 by tongjiacheng at 20230427 end
+
 ifneq ($(wildcard $(srctree)/$(src)/k6983v1_64_alpha),)
 obj-$(CONFIG_GAUGE_MT6983_ALPHA_SUPPORT) += k6983v1_64_alpha/
 endif
+
+# N17 code for HQ-293951 by tongjiacheng at 2023/04/26 start
+obj-$(CONFIG_HQ_CHARGER_SYSFS) += hq_charger_sysfs.o
+# N17 code for HQ-293951 by tongjiacheng at 2023/04/26 end

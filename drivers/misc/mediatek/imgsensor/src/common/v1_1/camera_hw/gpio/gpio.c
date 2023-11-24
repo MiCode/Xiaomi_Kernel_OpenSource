@@ -21,6 +21,10 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 	{"ldo_vcamafvdd_0"},
 	{"ldo_vcamd_1"},
 	{"ldo_vcamd_0"},
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+	{"ldo_vcamd1_1"},
+	{"ldo_vcamd1_0"},
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
 	{"ldo_vcamio_1"},
 	{"ldo_vcamio_0"},
 };

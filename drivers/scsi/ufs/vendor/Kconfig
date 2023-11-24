@@ -87,3 +87,18 @@ config UFSRINGBUF_POC
 	  UFS RingBuffer POC test
 	  1. set default vendor_signature & vendor_parameter for test
 	  2. Set custom vender_parameter
+#N17 code for HQ-290618 by gaoshilin at 20230411 start
+config SCSI_UFS_XIAOMI_FFU
+	bool "Xiaomi UFS FFU"
+	depends on SCSI_UFSHCD
+	help
+	  Kernel configuration file for MI UFS features
+#N17 code for HQ-290618 by gaoshilin at 20230411 end
+
+
+config SCSI_UFS_XIAOMI_CLD
+	bool "Xiaomi UFS CLD"
+	depends on SCSI_UFSHCD 
+	default n
+	help
+	  This adds support for Xiaomi CLD driver support.

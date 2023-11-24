@@ -19,7 +19,9 @@
 #include <sound/soc.h>
 #include <sound/soc.h>
 #include <sound/core.h>
-
+/* N17 code for HQ-293960 by zhouchenghua at 2023/4/27 start */
+extern int aw87xxx_add_codec_controls(void *codec);
+/* N17 code for HQ-293960 by zhouchenghua at 2023/4/27 end */
 #include "mt6359.h"
 #if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
 #include "mt6359p-accdet.h"
@@ -5438,12 +5440,19 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 				       mt6359_snd_misc_controls,
 				       ARRAY_SIZE(mt6359_snd_misc_controls));
 	/* add vow controls */
+
 	snd_soc_add_component_controls(cmpnt,
 				       mt6359_snd_vow_controls,
 				       ARRAY_SIZE(mt6359_snd_vow_controls));
 
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
-
+/* N17 code for HQ-293960 by zhouchenghua at 2023/4/27 start*/
+	pr_err("%s: aw87xxx_add_codec_controls enter \n", __func__);
+	ret = aw87xxx_add_codec_controls(cmpnt);
+	if (ret < 0) {
+		pr_err("%s: aw87xxx_add_codec_controls failed, ret= %d\n", __func__, ret);
+	};
+/* N17 code for HQ-293960 by zhouchenghua at 2023/4/27 end*/
 	return mt6359_codec_init_reg(cmpnt);
 }
 

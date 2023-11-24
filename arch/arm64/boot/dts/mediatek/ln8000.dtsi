@@ -1,0 +1,17 @@
+&i2c7 {
+    ln8000_charger@51 {
+		compatible = "cirrus,ln8000-main";
+		reg = <0x51>;
+		interrupt-parent = <&pio>;
+		interrupts = <18 IRQ_TYPE_EDGE_FALLING 18 0>;
+		cirrus,vbatovp-microvolt = <4550000>;
+		cirrus,vbusovp-microvolt = <11000000>;
+		cirrus,ibusocp-microamp = <4000000>;
+		cirrus,vbatalarm-microvolt = <4450000>;
+		cirrus,vbusalarm-microvolt = <10000000>;
+
+		/* 0: standalone, 1: dual-sync */
+		cirrus,dualsync-func = <0>;
+		status = "okay";
+	};
+};

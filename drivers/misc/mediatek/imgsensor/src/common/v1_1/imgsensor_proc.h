@@ -15,6 +15,9 @@
 #define camera_info_size 4096
 
 extern char mtk_ccm_name[camera_info_size];
+/* N17 code for HQ-299774 by changqi at 2023/06/15 start */
+extern unsigned int sensor_temperature;
+/* N17 code for HQ-299774 by changqi at 2023/06/15 end */
 
 enum IMGSENSOR_RETURN imgsensor_proc_init(void);
 void imgsensor_proc_exit(void);

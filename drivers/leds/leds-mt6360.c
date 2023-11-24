@@ -220,7 +220,13 @@ struct mt6360_led_info {
 
 static const struct mt6360_led_platform_data def_platform_data = {
 	.rgbon_sync = 0,
+/* N17 code for HQ-291678 by wangqiang at 2023/05/18 start */
+#if 0
 	.fled1_ultraistrb = 1,
+#else
+	.fled1_ultraistrb = 0, //0x74 bit[7]=0表示最小电流是50mA,最大电流1.5A,step是12.5mA
+#endif
+/* N17 code for HQ-291678 by wangqiang at 2023/05/18 end */
 	.fled2_ultraistrb = 1,
 };
 

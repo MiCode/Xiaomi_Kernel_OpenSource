@@ -6,11 +6,3 @@ config MTK_CPUHOTPLUG
           will be supported.
 	  	Select "y" if you want to enable this features.
 	  	Select "n" if unsure.
-
-config MTK_PPM_READY
-	tristate "This driver depends PPM"
-	depends on MTK_PPM
-	help
-	  This driver depends PPM
-	  Select "y" if you want to enable this features.
-	  Select "n" if unsure.

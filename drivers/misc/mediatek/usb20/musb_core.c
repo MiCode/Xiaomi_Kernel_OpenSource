@@ -3142,12 +3142,14 @@ static void usb_dpidle_request(int mode)
 	int op;
 
 	switch (mode) {
+/*N17 code for HQHW-4038 by miaozhichao at 2023/5/30 start*/
 	case USB_DPIDLE_SUSPEND:
-		op = MTK_USB_SMC_INFRA_SUSPEND;
+		op = MTK_USB_SMC_INFRA_REQUEST;
 		break;
 	case USB_DPIDLE_RESUME:
-		op = MTK_USB_SMC_INFRA_RESUME;
+		op = MTK_USB_SMC_INFRA_RELEASE;
 		break;
+/*N17 code for HQHW-4038 by miaozhichao at 2023/5/30 end*/
 	default:
 		return;
 	}

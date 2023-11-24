@@ -49,3 +49,6 @@ obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
 obj-$(CONFIG_ADI)		+= adi.o
 
 obj-$(CONFIG_RPMB)		+= rpmb/
+# N17 code for HQ-296367 by hujianyu at 2023/5/29 start
+obj-$(CONFIG_XLOGCHAR)		+= xlogchar.o
+# N17 code for HQ-296367 by hujianyu at 2023/5/29 end

@@ -128,3 +128,6 @@ obj-$(CONFIG_MTK_POWER_GS_LEGACY_V2) += power_gs_v1/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_LEGACY_THERMAL) += thermal/
 obj-$(CONFIG_MTK_MT6382_BDG) += spi_slave_drv/
+# N17 code for HQ-292289 by yangjinhao at 2023/04/25 start
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/
+# N17 code for HQ-292289 by yangjinhao at 2023/04/25 end

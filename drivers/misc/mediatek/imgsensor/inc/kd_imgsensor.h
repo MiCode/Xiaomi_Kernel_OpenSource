@@ -258,6 +258,12 @@
 #define S5K5E9_SENSOR_ID                        0x559b
 #define S5K5E9YX_SENSOR_ID                      0x559b
 #define S5KHM2SP_SENSOR_ID                      0x1AD2
+//N17 code for HQ-293325 by wangqiang start
+#define S5KHM6_SEMCO_MAIN_SENSOR_ID             0x1AD6
+//N17 code for HQ-293325 by wangqiang end
+//N17 code for HQ-293325 by wuzhenyue start
+#define S5KHM6_AAC_MAIN_SENSOR_ID             0x1AD7
+//N17 code for HQ-293325 by wuzhenyue end
 #define S5K4H7ALPHA_SENSOR_ID                   0x487B
 #define S5KGNVSP_SENSOR_ID                      0X08EA
 #define S5KGD2SP_SENSOR_ID                      0X0842
@@ -387,6 +393,40 @@
 #define GC02M1B_SENSOR_ID                       0x02e0
 #define SC800CS_LY_SENSOR_ID                    0xd126
 
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+#define OV64B40_OFILM_MAIN_SENSOR_ID                 0x6442
+#define SENSOR_DRVNAME_OV64B40_OFILM_MAIN_MIPI_RAW   "ov64b40_ofilm_main_mipi_raw"
+#define OV16A1Q_AAC_FRONT_SENSOR_ID                 0x1641
+#define SENSOR_DRVNAME_OV16A1Q_AAC_FRONT_MIPI_RAW    "ov16a1q_aac_front_mipi_raw"
+#define OV16A1Q_SUNNY_FRONT_SENSOR_ID               0x1642
+#define SENSOR_DRVNAME_OV16A1Q_SUNNY_FRONT_MIPI_RAW  "ov16a1q_sunny_front_mipi_raw"
+#define OV08D10_AAC_ULTRA_SENSOR_ID           0x56084700
+#define SENSOR_DRVNAME_OV08D10_AAC_ULTRA_MIPI_RAW      "ov08d10_aac_ultra_mipi_raw"
+#define OV08D10_SUNNY_ULTRA_SENSOR_ID           0x56084701
+#define SENSOR_DRVNAME_OV08D10_SUNNY_ULTRA_MIPI_RAW      "ov08d10_sunny_ultra_mipi_raw"
+#define SC202CS_AAC_DEPTH_SENSOR_ID 0xeb52
+#define SENSOR_DRVNAME_SC202CS_AAC_DEPTH_MIPI_RAW          "sc202cs_aac_depth_mipi_raw"
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+#define OV50D40_SUNNY_MAIN_SENSOR_ID                 0x565044
+#define SENSOR_DRVNAME_OV50D40_SUNNY_MAIN_MIPI_RAW   "ov50d40_sunny_main_mipi_raw"
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
+/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+#define SC202PCS_AAC_MACRO_SENSOR_ID 0xeb54
+#define SENSOR_DRVNAME_SC202PCS_AAC_MACRO_MIPI_RAW         "sc202pcs_aac_macro_mipi_raw"
+/* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+/* N17 code for HQ-293329 by wuzhenyue at 2023/04/27 start */
+#define SC202CS_SUNNY_DEPTH_SENSOR_ID 0xeb53
+#define SENSOR_DRVNAME_SC202CS_SUNNY_DEPTH_MIPI_RAW          "sc202cs_sunny_depth_mipi_raw"
+/* N17 code for HQ-293329 by wuzhenyue at 2023/04/27 end */
+/* N17 code for HQ-293329 by wuzhenyue at 2023/05/22 start */
+#define SC202CS_SUNNY2_DEPTH_SENSOR_ID 0xeb56
+#define SENSOR_DRVNAME_SC202CS_SUNNY2_DEPTH_MIPI_RAW          "sc202cs_sunny2_depth_mipi_raw"
+/* N17 code for HQ-293329 by wuzhenyue at 2023/05/22 end */
+/* N17 code for HQ-293328 by yinrong at 2023/05/08 start */
+#define SC202PCS_SUNNY_MACRO_SENSOR_ID 0xeb55
+#define SENSOR_DRVNAME_SC202PCS_SUNNY_MACRO_MIPI_RAW         "sc202pcs_sunny_macro_mipi_raw"
+/* N17 code for HQ-293328 by yinrong at 2023/05/08 end */
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
@@ -528,6 +568,12 @@
 #define SENSOR_DRVNAME_S5K5E9_MIPI_RAW          "s5k5e9_mipi_raw"
 #define SENSOR_DRVNAME_S5K5E9YX_MIPI_RAW        "s5k5e9yx_mipi_raw"
 #define SENSOR_DRVNAME_S5KHM2SP_MIPI_RAW        "s5khm2sp_mipi_raw"
+//N17 code for HQ-293325 by wangqiang start
+#define SENSOR_DRVNAME_S5KHM6_SEMCO_MAIN_MIPI_RAW    "s5khm6_semco_main_mipi_raw"
+//N17 code for HQ-293325 by wangqiang end
+//N17 code for HQ-293325 by wangqiang start
+#define SENSOR_DRVNAME_S5KHM6_AAC_MAIN_MIPI_RAW    "s5khm6_aac_main_mipi_raw"
+//N17 code for HQ-293325 by wangqiang end
 #define SENSOR_DRVNAME_S5K4H7ALPHA_MIPI_RAW     "s5k4h7alpha_mipi_raw"
 #define SENSOR_DRVNAME_S5KJN1TELE_MIPI_RAW      "s5kjn1tele_mipi_raw"
 #define SENSOR_DRVNAME_S5KGNVSP_MIPI_RAW        "s5kgnvsp_mipi_raw"

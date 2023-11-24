@@ -42,6 +42,10 @@ enum ppm_sysboost_user {
 	BOOST_BY_DEBUGD_64,
 	BOOST_BY_BOOT_TIME_OPT,
 
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+	BOOST_BY_XM_THERMAL,
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
+
 	NR_PPM_SYSBOOST_USER,
 };
 

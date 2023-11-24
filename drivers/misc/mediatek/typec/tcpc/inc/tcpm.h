@@ -912,7 +912,10 @@ extern uint8_t tcpm_inquire_pd_data_role(
 
 extern uint8_t tcpm_inquire_pd_power_role(
 	struct tcpc_device *tcpc);
-
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/28 start*/
+extern uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc);
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/28 end*/
 extern uint8_t tcpm_inquire_pd_vconn_role(
 	struct tcpc_device *tcpc);
 
@@ -1424,7 +1427,13 @@ static inline uint8_t tcpm_inquire_pd_power_role(
 {
 	return 0;
 }
-
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/28 start*/
+static inline uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc)
+{
+	return 0;
+}
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/28 end*/
 static inline uint8_t tcpm_inquire_pd_vconn_role(
 	struct tcpc_device *tcpc)
 {

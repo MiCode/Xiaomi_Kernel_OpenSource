@@ -66,7 +66,9 @@
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
 #define AFDRV_DW9718TAF "DW9718TAF"
-
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/25 start */
+#define AFDRV_DW9800VAF "DW9800VAF"
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/25 end */
 #define CONVERT_CCU_TIMESTAMP 0x1000
 
 /* Structures */

@@ -12,16 +12,10 @@
 
 #ifdef CONFIG_UFSFEATURE
 #include "ufshcd.h"
-#include "ufsfeature.h"
+/*N17 code for HQ-290612 by gaoshilin at 20230411 start*/
+#include "vendor/feature/ufsfeature.h"
+/*N17 code for HQ-290612 by gaoshilin at 20230411 end*/
 #endif
-
-/* UFSHCD error handling flags */
-enum {
-	UFSHCD_EH_IN_PROGRESS = (1 << 0),
-};
-
-#define ufshcd_eh_in_progress(h) \
-	((h)->eh_flags & UFSHCD_EH_IN_PROGRESS)
 
 /*
  * Vendor specific UFSHCI Registers

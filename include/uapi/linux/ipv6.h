@@ -4,6 +4,7 @@
 
 #include <linux/libc-compat.h>
 #include <linux/types.h>
+#include <linux/stddef.h>
 #include <linux/in6.h>
 #include <asm/byteorder.h>
 
@@ -130,8 +131,14 @@ struct ipv6hdr {
 	__u8			nexthdr;
 	__u8			hop_limit;
 
-	struct	in6_addr	saddr;
-	struct	in6_addr	daddr;
+#ifndef __GENKSYMS__
+	__struct_group(/* no tag */, addrs, /* no attrs */,
+#endif
+		struct	in6_addr	saddr;
+		struct	in6_addr	daddr;
+#ifndef __GENKSYMS__
+	);
+#endif
 };
 
 

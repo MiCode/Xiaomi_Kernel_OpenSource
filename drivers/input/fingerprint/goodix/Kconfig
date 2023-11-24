@@ -1,0 +1,10 @@
+config GOODIX_FINGERPRINT
+	tristate "Finger print card goodix fod"
+	depends on MTK_FINGERPRINT_SUPPORT
+	help
+	  Say Y here to enable support for retrieving self-test reports.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+

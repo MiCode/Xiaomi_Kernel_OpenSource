@@ -36,6 +36,9 @@
 
 #define PHY_MODE_BC11_SET 1
 #define PHY_MODE_BC11_CLR 2
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+#define FLOAT_DELAY_TIME 2000
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 end*/
 
 bool dbg_log_en = true; /* module param to enable/disable debug log */
 module_param(dbg_log_en, bool, 0644);
@@ -94,7 +97,9 @@ struct mt6360_chg_info {
 	u32 zcv;
 	u32 ichg;
 	u32 ichg_dis_chg;
-
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+	u8 float_count;
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
 	/* boot_mode */
 	u32 bootmode;
 	u32 boottype;
@@ -104,6 +109,13 @@ struct mt6360_chg_info {
 	bool attach;
 	bool pwr_rdy;
 	bool bc12_en;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	bool rerun_apsd;
+	bool hvdcp_disable;
+	struct delayed_work get_hvdcp_work;
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
 	int psy_usb_type;
 	atomic_t tcpc_attach;
 
@@ -128,6 +140,9 @@ struct mt6360_chg_info {
 	/* unfinish pe pattern */
 	struct workqueue_struct *pe_wq;
 	struct work_struct pe_work;
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+	struct delayed_work second_detect_work;
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 end*/
 	u8 ctd_dischg_status;
 	/* otg_vbus */
 	struct regulator_dev *otg_rdev;	};
@@ -191,7 +206,9 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 	.mivr = 4400000,		/* uV */
 	.cv = 4350000,			/* uA */
 	.ieoc = 250000,			/* uA */
-	.safety_timer = 12,		/* hour */
+/*N17 code for HQHW-4734 by yeyinzi at 2023/08/05 start*/
+	.safety_timer = 20,		/* hour */
+/*N17 code for HQHW-4734 by yeyinzi at 2023/08/05 end*/
 #ifdef CONFIG_MTK_BIF_SUPPORT
 	.ircmp_resistor = 0,		/* uohm */
 	.ircmp_vclamp = 0,		/* uV */
@@ -348,20 +365,81 @@ static inline int mt6360_get_ieoc(struct mt6360_chg_info *mci, u32 *uA)
 	*uA = 100000 + (ret * 50000);
 	return ret;
 }
+/*N17 code for HQHW-4192 by miaozhichao at 2023/6/28 start*/
+int pre_stat = 0;
+int cur_stat = 0;
 
-static inline int mt6360_get_charging_status(
+static int mt6360_get_charging_status(
 					struct mt6360_chg_info *mci,
 					enum mt6360_charging_status *chg_stat)
 {
 	int ret = 0;
 	unsigned int regval = 0;
+	union power_supply_propval val;
+	union power_supply_propval vbat_val;
+	struct power_supply *psy;
 
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL)
+		return -ENODEV;
+	ret = power_supply_get_property(psy,POWER_SUPPLY_PROP_TEMP, &val);
+	val.intval = val.intval / 10;
+	ret = power_supply_get_property(psy,POWER_SUPPLY_PROP_VOLTAGE_NOW, &vbat_val);
+	vbat_val.intval = vbat_val.intval / 1000;
 	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_STAT, &regval);
 	if (ret < 0)
 		return ret;
+
 	*chg_stat = (regval & MT6360_MASK_CHG_STAT) >> MT6360_SHFT_CHG_STAT;
+
+	if (*chg_stat == MT6360_CHG_STATUS_DONE) {
+	   pre_stat = *chg_stat ;
+	}
+	cur_stat = *chg_stat;
+	if (pre_stat == MT6360_CHG_STATUS_DONE && cur_stat == MT6360_CHG_STATUS_PROGRESS) {
+		if(val.intval >= 48 && val.intval <= 58) {
+				if(vbat_val.intval >= 3960) {
+					*chg_stat = MT6360_CHG_STATUS_DONE;
+					pre_stat = *chg_stat;
+				} else {
+					pre_stat = *chg_stat;
+				}
+		}
+/* N17 code for HQHW-4496 by tongjiacheng at 20230713 start */
+		if (val.intval < 0) {
+			if(vbat_val.intval >= 4380) {
+					*chg_stat = MT6360_CHG_STATUS_DONE;
+					pre_stat = *chg_stat;
+			} else {
+					pre_stat = *chg_stat;
+			}
+		}
+	}
+
+	if (val.intval < 0)
+		regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL11, 0x03, 0x03);
+/*N17 code for HQ-319807 by yeyinzi at 2023/08/29 start*/
+	else if((0 <= val.intval) && (val.intval < 10))
+		regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL11, 0x03, 0x01);
+/*N17 code for HQ-319807 by yeyinzi at 2023/08/29 end*/
+	else
+		regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL11, 0x03, 0x00);
+/* N17 code for HQHW-4496 by tongjiacheng at 20230713 end */
+/* N17 code for HQHW-4608 by tongjiacheng at 20230714 start */
+	if (cur_stat == MT6360_CHG_STATUS_DONE &&
+		mci->psy_usb_type == POWER_SUPPLY_USB_TYPE_ACA) {
+			dev_info(mci->dev, "%s hvdcp charging done, switch to dcp\n", __func__);
+			ret = regmap_write(mci->regmap, MT6360_PMU_QC_STATUS1, 0x15);		//switch to dp06dm00
+			if (ret < 0)
+				dev_err(mci->dev, "%s switch dcp fail\n", __func__);
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+	}
+/* N17 code for HQHW-4608 by tongjiacheng at 20230714 end */
+	dev_info(mci->dev, "%s: cur_stat:%d pre_stat:%d chg_stat:%d\n", __func__, cur_stat,pre_stat,*chg_stat);
 	return 0;
 }
+/*N17 code for HQHW-4192 by miaozhichao at 2023/6/28 end*/
 
 static inline int mt6360_is_charger_enabled(struct mt6360_chg_info *mci,
 					    bool *en)
@@ -489,6 +567,12 @@ static bool is_usb_rdy(struct device *dev)
 	return ready;
 }
 
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+#define	DP_DM_CTL_N		0x00
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
+
 static int __mt6360_enable_usbchgen(struct mt6360_chg_info *mci, bool en)
 {
 	int i, ret = 0;
@@ -548,6 +632,21 @@ static int __mt6360_enable_usbchgen(struct mt6360_chg_info *mci, bool en)
 			dev_info(mci->dev, "%s: CDP free\n", __func__);
 	}
 	mt6360_set_usbsw_state(mci, usbsw);
+
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (mci->rerun_apsd) {
+		ret = regmap_write(mci->regmap, MT6360_PMU_QC_STATUS1, DP_DM_CTL_N);
+		dev_info(mci->dev, "%s: clear DP_DM_CTRL for rerun apsd.\n", __func__);
+		msleep(50);
+		ret = regmap_update_bits(mci->regmap, MT6360_PMU_DEVICE_TYPE,
+					 MT6360_MASK_USBCHGEN, 0);
+		dev_info(mci->dev, "%s: MT6360_PMU_DEVICE_TYPE 0 for rerun apsd.\n", __func__);
+		msleep(50);
+	}
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
+
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_DEVICE_TYPE,
 				 MT6360_MASK_USBCHGEN, en ? 0xff : 0);
 	if (ret >= 0)
@@ -586,6 +685,116 @@ static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 	return __mt6360_enable_usbchgen(mci, attach);
 }
 
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+static int mt6360_rerun_apsd(struct charger_device *chg_dev, bool en);
+static void mt6360_second_detect_work(struct work_struct *work)
+{
+	struct mt6360_chg_info *mci = container_of(work,
+					struct mt6360_chg_info, second_detect_work.work);
+	dev_info(mci->dev, "%s: enter!\n", __func__);
+	mt6360_rerun_apsd(mci->chg_dev, false);
+
+	if (mci->float_count < 4 && (mci->psy_desc.type == POWER_SUPPLY_TYPE_USB) &&
+            				(mci->psy_usb_type == POWER_SUPPLY_USB_TYPE_DCP)) {
+		schedule_delayed_work(&mci->second_detect_work,
+							msecs_to_jiffies(FLOAT_DELAY_TIME));
+		mci->float_count++;
+	}
+}
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 end*/
+
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+#define	DP_06_DM_06		0x16
+#define	DP_33_DM_06		0x18
+#define	HVDCP_VBUS_LOW_LIMIT	3000
+#define	HVDCP_VBUS_HIGH_LIMIT	7200
+#define	HVDCP_DPDM_DELAY_1S	1500
+
+static int mt6360_get_vbus(struct charger_device *chg_dev, u32 *vbus);
+static void mt6360_get_hvdcp_work(struct work_struct *work)
+{
+	int ret, i;
+	u32 vbus;
+	/*N17 code for HQ-295607 by miaozhichao at 2023/5/9 start*/
+	struct mtk_charger *info;
+	struct power_supply *psy;
+	/*N17 code for HQ-295607 by miaozhichao at 2023/5/9 end*/
+	struct mt6360_chg_info *mci = container_of(work,
+			struct mt6360_chg_info, get_hvdcp_work.work);
+	/*N17 code for HQ-295607 by miaozhichao at 2023/5/9 start*/
+	psy = power_supply_get_by_name("mtk-master-charger");
+	if (!psy) {
+		dev_err(mci->dev, "%s get charger psy fail\n", __func__);
+		schedule_delayed_work(&mci->get_hvdcp_work,
+						msecs_to_jiffies(HVDCP_DPDM_DELAY_1S));
+
+	}
+	info = power_supply_get_drvdata(psy);
+		/*N17 code for HQ-295607 by miaozhichao at 2023/5/9 end*/
+	if (!mci->attach) {
+		mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		dev_info(mci->dev, "%s: mci->attach=0, stop hvdcp_work.\n", __func__);
+		goto out;
+	}
+	/*N17 code for HQ-295607 by miaozhichao at 2023/5/9 start*/
+	if ((!mci->hvdcp_disable) && (info->pd_type != MTK_PD_CONNECT_PE_READY_SNK_PD30 && info->pd_type != MTK_PD_CONNECT_PE_READY_SNK_APDO )) {
+		ret = regmap_write(mci->regmap, MT6360_PMU_QC_STATUS1, DP_33_DM_06);
+		msleep(300);
+	/*N17 code for HQ-295607 by miaozhichao at 2023/5/9 end*/
+	} else {
+		dev_info(mci->dev, "%s: hvdcp_disable.\n", __func__);
+		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+		goto out;
+	}
+	for (i = 0; i < 3; i++) {
+		if (!mci->attach) {
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+			dev_info(mci->dev, "%s: mci->attach=0, stop hvdcp_work.\n", __func__);
+			goto out;
+		}
+		ret = mt6360_get_vbus(mci->chg_dev, &vbus);
+		if (ret < 0)
+			dev_err(mci->dev, "%s: get vbus adc fail\n", __func__);
+		vbus = vbus / 1000;
+		dev_info(mci->dev, "%s:%d: get vbus=%d.\n", __func__, i, vbus);
+		if (vbus > HVDCP_VBUS_HIGH_LIMIT)
+			break;
+		msleep(30);
+	}
+
+	if (mci->attach) {
+		if (vbus > HVDCP_VBUS_HIGH_LIMIT) {
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_ACA;
+			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_ACA;
+			dev_info(mci->dev, "%s: Get QC2 succ.\n", __func__);
+		} else if (vbus > HVDCP_VBUS_LOW_LIMIT) {
+			ret = regmap_write(mci->regmap, MT6360_PMU_QC_STATUS1, DP_06_DM_06);
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+			dev_info(mci->dev, "%s: No QC2, Get DCP.\n", __func__);
+		} else {
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+			ret = regmap_write(mci->regmap, MT6360_PMU_QC_STATUS1, DP_DM_CTL_N);
+			dev_info(mci->dev, "%s:next: No Vbus, plug out.\n", __func__);
+			ret = __mt6360_enable_usbchgen(mci, false);
+			if (ret < 0)
+				dev_notice(mci->dev, "%s: disable chgdet fail\n",
+					   __func__);
+		}
+	} else {
+		mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		dev_info(mci->dev, "%s: mci->attach=0, stop hvdcp_work.\n", __func__);
+	}
+out:
+	power_supply_changed(mci->psy);
+	dev_info(mci->dev, "%s: Update psy_chg_type:%d.\n",
+			__func__, mci->psy_desc.type);
+}
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
+
 static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 {
 	int ret = 0;
@@ -597,21 +806,32 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 		attach = atomic_read(&mci->tcpc_attach);
 	else
 		attach = mci->pwr_rdy;
-	if (mci->attach == attach) {
-		dev_info(mci->dev, "%s: attach(%d) is the same\n",
+		/* Plug out during BC12 */
+	if (!attach) {
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		mci->attach = attach;
+		dev_info(mci->dev, "%s: mci->attach=%d.\n", __func__, mci->attach);
+//		ret = mt6360_pmu_reg_write(mci->mpi,
+//				MT6360_PMU_DPDM_CTRL,DP_DM_CTL_N);
+		ret = regmap_write(mci->regmap, MT6360_PMU_QC_STATUS1, DP_DM_CTL_N);
+#endif
+		mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		goto out;
+	}
+	if (mci->attach == attach
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		&& !mci->rerun_apsd
+#endif
+		) {
+		dev_info(mci->dev, "%s: attach(%d) is the same, needn't rerun_apsd.\n",
 				    __func__, attach);
 		inform_psy = !attach;
 		goto out;
 	}
 	mci->attach = attach;
-	dev_info(mci->dev, "%s: attach = %d\n", __func__, attach);
-	/* Plug out during BC12 */
-	if (!attach) {
-		dev_info(mci->dev, "%s: Charger Type: UNKONWN\n", __func__);
-		mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-		goto out;
-	}
+	dev_info(mci->dev, "%s: mci->attach=%d.\n", __func__, mci->attach);
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
 	/* Plug in */
 	ret = regmap_read(mci->regmap, MT6360_PMU_USB_STATUS1, &regval);
 	if (ret < 0)
@@ -632,6 +852,11 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 			  "%s: Charger Type: NONSTANDARD_CHARGER\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+		if (!delayed_work_pending(&mci->second_detect_work))
+			schedule_delayed_work(&mci->second_detect_work,
+					msecs_to_jiffies(0));
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 end*/
 		break;
 	case MT6360_CHG_TYPE_CDP:
 		dev_info(mci->dev,
@@ -640,11 +865,28 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
 		break;
 	case MT6360_CHG_TYPE_DCP:
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+		if (!mci->hvdcp_disable) {
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+			dev_info(mci->dev, "%s: start QC2 retry.\n", __func__);
+			if (!delayed_work_pending(&mci->get_hvdcp_work))
+				schedule_delayed_work(&mci->get_hvdcp_work,
+						msecs_to_jiffies(HVDCP_DPDM_DELAY_1S));
+		} else {
+			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+			dev_info(mci->dev, "%s: hvdcp_disable.\n", __func__);
+		}
+#else
 		dev_info(mci->dev,
 			  "%s: Charger Type: STANDARD_CHARGER\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
 	}
 out:
 	if (!attach) {
@@ -652,10 +894,24 @@ out:
 		if (ret < 0)
 			dev_notice(mci->dev, "%s: disable chgdet fail\n",
 				   __func__);
-	} else if (mci->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP)
-		mt6360_set_usbsw_state(mci, MT6360_USBSW_USB);
+	} 
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	else if (mci->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP 
+			&& mci->psy_desc.type != POWER_SUPPLY_TYPE_USB_ACA)
+#else
+	else if (mci->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP)
+#endif
+			mt6360_set_usbsw_state(mci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (mci->rerun_apsd) {
+		mci->rerun_apsd = false;
+		dev_info(mci->dev, "%s: clear rerun_apsd.\n", __func__);
+	}
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
 	power_supply_changed(mci->psy);
 	return ret;
 }
@@ -791,6 +1047,9 @@ static int __mt6360_enable(struct mt6360_chg_info *mci, bool en)
 	u32 ichg_ramp_t = 0;
 
 	mt_dbg(mci->dev, "%s: en = %d\n", __func__, en);
+/*N17 code for HQ-306722 by xm tianye9 at 2023/07/08 start*/
+	dev_info(mci->dev,"N17 in %s, set charger en =%d\n", __func__, en);
+/*N17 code for HQ-306722 by xm tianye9 at 2023/07/08 end*/
 
 	/* Workaround for vsys overshoot */
 	mutex_lock(&mci->ichg_lock);
@@ -952,11 +1211,18 @@ static int __mt6360_enable_chg_type_det(struct mt6360_chg_info *mci, bool en)
 		return ret;
 
 	mutex_lock(&mci->chgdet_lock);
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (atomic_read(&mci->tcpc_attach) == en
+			&& !mci->rerun_apsd) {
+#else 
 	if (atomic_read(&mci->tcpc_attach) == en) {
-		dev_info(mci->dev, "%s attach(%d) is the same\n",
+#endif
+		dev_info(mci->dev, "%s attach(%d) is the same,needn't rerun apsd.\n",
 			 __func__, atomic_read(&mci->tcpc_attach));
 		goto out;
 	}
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
 	atomic_set(&mci->tcpc_attach, en);
 	ret = (en ? mt6360_chgdet_pre_process :
 		    mt6360_chgdet_post_process)(mci);
@@ -1601,6 +1867,29 @@ static int mt6360_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 	return __mt6360_enable_chg_type_det(mci, en);
 }
 
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+static int mt6360_rerun_apsd(struct charger_device *chg_dev, bool en)
+{
+	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
+	int ret;
+	mci->hvdcp_disable = en;
+	dev_info(mci->dev, "%s: hvdcp_disable=%d, chg_type=%d.\n",
+			__func__, mci->hvdcp_disable, mci->psy_desc.type);
+	if ((mci->psy_usb_type != POWER_SUPPLY_USB_TYPE_SDP) ||(mci->psy_desc.type !=POWER_SUPPLY_TYPE_USB_CDP) ) {
+		mci->rerun_apsd = true;
+		mci->hvdcp_disable = en;
+		dev_info(mci->dev, "%s: rerurn apsd start.\n", __func__);
+		ret = mt6360_enable_chg_type_det(chg_dev, mci->rerun_apsd);
+	} else {
+		dev_info(mci->dev, "%s: chg_type needn't rerun apsd.\n", __func__);
+		ret = 0;
+	}
+	return ret;
+}
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
+
 static int mt6360_get_adc(struct charger_device *chg_dev, enum adc_channel chan,
 			  int *min, int *max)
 {
@@ -1964,7 +2253,24 @@ static int mt6360_get_ctd_dischg_status(struct charger_device *chg_dev,
 	return 0;
 }
 
+/* N17 code for HQHW-4906 by p-gucheng at 20230812  start */
+static int mt6360_charger_get_online(struct mt6360_chg_info *mci, bool *val);
+static int mt6360_get_online(struct charger_device *chg_dev)
+{
+	struct mt6360_chg_info *mci = charger_get_data(chg_dev);
+	bool online = 0;
+
+	mt6360_charger_get_online(mci,  &online);
+
+	return online;
+}
+/* N17 code for HQHW-4906 by p-gucheng at 20230812  end */
+
 static const struct charger_ops mt6360_chg_ops = {
+	/* N17 code for HQHW-4906 by p-gucheng at 20230812  start */
+	/* cable online */
+	.get_online = mt6360_get_online,
+	/* N17 code for HQHW-4906 by p-gucheng at 20230812  end */
 	/* cable plug in/out */
 	.plug_in = mt6360_plug_in,
 	.plug_out = mt6360_plug_out,
@@ -2009,6 +2315,11 @@ static const struct charger_ops mt6360_chg_ops = {
 	.enable_discharge = mt6360_enable_discharge,
 	/* Charger type detection */
 	.enable_chg_type_det = mt6360_enable_chg_type_det,
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	.rerun_apsd = mt6360_rerun_apsd,
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
 	/* ADC */
 	.get_adc = mt6360_get_adc,
 	.get_vbus_adc = mt6360_get_vbus,
@@ -2294,6 +2605,21 @@ static irqreturn_t mt6360_pmu_chrdet_ext_evt_handler(int irq, void *data)
 	dev_info(mci->dev, "%s: pwr_rdy = %d\n", __func__, pwr_rdy);
 	if (ret < 0)
 		goto out;
+
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	if (!pwr_rdy) {
+		mci->attach = false;
+		mci->rerun_apsd = false;
+		dev_info(mci->dev, "%s: clear attach & rerun_apsd.\n", __func__);
+		cancel_delayed_work_sync(&mci->get_hvdcp_work);
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+          	mci->float_count = 0;
+		cancel_delayed_work_sync(&mci->second_detect_work);
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 end*/
+	}
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
 	if (mci->pwr_rdy == pwr_rdy)
 		goto out;
 	mci->pwr_rdy = pwr_rdy;
@@ -2609,6 +2935,11 @@ static int mt6360_chg_init_setting(struct mt6360_chg_info *mci)
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_FOD_CTRL, 0x40, 0);
 	if (ret < 0)
 		dev_err(mci->dev, "%s: disable fod ctrl fail\n", __func__);
+	/* N17 code for HQHW-4950 by hankang at 20230820 start */
+	ret = __mt6360_set_ichg(mci, 500000);
+	if (ret < 0)
+		dev_err(mci->dev, "%s: set init ichg fail\n", __func__);
+	/* N17 code for HQHW-4950 by hankang at 20230820 end */
 	ret = mt6360_select_input_current_limit(mci, MT6360_IINLMTSEL_AICR);
 	if (ret < 0) {
 		dev_err(mci->dev, "%s: select iinlmtsel by aicr fail\n",
@@ -2702,6 +3033,12 @@ static int mt6360_chg_init_setting(struct mt6360_chg_info *mci)
 	/* Disable TypeC OTP for check EVB version by TS pin */
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_TYPEC_OTP_CTRL,
 				 MT6360_MASK_TYPEC_OTP_EN, 0);
+	/* N17 code for HQ-307331 by tongjiacheng at 20230726 start */
+	/* Init ichg to 500mA */
+	ret = __mt6360_set_ichg(mci, 500000);
+	if (ret < 0)
+		dev_err(mci->dev, "%s: set init ichg fail\n", __func__);
+	/* N17 code for HQ-307331 by tongjiacheng at 20230726 end */
 	return ret;
 }
 
@@ -2719,7 +3056,9 @@ static int mt6360_set_shipping_mode(struct mt6360_chg_info *mci)
 		goto out;
 	}
 	/* enter shipping mode and disable cfo_en/chg_en */
-	ret = regmap_write(mci->regmap, MT6360_PMU_CHG_CTRL2, 0x80);
+/* N17 code for HQ-294995 by miaozhichao at 20230525 start */
+	ret = regmap_write(mci->regmap, MT6360_PMU_CHG_CTRL2, 0xc0);
+/* N17 code for HQ-294995 by miaozhichao at 20230525 end */
 	if (ret < 0)
 		dev_err(mci->dev,
 			"%s: fail to enter shipping mode\n", __func__);
@@ -2785,12 +3124,24 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 {
 	struct mt6360_chg_info *mci = power_supply_get_drvdata(psy);
 	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_MAX;
-	int ret = 0;
+/* N17 code for HQ-307354 by daijie at 20230728 start */
+	struct mtk_charger *info = NULL;
+	struct power_supply *chg_psy = NULL;
+	int ret = 0, pe5_state = 0;
 	bool pwr_rdy = false, chg_en = false;
 
 	if (!mci) {
 		pr_notice("%s: mci is NULL\n", __func__);
 		return -EINVAL;
+	}
+
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (!chg_psy) {
+		dev_err(mci->dev, "%s get charger psy fail\n", __func__);
+	}else{
+		info = (struct mtk_charger *) power_supply_get_drvdata(chg_psy);
+		if(!info)
+			dev_err(mci->dev, "%s get charger info fail\n", __func__);
 	}
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
@@ -2816,18 +3167,25 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 		if (ret < 0)
 			return ret;
 		if (!pwr_rdy) {
-			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			/* N17 code for HQHW-4906 by p-gucheng at 20230812 */
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 			return ret;
 		}
 		switch (chg_stat) {
 		case MT6360_CHG_STATUS_READY:
 			fallthrough;
 		case MT6360_CHG_STATUS_PROGRESS:
+			if(info != NULL)
+				pe5_state = chg_alg_is_algo_ready(info->alg[0]);
 			if (chg_en)
 				val->intval = POWER_SUPPLY_STATUS_CHARGING;
-			else
+			else if(info != NULL && (pe5_state == ALG_RUNNING || pe5_state == ALG_READY)){
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+				dev_err(mci->dev, "%s: pe5 is running, report charging\n", __func__);
+			}else
 				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 			break;
+/* N17 code for HQ-307354 by daijie at 20230728 end */
 		case MT6360_CHG_STATUS_DONE:
 			val->intval = POWER_SUPPLY_STATUS_FULL;
 			break;
@@ -2862,6 +3220,11 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6360_charger_set_online(mci, val);
 		break;
+	/* N17 code for HQ-292525 by tongjiacheng at 20230506 start */
+	case POWER_SUPPLY_PROP_STATUS:
+		__mt6360_enable(mci, !(val->intval));
+		break;
+	/* N17 code for HQ-292525 by tongjiacheng at 20230506 end */
 	default:
 		ret = -EINVAL;
 	}
@@ -2873,6 +3236,9 @@ static int mt6360_charger_property_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
+	/* N17 code for HQ-292525 by tongjiacheng at 20230506 start */
+	case POWER_SUPPLY_PROP_STATUS:
+	/* N17 code for HQ-292525 by tongjiacheng at 20230506 end */
 		return 1;
 	default:
 		return 0;
@@ -3150,6 +3516,14 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_shipping_mode_attr;
 	}
 	INIT_WORK(&mci->pe_work, mt6360_trigger_pep_work_handler);
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	INIT_DELAYED_WORK(&mci->get_hvdcp_work, mt6360_get_hvdcp_work);
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/4/24 end*/
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 start*/
+	INIT_DELAYED_WORK(&mci->second_detect_work, mt6360_second_detect_work);
+/*N17 code for HQ-292105 by wangtingting at 2023/05/30 end*/
 
 	/* otg regulator */
 	config.dev = &pdev->dev;
@@ -3231,6 +3605,29 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 	mutex_destroy(&mci->hidden_mode_lock);
 	return 0;
 }
+/* N17 code for HQ-294995 by miaozhichao at 20230525 start */
+static void mt6360_shutdown(struct platform_device *pdev)
+{
+	struct mt6360_chg_info *mci = platform_get_drvdata(pdev);
+	struct mtk_charger *info;
+	struct power_supply *psy;
+	int ret;
+	psy = power_supply_get_by_name("mtk-master-charger");
+	if (!psy) {
+		dev_err(mci->dev, "%s get charger psy fail\n", __func__);
+		return;
+	}
+	info = power_supply_get_drvdata(psy);
+
+	if(info->ship_mode == true)
+	{
+		ret = mt6360_set_shipping_mode(mci);
+		if (ret < 0)
+			return;
+		dev_err(mci->dev, "%s: set ship_mode success\n", __func__);
+	}
+}
+/* N17 code for HQ-294995 by miaozhichao at 20230525 end */
 
 static int __maybe_unused mt6360_pmu_chg_suspend(struct device *dev)
 {
@@ -3268,6 +3665,9 @@ static struct platform_driver mt6360_pmu_chg_driver = {
 	.probe = mt6360_pmu_chg_probe,
 	.remove = mt6360_pmu_chg_remove,
 	.id_table = mt6360_pmu_chg_id,
+/* N17 code for HQ-294995 by miaozhichao at 20230525 start */
+	.shutdown = mt6360_shutdown,
+/* N17 code for HQ-294995 by miaozhichao at 20230525 end */
 };
 
 static int __init mt6360_pmu_chg_init(void)

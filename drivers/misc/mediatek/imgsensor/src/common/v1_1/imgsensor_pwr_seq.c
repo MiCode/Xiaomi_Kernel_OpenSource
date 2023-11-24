@@ -11,6 +11,198 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+/* N17 code for HQ-293325 by miaozhongshu at 2023/05/30 start */
+//N17 code for HQ-293325 by wangqiang start
+#if defined(S5KHM6_SEMCO_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_S5KHM6_SEMCO_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2500, 1},
+				{DVDD, Vol_1000, 1},
+				{AFVDD, Vol_2800, 1},
+				{RST, Vol_High, 1},
+				{SensorMCLK, Vol_High, 15},
+			},
+		},
+#endif
+//N17 code for HQ-293325 by wangqiang end
+//N17 code for HQ-293325 by wuzhenyue  start
+#if defined(S5KHM6_AAC_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_S5KHM6_AAC_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2500, 1},
+				{DVDD, Vol_1000, 1},
+				{AFVDD, Vol_2800, 1},
+				{RST, Vol_High, 1},
+				{SensorMCLK, Vol_High, 15},
+			},
+		},
+#endif
+//N17 code for HQ-293325 by wuzhenyue end
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+#if defined(OV64B40_OFILM_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_OV64B40_OFILM_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{SensorMCLK, Vol_High, 1},
+				{AVDD, Vol_2800, 1},
+				{DOVDD, Vol_1800, 1},
+				{DVDD, Vol_1100, 1},
+				{AFVDD, Vol_2800, 1},
+				{RST, Vol_High, 8}
+			},
+		},
+#endif
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+#if defined(OV50D40_SUNNY_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_OV50D40_SUNNY_MAIN_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+   				{SensorMCLK, Vol_High, 1},
+  				{AVDD, Vol_2800, 1},
+   				{DOVDD, Vol_1800, 1},
+   				{DVDD1, Vol_1200, 1},
+				{AFVDD, Vol_2800, 1},
+  				{RST, Vol_High, 8}
+			},
+		},
+#endif
+/* N17 code for HQ-293326 by zhaoyue start*/
+#if defined(OV16A1Q_AAC_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV16A1Q_AAC_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 1},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 8}
+		},
+	},
+#endif
+#if defined(OV16A1Q_SUNNY_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV16A1Q_SUNNY_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 1},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 8}
+		},
+	},
+#endif
+/* N17 code for HQ-293326 by zhaoyue end*/
+/* N17 code for HQ-293327 by changqi start*/
+#if defined(OV08D10_AAC_ULTRA_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV08D10_AAC_ULTRA_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 6},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 9},
+		},
+	},
+#endif
+#if defined(OV08D10_SUNNY_ULTRA_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV08D10_SUNNY_ULTRA_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 6},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 9},
+		},
+	},
+#endif
+/* N17 code for HQ-293327 by changqi end*/
+/* N17 code for HQ-293329 by wuzhenyue start*/
+#if defined(SC202CS_AAC_DEPTH_MIPI_RAW)
+    {
+        SENSOR_DRVNAME_SC202CS_AAC_DEPTH_MIPI_RAW,
+        {
+				{RST, Vol_Low, 1},
+				{SensorMCLK, Vol_High, 0},
+				{DOVDD, Vol_1800, 0},
+				{AVDD, Vol_2800, 1},
+				{RST, Vol_High, 6}
+        },
+    },
+#endif
+/* N17 code for HQ-293329 by wuzhenyue end*/
+/* N17 code for HQ-293328 by yinrong start*/
+#if defined(SC202PCS_AAC_MACRO_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_SC202PCS_AAC_MACRO_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{SensorMCLK, Vol_High, 0},
+				{DOVDD, Vol_1800, 0},
+				{AVDD, Vol_2800, 1},
+				{RST, Vol_High, 6}
+			},
+		},
+#endif
+/* N17 code for HQ-293328 by yinrong end*/
+/* N17 code for HQ-293329 by wuzhenyue start*/
+#if defined(SC202CS_SUNNY_DEPTH_MIPI_RAW)
+    {
+        SENSOR_DRVNAME_SC202CS_SUNNY_DEPTH_MIPI_RAW,
+        {
+				{RST, Vol_Low, 1},
+				{SensorMCLK, Vol_High, 0},
+				{DOVDD, Vol_1800, 0},
+				{AVDD, Vol_2800, 1},
+				{RST, Vol_High, 6}
+        },
+    },
+#endif
+/* N17 code for HQ-293329 by wuzhenyue end*/
+/* N17 code for HQ-293329 by wuzhenyue start*/
+/* N17 code for HQ-293325 by miaozhongshu at 2023/06/07 start */
+#if defined(SC202CS_SUNNY2_DEPTH_MIPI_RAW)
+    {
+        SENSOR_DRVNAME_SC202CS_SUNNY2_DEPTH_MIPI_RAW,
+        {
+				{RST, Vol_Low, 1},
+				{SensorMCLK, Vol_High, 0},
+				{DOVDD, Vol_1800, 0},
+				{AVDD, Vol_2800, 1},
+				{RST, Vol_High, 6}
+        },
+    },
+#endif
+/* N17 code for HQ-293325 by miaozhongshu at 2023/06/07 end */
+/* N17 code for HQ-293329 by wuzhenyue end*/
+/* N17 code for HQ-293328 by yinrong start*/
+#if defined(SC202PCS_SUNNY_MACRO_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_SC202PCS_SUNNY_MACRO_MIPI_RAW,
+			{
+				{RST, Vol_Low, 1},
+				{SensorMCLK, Vol_High, 0},
+				{DOVDD, Vol_1800, 0},
+				{AVDD, Vol_2800, 1},
+				{RST, Vol_High, 6}
+			},
+		},
+#endif
+/* N17 code for HQ-293328 by yinrong end*/
+/* N17 code for HQ-293325 by miaozhongshu at 2023/05/30 end */
 #if defined(HI1339_MIPI_RAW)
 		{
 			SENSOR_DRVNAME_HI1339_MIPI_RAW,

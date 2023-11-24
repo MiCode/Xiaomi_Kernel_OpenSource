@@ -683,12 +683,13 @@ static ssize_t cur_state_show(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "%ld\n", state);
 }
 
+/*N17 code for HQ-307653 by hanjia at 20230715 start*/
 static ssize_t
 cur_state_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct thermal_cooling_device *cdev = to_cooling_device(dev);
-	unsigned long state;
+	unsigned long state, max_state;
 	int result;
 
 	if (sscanf(buf, "%ld\n", &state) != 1)
@@ -699,14 +700,23 @@ cur_state_store(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&cdev->lock);
 
+	result = cdev->ops->get_max_state(cdev, &max_state);
+	if (result)
+		goto unlock;
+
+	if (state > max_state) {
+		result = -EINVAL;
+		goto unlock;
+	}
+
 	result = cdev->ops->set_cur_state(cdev, state);
 	if (!result)
 		thermal_cooling_device_stats_update(cdev, state);
-
+unlock:
 	mutex_unlock(&cdev->lock);
 	return result ? result : count;
 }
-
+/*N17 code for HQ-307653 by hanjia at 20230715 end*/
 static struct device_attribute
 dev_attr_cdev_type = __ATTR(type, 0444, cdev_type_show, NULL);
 static DEVICE_ATTR_RO(max_state);

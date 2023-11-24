@@ -24,6 +24,9 @@ enum IMGSENSOR_HW_PIN {
 	IMGSENSOR_HW_PIN_AVDD1,
 	IMGSENSOR_HW_PIN_AFVDD,
 	IMGSENSOR_HW_PIN_DVDD,
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+	IMGSENSOR_HW_PIN_DVDD1,
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
 	IMGSENSOR_HW_PIN_DOVDD,
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_EN,
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL,
@@ -58,6 +61,9 @@ enum IMGSENSOR_HW_PIN_STATE {
 #define AVDD        IMGSENSOR_HW_PIN_AVDD
 #define AVDD1       IMGSENSOR_HW_PIN_AVDD1
 #define DVDD        IMGSENSOR_HW_PIN_DVDD
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+#define DVDD1        IMGSENSOR_HW_PIN_DVDD1
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
 #define DOVDD       IMGSENSOR_HW_PIN_DOVDD
 #define VDD_None    IMGSENSOR_HW_PIN_NONE
 

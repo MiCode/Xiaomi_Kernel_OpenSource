@@ -18,6 +18,7 @@ extern "C" {
 /* Macros							*/
 /*==============================================================*/
 /* TODO: remove these workaround for k49 migration */
+#define PPM_NOT_REGISTER_CALLBACK (1)
 #define NO_MTK_TRACE		(1)
 
 #define DYNAMIC_TABLE2REAL_PERCENTAGE	(58)
@@ -113,7 +114,7 @@ extern unsigned int ppm_calc_total_power(
 			unsigned int cluster_num,
 			unsigned int percentage);
 extern int ppm_platform_init(void);
-
+extern void *get_cpuhop_ppm_callback(void);
 /* COBRA algo */
 extern void ppm_cobra_update_core_limit(unsigned int cluster, int limit);
 extern void ppm_cobra_update_freq_limit(unsigned int cluster, int limit);

@@ -497,4 +497,8 @@ source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/uacce/Kconfig"
+#N17 code for HQ-290612 by gaoshilin at 20230412 start
+source "drivers/misc/mi-memory/Kconfig"
+#N17 code for HQ-290612 by gaoshilin at 20230412 end
+source "drivers/misc/hqsysfs/Kconfig"
 endmenu

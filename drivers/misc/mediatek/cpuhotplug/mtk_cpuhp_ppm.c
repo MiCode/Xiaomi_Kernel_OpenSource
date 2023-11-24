@@ -10,12 +10,12 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
-#if IS_ENABLED(CONFIG_MTK_PPM_READY)
-#include <mtk_ppm_api.h>
+#include <linux/device.h>
+#include <ppm_v3/mtk_ppm_api.h>
 
 
 #include <linux/nmi.h>
-
+#include "mtk_ppm_platform.h"
 #include "mtk_cpuhp_private.h"
 
 static struct cpumask ppm_online_cpus;
@@ -26,17 +26,14 @@ static DEFINE_MUTEX(ppm_mutex);
 static struct wakeup_source *hps_ws;
 #endif
 
-#if IS_ENABLED(CONFIG_ARM)
-#define CPU_DOWN	cpu_down
-#define CPU_UP		cpu_up
-#else
+
 #define CPU_DOWN(i)	\
 	(get_cpu_device(i) == NULL ? false \
-	: device_offline(get_cpu_device(i)))
+	: remove_cpu(i))
 #define CPU_UP(i)	\
 	(get_cpu_device(i) == NULL ? false \
-	: device_online(get_cpu_device(i)))
-#endif
+	: add_cpu(i))
+
 
 #define HPS_RETRY	10
 
@@ -144,6 +141,11 @@ static void ppm_limit_callback(struct ppm_client_req req)
 	wake_up_process(ppm_kthread);
 }
 
+void *get_cpuhop_ppm_callback(void)
+{
+	return &ppm_limit_callback;
+}
+EXPORT_SYMBOL(get_cpuhop_ppm_callback);
 
 void ppm_notifier(void)
 {
@@ -171,12 +173,11 @@ void ppm_notifier(void)
 		       PTR_ERR(ppm_kthread));
 		return;
 	}
-
+#ifndef PPM_NOT_REGISTER_CALLBACK
 	/* register PPM callback */
 	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
-
+#endif
 	hps_ws = wakeup_source_register(NULL, "hps");
 	if (!hps_ws)
 		pr_debug("hps wakelock register fail!\n");
 }
-#endif

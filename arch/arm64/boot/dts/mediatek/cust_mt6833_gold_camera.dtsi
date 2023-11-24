@@ -1,0 +1,668 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (c) 2020 MediaTek Inc. */
+/* CAMERA GPIO standardization */
+&pio {
+	camera_pins_cam0_rst_0: cam0@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam0_rst_1: cam0@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam1_rst_0: cam1@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO54__FUNC_GPIO54>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam1_rst_1: cam1@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO54__FUNC_GPIO54>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+/* N17 code for HQ-293327 by changqi start*/
+	camera_pins_cam2_rst_0: cam2@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO60__FUNC_GPIO60>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam2_rst_1: cam2@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO60__FUNC_GPIO60>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+/* N17 code for HQ-293327 by changqi end*/
+	camera_pins_cam4_rst_0: cam4@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO60__FUNC_GPIO60>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam4_rst_1: cam4@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO60__FUNC_GPIO60>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam0_vcamd_0: cam0@vcam0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO40__FUNC_GPIO40>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam0_vcamd_1: cam0@vcam1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO40__FUNC_GPIO40>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam0_vcama_0: cam0@vcam2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam0_vcama_1: cam0@vcam3 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+	camera_pins_cam0_vcamd1_0: cam0@vcam4 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO88__FUNC_GPIO88>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam0_vcamd1_1: cam0@vcam5 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO88__FUNC_GPIO88>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+	camera_pins_cam0_vcamafvdd_0: cam0@vcam6 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO139__FUNC_GPIO139>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam0_vcamafvdd_1: cam0@vcam7 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO139__FUNC_GPIO139>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+	/* N17 code for HQ-293326 by zhaoyue start*/
+	camera_pins_cam1_vcamd_0: cam1@vcam0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO94__FUNC_GPIO94>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam1_vcamd_1: cam1@vcam1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO94__FUNC_GPIO94>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam1_vcama_0: cam1@vcam2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam1_vcama_1: cam1@vcam3 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+/* N17 code for HQ-293326 by zhaoyue end*/
+/* N17 code for HQ-293327 by changqi start*/
+	camera_pins_cam2_vcamd_0: cam2@vcam0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO94__FUNC_GPIO94>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam2_vcamd_1: cam2@vcam1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO94__FUNC_GPIO94>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam2_vcama_0: cam2@vcam2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam2_vcama_1: cam2@vcam3 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+/* N17 code for HQ-293327 by changqi end*/
+	camera_pins_cam4_vcamd_0: cam4@vcam0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO93__FUNC_GPIO93>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam4_vcamd_1: cam4@vcam1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO93__FUNC_GPIO93>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam4_vcama_0: cam4@vcam2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO80__FUNC_GPIO80>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam4_vcama_1: cam4@vcam3 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO80__FUNC_GPIO80>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam0_mclk_off: camera_pins_cam0_mclk_off {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO50__FUNC_GPIO50>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam0_mclk_2ma: camera_pins_cam0_mclk_2ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO50__FUNC_CMMCLK1>;
+			drive-strength = <0>;
+		};
+	};
+	camera_pins_cam0_mclk_4ma: camera_pins_cam0_mclk_4ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO50__FUNC_CMMCLK1>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam0_mclk_6ma: camera_pins_cam0_mclk_6ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO50__FUNC_CMMCLK1>;
+			drive-strength = <2>;
+		};
+	};
+	camera_pins_cam0_mclk_8ma: camera_pins_cam0_mclk_8ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO50__FUNC_CMMCLK1>;
+			drive-strength = <3>;
+		};
+	};
+	camera_pins_cam1_mclk_off: camera_pins_cam1_mclk_off {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO49__FUNC_GPIO49>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam1_mclk_2ma: camera_pins_cam1_mclk_2ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO49__FUNC_CMMCLK0>;
+			drive-strength = <0>;
+		};
+	};
+	camera_pins_cam1_mclk_4ma: camera_pins_cam1_mclk_4ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO49__FUNC_CMMCLK0>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam1_mclk_6ma: camera_pins_cam1_mclk_6ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO49__FUNC_CMMCLK0>;
+			drive-strength = <2>;
+		};
+	};
+	camera_pins_cam1_mclk_8ma: camera_pins_cam1_mclk_8ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO49__FUNC_CMMCLK0>;
+			drive-strength = <3>;
+		};
+	};
+/* N17 code for HQ-293327 by changqi start*/
+	camera_pins_cam2_mclk_off: camera_pins_cam2_mclk_off {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_GPIO52>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam2_mclk_2ma: camera_pins_cam2_mclk_2ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <0>;
+		};
+	};
+	camera_pins_cam2_mclk_4ma: camera_pins_cam2_mclk_4ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam2_mclk_6ma: camera_pins_cam2_mclk_6ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <2>;
+		};
+	};
+	camera_pins_cam2_mclk_8ma: camera_pins_cam2_mclk_8ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <3>;
+		};
+	};
+/* N17 code for HQ-293327 by changqi end*/
+	camera_pins_cam4_mclk_off: camera_pins_cam4_mclk_off {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_GPIO52>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam4_mclk_2ma: camera_pins_cam4_mclk_2ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <0>;
+		};
+	};
+	camera_pins_cam4_mclk_4ma: camera_pins_cam4_mclk_4ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam4_mclk_6ma: camera_pins_cam4_mclk_6ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <2>;
+		};
+	};
+	camera_pins_cam4_mclk_8ma: camera_pins_cam4_mclk_8ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO52__FUNC_CMMCLK3>;
+			drive-strength = <3>;
+		};
+	};
+	camera_pins_cam_mipi_switch_en_1: mipi_en@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam_mipi_switch_en_0: mipi_en@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO131__FUNC_GPIO131>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam_mipi_switch_sel_1: mipi_sel@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO132__FUNC_GPIO132>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam_mipi_switch_sel_0: mipi_sel@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO132__FUNC_GPIO132>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+	camera_pins_cam3_rst_0: cam3@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO58__FUNC_GPIO58>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam3_rst_1: cam3@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO58__FUNC_GPIO58>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam3_vcama_0: cam3@vcam2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	camera_pins_cam3_vcama_1: cam3@vcam3 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	camera_pins_cam3_mclk_off: camera_pins_cam3_mclk_off {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51__FUNC_GPIO51>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam3_mclk_2ma: camera_pins_cam3_mclk_2ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51__FUNC_CMMCLK2>;
+			drive-strength = <0>;
+		};
+	};
+	camera_pins_cam3_mclk_4ma: camera_pins_cam3_mclk_4ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51__FUNC_CMMCLK2>;
+			drive-strength = <1>;
+		};
+	};
+	camera_pins_cam3_mclk_6ma: camera_pins_cam3_mclk_6ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51__FUNC_CMMCLK2>;
+			drive-strength = <2>;
+		};
+	};
+	camera_pins_cam3_mclk_8ma: camera_pins_cam3_mclk_8ma {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51__FUNC_CMMCLK2>;
+			drive-strength = <3>;
+		};
+	};
+    /* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+	camera_pins_default: camdefault {
+	};
+};
+&kd_camera_hw1 {
+	pinctrl-names = "default",
+			"cam0_rst0", "cam0_rst1",
+			"cam1_rst0", "cam1_rst1",
+			"cam2_rst0", "cam2_rst1",
+			/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+			"cam3_rst0", "cam3_rst1",
+			/* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+			"cam4_rst0", "cam4_rst1",
+			"cam0_ldo_vcamd_0", "cam0_ldo_vcamd_1",
+			"cam0_ldo_vcama_0", "cam0_ldo_vcama_1",
+			"cam1_ldo_vcamd_0", "cam1_ldo_vcamd_1",
+			"cam1_ldo_vcama_0", "cam1_ldo_vcama_1",
+			"cam2_ldo_vcamd_0", "cam2_ldo_vcamd_1",
+			"cam2_ldo_vcama_0", "cam2_ldo_vcama_1",
+			/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+			"cam3_ldo_vcama_0", "cam3_ldo_vcama_1",
+			/* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+			"cam4_ldo_vcamd_0", "cam4_ldo_vcamd_1",
+			"cam4_ldo_vcama_0", "cam4_ldo_vcama_1",
+			"cam0_mclk_off",
+			"cam0_mclk_2mA", "cam0_mclk_4mA",
+			"cam0_mclk_6mA", "cam0_mclk_8mA",
+			"cam1_mclk_off",
+			"cam1_mclk_2mA", "cam1_mclk_4mA",
+			"cam1_mclk_6mA", "cam1_mclk_8mA",
+			"cam2_mclk_off",
+			"cam2_mclk_2mA", "cam2_mclk_4mA",
+			"cam2_mclk_6mA", "cam2_mclk_8mA",
+			/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+			"cam3_mclk_off",
+			"cam3_mclk_2mA", "cam3_mclk_4mA",
+			"cam3_mclk_6mA", "cam3_mclk_8mA",
+			/* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+			"cam4_mclk_off",
+			"cam4_mclk_2mA", "cam4_mclk_4mA",
+			"cam4_mclk_6mA", "cam4_mclk_8mA",
+	/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+			"cam_mipi_switch_en_1", "cam_mipi_switch_en_0",
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+			"cam_mipi_switch_sel_1", "cam_mipi_switch_sel_0",
+			"cam0_ldo_vcamafvdd_0", "cam0_ldo_vcamafvdd_1",
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+			"cam0_ldo_vcamd1_0", "cam0_ldo_vcamd1_1";
+	/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
+	/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+	pinctrl-0 = <&camera_pins_default>;
+	pinctrl-1 = <&camera_pins_cam0_rst_0>;
+	pinctrl-2 = <&camera_pins_cam0_rst_1>;
+	pinctrl-3 = <&camera_pins_cam1_rst_0>;
+	pinctrl-4 = <&camera_pins_cam1_rst_1>;
+	pinctrl-5 = <&camera_pins_cam2_rst_0>;
+	pinctrl-6 = <&camera_pins_cam2_rst_1>;
+    pinctrl-7 = <&camera_pins_cam3_rst_0>;
+	pinctrl-8 = <&camera_pins_cam3_rst_1>;
+	pinctrl-9 = <&camera_pins_cam4_rst_0>;
+	pinctrl-10 = <&camera_pins_cam4_rst_1>;
+	pinctrl-11 = <&camera_pins_cam0_vcamd_0>;
+	pinctrl-12 = <&camera_pins_cam0_vcamd_1>;
+	pinctrl-13 = <&camera_pins_cam0_vcama_0>;
+	pinctrl-14 = <&camera_pins_cam0_vcama_1>;
+	pinctrl-15 = <&camera_pins_cam1_vcamd_0>;
+	pinctrl-16 = <&camera_pins_cam1_vcamd_1>;
+	pinctrl-17 = <&camera_pins_cam1_vcama_0>;
+	pinctrl-18 = <&camera_pins_cam1_vcama_1>;
+	pinctrl-19 = <&camera_pins_cam2_vcamd_0>;
+	pinctrl-20 = <&camera_pins_cam2_vcamd_1>;
+	pinctrl-21 = <&camera_pins_cam2_vcama_0>;
+	pinctrl-22 = <&camera_pins_cam2_vcama_1>;
+	pinctrl-23 = <&camera_pins_cam3_vcama_0>;
+	pinctrl-24 = <&camera_pins_cam3_vcama_1>;
+	pinctrl-25 = <&camera_pins_cam4_vcamd_0>;
+	pinctrl-26 = <&camera_pins_cam4_vcamd_1>;
+	pinctrl-27 = <&camera_pins_cam4_vcama_0>;
+	pinctrl-28 = <&camera_pins_cam4_vcama_1>;
+	pinctrl-29 = <&camera_pins_cam0_mclk_off>;
+	pinctrl-30 = <&camera_pins_cam0_mclk_2ma>;
+	pinctrl-31 = <&camera_pins_cam0_mclk_4ma>;
+	pinctrl-32 = <&camera_pins_cam0_mclk_6ma>;
+	pinctrl-33 = <&camera_pins_cam0_mclk_8ma>;
+	pinctrl-34 = <&camera_pins_cam1_mclk_off>;
+	pinctrl-35 = <&camera_pins_cam1_mclk_2ma>;
+	pinctrl-36 = <&camera_pins_cam1_mclk_4ma>;
+	pinctrl-37 = <&camera_pins_cam1_mclk_6ma>;
+	pinctrl-38 = <&camera_pins_cam1_mclk_8ma>;
+	pinctrl-39 = <&camera_pins_cam2_mclk_off>;
+	pinctrl-40 = <&camera_pins_cam2_mclk_2ma>;
+	pinctrl-41 = <&camera_pins_cam2_mclk_4ma>;
+	pinctrl-42 = <&camera_pins_cam2_mclk_6ma>;
+	pinctrl-43 = <&camera_pins_cam2_mclk_8ma>;
+	pinctrl-44 = <&camera_pins_cam3_mclk_off>;
+	pinctrl-45 = <&camera_pins_cam3_mclk_2ma>;
+	pinctrl-46 = <&camera_pins_cam3_mclk_4ma>;
+	pinctrl-47 = <&camera_pins_cam3_mclk_6ma>;
+	pinctrl-48 = <&camera_pins_cam3_mclk_8ma>;
+	pinctrl-49 = <&camera_pins_cam4_mclk_off>;
+	pinctrl-50 = <&camera_pins_cam4_mclk_2ma>;
+	pinctrl-51 = <&camera_pins_cam4_mclk_4ma>;
+	pinctrl-52 = <&camera_pins_cam4_mclk_6ma>;
+	pinctrl-53 = <&camera_pins_cam4_mclk_8ma>;
+	pinctrl-54 = <&camera_pins_cam_mipi_switch_en_1>;
+	pinctrl-55 = <&camera_pins_cam_mipi_switch_en_0>;
+	pinctrl-56 = <&camera_pins_cam_mipi_switch_sel_1>;
+	pinctrl-57 = <&camera_pins_cam_mipi_switch_sel_0>;
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+	pinctrl-58 = <&camera_pins_cam0_vcamafvdd_0>;
+	pinctrl-59 = <&camera_pins_cam0_vcamafvdd_1>;
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+	/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+	pinctrl-60 = <&camera_pins_cam0_vcamd1_0>;
+	pinctrl-61 = <&camera_pins_cam0_vcamd1_1>;
+	/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
+	/* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+
+	cam0_vcamio-supply = <&mt6359p_vcamio_reg>;
+	cam1_vcamio-supply = <&mt6359p_vcamio_reg>;
+	cam2_vcamio-supply = <&mt6359p_vcamio_reg>;
+	/* N17 code for HQ-293328 by yinrong at 2023/04/27 start */
+	cam3_vcamio-supply = <&mt6359p_vcamio_reg>;
+	/* N17 code for HQ-293328 by yinrong at 2023/04/27 end */
+
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+	cam0_pin_mclk = "mclk";
+	cam0_pin_rst = "gpio";
+	cam0_pin_vcama = "smatrldo";
+	cam0_pin_vcamd = "smatrldo";
+	cam0_pin_vcamd1 = "smatrldo";
+	cam0_pin_vcamio = "regulator";
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+	cam0_pin_vcamaf = "gpio";
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+	cam1_pin_mclk = "mclk";
+	cam1_pin_rst = "gpio";
+	cam1_pin_vcama = "smatrldo";
+	cam1_pin_vcamd = "smatrldo";
+	cam1_pin_vcamio = "regulator";
+	cam1_pin_mipi_switch_en = "gpio";
+	cam1_pin_mipi_switch_sel = "gpio";
+	cam2_pin_mclk = "mclk";
+	cam2_pin_rst = "gpio";
+	cam2_pin_vcama = "smatrldo";
+	cam2_pin_vcamd = "smatrldo";
+	cam2_pin_vcamio = "regulator";
+	cam2_pin_mipi_switch_en = "gpio";
+	cam2_pin_mipi_switch_sel = "gpio";
+	cam3_pin_mclk = "mclk";
+	cam3_pin_rst = "gpio";
+	cam3_pin_vcama = "smatrldo";
+	cam3_pin_vcamd = "smatrldo";
+	cam3_pin_vcamio = "regulator";
+	cam4_pin_mclk = "mclk";
+	cam4_pin_rst = "gpio";
+	cam4_pin_vcama = "gpio";
+	cam4_pin_vcamd = "gpio";
+	cam4_pin_vcamio = "regulator";
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
+
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+	cam0_enable_sensor = "s5khm6_semco_main_mipi_raw s5khm6_aac_main_mipi_raw ov64b40_ofilm_main_mipi_raw ov50d40_sunny_main_mipi_raw";
+	cam1_enable_sensor = "ov16a1q_aac_front_mipi_raw ov16a1q_sunny_front_mipi_raw";
+	/* N17 code for HQ-293329 by wuzhenyue at 2023/04/27 start */
+	cam2_enable_sensor = "ov08d10_aac_ultra_mipi_raw ov08d10_sunny_ultra_mipi_raw sc202cs_aac_depth_mipi_raw sc202cs_sunny_depth_mipi_raw sc202cs_sunny2_depth_mipi_raw";
+	/* N17 code for HQ-293329 by wuzhenyue at 2023/04/27 end */
+	/* N17 code for HQ-293328 by yinrong at 2023/05/08 start */
+	cam3_enable_sensor = "sc202pcs_aac_macro_mipi_raw sc202pcs_sunny_macro_mipi_raw";
+	/* N17 code for HQ-293328 by yinrong at 2023/05/08 end */
+	/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+	status = "okay";
+};
+/* CAMERA GPIO end */
+
+/* CAMERA EEPROM */
+&i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mtk_camera_eeprom0:camera_eeprom0@50 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x50>;
+		status = "okay";
+	};
+
+};
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mtk_camera_eeprom1:camera_eeprom1@51 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x51>;
+		status = "okay";
+	};
+/* N17 code for HQ-293327 by changqi start*/
+	mtk_camera_eeprom4:camera_eeprom4@50 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x50>;
+		status = "okay";
+	};
+};
+&i2c8 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mtk_camera_eeprom2:camera_eeprom2@51 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x51>;
+		status = "okay";
+	};
+/* N17 code for HQ-293327 by changqi end*/
+};
+/* N17 code for HQ-293328 by yinrong at 2023/05/05 start */
+&i2c9 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	mtk_camera_eeprom3:camera_eeprom3@51 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x51>;
+		status = "okay";
+	};
+};
+/* N17 code for HQ-293328 by yinrong at 2023/05/05 end */
+/* CAMERA EEPROM end */
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+&i2c7 {
+    smart_ldo:smart_ldo@28 {
+        compatible = "mediatek,camera_smart_ldo";
+		reg = <0x28>;
+		status = "okay";
+	};
+};
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
+/* CAMERA AF */
+&camera_af_hw_node {
+	status = "okay";
+};
+/* CAMERA AF end */
+

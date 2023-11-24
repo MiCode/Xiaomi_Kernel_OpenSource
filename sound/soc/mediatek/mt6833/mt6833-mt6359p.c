@@ -20,7 +20,9 @@
 #include "../../codecs/mt6359p-accdet.h"
 #endif
 #include "../common/mtk-sp-spk-amp.h"
-
+/* N17 code for HQ-291622 by zhouchenghua at 2023/4/18 start */
+#include "../../codecs/sia81xx/sipa_aux_dev_if.h"
+/* N17 code for HQ-291622 by zhouchenghua at 2023/4/18 end */
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -1188,7 +1190,12 @@ static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 	}
 
 	card->dev = &pdev->dev;
-
+	/* N17 code for HQ-291622 by zhouchenghua at 2023/4/18 start */
+	ret = soc_aux_init_only_sia81xx(pdev, card);
+	if (ret)
+			dev_err(&pdev->dev, "%s soc_aux_init_only_sia81xx fail %d\n",
+					__func__, ret);
+	/* N17 code for HQ-291622 by zhouchenghua at 2023/4/18 end */
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",

@@ -193,9 +193,7 @@ static int __init cpuhp_init(void)
 				cpuhp_cpu_dead);
 
 	pm_notifier(cpuhp_pm_callback, 0);
-#if IS_ENABLED(CONFIG_MTK_PPM_READY)
 	ppm_notifier();
-#endif
 	rc = cpuhp_platform_init();
 
 	pr_debug("%s-\n", __func__);

@@ -15,9 +15,33 @@
 #include <linux/wait.h>
 #include "mtk_charger_algorithm_class.h"
 #include "mtk_pe5.h"
-
+#include "mtk_charger.h"
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+#include "mtk_battery.h"
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+#include "adapter_class.h"
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 static int log_level = PE50_INFO_LEVEL;
 module_param(log_level, int, 0644);
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+/*N17 code for HQ-308968 by xm tianye9 at 2023/07/26 start*/
+/*N17 code for HQ-310918 by xm tianye9 at 2023/08/07 start*/
+static int switch2_1_fcc_set = 2700;
+module_param_named(switch2_1_fcc_set, switch2_1_fcc_set, int, 0600);
+
+static int switch1_1_fcc_set = 2400;
+module_param_named(switch1_1_fcc_set, switch1_1_fcc_set, int, 0600);
+/*N17 code for HQ-310918 by xm tianye9 at 2023/08/07 end*/
+/*N17 code for HQ-308968 by xm tianye9 at 2023/07/26 end*/
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+static struct mtk_battery *pinfo = NULL;
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 
 int pe50_get_log_level(void)
 {
@@ -36,20 +60,33 @@ int pe50_get_log_level(void)
 #define PE50_DVCHG_VBUSALM_GAP	100	/* mV */
 #define PE50_DVCHG_STARTUP_CONVERT_RATIO	210	/* % */
 #define PE50_DVCHG_CHARGING_CONVERT_RATIO	202	/* % */
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 start*/
+#define PE50_DVCHG_BYPASS_BUFF		400	/* % */
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 end*/
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 #define PE50_VBUSOVP_RATIO	110
 #define PE50_IBUSOCP_RATIO	110
 #define PE50_VBATOVP_RATIO	110
 #define PE50_IBATOCP_RATIO	110
 #define PE50_ITAOCP_RATIO	110
 #define PE50_IBUSUCPF_RECHECK		250	/* mA */
-#define PE50_VBUS_CALI_THRESHOLD	150	/* mV */
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+#define PE50_VBUS_CALI_THRESHOLD	200	/* mV */
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 #define PE50_CV_LOWER_BOUND_GAP		50	/* mV */
 #define PE50_INIT_POLLING_INTERVAL	500	/* ms */
 #define PE50_INIT_RETRY_MAX	0
 #define PE50_MEASURE_R_RETRY_MAX	3
 #define PE50_MEASURE_R_AVG_TIMES	10
-#define PE50_VSYS_UPPER_BOUND            4700    /* mV */
-#define PE50_VSYS_UPPER_BOUND_GAP        40      /* mV */
+#define PE50_VSYS_UPPER_BOUND            4700	/* mV */
+#define PE50_VSYS_UPPER_BOUND_GAP        40	/* mV */
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 start*/
+#define PE50_1_1_VCAP_MAX		6500	/* mV */
+#define PE50_2_1_VCAP_MAX		11000u	/* mV */
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 start*/
 
 
 #define PE50_HWERR_NOTIFY \
@@ -70,7 +107,8 @@ static const char *const pe50_algo_state_name[PE50_ALGO_STATE_MAX] = {
 
 /* If there's no property in dts, these values will be applied */
 static const struct pe50_algo_desc algo_desc_defval = {
-	.polling_interval = 500,
+	/* N17 code for HQ-321403 by p-xuyechen at 2023/08/25 */
+	.polling_interval = 200,
 	.ta_cv_ss_repeat_tmin = 25,
 	.vbat_cv = 4350,
 	.start_soc_min = 5,
@@ -146,7 +184,7 @@ static bool pe50_is_hwerr_notified(struct pe50_algo_info *info)
 	mutex_lock(&data->notify_lock);
 	if (data->ignore_ibusucpf)
 		hwerr &= ~BIT(EVT_IBUSUCP_FALL);
-	err = !!(data->notify & hwerr);
+	err = ! !(data->notify & hwerr);
 	if (err)
 		PE50_ERR("H/W error(0x%08X)", hwerr);
 	mutex_unlock(&data->notify_lock);
@@ -158,9 +196,10 @@ static bool pe50_is_hwerr_notified(struct pe50_algo_info *info)
  * Note: ibus will sum up value from all enabled chargers
  * (master dvchg, slave dvchg and swchg)
  */
-static int pe50_stop(struct pe50_algo_info *info, struct pe50_stop_info *sinfo);
-static int pe50_get_adc(struct pe50_algo_info *info, enum pe50_adc_channel chan,
-			int *val)
+static int pe50_stop(struct pe50_algo_info *info,
+		     struct pe50_stop_info *sinfo);
+static int pe50_get_adc(struct pe50_algo_info *info,
+			enum pe50_adc_channel chan, int *val)
 {
 	struct pe50_algo_data *data = info->data;
 	int ret, i, ibus;
@@ -198,10 +237,151 @@ static int pe50_get_adc(struct pe50_algo_info *info, enum pe50_adc_channel chan,
 		return 0;
 	}
 	return pe50_hal_get_adc(info->alg, DVCHG1, chan, val);
-stop:
+      stop:
 	pe50_stop(info, &sinfo);
 	return -EIO;
 }
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+static void usbpd_pm_disconnect(struct pe50_algo_info *info)
+{
+	struct pe50_algo_data *data = info->data;
+
+	data->switch_mode = false;
+	data->switch1_1_single_enable = false;
+	data->switch2_1_single_enable = false;
+	data->div_rate = 0;
+	/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 start*/
+	info->data->ta_auth_data.vcap_max = PE50_2_1_VCAP_MAX;
+	/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 end*/
+	return;
+}
+
+static int if_low_fast_working(void)
+{
+        struct power_supply *bat_psy, *chg_psy;
+        struct mtk_battery *gm;
+        struct mtk_charger *info;
+        union power_supply_propval val;
+        int ret = 0, low_fast_enable = 0, low_fast_working = 0;
+
+        bat_psy = power_supply_get_by_name("battery");
+        if (bat_psy == NULL) {
+                PE50_ERR("%s failed to get battery psy\n", __func__);
+                return ret;
+        }
+        gm = (struct mtk_battery *)power_supply_get_drvdata(bat_psy);
+        if (gm == NULL) {
+                PE50_ERR("%s failed to get mtk_battery drvdata\n", __func__);
+                return ret;
+        }
+        low_fast_enable = gm->smart_charge[SMART_CHG_LOW_FAST].en_ret;
+
+        chg_psy = power_supply_get_by_name("mtk-master-charger");
+        if (chg_psy == NULL) {
+                PE50_ERR("[%s] failed to get charger psy\n", __func__);
+                return ret;
+        }
+        info = (struct mtk_charger *) power_supply_get_drvdata(chg_psy);
+        if (info == NULL) {
+                PE50_ERR("[%s] failed to get mtk_charger drvdata\n", __func__);
+                return ret;
+        }
+        power_supply_get_property(info->bat_psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+
+        if((val.intval <= 40) && (info->first_low_plugin_flag) && low_fast_enable){
+                PE50_ERR("[%s] low_fast working, keep 2:1\n", __func__);
+                low_fast_working = 1;
+        }
+        else {
+                PE50_ERR("[%s] low_fast not working, use default\n", __func__);
+                low_fast_working = 2;
+        }
+
+	return low_fast_working;
+}
+
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+/*get cp work mode base power*/
+static void pdm_multi_mode_switch(struct pe50_algo_info *info)
+{
+	struct pe50_algo_data *data = info->data;
+/*N17 code for HQ-310918 by xm tianye9 at 2023/08/07 start*/
+	int ibat_limit;
+/*N17 code for HQ-310918 by xm tianye9 at 2023/08/07 end*/
+    int g_low_fast_st = 0;
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 start*/
+	int cp_device_id;
+/*N17 code for HQ-320690 by xm tianye9 at 2023/08/21 start*/
+	int ret;
+	u32 soc;
+/*N17 code for HQ-320690 by xm tianye9 at 2023/08/21 end*/
+
+	cp_device_id = pe50_hal_get_cp_device_by_xm(info->alg, DVCHG1);
+
+	PE50_ERR("N17:get cp deivce is %d\n", cp_device_id);
+/*N17 code for HQ-320690 by xm tianye9 at 2023/08/21 start*/
+	//ret = pe50_get_adc(info, PE50_ADCCHAN_VBAT, &vbat);
+	ret = pe50_hal_get_soc(info->alg, &soc);
+	PE50_ERR("N17:get soc is %d\n", soc);
+
+        g_low_fast_st = if_low_fast_working();
+	if ((g_low_fast_st <= 1) || (soc <= 25))
+		goto OUT;
+/*N17 code for HQ-320690 by xm tianye9 at 2023/08/21 end*/
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 end*/
+/*N17 code for HQ-310918 by xm tianye9 at 2023/08/07 start*/
+	if (data->input_current_limit > 0)
+		ibat_limit = min(data->ita_jeita*2, (u32)data->input_current_limit*2);
+	else
+		ibat_limit = data->ita_jeita*2;
+
+	PE50_ERR("N17 ibat_limit = %d,ibus_limit=%d\n", ibat_limit, data->input_current_limit);
+
+
+	if(data->switch2_1_single_enable)
+	{
+		if(ibat_limit <= switch1_1_fcc_set)
+		{
+				data->switch_mode = true;
+				data->switch2_1_single_enable = false;
+				data->switch1_1_single_enable = true;
+				data->div_rate = 1;
+		}else {
+				data->switch_mode = false;
+				data->div_rate = 2;
+		}
+	} else if(data->switch1_1_single_enable){
+		if(ibat_limit >= switch2_1_fcc_set)
+		{
+			data->switch_mode = true;
+			data->switch2_1_single_enable = true;
+			data->switch1_1_single_enable = false;
+			data->div_rate = 2;
+		}else{
+			data->switch_mode = false;
+			data->div_rate = 1;
+		}
+	} else {
+		data->switch_mode = false;
+		data->switch2_1_single_enable = false;
+		data->switch1_1_single_enable = false;
+		data->div_rate = 0;
+	}
+/*N17 code for HQ-310918 by xm tianye9 at 2023/08/07 end*/
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 start*/
+	return;
+
+	OUT:
+	data->switch_mode = false;
+	data->switch2_1_single_enable = true;
+	data->switch1_1_single_enable = false;
+	data->div_rate = 2;
+	return;
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 end*/
+}
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 /*
  * Calculate VBUS for divider charger
@@ -210,12 +390,25 @@ stop:
 static inline u32 pe50_vout2vbus(struct pe50_algo_info *info, u32 vout)
 {
 	struct pe50_algo_data *data = info->data;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
 	u32 ratio = data->is_dvchg_en[PE50_DVCHG_MASTER] ?
-		PE50_DVCHG_CHARGING_CONVERT_RATIO :
-		PE50_DVCHG_STARTUP_CONVERT_RATIO;
-
+	    PE50_DVCHG_CHARGING_CONVERT_RATIO :
+	    PE50_DVCHG_STARTUP_CONVERT_RATIO;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	return percent(vout, ratio);
 }
+
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+static inline u32 pe50_vout1vbus(u32 vout)
+{
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 start*/
+	u32 BUFF = PE50_DVCHG_BYPASS_BUFF;
+	return vout + BUFF;
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 end*/
+}
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
 
 /*
  * Maximum PE50_VTA_VAR_MIN(%) variation (from PD's sepcification)
@@ -234,6 +427,9 @@ static inline u32 pe50_vta_add_gap(struct pe50_algo_info *info, u32 vta)
 static inline int pe50_get_ta_cap(struct pe50_algo_info *info)
 {
 	struct pe50_algo_data *data = info->data;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:vta_measure =%d, ita_measure = %d\n", data->vta_measure, data->ita_measure);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 	return pe50_hal_get_ta_output(info->alg, &data->vta_measure,
 				      &data->ita_measure);
@@ -244,8 +440,8 @@ static inline int pe50_get_ta_cap(struct pe50_algo_info *info)
  * and updates measured data
  * If ta does not support measure capability, dvchg's ADC is used instead
  */
-static inline int pe50_get_ta_cap_by_supportive(struct pe50_algo_info *info,
-						 int *vta, int *ita)
+static inline int pe50_get_ta_cap_by_supportive(struct pe50_algo_info
+						*info, int *vta, int *ita)
 {
 	int ret;
 	struct pe50_algo_data *data = info->data;
@@ -285,7 +481,8 @@ static inline u32 pe50_cal_ibat(struct pe50_algo_info *info, u32 ita)
  * @ita: expected output current of TA
  * @vta: calibrated output voltage of TA
  */
-static int pe50_get_cali_vta(struct pe50_algo_info *info, u32 ita, u32 *vta)
+static int pe50_get_cali_vta(struct pe50_algo_info *info, u32 ita,
+			     u32 * vta)
 {
 	int ret, vbat;
 	struct pe50_algo_data *data = info->data;
@@ -300,7 +497,7 @@ static int pe50_get_cali_vta(struct pe50_algo_info *info, u32 ita, u32 *vta)
 	ibat = pe50_cal_ibat(info, ita);
 	vbus = pe50_vout2vbus(info, vbat + div1000(ibat * data->r_sw));
 	*vta = vbus + (data->vbus_cali + data->vta_comp +
-	       div1000(ita * data->r_cable_by_swchg));
+		       div1000(ita * data->r_cable_by_swchg));
 	if (data->is_dvchg_en[PE50_DVCHG_MASTER]) {
 		ret = pe50_get_ta_cap(info);
 		if (ret < 0) {
@@ -311,7 +508,8 @@ static int pe50_get_cali_vta(struct pe50_algo_info *info, u32 ita, u32 *vta)
 		if (_vta > *vta) {
 			comp = _vta - *vta;
 			data->vta_comp += comp;
-			PE50_DBG("comp,add=(%d,%d)\n", data->vta_comp, comp);
+			PE50_DBG("comp,add=(%d,%d)\n", data->vta_comp,
+				 comp);
 		}
 		*vta = max(*vta, _vta);
 	}
@@ -338,7 +536,8 @@ static int pe50_set_vbus_tracking(struct pe50_algo_info *info)
 }
 
 /* Calculate power limited ita according to TA's power limitation */
-static u32 pe50_get_ita_pwr_lmt_by_vta(struct pe50_algo_info *info, u32 vta)
+static u32 pe50_get_ita_pwr_lmt_by_vta(struct pe50_algo_info *info,
+				       u32 vta)
 {
 	struct pe50_algo_data *data = info->data;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
@@ -359,7 +558,7 @@ static u32 pe50_get_ita_pwr_lmt_by_vta(struct pe50_algo_info *info, u32 vta)
 static inline u32 pe50_get_ita_tracking_max(u32 ita)
 {
 	return min(percent(ita, PE50_ITAOCP_RATIO),
-		   (u32)(ita + PE50_ITA_TRACKING_GAP));
+		   (u32) (ita + PE50_ITA_TRACKING_GAP));
 }
 
 /*
@@ -369,9 +568,10 @@ static inline u32 pe50_get_ita_tracking_max(u32 ita)
  * @ita: output current of TA, mA
  */
 static int
-pe50_force_ta_cv(struct pe50_algo_info *info, struct pe50_stop_info *sinfo);
+pe50_force_ta_cv(struct pe50_algo_info *info,
+		 struct pe50_stop_info *sinfo);
 static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
-				      u32 ita)
+				     u32 ita)
 {
 	int ret, vbat;
 	struct pe50_algo_data *data = info->data;
@@ -394,12 +594,14 @@ static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
 			goto stop;
 		}
 		/* Check TA's PDP */
-		data->ita_pwr_lmt = pe50_get_ita_pwr_lmt_by_vta(info, vta);
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 start */
+	/*	data->ita_pwr_lmt = pe50_get_ita_pwr_lmt_by_vta(info, vta);
 		if (data->ita_pwr_lmt < ita) {
 			PE50_INFO("ita(%d) > ita_pwr_lmt(%d)\n", ita,
-				 data->ita_pwr_lmt);
+				  data->ita_pwr_lmt);
 			ita = data->ita_pwr_lmt;
-		}
+		}*/
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 end */
 		ret = pe50_hal_set_ta_cap(info->alg, vta, ita);
 		if (ret < 0) {
 			PE50_ERR("set ta cap fail(%d)\n", ret);
@@ -418,11 +620,13 @@ static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
 			PE50_ERR("get ta cap fail(%d)\n", ret);
 			return ret;
 		}
-		PE50_DBG("vta(set,meas,comp),ita(set,meas)=(%d,%d,%d),(%d,%d)\n",
-			vta, data->vta_measure, data->vta_comp, ita,
-			data->ita_measure);
+		PE50_DBG
+		    ("vta(set,meas,comp),ita(set,meas)=(%d,%d,%d),(%d,%d)\n",
+		     vta, data->vta_measure, data->vta_comp, ita,
+		     data->ita_measure);
 		if (is_ta_cc) {
-			opt_vta = pe50_vta_add_gap(info, data->vta_measure);
+			opt_vta =
+			    pe50_vta_add_gap(info, data->vta_measure);
 			if (vta > opt_vta && set_opt_vta) {
 				data->vta_comp -= (vta - opt_vta);
 				vta = opt_vta;
@@ -433,7 +637,7 @@ static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
 		}
 		if (vta >= auth_data->vcap_max) {
 			PE50_ERR("vta(%d) over capability(%d)\n", vta,
-				auth_data->vcap_max);
+				 auth_data->vcap_max);
 			goto stop;
 		}
 		if (pe50_is_hwerr_notified(info)) {
@@ -446,12 +650,14 @@ static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
 			return ret;
 		}
 		if (vbat >= data->vbat_cv) {
-			PE50_INFO("vbat(%d), decrease ita immediately\n", vbat);
+			PE50_INFO("vbat(%d), decrease ita immediately\n",
+				  vbat);
 			ita -= auth_data->ita_step;
 			continue;
 		}
 		PE50_ERR("Not in cc mode\n");
-		if (data->ita_measure > pe50_get_ita_tracking_max(data->ita_setting)) {
+		if (data->ita_measure >
+		    pe50_get_ita_tracking_max(data->ita_setting)) {
 			ret = pe50_force_ta_cv(info, &sinfo);
 			if (ret < 0)
 				goto stop;
@@ -460,7 +666,7 @@ static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
 		set_opt_vta = false;
 		data->vta_comp += auth_data->vta_step;
 		vta += auth_data->vta_step;
-		vta = min(vta, (u32)auth_data->vcap_max);
+		vta = min(vta, (u32) auth_data->vcap_max);
 	}
 	data->vta_setting = vta;
 	data->ita_setting = ita;
@@ -468,7 +674,7 @@ static inline int pe50_set_ta_cap_cc(struct pe50_algo_info *info, u32 vta,
 	pe50_set_vbus_tracking(info);
 
 	return 0;
-stop:
+      stop:
 	pe50_stop(info, &sinfo);
 	return -EIO;
 }
@@ -477,13 +683,17 @@ stop:
  * Set TA's output voltage & current by a given current and
  * calculated voltage
  */
-static inline int pe50_set_ta_cap_cc_by_cali_vta(struct pe50_algo_info *info,
-						 u32 ita)
+static inline int pe50_set_ta_cap_cc_by_cali_vta(struct pe50_algo_info
+						 *info, u32 ita)
 {
 	int ret;
 	u32 vta;
 
 	ret = pe50_get_cali_vta(info, ita, &vta);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:ita = %d, vta = %d\n",ita, vta);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	if (ret < 0) {
 		PE50_ERR("get cali vta fail(%d)\n", ret);
 		return ret;
@@ -491,7 +701,8 @@ static inline int pe50_set_ta_cap_cc_by_cali_vta(struct pe50_algo_info *info,
 	return pe50_set_ta_cap_cc(info, vta, ita);
 }
 
-static inline void pe50_update_ita_gap(struct pe50_algo_info *info, u32 ita_gap)
+static inline void pe50_update_ita_gap(struct pe50_algo_info *info,
+				       u32 ita_gap)
 {
 	int i;
 	u32 val = 0, avg_cnt = PE50_ITA_GAP_WINDOW_SIZE;
@@ -500,7 +711,7 @@ static inline void pe50_update_ita_gap(struct pe50_algo_info *info, u32 ita_gap)
 	if (ita_gap < data->ita_gap_per_vstep)
 		return;
 	data->ita_gap_window_idx = (data->ita_gap_window_idx + 1) %
-				   PE50_ITA_GAP_WINDOW_SIZE;
+	    PE50_ITA_GAP_WINDOW_SIZE;
 	data->ita_gaps[data->ita_gap_window_idx] = ita_gap;
 
 	for (i = 0; i < PE50_ITA_GAP_WINDOW_SIZE; i++) {
@@ -509,7 +720,8 @@ static inline void pe50_update_ita_gap(struct pe50_algo_info *info, u32 ita_gap)
 		else
 			val += data->ita_gaps[i];
 	}
-	data->ita_gap_per_vstep = avg_cnt != 0 ? precise_div(val, avg_cnt) : 0;
+	data->ita_gap_per_vstep =
+	    avg_cnt != 0 ? precise_div(val, avg_cnt) : 0;
 }
 
 static inline int pe50_set_ta_cap_cv(struct pe50_algo_info *info, u32 vta,
@@ -551,22 +763,30 @@ static inline int pe50_set_ta_cap_cv(struct pe50_algo_info *info, u32 vta,
 		/* Get ta cap before setting */
 		ret = pe50_get_ta_cap_by_supportive(info, &vta_meas,
 						    &ita_meas_pre);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17:pre get vta_meas  =%d, get ita_meas_pre =%d\n",
+			vta_meas, ita_meas_pre);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 		if (ret < 0) {
-			PE50_ERR("get ta cap by supportive fail(%d)\n", ret);
+			PE50_ERR("get ta cap by supportive fail(%d)\n",
+				 ret);
 			return ret;
 		}
 
 		/* Not to increase vta if it exceeds pwr_lmt */
-		data->ita_pwr_lmt = pe50_get_ita_pwr_lmt_by_vta(info, vta);
+	/* N17 code for HQ-305663 by tongjiacheng at 20230710 start */
+		/*data->ita_pwr_lmt = pe50_get_ita_pwr_lmt_by_vta(info, vta);
 		if (vta > data->vta_setting &&
 		    (data->ita_pwr_lmt <
 		     ita_meas_pre + data->ita_gap_per_vstep)) {
-			PE50_INFO("ita_meas(%d) + ita_gap(%d) > pwr_lmt(%d)\n",
-				  ita_meas_pre, data->ita_gap_per_vstep,
-				  data->ita_pwr_lmt);
+			PE50_INFO
+			    ("ita_meas(%d) + ita_gap(%d) > pwr_lmt(%d)\n",
+			     ita_meas_pre, data->ita_gap_per_vstep,
+			     data->ita_pwr_lmt);
 			return 0;
-		}
-
+		}*/
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 end */
 		/* Set ta cap */
 		ret = pe50_hal_set_ta_cap(info->alg, vta, ita);
 		if (ret < 0) {
@@ -580,15 +800,21 @@ static inline int pe50_set_ta_cap_cv(struct pe50_algo_info *info, u32 vta,
 		/* Get ta cap after setting */
 		ret = pe50_get_ta_cap_by_supportive(info, &vta_meas,
 						    &ita_meas_post);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17:post get vta_meas  =%d, get ita_meas_pre =%d\n",
+			vta_meas, ita_meas_post);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 		if (ret < 0) {
-			PE50_ERR("get ta cap by supportive fail(%d)\n", ret);
+			PE50_ERR("get ta cap by supportive fail(%d)\n",
+				 ret);
 			return ret;
 		}
 
 		if (data->is_dvchg_en[PE50_DVCHG_MASTER] &&
 		    (ita_meas_post > ita_meas_pre) &&
 		    (vta > data->vta_setting)) {
-			vstep_cnt = precise_div(max(vta, (u32)vta_meas) -
+			vstep_cnt = precise_div(max(vta, (u32) vta_meas) -
 						data->vta_setting,
 						auth_data->vta_step);
 			ita_gap = precise_div(ita_meas_post - ita_meas_pre,
@@ -602,17 +828,18 @@ static inline int pe50_set_ta_cap_cv(struct pe50_algo_info *info, u32 vta,
 		if (ita_meas_post <= pe50_get_ita_tracking_max(ita))
 			break;
 		vta -= auth_data->vta_step;
-		PE50_INFO("ita_meas %dmA over setting %dmA, keep tracking...\n",
-			  ita_meas_post, ita);
+		PE50_INFO
+		    ("ita_meas %dmA over setting %dmA, keep tracking...\n",
+		     ita_meas_post, ita);
 	}
 
 	data->vta_measure = vta_meas;
 	data->ita_measure = ita_meas_post;
 	PE50_INFO("vta(set,meas):(%d,%d),ita(set,meas):(%d,%d)\n",
-		 data->vta_setting, data->vta_measure, data->ita_setting,
-		 data->ita_measure);
+		  data->vta_setting, data->vta_measure, data->ita_setting,
+		  data->ita_measure);
 	return 0;
-stop:
+      stop:
 	pe50_stop(info, &sinfo);
 	return -EIO;
 }
@@ -643,9 +870,177 @@ static inline void pe50_calculate_vbat_ircmp(struct pe50_algo_info *info)
 		ircmp = min(data->vbat_ircmp, ircmp);
 	data->vbat_ircmp = min(desc->ircmp_vclamp, ircmp);
 	PE50_INFO("vbat_ircmp(vclamp,ibat,rbat)=%d(%d,%d,%d)\n",
-		 data->vbat_ircmp, desc->ircmp_vclamp, ibat, data->r_bat);
+		  data->vbat_ircmp, desc->ircmp_vclamp, ibat, data->r_bat);
 }
 
+/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 start*/
+static inline void pe50_select_fcc_jeita_cyclecount(struct pe50_algo_info *info, int vbat)
+{
+	struct pe50_algo_data *data = info->data;
+
+	if ((vbat < 4220) && (data->state_jeita == 1)) {
+		data->ita_jeita = 2400;
+		data->state_jeita = 2;
+	} else if (4220 <= vbat && vbat <= 4444
+			&& (data->state_jeita == 2)) {
+			data->ita_jeita = 2160;
+			data->state_jeita = 3;
+	} else if (4444 <= vbat && vbat <= 4470
+			&& (data->state_jeita == 3))
+			data->ita_jeita = 1574;
+}
+/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 end*/
+
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+static inline void pe50_select_fcc_jeita_cv(struct pe50_algo_info *info)
+{
+	int ret, tbat;
+	int vbat = 0, ibat = 0;
+	static vbat_low_step = 5;
+	static struct adapter_device *adapter;
+	struct pe50_algo_data *data = info->data;
+        int diff_fv_val = 0;
+	int battery_cycle = 0;
+	/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 start*/
+	struct power_supply *psy;
+	union power_supply_propval val;
+
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL) {
+		chr_err("[%s] battery psy is not rdy\n", __func__);
+		return;
+	}
+	power_supply_get_property(psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &val);
+	battery_cycle = val.intval;
+	/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 end*/
+
+	ret = pe50_get_adc(info, PE50_ADCCHAN_TBAT, &tbat);
+	if (ret < 0) {
+		PE50_ERR("get tbat fail(%d)\n", ret);
+		return;
+	}
+	ret = pe50_get_adc(info, PE50_ADCCHAN_VBAT, &vbat);
+	if (ret < 0) {
+		PE50_ERR("get vbat fail(%d)\n", ret);
+		return;
+	}
+	ret = pe50_get_adc(info, PE50_ADCCHAN_IBAT, &ibat);
+	if (ret < 0) {
+		PE50_ERR("get ibat fail(%d)\n", ret);
+		return;
+	}
+	adapter = get_adapter_by_name("pd_adapter");
+	if (!adapter) {
+		PE50_INFO("No pd adapter found\n");
+		return;
+	}
+
+/*N17 code for batteryHealth 3.0 by liluting at 2023/6/19 start*/
+        diff_fv_val = smart_batt_get_diff_fv(); 
+/*N17 code for batteryHealth 3.0 by liluting at 2023/6/19 end*/
+/* N17 code for HQ-307331 by tongjiacheng at 20230726 start */
+	if (tbat <= 15 || tbat > 47)
+		data->state_jeita = 0;
+	else if (data->state_jeita == 0) {
+		if (vbat < 4250) {
+			data->state_jeita = 1;
+		} else if (vbat < 4480) {
+			data->state_jeita = 2;
+		} else if (vbat < 4510) {
+			data->state_jeita = 3;
+		}
+	}
+/* N17 code for HQ-307331 by tongjiacheng at 20230726 end */
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+	switch (tbat) {
+	case 6 ... 9:
+		data->cv_jeita = 4480;
+/* N17 code for HQ-307637 by daijie at 20230710 start */
+		data->ita_jeita = 1225;	//get_ita_lmt ibat finally 2.45A
+/* N17 code for HQ-307637 by daijie at 20230710 end */
+		break;
+
+	case 10 ... 14:
+		data->cv_jeita = 4480;
+/* N17 code for HQ-307637 by daijie at 20230710 start */
+		data->ita_jeita = 1968;	//get_ita_lmt ibat finally 3.936A
+/* N17 code for HQ-307637 by daijie at 20230710 end */
+		break;
+
+	/*N17 code for HQ-314258 by hankang at 2023/6/14 start*/
+	case 15 ... 34:
+		if (adapter->verifed == true) {	//mi adapter 33w ffc
+			/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 start*/
+			if (battery_cycle > 800)
+				pe50_select_fcc_jeita_cyclecount(info, vbat);
+			else {
+				if ((vbat < 4250) && (data->state_jeita == 1)) {
+					data->ita_jeita = 3000;
+					data->state_jeita = 2;
+				} else if ((vbat >= (4250 - vbat_low_step)
+					 && vbat < 4480)
+					&& (data->state_jeita == 2)) {
+						data->ita_jeita = 2700;
+						data->state_jeita = 3;
+				} else if ((vbat >= (4480 - vbat_low_step))
+					&& (data->state_jeita == 3)) {
+					data->ita_jeita = 1968;
+				}
+			}
+			/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 end*/
+			data->cv_jeita = 4510;
+		} else {
+			data->cv_jeita = 4460;	//normal adapter 33w
+			data->ita_jeita = 2700;
+		}
+		break;
+	case 35 ... 47:
+		if (adapter->verifed == true) {	//mi adapter 33w ffc
+			/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 start*/
+			if (battery_cycle > 800)
+				pe50_select_fcc_jeita_cyclecount(info, vbat);
+			else {
+				if ((vbat < 4250) && (data->state_jeita == 1)) {
+					data->ita_jeita = 3000;
+					data->state_jeita = 2;
+				} else if ((vbat >= (4250 - vbat_low_step)
+					 && vbat < 4480)
+					&& (data->state_jeita == 2)) {
+						data->ita_jeita = 2700;
+						data->state_jeita = 3;
+				} else if ((vbat >= (4480 - vbat_low_step))
+					&& (data->state_jeita == 3)) {
+						data->ita_jeita = 1968;
+				}
+			}
+			/*N17 code for HQ-319688 by p-xiepengfu at 2023/8/31 end*/
+			data->cv_jeita = 4500;
+		} else {
+			data->cv_jeita = 4460;	//normal adapter 33w
+			data->ita_jeita = 2700;
+		}
+		/*N17 code for HQ-314258 by hankang at 2023/6/14 end*/
+		break;
+	case 48 ... 58:
+		data->cv_jeita = 4500;
+/* N17 code for HQ-307637 by daijie at 20230710 start */
+		data->ita_jeita = 1225;
+/* N17 code for HQ-307637 by daijie at 20230710 end */
+		break;
+	default:
+		/*N17 code for HQ-314179 by hankang at 2023/08/31*/
+		data->cv_jeita = 4480;
+	}
+/*N17 code for batteryHealth 3.0 by liluting at 2023/6/19 start*/
+        data->cv_jeita -= diff_fv_val;
+/*N17 code for batteryHealth 3.0 by liluting at 2023/6/19 start*/
+	PE50_INFO
+	    ("vbat_cv %d ibat %d vbat %d tbat %d ita_jeita %d state_jeita %d\n",
+	     data->cv_jeita, ibat, vbat, tbat, data->ita_jeita,
+	     data->state_jeita);
+}
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 static inline void pe50_select_vbat_cv(struct pe50_algo_info *info)
 {
 	int ret;
@@ -655,9 +1050,14 @@ static inline void pe50_select_vbat_cv(struct pe50_algo_info *info)
 	u32 cv_no_ircmp = desc->vbat_cv;
 
 	mutex_lock(&data->ext_lock);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	pe50_select_fcc_jeita_cv(info);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	if (data->cv_limit > 0)
-		cv_no_ircmp = min(cv_no_ircmp, (u32)data->cv_limit);
-
+		cv_no_ircmp = min(cv_no_ircmp, (u32) data->cv_limit);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	cv_no_ircmp = min(cv_no_ircmp, data->cv_jeita);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	if (cv_no_ircmp != data->vbat_cv_no_ircmp)
 		data->vbat_cv_no_ircmp = cv_no_ircmp;
 
@@ -671,12 +1071,16 @@ static inline void pe50_select_vbat_cv(struct pe50_algo_info *info)
 		PE50_ERR("set vbatovp alarm fail(%d)\n", ret);
 		goto out;
 	}
+
 	data->vbat_cv = cv;
 	data->cv_lower_bound = data->vbat_cv - PE50_CV_LOWER_BOUND_GAP;
-out:
-	PE50_INFO("vbat_cv(org,limit,no_ircmp,low_bound)=%d(%d,%d,%d,%d)\n",
-		  data->vbat_cv, desc->vbat_cv, data->cv_limit,
-		  data->vbat_cv_no_ircmp, data->cv_lower_bound);
+      out:
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	PE50_INFO
+	    ("vbat_cv(org,limit,no_ircmp,low_bound,cv_jeita)=%d(%d,%d,%d,%d,%d)\n",
+	     data->vbat_cv, desc->vbat_cv, data->cv_limit,
+	     data->vbat_cv_no_ircmp, data->cv_lower_bound, data->cv_jeita);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	mutex_unlock(&data->ext_lock);
 }
 
@@ -691,34 +1095,98 @@ out:
  * 5. Battery's temperature
  * 6. Divider charger's temperature
  */
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 start */
 static inline int pe50_get_ita_lmt(struct pe50_algo_info *info)
 {
 	struct pe50_algo_data *data = info->data;
-	struct pe50_algo_desc *desc = info->desc;
-	u32 ita = data->ita_lmt;
+  /* N17 code for HQ-307331 by tongjiacheng at 20230726 start */
+	int ret, ibat, ibat_lmt, ibus_sel;
+  /* N17 code for HQ-307331 by tongjiacheng at 20230726 end */
+	static int ibat_step = 0;
 
 	mutex_lock(&data->ext_lock);
-	if (data->input_current_limit >= 0)
-		ita = min(ita, (u32)data->input_current_limit);
-	if (data->ita_pwr_lmt > 0)
-		ita = min(ita, data->ita_pwr_lmt);
-	if (data->tried_dual_dvchg) {
-		ita = min(ita, data->ita_lmt - (2 * desc->tta_curlmt[data->tta_level]));
-		ita = min(ita, data->ita_lmt - (2 * desc->tbat_curlmt[data->tbat_level]));
-		ita = min(ita, data->ita_lmt - (2 * desc->tdvchg_curlmt[data->tdvchg_level]));
-	} else {
-		ita = min(ita, data->ita_lmt - desc->tta_curlmt[data->tta_level]);
-		ita = min(ita, data->ita_lmt - desc->tbat_curlmt[data->tbat_level]);
-		ita = min(ita, data->ita_lmt - desc->tdvchg_curlmt[data->tdvchg_level]);
+
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+	PE50_ERR("N17:data->ita_jeita = %d, switch2_1_single_enable = %d, data->switch1_1_single_enable = %d\n",
+					data->div_rate, data->switch2_1_single_enable, data->switch1_1_single_enable);
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+
+	ret = pe50_get_adc(info, PE50_ADCCHAN_IBAT, &ibat);
+	if (ret < 0)
+		PE50_INFO("get ibat fail(%d)\n", ret);
+/* N17 code for HQ-307331 by tongjiacheng at 20230726 start */
+	if (data->input_current_limit > 0) {
+		ibat_lmt = min(data->ita_jeita * 2, 
+			(u32)data->input_current_limit * 2) - 50;
+		ibus_sel = min(data->ita_jeita, (u32)data->input_current_limit);
 	}
-	PE50_INFO("ita(org,tta,tbat,tdvchg,prlmt,throt)=%d(%d,%d,%d,%d,%d,%d)\n",
-		 ita, data->ita_lmt, desc->tta_curlmt[data->tta_level],
-		 desc->tbat_curlmt[data->tbat_level],
-		 desc->tdvchg_curlmt[data->tdvchg_level], data->ita_pwr_lmt,
-		 data->input_current_limit);
+	else {
+		ibat_lmt = data->ita_jeita * 2;
+		ibus_sel = data->ita_jeita;
+	}
+/* N17 code for HQ-307331 by tongjiacheng at 20230726 end */
+	if (ibat < ibat_lmt)
+		ibat_step = 1;
+	else if (ibat > ibat_lmt)
+		ibat_step = -1;
+
+	/* N17 code for HQHW-4945 by liyanhao at 20230816 start */
+	if (data->ita_setting > (data->ita_measure + 200)) {
+		PE50_INFO("ita_setting(%d) way bigger than ita_measure(%d), decrease ita\n",
+			data->ita_setting, data->ita_measure);
+		ibat_step = -1;
+	}
+	/* N17 code for HQHW-4945 by liyanhao at 20230816 end */
+
+	data->ita += ibat_step * 50;
+
+	if (data->ita > 3100)
+		data->ita = 3100;
+
+/* N17 code for HQ-307331 by tongjiacheng at 20230726 start */
+	if (data->ita < ibus_sel)
+		data->ita = ibus_sel;
+/* N17 code for HQ-307331 by tongjiacheng at 20230726 end */
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR
+	    ("N17:ita(org, jeita, throt, bat_lmt)=%d(%d,%d,%d,%d)\n",
+	     data->ita, data->ita_lmt, data->ita_jeita,
+	     data->input_current_limit, ibat_lmt);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	mutex_unlock(&data->ext_lock);
-	return ita;
+	return data->ita;
 }
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 end */
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+int xm_get_ibat_lmt(struct pe50_algo_info *info)
+{
+	struct pe50_algo_data *data = info->data;
+	int ret, ibat;
+
+	mutex_lock(&data->ext_lock);
+
+	ret = pe50_get_adc(info, PE50_ADCCHAN_IBAT, &ibat);
+	if (ret < 0)
+		PE50_INFO("get ibat fail(%d)\n", ret);
+
+	if (data->input_current_limit > 0) {
+		data->ibat_limit = min(data->ita_jeita * 2,
+			(u32)data->input_current_limit * 2) - 50;
+	}
+	else {
+		data->ibat_limit = data->ita_jeita * 2;
+	}
+
+	PE50_ERR
+	    ("N17 input_current_limit = %d, ibat_limit = %d\n",
+	     data->input_current_limit, data->ibat_limit);
+
+	mutex_unlock(&data->ext_lock);
+	return data->ibat_limit;
+}
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 static inline int pe50_get_idvchg_lmt(struct pe50_algo_info *info)
 {
@@ -728,7 +1196,7 @@ static inline int pe50_get_idvchg_lmt(struct pe50_algo_info *info)
 	ita_lmt = pe50_get_ita_lmt(info);
 	idvchg_lmt = min(data->idvchg_cc, ita_lmt);
 	PE50_INFO("idvchg_lmt(ita_lmt,idvchg_cc)=%d(%d,%d)\n", idvchg_lmt,
-		 ita_lmt, data->idvchg_cc);
+		  ita_lmt, data->idvchg_cc);
 	return idvchg_lmt;
 }
 
@@ -765,7 +1233,8 @@ static u32 pe50_get_vbatovp(struct pe50_algo_info *info)
 {
 	struct pe50_algo_desc *desc = info->desc;
 
-	return percent(desc->vbat_cv + desc->ircmp_vclamp, PE50_VBATOVP_RATIO);
+	return percent(desc->vbat_cv + desc->ircmp_vclamp,
+		       PE50_VBATOVP_RATIO);
 }
 
 /* Calculate IBATOC S/W level */
@@ -788,7 +1257,8 @@ static u32 pe50_get_itaocp(struct pe50_algo_info *info)
 	return percent(data->ita_setting, PE50_ITAOCP_RATIO);
 }
 
-static int pe50_set_dvchg_protection(struct pe50_algo_info *info, bool dual)
+static int pe50_set_dvchg_protection(struct pe50_algo_info *info,
+				     bool dual)
 {
 	int ret;
 	struct pe50_algo_data *data = info->data;
@@ -807,7 +1277,9 @@ static int pe50_set_dvchg_protection(struct pe50_algo_info *info, bool dual)
 	/* VBUSOVP */
 	vout = desc->vbat_cv + div1000(2 * data->idvchg_cc * data->r_sw);
 	vbusovp = percent(pe50_vout2vbus(info, vout), PE50_VBUSOVP_RATIO);
-	vbusovp = min(vbusovp, (u32)auth_data->vcap_max);
+	/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 start*/
+	vbusovp = min(vbusovp, PE50_2_1_VCAP_MAX);
+	/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 end*/
 	ret = pe50_hal_set_vbusovp(info->alg, DVCHG1, vbusovp);
 	if (ret < 0) {
 		PE50_ERR("set vbusovp fail(%d)\n", ret);
@@ -816,7 +1288,8 @@ static int pe50_set_dvchg_protection(struct pe50_algo_info *info, bool dual)
 	data->vbusovp = vbusovp;
 	/* For TA CV mode, vbusovp alarm is not required */
 	if (!auth_data->support_cc) {
-		ret = pe50_hal_set_vbusovp_alarm(info->alg, DVCHG1, vbusovp);
+		ret =
+		    pe50_hal_set_vbusovp_alarm(info->alg, DVCHG1, vbusovp);
 		if (ret < 0) {
 			PE50_ERR("set vbusovp alarm fail(%d)\n", ret);
 			return ret;
@@ -824,7 +1297,7 @@ static int pe50_set_dvchg_protection(struct pe50_algo_info *info, bool dual)
 	}
 
 	/* IBUSOCP */
-	idvchg_lmt = min(data->idvchg_cc, (u32)auth_data->ita_max);
+	idvchg_lmt = min(data->idvchg_cc, (u32) auth_data->ita_max);
 	ibusocp = percent(idvchg_lmt, PE50_IBUSOCP_RATIO);
 	if (data->is_dvchg_exist[PE50_DVCHG_SLAVE] && dual) {
 		/* Add 10% for unbalance tolerance */
@@ -860,7 +1333,7 @@ static int pe50_set_dvchg_protection(struct pe50_algo_info *info, bool dual)
 		return ret;
 	}
 	PE50_INFO("vbusovp,ibusocp,vbatovp,ibatocp = (%d,%d,%d,%d)\n",
-		 vbusovp, ibusocp, vbatovp, ibatocp);
+		  vbusovp, ibusocp, vbatovp, ibatocp);
 	return 0;
 }
 
@@ -888,6 +1361,17 @@ static int pe50_enable_dvchg_charging(struct pe50_algo_info *info,
 	}
 	data->is_dvchg_en[role] = en;
 	msleep(desc->ta_blanking);
+
+	/*N17 code for HQHW-4862 by yeyinzi at 2023/08/15 start*/
+	if(en){
+		ret = pe50_hal_enable_termination(info->alg, CHG1, false);
+		PE50_INFO("disable main charge termination\n");
+		if (ret < 0) {
+			PE50_ERR("disable swchg termination fail(%d)\n", ret);
+		}
+	}
+	/*N17 code for HQHW-4862 by yeyinzi at 2023/08/15 end*/
+
 	return 0;
 }
 
@@ -969,7 +1453,8 @@ static int pe50_enable_swchg_charging(struct pe50_algo_info *info, bool en)
 	}
 	data->is_swchg_en = en;
 	ret = pe50_hal_set_vbatovp_alarm(info->alg, DVCHG1,
-		en ? desc->swchg_off_vbat : desc->vbat_cv);
+					 en ? desc->swchg_off_vbat : desc->
+					 vbat_cv);
 	if (ret < 0) {
 		PE50_ERR("set vbatovp alarm fail(%d)\n", ret);
 		return ret;
@@ -998,7 +1483,7 @@ static int pe50_set_swchg_cap(struct pe50_algo_info *info, u32 aicr)
 		return ret;
 	}
 	data->aicr_setting = aicr;
-set_ichg:
+      set_ichg:
 	ret = pe50_get_adc(info, PE50_ADCCHAN_VBAT, &vbat);
 	if (ret < 0) {
 		PE50_ERR("get vbat fail(%d)\n", ret);
@@ -1031,13 +1516,13 @@ set_ichg:
  * @mV: requested output voltage
  * @mA: requested output current
  */
-static int pe50_enable_ta_charging(struct pe50_algo_info *info, bool en, int mV,
-				   int mA)
+static int pe50_enable_ta_charging(struct pe50_algo_info *info, bool en,
+				   int mV, int mA)
 {
 	int ret;
 	struct pe50_algo_data *data = info->data;
 	struct pe50_algo_desc *desc = info->desc;
-	u32 wdt = max(desc->polling_interval * 2, (u32)PE50_TA_WDT_MIN);
+	u32 wdt = max(desc->polling_interval * 2, (u32) PE50_TA_WDT_MIN);
 
 	PE50_INFO("en = %d\n", en);
 	if (en) {
@@ -1075,13 +1560,24 @@ static int pe50_send_notification(struct pe50_algo_info *info,
 }
 
 /* Stop PE5.0 charging and reset parameter */
-static int pe50_stop(struct pe50_algo_info *info, struct pe50_stop_info *sinfo)
+static int pe50_stop(struct pe50_algo_info *info,
+		     struct pe50_stop_info *sinfo)
 {
 	struct pe50_algo_data *data = info->data;
+/*N17 code for HQ-308568 by xm tianye9 at 2023/07/24 start*/
+	struct power_supply *batt_psy = NULL;
+	struct mtk_battery *gm = NULL;
+/*N17 code for HQ-308568 by xm tianye9 at 2023/07/24 end*/
 	struct chg_alg_notify notify = {
 		.evt = EVT_ALGO_STOP,
 	};
-
+/*N17 code for HQ-329243 by yeyinzi at 2023/09/21 start*/
+	struct power_supply *chg_psy;
+	struct mtk_charger *chg_info;
+/*N17 code for HQ-329243 by yeyinzi at 2023/09/21 end*/
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	data->state_jeita = 0;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	if (data->state == PE50_ALGO_STOP) {
 		/*
 		 * Always clear stop_algo,
@@ -1093,13 +1589,58 @@ static int pe50_stop(struct pe50_algo_info *info, struct pe50_stop_info *sinfo)
 	}
 
 	PE50_INFO("reset ta(%d), hardreset ta(%d)\n", sinfo->reset_ta,
-		 sinfo->hardreset_ta);
+		  sinfo->hardreset_ta);
+	/*N17 code for HQ-329243 by yeyinzi at 2023/09/21 start*/
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL) {
+		PE50_ERR("[%s] failed to get charger psy\n", __func__);
+	} else {
+		chg_info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
+		if (chg_info == NULL) {
+			PE50_ERR("[%s] failed to get mtk_charger drvdata\n", __func__);
+		} else {
+			chg_info->during_switching = true;
+			PE50_INFO("[%s] Start switching to the main charger\n", __func__);
+		}
+	}
+	/*N17 code for HQ-329243 by yeyinzi at 2023/09/21 end*/
 	data->state = PE50_ALGO_STOP;
 	atomic_set(&data->stop_algo, 0);
 	alarm_cancel(&data->timer);
 
 	if (data->is_swchg_en)
 		pe50_enable_swchg_charging(info, false);
+
+/*N17 code for HQ-308568 by xm tianye9 at 2023/07/24 start*/
+	batt_psy = power_supply_get_by_name("battery");
+	if (batt_psy != NULL) {
+		gm = (struct mtk_battery *)power_supply_get_drvdata(batt_psy);
+		if (gm != NULL){
+			info->smart_charge = gm->smart_charge;
+			chr_err("N17 get mtk_battery drvdata success in %s\n", __func__);
+		} else
+			chr_err("N17 get mtk_battery drvdata failed in %s\n", __func__);
+	} else
+		chr_err("N17 get mtk_battery psy failed %s\n", __func__);
+/*N17 code for HQ-308568 by xm tianye9 at 2023/07/24 end*/
+
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 start*/
+/*N17 code for HQ-308568 by xm tianye9 at 2023/07/24 start*/
+	if((info->smart_charge != NULL) && (info->smart_charge[SMART_CHG_NAVIGATION].active_status))
+	{
+		pe50_enable_swchg_charging(info, false);
+		PE50_ERR("N17:disable main charger, soc >= %d\n", info->smart_charge[SMART_CHG_NAVIGATION].func_val);
+	}
+/*N17 code for HQ-308568 by xm tianye9 at 2023/07/24 end*/
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 end*/
+
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/19 start*/
+	if(data->switch2_1_single_enable){
+		pe50_set_ta_cap_cv(info, 8000, 1000);
+		msleep(500);
+	}
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/19 end*/
+
 	pe50_enable_dvchg_charging(info, PE50_DVCHG_SLAVE, false);
 	pe50_set_dvchg_charging(info, false);
 	if (!(data->notify & PE50_RESET_NOTIFY)) {
@@ -1126,9 +1667,12 @@ static inline void pe50_init_algo_data(struct pe50_algo_info *info)
 	u32 *ita_level = desc->ita_level;
 
 	data->ita_lmt = min(ita_level[PE50_RCABLE_NORMAL],
-			    (u32)auth_data->ita_max);
+			    (u32) auth_data->ita_max);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	data->ita_jeita = 3000;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	data->idvchg_ss_init = max(data->idvchg_ss_init,
-				   (u32)auth_data->ita_min);
+				   (u32) auth_data->ita_min);
 	data->idvchg_ss_init = min(data->idvchg_ss_init, data->ita_lmt);
 	data->ita_pwr_lmt = 0;
 	data->idvchg_cc = ita_level[PE50_RCABLE_NORMAL] - desc->swchg_aicr;
@@ -1140,6 +1684,9 @@ static inline void pe50_init_algo_data(struct pe50_algo_info *info)
 	data->suspect_ta_cc = false;
 	data->aicr_setting = 0;
 	data->ichg_setting = 0;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	data->state_jeita = 0;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	data->vta_setting = PE50_VTA_INIT;
 	data->ita_setting = PE50_ITA_INIT;
 	data->ita_gap_per_vstep = 0;
@@ -1186,7 +1733,8 @@ static int pe50_earily_restart(struct pe50_algo_info *info)
 		return ret;
 	}
 	if (auth_data->support_cc) {
-		ret = pe50_set_ta_cap_cc(info, PE50_VTA_INIT, PE50_ITA_INIT);
+		ret =
+		    pe50_set_ta_cap_cc(info, PE50_VTA_INIT, PE50_ITA_INIT);
 		if (ret < 0) {
 			PE50_ERR("set ta cap fail(%d)\n", ret);
 			return ret;
@@ -1201,6 +1749,17 @@ static int pe50_earily_restart(struct pe50_algo_info *info)
 	pe50_init_algo_data(info);
 	return 0;
 }
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+static void xm_monitor_flash_chg_statue_work(struct work_struct *work)
+{
+	struct pe50_algo_info *chip = container_of(work, struct pe50_algo_info, xm_monitor_flash_chg_statue_work.work);
+
+	chr_err("N17:enter xm_monitor_flash_chg_statue_work\n");
+	pdm_multi_mode_switch(chip);
+	schedule_delayed_work(&chip->xm_monitor_flash_chg_statue_work, msecs_to_jiffies(1000));
+}
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 /*
  * Start pe50 timer and run algo
@@ -1244,11 +1803,13 @@ static inline int pe50_start(struct pe50_algo_info *info)
 		PE50_ERR("get swchg vbus fail(%d)\n", ret);
 		goto start;
 	}
-	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_IBUS, &ibus);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	ret = pe50_hal_get_aicr(info->alg, CHG1, &ibus);
 	if (ret < 0) {
 		PE50_ERR("get swchg ibus fail(%d)\n", ret);
 		goto start;
 	}
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VBAT, &vbat);
 	if (ret < 0) {
 		PE50_ERR("get swchg vbat fail(%d)\n", ret);
@@ -1257,7 +1818,7 @@ static inline int pe50_start(struct pe50_algo_info *info)
 	ita = precise_div(percent(vbus * ibus, 90), 2 * vbat);
 	if (ita < desc->idvchg_term) {
 		PE50_ERR("estimated ita(%d) < idvchg_term(%d)\n", ita,
-			desc->idvchg_term);
+			 desc->idvchg_term);
 		return -EINVAL;
 	}
 	/* Update idvchg_ss_init */
@@ -1266,14 +1827,14 @@ static inline int pe50_start(struct pe50_algo_info *info)
 			  desc->idvchg_ss_init, ita);
 		data->idvchg_ss_init = ita;
 	}
-start:
+      start:
 	/* disable charger */
 	ret = pe50_hal_enable_charging(info->alg, CHG1, false);
 	if (ret < 0) {
 		PE50_ERR("disable charger fail\n");
 		return ret;
 	}
-	msleep(1000); /* wait for battery to recovery */
+	msleep(1000);		/* wait for battery to recovery */
 
 	/* Check DVCHG registers stat first */
 	for (i = PE50_DVCHG_MASTER; i < PE50_DVCHG_MAX; i++) {
@@ -1282,7 +1843,7 @@ start:
 		ret = pe50_hal_init_chip(info->alg, to_chgidx(i));
 		if (ret < 0) {
 			PE50_ERR("(%s) init chip fail(%d)\n",
-				pe50_dvchg_role_name[i], ret);
+				 pe50_dvchg_role_name[i], ret);
 			return ret;
 		}
 	}
@@ -1291,9 +1852,25 @@ start:
 	mutex_lock(&data->ext_lock);
 	data->input_current_limit = -1;
 	data->cv_limit = -1;
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 start */
+	data->ita = 3000;
+/* N17 code for HQ-305663 by tongjiacheng at 20230710 end */
 	mutex_unlock(&data->ext_lock);
 	data->tried_dual_dvchg = false;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+	data->switch2_1_single_enable = true;
+	data->switch1_1_single_enable = false;
+	/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 start*/
+	auth_data->vcap_max = PE50_2_1_VCAP_MAX;
+	/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 end*/
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
 	pe50_init_algo_data(info);
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("n17:pe50_start call xm_monitor_flash_chg_statue_work once\n");
+	schedule_delayed_work(&info->xm_monitor_flash_chg_statue_work, msecs_to_jiffies(1000));
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	alarm_start_relative(&data->timer, ktime);
 	return 0;
 }
@@ -1337,12 +1914,24 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 	pe50_hal_enable_charging(info->alg, CHG1, true);
 
 	for (i = 0; i < PE50_MEASURE_R_AVG_TIMES + 2; i++) {
-		ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VBUS, &val_vbus);
+		ret =
+		    pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VBUS,
+				     &val_vbus);
 		if (ret < 0) {
 			PE50_ERR("set aicr fail(%d)\n", ret);
 			return ret;
 		}
-		ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_IBUS, &val_ibus);
+
+/* N17 code for HQ-307354 by daijie at 20230728 start */
+		if(val_vbus <= 0 && (data->notify & (BIT(EVT_DETACH) | BIT(EVT_PLUG_OUT)))){
+			PE50_ERR("vbus(%d) USB Plug out\n", val_vbus);
+			break;
+		}
+/* N17 code for HQ-307354 by daijie at 20230728 end */
+
+		ret =
+		    pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_IBUS,
+				     &val_ibus);
 		if (ret < 0) {
 			PE50_ERR("set aicr fail(%d)\n", ret);
 			return ret;
@@ -1359,8 +1948,10 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		}
 		vbus1 += val_vbus;
 		ibus1 += val_ibus;
-		PE50_ERR("vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus1=%d ibus1=%d",
-				val_vbus, val_ibus, vbus_max, vbus_min, ibus_max, ibus_min, vbus1, ibus1);
+		PE50_ERR
+		    ("vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus1=%d ibus1=%d",
+		     val_vbus, val_ibus, vbus_max, vbus_min, ibus_max,
+		     ibus_min, vbus1, ibus1);
 	}
 
 	vbus1 -= (vbus_min + vbus_max);
@@ -1376,12 +1967,24 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 	}
 
 	for (i = 0; i < PE50_MEASURE_R_AVG_TIMES + 2; i++) {
-		ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VBUS, &val_vbus);
+		ret =
+		    pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VBUS,
+				     &val_vbus);
 		if (ret < 0) {
 			PE50_ERR("set aicr fail(%d)\n", ret);
 			return ret;
 		}
-		ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_IBUS, &val_ibus);
+
+/* N17 code for HQ-307354 by daijie at 20230728 start */
+		if(val_vbus <= 0 && (data->notify & (BIT(EVT_DETACH) | BIT(EVT_PLUG_OUT)))){
+			PE50_ERR("vbus(%d) USB Plug out\n", val_vbus);
+			break;
+		}
+/* N17 code for HQ-307354 by daijie at 20230728 end */
+
+		ret =
+		    pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_IBUS,
+				     &val_ibus);
 		if (ret < 0) {
 			PE50_ERR("set aicr fail(%d)\n", ret);
 			return ret;
@@ -1398,8 +2001,10 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		}
 		vbus2 += val_vbus;
 		ibus2 += val_ibus;
-		PE50_ERR("vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus2=%d ibus2=%d",
-				val_vbus, val_ibus, vbus_max, vbus_min, ibus_max, ibus_min, vbus2, ibus2);
+		PE50_ERR
+		    ("vbus=%d ibus=%d vbus(max,min)=(%d,%d) ibus(max,min)=(%d,%d) vbus2=%d ibus2=%d",
+		     val_vbus, val_ibus, vbus_max, vbus_min, ibus_max,
+		     ibus_min, vbus2, ibus2);
 	}
 
 	vbus2 -= (vbus_min + vbus_max);
@@ -1443,7 +2048,9 @@ static int pe50_algo_init_with_ta_cc(struct pe50_algo_info *info)
 	PE50_DBG("++\n");
 
 	/* Change charging policy first */
-	ret = pe50_enable_ta_charging(info, true, PE50_VTA_INIT, PE50_ITA_INIT);
+	ret =
+	    pe50_enable_ta_charging(info, true, PE50_VTA_INIT,
+				    PE50_ITA_INIT);
 	if (ret < 0) {
 		PE50_ERR("enable ta charging fail(%d)\n", ret);
 		sinfo.hardreset_ta = true;
@@ -1464,7 +2071,7 @@ static int pe50_algo_init_with_ta_cc(struct pe50_algo_info *info)
 
 	if (vbat_avg > desc->start_vbat_max) {
 		PE50_INFO("finish PE5.0, vbat(%d) > %d\n", vbat_avg,
-			 desc->start_vbat_max);
+			  desc->start_vbat_max);
 		goto out;
 	}
 
@@ -1484,7 +2091,7 @@ static int pe50_algo_init_with_ta_cc(struct pe50_algo_info *info)
 		PE50_ERR("set swchg hz fail(%d)\n", ret);
 		goto err;
 	}
-	msleep(500); /* Wait current stable */
+	msleep(500);		/* Wait current stable */
 
 	/* Initial setting, no need to check ita_lmt */
 	ret = pe50_set_ta_cap_cc_by_cali_vta(info, data->idvchg_ss_init);
@@ -1516,8 +2123,9 @@ static int pe50_algo_init_with_ta_cc(struct pe50_algo_info *info)
 
 	/* vbus calibration: voltage difference between TA & device */
 	data->vbus_cali = vta_avg - vbus_avg;
-	PE50_INFO("avg(ita,vta,vbus,vbat):(%d, %d, %d, %d), vbus cali:%d\n",
-		  ita_avg, vta_avg, vbus_avg, vbat_avg, data->vbus_cali);
+	PE50_INFO
+	    ("avg(ita,vta,vbus,vbat):(%d, %d, %d, %d), vbus cali:%d\n",
+	     ita_avg, vta_avg, vbus_avg, vbat_avg, data->vbus_cali);
 	if (abs(data->vbus_cali) > PE50_VBUS_CALI_THRESHOLD) {
 		PE50_ERR("vbus cali (%d) > (%d)\n", data->vbus_cali,
 			 PE50_VBUS_CALI_THRESHOLD);
@@ -1545,12 +2153,12 @@ static int pe50_algo_init_with_ta_cc(struct pe50_algo_info *info)
 	data->state = PE50_ALGO_MEASURE_R;
 	return 0;
 
-err:
+      err:
 	if (data->err_retry_cnt < PE50_INIT_RETRY_MAX) {
 		data->err_retry_cnt++;
 		return 0;
 	}
-out:
+      out:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -1560,6 +2168,9 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 	int ita_avg = 0, vta_avg = 0, vbus_avg = 0, vbat_avg = 0;
 	bool err;
 	u32 vta;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	int work_mode;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	const int avg_times = 10;
 	struct pe50_algo_data *data = info->data;
 	struct pe50_algo_desc *desc = info->desc;
@@ -1572,7 +2183,9 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 	PE50_DBG("++\n");
 
 	/* Change charging policy first */
-	ret = pe50_enable_ta_charging(info, true, PE50_VTA_INIT, PE50_ITA_INIT);
+	ret =
+	    pe50_enable_ta_charging(info, true, PE50_VTA_INIT,
+				    PE50_ITA_INIT);
 	if (ret < 0) {
 		PE50_ERR("enable ta charge fail(%d)\n", ret);
 		sinfo.hardreset_ta = true;
@@ -1614,7 +2227,7 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 		PE50_ERR("set swchg hz fail(%d)\n", ret);
 		goto err;
 	}
-	msleep(500); /* Wait current stable */
+	msleep(500);		/* Wait current stable */
 
 	ret = pe50_get_adc(info, PE50_ADCCHAN_VBUS, &vbus);
 	if (ret < 0) {
@@ -1626,14 +2239,53 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 		PE50_ERR("sync ta setting fail(%d)\n", ret);
 		goto err;
 	}
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
 	ret = pe50_get_adc(info, PE50_ADCCHAN_VOUT, &vout);
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
+	PE50_ERR("PE50 get vout (%d)\n", vout);
 	if (ret < 0) {
 		PE50_ERR("get vout fail(%d)\n", ret);
 		goto err;
 	}
 
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17: switch2_1_single_enable =%d, switch1_1_single_enable =%d\n",
+	data->switch2_1_single_enable, data->switch1_1_single_enable);
+
+	if (data->switch2_1_single_enable){
+				/*set 2:1 mode*/
+				pe50_hal_set_work_mode_by_xm(info->alg, DVCHG1, 0);
+				pe50_hal_get_work_mode_by_xm(info->alg, DVCHG1, &work_mode);
+				data->cp_mode = 0;
+				data->div_rate = 2;
+				/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 start*/
+				auth_data->vcap_max = PE50_2_1_VCAP_MAX;
+				/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 end*/
+				PE50_ERR("N17:set init cp mode is 2:1, work_mode is %d\n", work_mode);
+	}else {
+				/*set 1:1 mode*/
+				pe50_hal_set_work_mode_by_xm(info->alg, DVCHG1, 1);
+				pe50_hal_get_work_mode_by_xm(info->alg, DVCHG1, &work_mode);
+				data->cp_mode = 1;
+				data->div_rate = 1;
+				/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 start*/
+				auth_data->vcap_max = PE50_1_1_VCAP_MAX;
+				/*N17 code for HQ-319855 by yeyinzi at 2023/09/02 end*/
+				PE50_ERR("N17:set init cp mode is 1:1 work_mode is %d\n", work_mode);
+	}
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	/* Adjust VBUS to make sure DVCHG can be turned on */
-	vta = pe50_vout2vbus(info, vout);
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+	if (data->switch2_1_single_enable)
+		vta = pe50_vout2vbus(info, vout);
+	else
+		vta  = pe50_vout1vbus(vout);
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:get vout = %d, vta = %d, idvchg_ss_init = %d\n", vout, vta, data->idvchg_ss_init);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	ret = pe50_set_ta_cap_cv(info, vta, data->idvchg_ss_init);
 	if (ret < 0) {
 		PE50_ERR("set ta cap fail(%d)\n", ret);
@@ -1648,6 +2300,10 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 		if (!err)
 			break;
 		vta = data->vta_setting + auth_data->vta_step;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17:vta_setting = %d, vta_step= %d, vta = %d, init = %d\n",
+			data->vta_setting, auth_data->vta_step, vta, data->idvchg_ss_init);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 		ret = pe50_set_ta_cap_cv(info, vta, data->idvchg_ss_init);
 		if (ret < 0) {
 			PE50_ERR("set ta cap fail(%d)\n", ret);
@@ -1685,13 +2341,15 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 		PE50_INFO("avg(ita,vta,vbus):(%d,%d,%d), vbus_cali:%d\n",
 			  ita_avg, vta_avg, vbus_avg, data->vbus_cali);
 		if (abs(data->vbus_cali) > PE50_VBUS_CALI_THRESHOLD) {
-			PE50_ERR("vbus cali (%d) > (%d)\n", data->vbus_cali,
+			PE50_ERR("vbus cali (%d) > (%d)\n",
+				 data->vbus_cali,
 				 PE50_VBUS_CALI_THRESHOLD);
 			goto err;
 		}
 		if (ita_avg > desc->ifod_threshold) {
-			PE50_ERR("foreign object detected, ita(%d) > (%d)\n",
-				 ita_avg, desc->ifod_threshold);
+			PE50_ERR
+			    ("foreign object detected, ita(%d) > (%d)\n",
+			     ita_avg, desc->ifod_threshold);
 			goto err;
 		}
 	}
@@ -1713,12 +2371,12 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 	data->err_retry_cnt = 0;
 	data->state = PE50_ALGO_MEASURE_R;
 	return 0;
-err:
+      err:
 	if (data->err_retry_cnt < PE50_INIT_RETRY_MAX) {
 		data->err_retry_cnt++;
 		return 0;
 	}
-out:
+      out:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -1730,9 +2388,12 @@ static int pe50_algo_init(struct pe50_algo_info *info)
 {
 	struct pe50_algo_data *data = info->data;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17:enter pe50_algo_init statemachine\n");
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 	return auth_data->support_cc ? pe50_algo_init_with_ta_cc(info) :
-				       pe50_algo_init_with_ta_cv(info);
+	    pe50_algo_init_with_ta_cv(info);
 }
 
 struct meas_r_info {
@@ -1839,19 +2500,22 @@ static int pe50_algo_cal_r_info_with_ta_cap(struct pe50_algo_info *info,
 		}
 
 		/* Use absolute instead of relative calculation */
-		r_info.r_bat = precise_div(abs(r_info.vbat - data->zcv) * 1000,
-					   abs(r_info.ibat));
+		r_info.r_bat =
+		    precise_div(abs(r_info.vbat - data->zcv) * 1000,
+				abs(r_info.ibat));
 		if (r_info.r_bat > desc->ircmp_rbat)
 			r_info.r_bat = desc->ircmp_rbat;
 
-		r_info.r_sw = precise_div(abs(r_info.vout - r_info.vbat) * 1000,
-					  abs(r_info.ibat));
+		r_info.r_sw =
+		    precise_div(abs(r_info.vout - r_info.vbat) * 1000,
+				abs(r_info.ibat));
 		if (r_info.r_sw < desc->rsw_min)
 			r_info.r_sw = desc->rsw_min;
 
-		r_info.r_cable = precise_div(abs(r_info.vta - data->vbus_cali -
-					     r_info.vbus) * 1000,
-					     abs(r_info.ita));
+		r_info.r_cable =
+		    precise_div(abs
+				(r_info.vta - data->vbus_cali -
+				 r_info.vbus) * 1000, abs(r_info.ita));
 
 		PE50_INFO("r_sw:%d, r_bat:%d, r_cable:%d\n", r_info.r_sw,
 			  r_info.r_bat, r_info.r_cable);
@@ -1862,14 +2526,18 @@ static int pe50_algo_cal_r_info_with_ta_cap(struct pe50_algo_info *info,
 			memcpy(&min_r_info, &r_info,
 			       sizeof(struct meas_r_info));
 		} else {
-			max_r_info.r_bat = max(max_r_info.r_bat, r_info.r_bat);
-			max_r_info.r_sw = max(max_r_info.r_sw, r_info.r_sw);
-			max_r_info.r_cable = max(max_r_info.r_cable,
-						 r_info.r_cable);
-			min_r_info.r_bat = min(min_r_info.r_bat, r_info.r_bat);
-			min_r_info.r_sw = min(min_r_info.r_sw, r_info.r_sw);
-			min_r_info.r_cable = min(min_r_info.r_cable,
-						 r_info.r_cable);
+			max_r_info.r_bat =
+			    max(max_r_info.r_bat, r_info.r_bat);
+			max_r_info.r_sw =
+			    max(max_r_info.r_sw, r_info.r_sw);
+			max_r_info.r_cable =
+			    max(max_r_info.r_cable, r_info.r_cable);
+			min_r_info.r_bat =
+			    min(min_r_info.r_bat, r_info.r_bat);
+			min_r_info.r_sw =
+			    min(min_r_info.r_sw, r_info.r_sw);
+			min_r_info.r_cable =
+			    min(min_r_info.r_cable, r_info.r_cable);
 		}
 		data->r_bat += r_info.r_bat;
 		data->r_sw += r_info.r_sw;
@@ -1884,7 +2552,7 @@ static int pe50_algo_cal_r_info_with_ta_cap(struct pe50_algo_info *info,
 				    PE50_MEASURE_R_AVG_TIMES);
 	data->r_total = data->r_bat + data->r_sw + data->r_cable;
 	return 0;
-stop:
+      stop:
 	pe50_stop(info, &_sinfo);
 	return -EIO;
 }
@@ -1895,7 +2563,8 @@ static int pe50_select_ita_lmt_by_r(struct pe50_algo_info *info, bool dual)
 	struct pe50_algo_desc *desc = info->desc;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
 	u32 ita_lmt_by_r, ita_lmt;
-	u32 *rcable_level = dual ? desc->rcable_level_dual : desc->rcable_level;
+	u32 *rcable_level =
+	    dual ? desc->rcable_level_dual : desc->rcable_level;
 	u32 *ita_level = dual ? desc->ita_level_dual : desc->ita_level;
 
 	if (!auth_data->support_meas_cap) {
@@ -1911,18 +2580,26 @@ static int pe50_select_ita_lmt_by_r(struct pe50_algo_info *info, bool dual)
 	else if (data->r_cable_by_swchg <= rcable_level[PE50_RCABLE_BAD3])
 		ita_lmt_by_r = ita_level[PE50_RCABLE_BAD3];
 	else {
-		PE50_ERR("r_cable_by_swchg(%d) too worse\n", data->r_cable_by_swchg);
+		PE50_ERR("r_cable_by_swchg(%d) too worse\n",
+			 data->r_cable_by_swchg);
 		PE50_ERR("r_cable(%d) too worse\n", data->r_cable);
 		return -EINVAL;
 	}
 	PE50_ERR("r_cable_by_swchg: %d\n", data->r_cable_by_swchg);
 	PE50_ERR("r_cable: %d\n", data->r_cable);
-out:
-	PE50_INFO("ita limited by r = %d\n", ita_lmt_by_r);
-	data->ita_lmt = min(ita_lmt_by_r, (u32)auth_data->ita_max);
+      out:
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_INFO("ita limited by r = %d, ita_max =%d\n", ita_lmt_by_r, (u32) auth_data->ita_max);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
+	data->ita_lmt = min(ita_lmt_by_r, (u32) auth_data->ita_max);
 	data->ita_pwr_lmt = pe50_get_ita_pwr_lmt_by_vta(info,
 							data->vta_setting);
 	ita_lmt = pe50_get_ita_lmt(info);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:final:get ibus limit = %d, ita_lmt = %d\n", data->ita_pwr_lmt, ita_lmt);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	if (ita_lmt < data->idvchg_term) {
 		PE50_ERR("ita_lmt(%d) < dvchg_term(%d)\n", ita_lmt,
 			 data->idvchg_term);
@@ -1939,12 +2616,13 @@ static int pe50_algo_measure_r_with_ta_cc(struct pe50_algo_info *info)
 	u32 ita, idvchg_lmt;
 	u32 rcable_retry_level = (data->is_dvchg_exist[PE50_DVCHG_SLAVE] &&
 				  !data->tried_dual_dvchg) ?
-				  desc->rcable_level_dual[PE50_RCABLE_NORMAL] :
-				  desc->rcable_level[PE50_RCABLE_NORMAL];
+	    desc->rcable_level_dual[PE50_RCABLE_NORMAL] :
+	    desc->rcable_level[PE50_RCABLE_NORMAL];
 	struct pe50_stop_info sinfo = {
 		.reset_ta = true,
 		.hardreset_ta = false,
 	};
+
 
 	PE50_DBG("++\n");
 
@@ -1953,23 +2631,27 @@ static int pe50_algo_measure_r_with_ta_cc(struct pe50_algo_info *info)
 		goto err;
 	if (data->r_cable > rcable_retry_level &&
 	    data->err_retry_cnt < PE50_MEASURE_R_RETRY_MAX) {
-		PE50_INFO("rcable(%d) is worse than normal\n", data->r_cable);
+		PE50_INFO("rcable(%d) is worse than normal\n",
+			  data->r_cable);
 		goto err;
 	}
 	PE50_ERR("avg_r(sw,bat,cable):(%d,%d,%d), r_total:%d\n",
 		 data->r_sw, data->r_bat, data->r_cable, data->r_total);
 
 	/* If haven't tried dual dvchg, try it once */
-	if (data->is_dvchg_exist[PE50_DVCHG_SLAVE] && !data->tried_dual_dvchg &&
-	    !data->is_dvchg_en[PE50_DVCHG_SLAVE]) {
+	if (data->is_dvchg_exist[PE50_DVCHG_SLAVE]
+	    && !data->tried_dual_dvchg
+	    && !data->is_dvchg_en[PE50_DVCHG_SLAVE]) {
 		PE50_INFO("try dual dvchg\n");
 		data->tried_dual_dvchg = true;
 		data->idvchg_term = 2 * desc->idvchg_term;
-		data->idvchg_cc = desc->ita_level_dual[PE50_RCABLE_NORMAL] -
-				  desc->swchg_aicr;
+		data->idvchg_cc =
+		    desc->ita_level_dual[PE50_RCABLE_NORMAL] -
+		    desc->swchg_aicr;
 		ret = pe50_select_ita_lmt_by_r(info, true);
 		if (ret < 0) {
-			PE50_ERR("select dual dvchg ita lmt fail(%d)\n", ret);
+			PE50_ERR("select dual dvchg ita lmt fail(%d)\n",
+				 ret);
 			goto single_dvchg_select_ita;
 		}
 		/* Turn on slave dvchg if idvchg_lmt >= 2 * idvchg_term */
@@ -1988,10 +2670,13 @@ static int pe50_algo_measure_r_with_ta_cc(struct pe50_algo_info *info)
 		data->ignore_ibusucpf = true;
 		ret = pe50_set_dvchg_protection(info, true);
 		if (ret < 0) {
-			PE50_ERR("set dual dvchg protection fail(%d)\n", ret);
+			PE50_ERR("set dual dvchg protection fail(%d)\n",
+				 ret);
 			goto single_dvchg_restart;
 		}
-		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_SLAVE, true);
+		ret =
+		    pe50_enable_dvchg_charging(info, PE50_DVCHG_SLAVE,
+					       true);
 		if (ret < 0) {
 			PE50_ERR("en slave dvchg fail(%d)\n", ret);
 			goto single_dvchg_restart;
@@ -2004,13 +2689,15 @@ static int pe50_algo_measure_r_with_ta_cc(struct pe50_algo_info *info)
 			sinfo.hardreset_ta = true;
 			goto out;
 		}
-		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER, true);
+		ret =
+		    pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER,
+					       true);
 		if (ret < 0) {
 			PE50_ERR("en master dvchg fail(%d)\n", ret);
 			goto single_dvchg_restart;
 		}
 		goto ss_dvchg;
-single_dvchg_restart:
+	      single_dvchg_restart:
 		ret = pe50_earily_restart(info);
 		if (ret < 0) {
 			PE50_ERR("earily restart fail(%d)\n", ret);
@@ -2018,25 +2705,25 @@ single_dvchg_restart:
 		}
 		return 0;
 	}
-single_dvchg_select_ita:
+      single_dvchg_select_ita:
 	data->idvchg_term = desc->idvchg_term;
 	data->idvchg_cc = desc->ita_level[PE50_RCABLE_NORMAL] -
-			  desc->swchg_aicr;
+	    desc->swchg_aicr;
 	ret = pe50_select_ita_lmt_by_r(info, false);
 	if (ret < 0) {
 		PE50_ERR("select dvchg ita lmt fail(%d)\n", ret);
 		goto out;
 	}
-ss_dvchg:
+      ss_dvchg:
 	data->err_retry_cnt = 0;
 	data->state = PE50_ALGO_SS_DVCHG;
 	return 0;
-err:
+      err:
 	if (data->err_retry_cnt < PE50_MEASURE_R_RETRY_MAX) {
 		data->err_retry_cnt++;
 		return 0;
 	}
-out:
+      out:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -2048,8 +2735,8 @@ static int pe50_algo_measure_r_with_ta_cv(struct pe50_algo_info *info)
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
 	u32 rcable_retry_level = (data->is_dvchg_exist[PE50_DVCHG_SLAVE] &&
 				  !data->tried_dual_dvchg) ?
-				  desc->rcable_level_dual[PE50_RCABLE_NORMAL] :
-				  desc->rcable_level[PE50_RCABLE_NORMAL];
+	    desc->rcable_level_dual[PE50_RCABLE_NORMAL] :
+	    desc->rcable_level[PE50_RCABLE_NORMAL];
 	struct pe50_stop_info sinfo = {
 		.reset_ta = true,
 		.hardreset_ta = false,
@@ -2072,12 +2759,13 @@ static int pe50_algo_measure_r_with_ta_cv(struct pe50_algo_info *info)
 	}
 	if (data->r_cable > rcable_retry_level &&
 	    data->err_retry_cnt < PE50_MEASURE_R_RETRY_MAX) {
-		PE50_INFO("rcable(%d) is worse than normal\n", data->r_cable);
+		PE50_INFO("rcable(%d) is worse than normal\n",
+			  data->r_cable);
 		goto err;
 	}
 	PE50_ERR("avg_r(sw,bat,cable):(%d,%d,%d), r_total:%d\n",
 		 data->r_sw, data->r_bat, data->r_cable, data->r_total);
-select_ita:
+      select_ita:
 	ret = pe50_select_ita_lmt_by_r(info, false);
 	if (ret < 0) {
 		PE50_ERR("select dvchg ita lmt fail(%d)\n", ret);
@@ -2086,12 +2774,12 @@ select_ita:
 	data->err_retry_cnt = 0;
 	data->state = PE50_ALGO_SS_DVCHG;
 	return 0;
-err:
+      err:
 	if (data->err_retry_cnt < PE50_MEASURE_R_RETRY_MAX) {
 		data->err_retry_cnt++;
 		return 0;
 	}
-out:
+      out:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -2100,10 +2788,12 @@ static int pe50_algo_measure_r(struct pe50_algo_info *info)
 {
 	struct pe50_algo_data *data = info->data;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
-
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17:enter pe50_algo_measure_r statemachine\n");
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	return (auth_data->support_cc && !data->force_ta_cv) ?
-	       pe50_algo_measure_r_with_ta_cc(info) :
-	       pe50_algo_measure_r_with_ta_cv(info);
+	    pe50_algo_measure_r_with_ta_cc(info) :
+	    pe50_algo_measure_r_with_ta_cv(info);
 }
 
 static int pe50_check_slave_dvchg_off(struct pe50_algo_info *info)
@@ -2113,7 +2803,7 @@ static int pe50_check_slave_dvchg_off(struct pe50_algo_info *info)
 	struct pe50_algo_desc *desc = info->desc;
 
 	data->idvchg_cc = desc->ita_level[PE50_RCABLE_NORMAL] -
-			  desc->swchg_aicr;
+	    desc->swchg_aicr;
 	data->idvchg_term = desc->idvchg_term;
 	ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_SLAVE, false);
 	if (ret < 0) {
@@ -2154,7 +2844,7 @@ static int pe50_force_ta_cv(struct pe50_algo_info *info,
 		return ret;
 	}
 	ita = min(data->ita_measure, data->ita_setting);
-	vta = min(data->vta_measure, (u32)auth_data->vcap_max);
+	vta = min(data->vta_measure, (u32) auth_data->vcap_max);
 	ret = pe50_set_ta_cap_cv(info, vta, ita);
 	if (ret < 0) {
 		PE50_ERR("set ta cap fail\n");
@@ -2178,8 +2868,8 @@ static int pe50_check_force_ta_cv(struct pe50_algo_info *info,
 		return ret;
 	}
 
-	if (desc->force_ta_cv_vbat != 0 && vbat >= desc->force_ta_cv_vbat &&
-	    !data->is_swchg_en) {
+	if (desc->force_ta_cv_vbat != 0 && vbat >= desc->force_ta_cv_vbat
+	    && !data->is_swchg_en) {
 		ret = pe50_force_ta_cv(info, sinfo);
 		if (ret < 0) {
 			PE50_ERR("force ta cv fail(%d)\n", ret);
@@ -2237,18 +2927,22 @@ static int pe50_algo_ss_dvchg_with_ta_cc(struct pe50_algo_info *info)
 			if (data->is_dvchg_en[PE50_DVCHG_SLAVE]) {
 				ret = pe50_check_slave_dvchg_off(info);
 				if (ret < 0) {
-					PE50_INFO("slave off fail(%d)\n", ret);
+					PE50_INFO("slave off fail(%d)\n",
+						  ret);
 					goto err;
 				}
 				idvchg_lmt = pe50_get_idvchg_lmt(info);
 				goto cc_cv;
 			}
-			PE50_INFO("finish PE5.0 charging, vbat(%d), ita(%d)\n",
-				  vbat, data->ita_measure);
+			PE50_INFO
+			    ("finish PE5.0 charging, vbat(%d), ita(%d)\n",
+			     vbat, data->ita_measure);
 			goto err;
 		}
-cc_cv:
-		ita = min(data->ita_setting - desc->idvchg_ss_step, idvchg_lmt);
+	      cc_cv:
+		ita =
+		    min(data->ita_setting - desc->idvchg_ss_step,
+			idvchg_lmt);
 		data->state = PE50_ALGO_CC_CV;
 		goto out_set_cap;
 	}
@@ -2263,9 +2957,11 @@ cc_cv:
 		ita_lmt = pe50_get_ita_lmt(info);
 		if (vbat < desc->swchg_off_vbat && desc->swchg_aicr > 0 &&
 		    desc->swchg_ichg > 0 &&
-		    (ita_lmt > data->idvchg_cc + desc->swchg_aicr_ss_init)) {
-			ret = pe50_set_swchg_cap(info,
-						 desc->swchg_aicr_ss_init);
+		    (ita_lmt >
+		     data->idvchg_cc + desc->swchg_aicr_ss_init)) {
+			ret =
+			    pe50_set_swchg_cap(info,
+					       desc->swchg_aicr_ss_init);
 			if (ret < 0) {
 				PE50_ERR("set swchg cap fail(%d)\n", ret);
 				goto err;
@@ -2295,7 +2991,7 @@ cc_cv:
 		ita = data->ita_setting + desc->idvchg_ss_step2;
 	ita = min(ita, idvchg_lmt);
 
-out_set_cap:
+      out_set_cap:
 	ret = pe50_set_ta_cap_cc_by_cali_vta(info, ita);
 	if (ret < 0) {
 		PE50_ERR("set ta cap fail(%d)\n", ret);
@@ -2303,28 +2999,35 @@ out_set_cap:
 		goto err;
 	}
 	return 0;
-err:
+      err:
 	return pe50_stop(info, &sinfo);
 }
 
 static int pe50_algo_ss_dvchg_with_ta_cv(struct pe50_algo_info *info)
 {
 	int ret, vbat;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	int work_mode;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	ktime_t start_time, end_time;
 	struct pe50_algo_data *data = info->data;
 	struct pe50_algo_desc *desc = info->desc;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
 	u32 idvchg_lmt, vta, ita, delta_time;
 	u32 ita_gap_per_vstep = data->ita_gap_per_vstep > 0 ?
-				data->ita_gap_per_vstep :
-				auth_data->ita_gap_per_vstep;
+	    data->ita_gap_per_vstep : auth_data->ita_gap_per_vstep;
 	struct pe50_stop_info sinfo = {
 		.reset_ta = true,
 		.hardreset_ta = false,
 	};
 
-repeat:
+      repeat:
 	PE50_DBG("++\n");
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17 data->vta_setting = %d\n", data->vta_setting);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	vta = data->vta_setting;
 	start_time = ktime_get();
 	ret = pe50_get_adc(info, PE50_ADCCHAN_VBAT, &vbat);
@@ -2340,19 +3043,74 @@ repeat:
 		goto out;
 	}
 
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:switch2_1_single_enable =%d, switch1_1_single_enable =%d\n",
+		data->switch2_1_single_enable, data->switch1_1_single_enable);
+
+	if (data->switch2_1_single_enable && data->cp_mode != 0){
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 start*/
+		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER, false);
+		msleep(500);
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 end*/
+		pe50_hal_set_work_mode_by_xm(info->alg, DVCHG1, 0);
+		pe50_hal_get_work_mode_by_xm(info->alg, DVCHG1, &work_mode);
+		data->cp_mode  =0;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+		data->state = PE50_ALGO_INIT;
+		pe50_init_algo_data(info);
+		PE50_ERR("N17 set dvchg mode is 2:1, work_mode is %d\n", work_mode);
+		return 0;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+	}
+	else if (data->switch1_1_single_enable && data->cp_mode != 1){
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 start*/
+		ret = pe50_set_ta_cap_cv(info, 8000, 1000);
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 end*/
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 start*/
+		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER, false);
+		msleep(500);
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 end*/
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 start*/
+		ret = pe50_set_ta_cap_cv(info, 5000, 1000);
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 end*/
+		pe50_hal_set_work_mode_by_xm(info->alg, DVCHG1, 1);
+		pe50_hal_get_work_mode_by_xm(info->alg, DVCHG1, &work_mode);
+		data->cp_mode = 1;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+		data->state = PE50_ALGO_INIT;
+		pe50_init_algo_data(info);
+		PE50_ERR("N17:set dvchg mode is 1:1, work_mode is %d\n", work_mode);
+		return 0;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+	}
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
 	/* Turn on slave dvchg if idvchg_lmt >= 2 * idvchg_term */
+	PE50_ERR("N17:data->idvchg_term = %d, desc->idvchg_term = %d\n", data->idvchg_term, desc->idvchg_term);
+/*N17 code for HQ-308968 by xm tianye9 at 2023/07/26 start*/
 	ita = data->idvchg_term * 2;
-	if (data->is_dvchg_exist[PE50_DVCHG_SLAVE] && !data->tried_dual_dvchg &&
-	    !data->is_dvchg_en[PE50_DVCHG_SLAVE] &&
-	    (data->ita_measure >= ita)) {
+/*N17 code for HQ-308968 by xm tianye9 at 2023/07/26 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+	if (data->is_dvchg_exist[PE50_DVCHG_SLAVE]
+	    && !data->tried_dual_dvchg
+	    && !data->is_dvchg_en[PE50_DVCHG_SLAVE]
+	    && (data->ita_measure >= ita)) {
 		PE50_INFO("try dual dvchg\n");
 		data->tried_dual_dvchg = true;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+/*N17 code for HQ-308968 by xm tianye9 at 2023/07/26 start*/
 		data->idvchg_term = 2 * desc->idvchg_term;
-		data->idvchg_cc = desc->ita_level_dual[PE50_RCABLE_NORMAL] -
-				  desc->swchg_aicr;
+/*N17 code for HQ-308968 by xm tianye9 at 2023/07/26 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
+		data->idvchg_cc =
+		    desc->ita_level_dual[PE50_RCABLE_NORMAL] -
+		    desc->swchg_aicr;
 		ret = pe50_select_ita_lmt_by_r(info, true);
 		if (ret < 0) {
-			PE50_ERR("select dual dvchg ita lmt fail(%d)\n", ret);
+			PE50_ERR("select dual dvchg ita lmt fail(%d)\n",
+				 ret);
 			goto single_dvchg_select_ita;
 		}
 		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER,
@@ -2364,31 +3122,36 @@ repeat:
 		data->ignore_ibusucpf = true;
 		ret = pe50_set_dvchg_protection(info, true);
 		if (ret < 0) {
-			PE50_ERR("set dual dvchg protection fail(%d)\n", ret);
+			PE50_ERR("set dual dvchg protection fail(%d)\n",
+				 ret);
 			goto single_dvchg_restart;
 		}
-		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_SLAVE, true);
+		ret =
+		    pe50_enable_dvchg_charging(info, PE50_DVCHG_SLAVE,
+					       true);
 		if (ret < 0) {
 			PE50_ERR("en slave dvchg fail(%d)\n", ret);
 			goto single_dvchg_restart;
 		}
-		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER, true);
+		ret =
+		    pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER,
+					       true);
 		if (ret < 0) {
 			PE50_ERR("en master dvchg fail(%d)\n", ret);
 			goto single_dvchg_restart;
 		}
 		goto ss_dvchg;
-single_dvchg_restart:
+	      single_dvchg_restart:
 		ret = pe50_earily_restart(info);
 		if (ret < 0) {
 			PE50_ERR("earily restart fail(%d)\n", ret);
 			goto out;
 		}
 		return 0;
-single_dvchg_select_ita:
+	      single_dvchg_select_ita:
 		data->idvchg_term = desc->idvchg_term;
 		data->idvchg_cc = desc->ita_level[PE50_RCABLE_NORMAL] -
-				  desc->swchg_aicr;
+		    desc->swchg_aicr;
 		ret = pe50_select_ita_lmt_by_r(info, false);
 		if (ret < 0) {
 			PE50_ERR("select dvchg ita lmt fail(%d)\n", ret);
@@ -2396,51 +3159,76 @@ single_dvchg_select_ita:
 		}
 	}
 
-ss_dvchg:
+      ss_dvchg:
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+      PE50_ERR("N17:data->ita_setting(%d)\n", data->ita_setting);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	ita = data->ita_setting;
 	idvchg_lmt = pe50_get_idvchg_lmt(info);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:idvchg_lmt  =%d, data->idvchg_term = %d\n", idvchg_lmt, data->idvchg_term);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	if (idvchg_lmt < data->idvchg_term) {
 		PE50_INFO("idvchg_lmt(%d) < idvchg_term(%d)\n", idvchg_lmt,
-			 data->idvchg_term);
+			  data->idvchg_term);
 		goto out;
 	}
 
 	/* VBAT reaches CV level */
 	if (vbat >= data->vbat_cv) {
-		if (data->ita_measure < data->idvchg_term) {
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 start*/
+		if (data->ita_measure < (data->switch1_1_single_enable? 1200: data->idvchg_term)) {
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 end*/
 			if (data->is_dvchg_en[PE50_DVCHG_SLAVE]) {
 				ret = pe50_check_slave_dvchg_off(info);
 				if (ret < 0) {
-					PE50_INFO("slave off fail(%d)\n", ret);
+					PE50_INFO("slave off fail(%d)\n",
+						  ret);
 					goto out;
 				}
 				idvchg_lmt = pe50_get_idvchg_lmt(info);
 				goto cc_cv;
 			}
-			PE50_INFO("finish PE5.0 charging, vbat(%d), ita(%d)\n",
-				  vbat, data->ita_measure);
+			PE50_INFO
+			    ("finish PE5.0 charging, vbat(%d), ita(%d)\n",
+			     vbat, data->ita_measure);
 			goto out;
 		}
-cc_cv:
+	      cc_cv:
 		vta -= auth_data->vta_step;
 		ita -= ita_gap_per_vstep;
 		data->state = PE50_ALGO_CC_CV;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+		PE50_ERR("get vta(%d),ita(%d)\n", vta, ita);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 		goto out_set_cap;
 	}
-
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+	PE50_ERR
+	    ("get data->ita_measure(%d),ita_gap_per_vstep(%d),idvchg_lmt(%d),auth_data->vcap_max(%d),vta(%d)\n",
+	     data->ita_measure, ita_gap_per_vstep, idvchg_lmt,
+	     auth_data->vcap_max, vta);
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 	/* IBUS reaches CC level */
 	if (data->ita_measure + ita_gap_per_vstep > idvchg_lmt ||
-	    vta == auth_data->vcap_max)
+		vta == auth_data->vcap_max) {
+		/* N17 code for HQ-321403 by p-xuyechen at 2023/08/25 */
+		ita = idvchg_lmt;
 		data->state = PE50_ALGO_CC_CV;
-	else {
+	} else {
 		vta += auth_data->vta_step;
-		vta = min(vta, (u32)auth_data->vcap_max);
+		vta = min(vta, (u32) auth_data->vcap_max);
 		ita += ita_gap_per_vstep;
 		ita = min(ita, idvchg_lmt);
 	}
 
-out_set_cap:
+      out_set_cap:
 	ret = pe50_set_ta_cap_cv(info, vta, ita);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:set vta = %d, ita = %d\n", vta,ita);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	if (ret < 0) {
 		PE50_ERR("set ta cap fail(%d)\n", ret);
 		sinfo.hardreset_ta = true;
@@ -2455,7 +3243,7 @@ out_set_cap:
 		goto repeat;
 	}
 	return 0;
-out:
+      out:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -2464,10 +3252,13 @@ static int pe50_algo_ss_dvchg(struct pe50_algo_info *info)
 {
 	struct pe50_algo_data *data = info->data;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:enter pe50_algo_ss_dvchg statemachine\n");
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 	return (auth_data->support_cc && !data->force_ta_cv) ?
-		pe50_algo_ss_dvchg_with_ta_cc(info) :
-		pe50_algo_ss_dvchg_with_ta_cv(info);
+	    pe50_algo_ss_dvchg_with_ta_cc(info) :
+	    pe50_algo_ss_dvchg_with_ta_cv(info);
 }
 
 static int pe50_check_swchg_off(struct pe50_algo_info *info,
@@ -2484,11 +3275,12 @@ static int pe50_check_swchg_off(struct pe50_algo_info *info,
 		return ret;
 	}
 	if (!data->is_swchg_en || (vbat < desc->swchg_off_vbat &&
-	    desc->tswchg_curlmt[data->tswchg_level] <= 0 &&
-	    aicr <= data->aicr_lmt))
+				   desc->tswchg_curlmt[data->
+						       tswchg_level] <= 0
+				   && aicr <= data->aicr_lmt))
 		return 0;
 	PE50_INFO("vbat(%d),swchg_off_vbat(%d),aicr_lmt(%d)\n", vbat,
-		 desc->swchg_off_vbat, data->aicr_lmt);
+		  desc->swchg_off_vbat, data->aicr_lmt);
 	/* Calculate AICR */
 	if (vbat >= desc->swchg_off_vbat)
 		aicr -= desc->swchg_aicr_ss_step;
@@ -2505,8 +3297,8 @@ static int pe50_check_swchg_off(struct pe50_algo_info *info,
 		return ret;
 	}
 	return (aicr >= desc->swchg_aicr_ss_init) ?
-		pe50_set_swchg_cap(info, aicr) :
-		pe50_enable_swchg_charging(info, false);
+	    pe50_set_swchg_cap(info, aicr) :
+	    pe50_enable_swchg_charging(info, false);
 }
 
 static int pe50_update_aicr_lmt(struct pe50_algo_info *info)
@@ -2543,7 +3335,6 @@ static int pe50_algo_ss_swchg(struct pe50_algo_info *info)
 	};
 
 	PE50_DBG("++\n");
-
 	if (pe50_update_aicr_lmt(info) < 0)
 		goto out;
 	/* Set new AICR & TA cap */
@@ -2561,7 +3352,7 @@ static int pe50_algo_ss_swchg(struct pe50_algo_info *info)
 		sinfo.hardreset_ta = true;
 		goto err;
 	}
-out:
+      out:
 	ret = pe50_get_adc(info, PE50_ADCCHAN_VBAT, &vbat);
 	if (ret < 0) {
 		PE50_ERR("get vbat fail(%d)\n", ret);
@@ -2576,7 +3367,7 @@ out:
 	    aicr >= data->aicr_lmt)
 		data->state = PE50_ALGO_CC_CV;
 	return 0;
-err:
+      err:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -2630,17 +3421,19 @@ static int pe50_algo_cc_cv_with_ta_cc(struct pe50_algo_info *info)
 			}
 			goto cc_cv;
 		}
+		data->cp_charge_finish = true;
 		PE50_INFO("finish PE5.0 charging\n");
 		goto err;
 	}
-cc_cv:
+      cc_cv:
 	ita_lmt = pe50_get_ita_lmt(info);
 	/* Consider AICR is decreased */
 	ita_lmt = min(ita_lmt, data->is_swchg_en ?
-		      (data->idvchg_cc + data->aicr_setting) : data->idvchg_cc);
+		      (data->idvchg_cc +
+		       data->aicr_setting) : data->idvchg_cc);
 	if (ita_lmt < data->idvchg_term) {
 		PE50_INFO("ita_lmt(%d) < idvchg_term(%d)\n", ita_lmt,
-			 data->idvchg_term);
+			  data->idvchg_term);
 		goto err;
 	}
 
@@ -2671,19 +3464,24 @@ cc_cv:
 		goto err;
 	}
 	return 0;
-err:
+      err:
 	return pe50_stop(info, &sinfo);
 }
 
 static int pe50_algo_cc_cv_with_ta_cv(struct pe50_algo_info *info)
 {
 	int ret, vbat, vsys = 0;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	int work_mode;
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	struct pe50_algo_data *data = info->data;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
-	u32 idvchg_lmt, vta = data->vta_setting, ita = data->ita_setting;
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 start*/
+	u32 idvchg_lmt, vdvchg_max, vta = data->vta_setting, ita = data->ita_setting;
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 end*/
 	u32 ita_gap_per_vstep = data->ita_gap_per_vstep > 0 ?
-				data->ita_gap_per_vstep :
-				auth_data->ita_gap_per_vstep;
+	    data->ita_gap_per_vstep : auth_data->ita_gap_per_vstep;
 	u32 vta_measure, ita_measure, suspect_ta_cc = false;
 	struct pe50_stop_info sinfo = {
 		.reset_ta = true,
@@ -2691,19 +3489,59 @@ static int pe50_algo_cc_cv_with_ta_cv(struct pe50_algo_info *info)
 	};
 
 	PE50_DBG("++\n");
-
 	ret = pe50_get_adc(info, PE50_ADCCHAN_VBAT, &vbat);
 	if (ret < 0) {
 		PE50_ERR("get vbat fail(%d)\n", ret);
 		goto out;
 	}
 
-	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VSYS,
-				   &vsys);
+	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VSYS, &vsys);
 	if (ret < 0) {
 		PE50_ERR("get vsys fail(%d)\n", ret);
 		goto out;
 	}
+
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:switch2_1_single_enable =%d, switch1_1_single_enable =%d\n",
+			data->switch2_1_single_enable, data->switch1_1_single_enable);
+
+	if (data->switch2_1_single_enable && data->cp_mode != 0){
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 start*/
+		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER, false);
+		msleep(500);
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 end*/
+		pe50_hal_set_work_mode_by_xm(info->alg, DVCHG1, 0);
+		pe50_hal_get_work_mode_by_xm(info->alg, DVCHG1, &work_mode);
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+		data->cp_mode = 0;
+		data->state = PE50_ALGO_INIT;
+		pe50_init_algo_data(info);
+		PE50_ERR("N17:set cc_cv cp mode is 2:1, work_mode is %d\n", work_mode);
+		return 0;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+	}
+	else if (data->switch1_1_single_enable && data->cp_mode != 1){
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 start*/
+		ret = pe50_set_ta_cap_cv(info, 8000, 1000);
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 end*/
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 start*/
+		ret = pe50_enable_dvchg_charging(info, PE50_DVCHG_MASTER, false);
+		msleep(500);
+/*N17 code for HQ-310223 by xm tianye9 at 2023/08/02 end*/
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 start*/
+		ret = pe50_set_ta_cap_cv(info, 5000, 1000);
+/*N17 code for HQ-310462 by xm tianye9 at 2023/08/04 end*/
+		pe50_hal_set_work_mode_by_xm(info->alg, DVCHG1, 1);
+		pe50_hal_get_work_mode_by_xm(info->alg, DVCHG1, &work_mode);
+		data->cp_mode = 1;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 start*/
+		data->state = PE50_ALGO_INIT;
+		pe50_init_algo_data(info);
+		PE50_ERR("N17:set cc_cv cp mode is 1:1, work_mode is %d\n", work_mode);
+		return 0;
+/*N17 code for HQ-308575 by xm tianye9 at 2023/07/24 end*/
+	}
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
 	ret = pe50_get_ta_cap_by_supportive(info, &data->vta_measure,
 					    &data->ita_measure);
@@ -2712,7 +3550,10 @@ static int pe50_algo_cc_cv_with_ta_cv(struct pe50_algo_info *info)
 		sinfo.hardreset_ta = auth_data->support_meas_cap;
 		goto out;
 	}
-	if (data->ita_measure <= data->idvchg_term) {
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 start*/
+	if (data->ita_measure <= (data->switch1_1_single_enable? 1200: data->idvchg_term)) {
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 end*/
+
 		if (data->is_dvchg_en[PE50_DVCHG_SLAVE]) {
 			ret = pe50_check_slave_dvchg_off(info);
 			if (ret < 0) {
@@ -2721,50 +3562,78 @@ static int pe50_algo_cc_cv_with_ta_cv(struct pe50_algo_info *info)
 			}
 			goto cc_cv;
 		}
+		data->cp_charge_finish = true;
 		PE50_INFO("finish PE5.0 charging\n");
 		goto out;
 	}
-cc_cv:
+      cc_cv:
 	idvchg_lmt = pe50_get_idvchg_lmt(info);
-	if (idvchg_lmt < data->idvchg_term) {
-		PE50_INFO("idvchg_lmt(%d) < idvchg_term(%d)\n", idvchg_lmt,
-			  data->idvchg_term);
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 start*/
+	vdvchg_max = (data->switch1_1_single_enable? PE50_1_1_VCAP_MAX: PE50_2_1_VCAP_MAX);
+	PE50_INFO("vdvchg_max = %d\n", vdvchg_max);
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 end*/
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 start*/
+	if (idvchg_lmt < (data->switch1_1_single_enable? 1200: data->idvchg_term)) {
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 start*/
+		PE50_ERR("N17:idvchg_lmt(%d) < idvchg_term(%d)\n", idvchg_lmt,
+			  (data->switch1_1_single_enable? 1200: data->idvchg_term));
+/*N17 code for HQ-309369 by xm tianye9 at 2023/07/27 end*/
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 		goto out;
 	}
 
 	if (vbat >= data->vbat_cv) {
-		PE50_INFO("--vbat >= vbat_cv, %d > %d\n", vbat, data->vbat_cv);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17--vbat >= vbat_cv, %d > %d\n", vbat,
+			  data->vbat_cv);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 		vta -= auth_data->vta_step;
 		ita -= ita_gap_per_vstep;
 		data->is_vbat_over_cv = true;
-	} else if (data->ita_measure > idvchg_lmt  || vsys >= PE50_VSYS_UPPER_BOUND) {
+	} else if (data->ita_measure > idvchg_lmt
+		   || vsys >= PE50_VSYS_UPPER_BOUND) {
 		vta -= auth_data->vta_step;
 		ita -= ita_gap_per_vstep;
 		ita = max(ita, idvchg_lmt);
-		PE50_INFO("--vta, ita(meas,lmt)=(%d,%d)\n", data->ita_measure,
-			  idvchg_lmt);
-	} else if (!data->is_vbat_over_cv && vbat <= data->cv_lower_bound &&
-		   data->ita_measure <= (idvchg_lmt - ita_gap_per_vstep) &&
-		   vta < auth_data->vcap_max && !data->suspect_ta_cc &&
-		   vsys < (PE50_VSYS_UPPER_BOUND - PE50_VSYS_UPPER_BOUND_GAP)) {
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17--vta, ita(meas,lmt)=(%d,%d)\n",
+			  data->ita_measure, idvchg_lmt);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+	} else if (!data->is_vbat_over_cv && vbat <= data->cv_lower_bound
+		   && data->ita_measure <= (idvchg_lmt - ita_gap_per_vstep)
+		   && !data->suspect_ta_cc
+		   && vsys <
+		   (PE50_VSYS_UPPER_BOUND - PE50_VSYS_UPPER_BOUND_GAP)) {
 		vta += auth_data->vta_step;
-		vta = min(vta, (u32)auth_data->vcap_max);
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 start*/
+		vta = min(vta, (u32) vdvchg_max);
+/*N17 code for HQ-319272 by yeyinzi at 2023/08/26 end*/
 		ita += ita_gap_per_vstep;
 		ita = min(ita, idvchg_lmt);
 		if (ita == data->ita_setting)
 			suspect_ta_cc = true;
-		PE50_INFO("++vta, ita(meas,lmt)=(%d,%d)\n", data->ita_measure,
-			  idvchg_lmt);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+		PE50_ERR("N17 ++vta, ita(meas,lmt)=(%d,%d)\n",
+			  data->ita_measure, idvchg_lmt);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	} else if (data->is_vbat_over_cv)
 		data->is_vbat_over_cv = false;
 
 	ret = pe50_set_ta_cap_cv(info, vta, ita);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:ita = %d, vta = %d\n", ita, vta);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+
 	if (ret < 0) {
 		PE50_ERR("set_ta_cap fail(%d)\n", ret);
 		sinfo.hardreset_ta = true;
 		goto out;
 	}
-	ret = pe50_get_ta_cap_by_supportive(info, &vta_measure, &ita_measure);
+	ret =
+	    pe50_get_ta_cap_by_supportive(info, &vta_measure,
+					  &ita_measure);
 	if (ret < 0) {
 		PE50_ERR("get ta cap fail(%d)\n", ret);
 		sinfo.hardreset_ta = auth_data->support_meas_cap;
@@ -2773,7 +3642,7 @@ cc_cv:
 	data->suspect_ta_cc = (suspect_ta_cc &&
 			       data->ita_measure == ita_measure);
 	return 0;
-out:
+      out:
 	return pe50_stop(info, &sinfo);
 }
 
@@ -2781,10 +3650,12 @@ static int pe50_algo_cc_cv(struct pe50_algo_info *info)
 {
 	struct pe50_algo_data *data = info->data;
 	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
-
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	PE50_ERR("N17:enter pe50_algo_cc_cv statemachine\n");
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	return (auth_data->support_cc && !data->force_ta_cv) ?
-		pe50_algo_cc_cv_with_ta_cc(info) :
-		pe50_algo_cc_cv_with_ta_cv(info);
+	    pe50_algo_cc_cv_with_ta_cc(info) :
+	    pe50_algo_cc_cv_with_ta_cv(info);
 }
 
 /*
@@ -2815,7 +3686,7 @@ static bool pe50_check_ta_status(struct pe50_algo_info *info,
 	if (status.ocp || status.otp || status.ovp)
 		goto err;
 	return true;
-err:
+      err:
 	sinfo->hardreset_ta = true;
 	return false;
 }
@@ -2842,7 +3713,7 @@ static bool pe50_check_dvchg_ibusocp(struct pe50_algo_info *info,
 			return false;
 		}
 		PE50_INFO("(%s)ibus(%d+-%dmA), ibusocp(%dmA)\n",
-			 pe50_dvchg_role_name[i], ibus, acc, ibusocp);
+			  pe50_dvchg_role_name[i], ibus, acc, ibusocp);
 		if (ibus > acc)
 			ibus -= acc;
 		if (ibus > ibusocp) {
@@ -2880,7 +3751,7 @@ static bool pe50_check_ta_ibusocp(struct pe50_algo_info *info,
 	}
 	return true;
 
-err:
+      err:
 	sinfo->hardreset_ta = true;
 	return false;
 }
@@ -2953,10 +3824,12 @@ static bool pe50_check_ibatocp(struct pe50_algo_info *info,
 		return false;
 	}
 	PE50_INFO("ibat(%dmA), ibatocp(%dmA)\n", ibat, ibatocp);
-	if (ibat > ibatocp) {
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+	if (ibat > (int) ibatocp) {
 		PE50_ERR("ibat(%dmA) > ibatocp(%dmA)\n", ibat, ibatocp);
 		return false;
 	}
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 	return true;
 }
 
@@ -2968,90 +3841,93 @@ struct pe50_thermal_data {
 	int *curlmt;
 	int recovery_area;
 };
-
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
 static bool pe50_check_thermal_level(struct pe50_algo_info *info,
 				     struct pe50_thermal_data *tdata)
 {
 	if (tdata->temp >= tdata->temp_level_def[PE50_THERMAL_VERY_HOT]) {
 		if (tdata->curlmt[PE50_THERMAL_VERY_HOT] == 0)
 			return true;
-		PE50_ERR("%s(%d) is over max(%d)\n", tdata->name, tdata->temp,
-			tdata->temp_level_def[PE50_THERMAL_VERY_HOT]);
+		PE50_ERR("%s(%d) is over max(%d)\n", tdata->name,
+			 tdata->temp,
+			 tdata->temp_level_def[PE50_THERMAL_VERY_HOT]);
 		return false;
 	}
 	if (tdata->temp <= tdata->temp_level_def[PE50_THERMAL_VERY_COLD]) {
 		if (tdata->curlmt[PE50_THERMAL_VERY_COLD] == 0)
 			return true;
-		PE50_ERR("%s(%d) is under min(%d)\n", tdata->name, tdata->temp,
-			tdata->temp_level_def[PE50_THERMAL_VERY_COLD]);
+		PE50_ERR("%s(%d) is under min(%d)\n", tdata->name,
+			 tdata->temp,
+			 tdata->temp_level_def[PE50_THERMAL_VERY_COLD]);
 		return false;
 	}
 	switch (*tdata->temp_level) {
-	case PE50_THERMAL_COLD:
-		if (tdata->temp >= (tdata->temp_level_def[PE50_THERMAL_COLD] +
-				    tdata->recovery_area))
-			*tdata->temp_level = PE50_THERMAL_VERY_COOL;
-		break;
-	case PE50_THERMAL_VERY_COOL:
+	case PE50_THERMAL_COLD:	//5
 		if (tdata->temp >=
-		    (tdata->temp_level_def[PE50_THERMAL_VERY_COOL] +
-		     tdata->recovery_area))
-			*tdata->temp_level = PE50_THERMAL_COOL;
+		    (tdata->temp_level_def[PE50_THERMAL_COLD] + 0))
+			*tdata->temp_level = PE50_THERMAL_VERY_COOL;	//>=5
+		break;
+	case PE50_THERMAL_VERY_COOL:	//10
+		if (tdata->temp >=
+		    (tdata->temp_level_def[PE50_THERMAL_VERY_COOL] + 0))
+			*tdata->temp_level = PE50_THERMAL_COOL;	// >=10
 		else if (tdata->temp <=
 			 tdata->temp_level_def[PE50_THERMAL_COLD] &&
 			 tdata->curlmt[PE50_THERMAL_COLD] > 0)
-			*tdata->temp_level = PE50_THERMAL_COLD;
+			*tdata->temp_level = PE50_THERMAL_COLD;	// <= 5
 		break;
-	case PE50_THERMAL_COOL:
-		if (tdata->temp >= (tdata->temp_level_def[PE50_THERMAL_COOL] +
-				    tdata->recovery_area))
-			*tdata->temp_level = PE50_THERMAL_NORMAL;
+	case PE50_THERMAL_COOL:	//15
+		if (tdata->temp >=
+		    (tdata->temp_level_def[PE50_THERMAL_COOL] + 0))
+			*tdata->temp_level = PE50_THERMAL_NORMAL;	// >= 15
 		else if (tdata->temp <=
 			 tdata->temp_level_def[PE50_THERMAL_VERY_COOL] &&
 			 tdata->curlmt[PE50_THERMAL_VERY_COOL] > 0)
-			*tdata->temp_level = PE50_THERMAL_VERY_COOL;
+			*tdata->temp_level = PE50_THERMAL_VERY_COOL;	// <= 10
 		break;
-	case PE50_THERMAL_NORMAL:
-		if (tdata->temp >= tdata->temp_level_def[PE50_THERMAL_WARM] &&
-		    tdata->curlmt[PE50_THERMAL_WARM] > 0)
-			*tdata->temp_level = PE50_THERMAL_WARM;
+	case PE50_THERMAL_NORMAL:	//25
+		if (tdata->temp >=
+		    tdata->temp_level_def[PE50_THERMAL_WARM])
+			*tdata->temp_level = PE50_THERMAL_WARM;	// >=35
 		else if (tdata->temp <=
 			 tdata->temp_level_def[PE50_THERMAL_COOL] &&
 			 tdata->curlmt[PE50_THERMAL_COOL] > 0)
-			*tdata->temp_level = PE50_THERMAL_COOL;
+			*tdata->temp_level = PE50_THERMAL_COOL;	// <= 15
 		break;
-	case PE50_THERMAL_WARM:
-		if (tdata->temp <= (tdata->temp_level_def[PE50_THERMAL_WARM] -
-				    tdata->recovery_area))
-			*tdata->temp_level = PE50_THERMAL_NORMAL;
+	case PE50_THERMAL_WARM:	//35
+		if (tdata->temp <=
+		    (tdata->temp_level_def[PE50_THERMAL_WARM] - 0))
+			*tdata->temp_level = PE50_THERMAL_NORMAL;	// <= 35
 		else if (tdata->temp >=
 			 tdata->temp_level_def[PE50_THERMAL_VERY_WARM] &&
 			 tdata->curlmt[PE50_THERMAL_VERY_WARM] > 0)
-			*tdata->temp_level = PE50_THERMAL_VERY_WARM;
+			*tdata->temp_level = PE50_THERMAL_VERY_WARM;	// >=48
 		break;
-	case PE50_THERMAL_VERY_WARM:
+	case PE50_THERMAL_VERY_WARM:	//48
 		if (tdata->temp <=
-		    (tdata->temp_level_def[PE50_THERMAL_VERY_WARM] -
-		     tdata->recovery_area))
-			*tdata->temp_level = PE50_THERMAL_WARM;
+		    (tdata->temp_level_def[PE50_THERMAL_VERY_WARM] - 0))
+			*tdata->temp_level = PE50_THERMAL_WARM;	// <= 48
 		else if (tdata->temp >=
 			 tdata->temp_level_def[PE50_THERMAL_HOT] &&
 			 tdata->curlmt[PE50_THERMAL_HOT] > 0)
-			*tdata->temp_level = PE50_THERMAL_HOT;
+			*tdata->temp_level = PE50_THERMAL_HOT;	// >= 58
 		break;
-	case PE50_THERMAL_HOT:
-		if (tdata->temp <= (tdata->temp_level_def[PE50_THERMAL_HOT] -
-				    tdata->recovery_area))
-			*tdata->temp_level = PE50_THERMAL_VERY_WARM;
+	case PE50_THERMAL_HOT:	//58
+		if (tdata->temp <=
+		    (tdata->temp_level_def[PE50_THERMAL_HOT] - 0))
+			*tdata->temp_level = PE50_THERMAL_VERY_WARM;	//<=58
 		break;
 	default:
 		PE50_ERR("NO SUCH STATE\n");
 		return false;
 	}
-	PE50_INFO("%s(%d,%d)\n", tdata->name, tdata->temp, *tdata->temp_level);
+
+	PE50_INFO("%s(%d,%d)\n", tdata->name, tdata->temp,
+		  *tdata->temp_level);
 	return true;
 }
 
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 /*
  * Check and adjust battery's temperature level
  * return false if battery's temperature is over maximum or under minimum
@@ -3143,8 +4019,8 @@ static bool pe50_check_tdvchg_level(struct pe50_algo_info *info,
 			PE50_ERR("get tdvchg fail(%d)\n", ret);
 			return false;
 		}
-		snprintf(buf, 8 + strlen(pe50_dvchg_role_name[i]), "tdvchg_%s",
-			 pe50_dvchg_role_name[i]);
+		snprintf(buf, 8 + strlen(pe50_dvchg_role_name[i]),
+			 "tdvchg_%s", pe50_dvchg_role_name[i]);
 		tdata.name = buf;
 		tdata.temp = tdvchg;
 		if (!pe50_check_thermal_level(info, &tdata))
@@ -3175,7 +4051,8 @@ static bool pe50_check_tswchg_level(struct pe50_algo_info *info,
 	if (!data->is_swchg_en)
 		return true;
 
-	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_TCHG, &tswchg);
+	ret =
+	    pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_TCHG, &tswchg);
 	if (ret < 0) {
 		PE50_ERR("get tswchg fail(%d)\n", ret);
 		return false;
@@ -3189,19 +4066,17 @@ static bool pe50_check_tswchg_level(struct pe50_algo_info *info,
 }
 
 static bool
-(*pe50_safety_check_fn[])(struct pe50_algo_info *info,
-			  struct pe50_stop_info *sinfo) = {
-	pe50_check_ta_status,
-	pe50_check_ta_ibusocp,
-	pe50_check_dvchg_vbusovp,
-	pe50_check_dvchg_ibusocp,
-	pe50_check_vbatovp,
-	pe50_check_ibatocp,
-	pe50_check_tbat_level,
-	pe50_check_tta_level,
-	pe50_check_tdvchg_level,
-	pe50_check_tswchg_level,
-};
+    (*pe50_safety_check_fn[]) (struct pe50_algo_info * info,
+			       struct pe50_stop_info * sinfo) = {
+pe50_check_ta_status,
+	    pe50_check_ta_ibusocp,
+	    pe50_check_dvchg_vbusovp,
+	    pe50_check_dvchg_ibusocp,
+	    pe50_check_vbatovp,
+	    pe50_check_ibatocp,
+	    pe50_check_tbat_level,
+	    pe50_check_tta_level,
+	    pe50_check_tdvchg_level, pe50_check_tswchg_level,};
 
 static bool pe50_algo_safety_check(struct pe50_algo_info *info)
 {
@@ -3213,12 +4088,12 @@ static bool pe50_algo_safety_check(struct pe50_algo_info *info)
 
 	PE50_DBG("++\n");
 	for (i = 0; i < ARRAY_SIZE(pe50_safety_check_fn); i++) {
-		if (!pe50_safety_check_fn[i](info, &sinfo))
+		if (!pe50_safety_check_fn[i] (info, &sinfo))
 			goto err;
 	}
 	return true;
 
-err:
+      err:
 	pe50_stop(info, &sinfo);
 	return false;
 }
@@ -3253,7 +4128,7 @@ static enum alarmtimer_restart
 pe50_algo_timer_cb(struct alarm *alarm, ktime_t now)
 {
 	struct pe50_algo_data *data =
-		container_of(alarm, struct pe50_algo_data, timer);
+	    container_of(alarm, struct pe50_algo_data, timer);
 
 	PE50_DBG("++\n");
 	pe50_wakeup_algo_thread(data);
@@ -3279,8 +4154,8 @@ static bool pe50_algo_check_charging_time(struct pe50_algo_info *info)
 	time_diff = ktime_sub(etime, data->stime);
 	dtime = ktime_to_timespec64(time_diff);
 	if (dtime.tv_sec >= desc->chg_time_max) {
-		PE50_ERR("PE5.0 algo timeout(%d, %d)\n", (int)dtime.tv_sec,
-			 desc->chg_time_max);
+		PE50_ERR("PE5.0 algo timeout(%d, %d)\n",
+			 (int) dtime.tv_sec, desc->chg_time_max);
 		pe50_stop(info, &sinfo);
 		return false;
 	}
@@ -3346,7 +4221,8 @@ static int pe50_notify_ibusucpf_hdlr(struct pe50_algo_info *info)
 		return 0;
 	}
 	/* Last chance */
-	ret = pe50_hal_get_adc(info->alg, DVCHG1, PE50_ADCCHAN_IBUS, &ibus);
+	ret =
+	    pe50_hal_get_adc(info->alg, DVCHG1, PE50_ADCCHAN_IBUS, &ibus);
 	if (ret < 0) {
 		PE50_ERR("get dvchg ibus fail(%d)\n", ret);
 		goto out;
@@ -3358,7 +4234,7 @@ static int pe50_notify_ibusucpf_hdlr(struct pe50_algo_info *info)
 	}
 	PE50_INFO("recheck ibus and it is not ucp\n");
 	return 0;
-out:
+      out:
 	return pe50_notify_hwerr_hdlr(info);
 }
 
@@ -3403,33 +4279,31 @@ static int pe50_notify_vbusovp_alarm_hdlr(struct pe50_algo_info *info)
 }
 
 static int
-(*pe50_notify_pre_hdlr[EVT_MAX])(struct pe50_algo_info *info) = {
-	[EVT_DETACH] = pe50_notify_detach_hdlr,
-	[EVT_HARDRESET] = pe50_notify_hardreset_hdlr,
-	[EVT_VBUSOVP] = pe50_notify_hwerr_hdlr,
-	[EVT_IBUSOCP] = pe50_notify_hwerr_hdlr,
-	[EVT_IBUSUCP_FALL] = pe50_notify_ibusucpf_hdlr,
-	[EVT_VBATOVP] = pe50_notify_hwerr_hdlr,
-	[EVT_IBATOCP] = pe50_notify_hwerr_hdlr,
-	[EVT_VOUTOVP] = pe50_notify_hwerr_hdlr,
-	[EVT_VDROVP] = pe50_notify_hwerr_hdlr,
-	[EVT_VBATOVP_ALARM] = pe50_notify_vbatovp_alarm_hdlr,
-};
+ (*pe50_notify_pre_hdlr[EVT_MAX]) (struct pe50_algo_info * info) = {
+[EVT_DETACH] = pe50_notify_detach_hdlr,
+	    [EVT_HARDRESET] = pe50_notify_hardreset_hdlr,
+	    [EVT_VBUSOVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_IBUSOCP] = pe50_notify_hwerr_hdlr,
+	    [EVT_IBUSUCP_FALL] = pe50_notify_ibusucpf_hdlr,
+	    [EVT_VBATOVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_IBATOCP] = pe50_notify_hwerr_hdlr,
+	    [EVT_VOUTOVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_VDROVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_VBATOVP_ALARM] = pe50_notify_vbatovp_alarm_hdlr,};
 
 static int
-(*pe50_notify_post_hdlr[EVT_MAX])(struct pe50_algo_info *info) = {
-	[EVT_DETACH] = pe50_notify_detach_hdlr,
-	[EVT_HARDRESET] = pe50_notify_hardreset_hdlr,
-	[EVT_VBUSOVP] = pe50_notify_hwerr_hdlr,
-	[EVT_IBUSOCP] = pe50_notify_hwerr_hdlr,
-	[EVT_IBUSUCP_FALL] = pe50_notify_ibusucpf_hdlr,
-	[EVT_VBATOVP] = pe50_notify_hwerr_hdlr,
-	[EVT_IBATOCP] = pe50_notify_hwerr_hdlr,
-	[EVT_VOUTOVP] = pe50_notify_hwerr_hdlr,
-	[EVT_VDROVP] = pe50_notify_hwerr_hdlr,
-	[EVT_VBATOVP_ALARM] = pe50_notify_vbatovp_alarm_hdlr,
-	[EVT_VBUSOVP_ALARM] = pe50_notify_vbusovp_alarm_hdlr,
-};
+ (*pe50_notify_post_hdlr[EVT_MAX]) (struct pe50_algo_info * info) = {
+[EVT_DETACH] = pe50_notify_detach_hdlr,
+	    [EVT_HARDRESET] = pe50_notify_hardreset_hdlr,
+	    [EVT_VBUSOVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_IBUSOCP] = pe50_notify_hwerr_hdlr,
+	    [EVT_IBUSUCP_FALL] = pe50_notify_ibusucpf_hdlr,
+	    [EVT_VBATOVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_IBATOCP] = pe50_notify_hwerr_hdlr,
+	    [EVT_VOUTOVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_VDROVP] = pe50_notify_hwerr_hdlr,
+	    [EVT_VBATOVP_ALARM] = pe50_notify_vbatovp_alarm_hdlr,
+	    [EVT_VBUSOVP_ALARM] = pe50_notify_vbusovp_alarm_hdlr,};
 
 static int pe50_pre_handle_notify_evt(struct pe50_algo_info *info)
 {
@@ -3442,7 +4316,7 @@ static int pe50_pre_handle_notify_evt(struct pe50_algo_info *info)
 		if ((data->notify & BIT(i)) && pe50_notify_pre_hdlr[i]) {
 			data->notify &= ~BIT(i);
 			mutex_unlock(&data->notify_lock);
-			pe50_notify_pre_hdlr[i](info);
+			pe50_notify_pre_hdlr[i] (info);
 			mutex_lock(&data->notify_lock);
 		}
 	}
@@ -3461,7 +4335,7 @@ static int pe50_post_handle_notify_evt(struct pe50_algo_info *info)
 		if ((data->notify & BIT(i)) && pe50_notify_post_hdlr[i]) {
 			data->notify &= ~BIT(i);
 			mutex_unlock(&data->notify_lock);
-			pe50_notify_post_hdlr[i](info);
+			pe50_notify_post_hdlr[i] (info);
 			mutex_lock(&data->notify_lock);
 		}
 	}
@@ -3472,7 +4346,9 @@ static int pe50_post_handle_notify_evt(struct pe50_algo_info *info)
 static int pe50_dump_charging_info(struct pe50_algo_info *info)
 {
 	int ret, i;
-	int vbus, ibus[PE50_DVCHG_MAX] = {0}, ibus_swchg = 0, vbat, ibat, vout[PE50_DVCHG_MAX] = {0};
+	int vbus, ibus[PE50_DVCHG_MAX] = { 0 }, ibus_swchg =
+	    0, vbat, ibat, vout[PE50_DVCHG_MAX] = {
+	0};
 	int ibus_total, vsys, tbat;
 	u32 soc;
 	struct pe50_algo_data *data = info->data;
@@ -3488,7 +4364,8 @@ static int pe50_dump_charging_info(struct pe50_algo_info *info)
 		ret = pe50_hal_get_adc(info->alg, to_chgidx(i),
 				       PE50_ADCCHAN_IBUS, &ibus[i]);
 		if (ret < 0) {
-			PE50_ERR("get %s ibus fail\n", pe50_dvchg_role_name[i]);
+			PE50_ERR("get %s ibus fail\n",
+				 pe50_dvchg_role_name[i]);
 			continue;
 		}
 	}
@@ -3511,7 +4388,7 @@ static int pe50_dump_charging_info(struct pe50_algo_info *info)
 		PE50_ERR("get ibat fail\n");
 
 	ret = pe50_get_ta_cap_by_supportive(info, &data->vta_measure,
-					     &data->ita_measure);
+					    &data->ita_measure);
 	if (ret < 0)
 		PE50_ERR("get ta measure cap fail(%d)\n", ret);
 
@@ -3519,16 +4396,17 @@ static int pe50_dump_charging_info(struct pe50_algo_info *info)
 	for (i = PE50_DVCHG_MASTER; i < PE50_DVCHG_MAX; i++) {
 		if (!data->is_dvchg_en[i])
 			continue;
-		ret = pe50_hal_get_adc(info->alg, to_chgidx(i), PE50_ADCCHAN_VOUT,
-					   &vout[i]);
+		ret =
+		    pe50_hal_get_adc(info->alg, to_chgidx(i),
+				     PE50_ADCCHAN_VOUT, &vout[i]);
 		if (ret < 0) {
-			PE50_ERR("get %s ibus fail\n", pe50_dvchg_role_name[i]);
+			PE50_ERR("get %s ibus fail\n",
+				 pe50_dvchg_role_name[i]);
 			continue;
 		}
 	}
 
-	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VSYS,
-				   &vsys);
+	ret = pe50_hal_get_adc(info->alg, CHG1, PE50_ADCCHAN_VSYS, &vsys);
 	if (ret < 0) {
 		PE50_ERR("get vsys from swchg fail\n");
 	}
@@ -3540,21 +4418,72 @@ static int pe50_dump_charging_info(struct pe50_algo_info *info)
 		PE50_ERR("get soc fail\n");
 	}
 
-	PE50_INFO("vbus,ibus(master,slave,sw),vbat,ibat=%d,(%d,%d,%d),%d,%d\n",
-		 vbus, ibus[PE50_DVCHG_MASTER], ibus[PE50_DVCHG_SLAVE],
-		 ibus_swchg, vbat, ibat);
+	PE50_INFO
+	    ("vbus,ibus(master,slave,sw),vbat,ibat=%d,(%d,%d,%d),%d,%d\n",
+	     vbus, ibus[PE50_DVCHG_MASTER], ibus[PE50_DVCHG_SLAVE],
+	     ibus_swchg, vbat, ibat);
 	PE50_INFO("vta,ita(set,meas)=(%d,%d),(%d,%d),force_cv=%d\n",
-		 data->vta_setting, data->vta_measure, data->ita_setting,
-		 data->ita_measure, data->force_ta_cv);
-	PE50_INFO("vout(master,slave)=(%d,%d)\n",
-		 vout[PE50_DVCHG_MASTER], vout[PE50_DVCHG_SLAVE]);
-	PE50_INFO("[PE5] %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
-		 vbus, ibus[PE50_DVCHG_MASTER], ibus[PE50_DVCHG_SLAVE],ibus_total, vbat, ibat,
-		 tbat, vsys, soc,
-		 vout[PE50_DVCHG_MASTER], vout[PE50_DVCHG_SLAVE]);
+		  data->vta_setting, data->vta_measure, data->ita_setting,
+		  data->ita_measure, data->force_ta_cv);
+	PE50_INFO("vout(master,slave)=(%d,%d)\n", vout[PE50_DVCHG_MASTER],
+		  vout[PE50_DVCHG_SLAVE]);
+	PE50_INFO("[PE5] %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", vbus,
+		  ibus[PE50_DVCHG_MASTER], ibus[PE50_DVCHG_SLAVE],
+		  ibus_total, vbat, ibat, tbat, vsys, soc,
+		  vout[PE50_DVCHG_MASTER], vout[PE50_DVCHG_SLAVE]);
 
 	return 0;
 }
+
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 start*/
+static int xm_cp_statemachine_restart(struct chg_alg_device *alg, bool run_once)
+{
+	struct pe50_algo_info *info = chg_alg_dev_get_drvdata(alg);
+	struct pe50_algo_data *data = info->data;
+
+	PE50_ERR("N17:pre run once %d, curr run once %d\n", data->run_once, run_once);
+	if (data->run_once != run_once)
+		data->run_once = run_once;
+
+	info->cp_stop_flag = false;
+
+	return 0;
+}
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 end*/
+
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+static int monitor_smart_chg_for_cp(struct pe50_algo_info *info)
+{
+	struct power_supply *psy;
+	struct battery_data *bs_data;
+	struct pe50_stop_info sinfo = {
+		.hardreset_ta = false,
+		.reset_ta = true,
+	};
+
+	psy = power_supply_get_by_name("battery");
+
+	if (psy != NULL) {
+		pinfo = (struct mtk_battery *)power_supply_get_drvdata(psy);
+		info->smart_charge = pinfo->smart_charge;
+		bs_data = &pinfo->bs_data;
+		PE50_INFO("enter monitor_smart_chg_for_cp\n");
+	} else
+		return 0;
+
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 start*/
+	if(info->smart_charge[SMART_CHG_NAVIGATION].active_status){
+		info->cp_stop_flag = true;
+		PE50_ERR("n17:stop cp state machine\n");
+		goto out;
+	}
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 end*/
+	return 0;
+
+	 out:
+	return pe50_stop(info, &sinfo);
+}
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 
 static int pe50_algo_threadfn(void *param)
 {
@@ -3571,7 +4500,8 @@ static int pe50_algo_threadfn(void *param)
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(data->wq,
-					 atomic_read(&data->wakeup_thread));
+					 atomic_read(&data->
+						     wakeup_thread));
 		pm_stay_awake(info->dev);
 		if (atomic_read(&data->stop_thread)) {
 			pm_relax(info->dev);
@@ -3579,7 +4509,8 @@ static int pe50_algo_threadfn(void *param)
 		}
 		atomic_set(&data->wakeup_thread, 0);
 		mutex_lock(&data->lock);
-		PE50_INFO("state = %s\n", pe50_algo_state_name[data->state]);
+		PE50_INFO("state = %s\n",
+			  pe50_algo_state_name[data->state]);
 		if (atomic_read(&data->stop_algo))
 			pe50_stop(info, &sinfo);
 		pe50_pre_handle_notify_evt(info);
@@ -3588,6 +4519,9 @@ static int pe50_algo_threadfn(void *param)
 			pe50_calculate_vbat_ircmp(info);
 			pe50_select_vbat_cv(info);
 			pe50_dump_charging_info(info);
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+			monitor_smart_chg_for_cp(info);
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 		}
 		switch (data->state) {
 		case PE50_ALGO_INIT:
@@ -3622,13 +4556,13 @@ static int pe50_algo_threadfn(void *param)
 				polling_interval = desc->polling_interval;
 			else
 				polling_interval =
-					PE50_INIT_POLLING_INTERVAL;
+				    PE50_INIT_POLLING_INTERVAL;
 			sec = polling_interval / 1000;
 			ms = polling_interval % 1000;
 			ktime = ktime_set(sec, MS_TO_NS(ms));
 			alarm_start_relative(&data->timer, ktime);
 		}
-cont:
+	      cont:
 		mutex_unlock(&data->lock);
 		pm_relax(info->dev);
 	}
@@ -3660,7 +4594,7 @@ static int pe50_init_algo(struct chg_alg_device *alg)
 	}
 	data->inited = true;
 	PE50_INFO("successfully\n");
-out:
+      out:
 	mutex_unlock(&data->lock);
 	return ret;
 }
@@ -3671,17 +4605,19 @@ static bool pe50_is_algo_running(struct chg_alg_device *alg)
 	struct pe50_algo_data *data = info->data;
 	bool running = true;
 
-	if (!mutex_trylock(&data->lock))
-		goto out;
+	/* N17 code for HQHW-5241 by p-xuyechen at 2023/9/11 */
+	mutex_lock(&data->lock);
+
 	if (!data->inited) {
 		running = false;
 		goto out_unlock;
 	}
 	running = !(data->state == PE50_ALGO_STOP);
 	PE50_DBG("running = %d\n", running);
+
 out_unlock:
 	mutex_unlock(&data->lock);
-out:
+
 	return running;
 }
 
@@ -3710,7 +4646,9 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 			goto out;
 		}
 		mutex_lock(&data->notify_lock);
-		PE50_INFO("run once but detach/hardreset happened\n");
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+		PE50_ERR("run once but detach/hardreset happened\n");
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 		data->notify &= ~PE50_RESET_NOTIFY;
 		data->run_once = false;
 		data->ta_ready = false;
@@ -3725,14 +4663,18 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 	}
 	if (soc < desc->start_soc_min || soc > desc->start_soc_max) {
 		if (soc > 0) {
-			PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
-				  desc->start_soc_min, desc->start_soc_max);
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+			PE50_ERR("soc(%d) not in range(%d~%d)\n", soc,
+				 desc->start_soc_min, desc->start_soc_max);
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 			ret = ALG_NOT_READY;
 			goto out;
 		}
 		if (soc == -1 && data->ref_vbat > data->vbat_threshold) {
-			PE50_INFO("soc(%d) not in range(%d~%d)\n", soc,
-				  desc->start_soc_min, desc->start_soc_max);
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+			PE50_ERR("soc(%d) not in range(%d~%d)\n", soc,
+				 desc->start_soc_min, desc->start_soc_max);
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 			ret = ALG_NOT_READY;
 			goto out;
 		}
@@ -3743,7 +4685,7 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 		goto out;
 	}
 	ret = ALG_READY;
-out:
+      out:
 	mutex_unlock(&data->lock);
 	return ret;
 }
@@ -3769,7 +4711,7 @@ static int pe50_start_algo(struct chg_alg_device *alg)
 		PE50_ERR("start PE5.0 algo fail\n");
 		ret = ALG_INIT_FAIL;
 	}
-out:
+      out:
 	mutex_unlock(&data->lock);
 	return ret;
 }
@@ -3789,7 +4731,7 @@ static int pe50_plugout_reset(struct chg_alg_device *alg)
 	if (!data->inited)
 		goto out;
 	ret = __pe50_plugout_reset(info, &sinfo);
-out:
+      out:
 	mutex_unlock(&data->lock);
 	return ret;
 }
@@ -3809,7 +4751,7 @@ static int pe50_stop_algo(struct chg_alg_device *alg)
 	if (!data->inited)
 		goto out;
 	ret = pe50_stop(info, &sinfo);
-out:
+      out:
 	mutex_unlock(&data->lock);
 	return ret;
 }
@@ -3822,15 +4764,31 @@ static int pe50_notifier_call(struct chg_alg_device *alg,
 	struct pe50_algo_data *data = info->data;
 
 	mutex_lock(&data->notify_lock);
+/*N17 code for HQ-319231 by xm tianye9 at 2023/09/12 start*/
+	PE50_INFO("%s\n", chg_alg_notify_evt_tostring(notify->evt));
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	if (notify->evt == EVT_PLUG_OUT){
+		PE50_ERR("N17:plug out cable, cancle xm monitor work\n");
+		usbpd_pm_disconnect(info);
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 start*/
+		info->cp_stop_flag = false;
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 end*/
+		/* N17 code for HQ-311096 by p-gucheng at 2023/08/09 */
+		data->cp_charge_finish = false;
+		cancel_delayed_work(&info->xm_monitor_flash_chg_statue_work);
+	}
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
+/*N17 code for HQ-319231 by xm tianye9 at 2023/09/12 end*/
 	if (data->state == PE50_ALGO_STOP) {
 		if ((notify->evt == EVT_DETACH ||
 		     notify->evt == EVT_HARDRESET) && data->run_once) {
-			PE50_INFO("detach/hardreset && run once after stop\n");
+			PE50_INFO
+			    ("detach/hardreset && run once after stop\n");
 			data->notify |= BIT(notify->evt);
 		}
 		goto out;
 	}
-	PE50_INFO("%s\n", chg_alg_notify_evt_tostring(notify->evt));
+
 	switch (notify->evt) {
 	case EVT_DETACH:
 	case EVT_HARDRESET:
@@ -3850,10 +4808,33 @@ static int pe50_notifier_call(struct chg_alg_device *alg,
 		goto out;
 	}
 	pe50_wakeup_algo_thread(data);
-out:
+      out:
 	mutex_unlock(&data->notify_lock);
 	return ret;
 }
+/* N17 code for HQHW-4275 by tongjiacheng at 20230627 start */
+static int pe50_thermal_restart(struct chg_alg_device *alg, bool run_once)
+{
+	struct pe50_algo_info *info = chg_alg_dev_get_drvdata(alg);
+	struct pe50_algo_data *data = info->data;
+
+	PE50_INFO("pre run once %d, curr run once %d\n", data->run_once, run_once);
+	if (data->run_once != run_once)
+		data->run_once = run_once;
+
+	return 0;
+}
+/* N17 code for HQHW-4275 by tongjiacheng at 20230627 end */
+
+/* N17 code for HQ-311096 by p-gucheng at 2023/08/09 start*/
+static int pe50_cp_charge_finished(struct chg_alg_device *alg)
+{
+	struct pe50_algo_info *info = chg_alg_dev_get_drvdata(alg);
+	struct pe50_algo_data *data = info->data;
+
+	return data->cp_charge_finish;
+}
+/* N17 code for HQ-311096 by p-gucheng at 2023/08/09 end*/
 
 static int pe50_set_current_limit(struct chg_alg_device *alg,
 				  struct chg_limit_setting *setting)
@@ -3875,7 +4856,7 @@ static int pe50_set_current_limit(struct chg_alg_device *alg,
 }
 
 int pe50_set_prop(struct chg_alg_device *alg,
-		enum chg_alg_props s, int value)
+		  enum chg_alg_props s, int value)
 {
 	struct pe50_algo_info *info = chg_alg_dev_get_drvdata(alg);
 	struct pe50_algo_data *data = info->data;
@@ -3906,6 +4887,14 @@ static struct chg_alg_ops pe50_ops = {
 	.notifier_call = pe50_notifier_call,
 	.set_current_limit = pe50_set_current_limit,
 	.set_prop = pe50_set_prop,
+/* N17 code for HQHW-4275 by tongjiacheng at 20230627 start */
+	.thermal_restart = pe50_thermal_restart,
+/* N17 code for HQHW-4275 by tongjiacheng at 20230627 end */
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 start*/
+	.cp_statemachine_restart = xm_cp_statemachine_restart,
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 end*/
+	/* N17 code for HQ-311096 by p-gucheng at 2023/08/09 */
+	.cp_charge_finished = pe50_cp_charge_finished,
 };
 
 #define PE50_DT_VALPROP_ARR(name, sz) \
@@ -3929,11 +4918,13 @@ static inline void pe50_parse_dt_u32(struct device_node *np, void *desc,
 	for (i = 0; i < prop_cnt; i++) {
 		if (unlikely(!props[i].name))
 			continue;
-		of_property_read_u32(np, props[i].name, desc + props[i].offset);
+		of_property_read_u32(np, props[i].name,
+				     desc + props[i].offset);
 	}
 }
 
-static inline void pe50_parse_dt_u32_arr(struct device_node *np, void *desc,
+static inline void pe50_parse_dt_u32_arr(struct device_node *np,
+					 void *desc,
 					 const struct pe50_dtprop *props,
 					 int prop_cnt)
 {
@@ -3943,18 +4934,21 @@ static inline void pe50_parse_dt_u32_arr(struct device_node *np, void *desc,
 		if (unlikely(!props[i].name))
 			continue;
 		of_property_read_u32_array(np, props[i].name,
-					   desc + props[i].offset, props[i].sz);
+					   desc + props[i].offset,
+					   props[i].sz);
 	}
 }
 
-static inline int __of_property_read_s32_array(const struct device_node *np,
-					       const char *propname,
-					       s32 *out_values, size_t sz)
+static inline int __of_property_read_s32_array(const struct device_node
+					       *np, const char *propname,
+					       s32 * out_values, size_t sz)
 {
-	return of_property_read_u32_array(np, propname, (u32 *)out_values, sz);
+	return of_property_read_u32_array(np, propname, (u32 *) out_values,
+					  sz);
 }
 
-static inline void pe50_parse_dt_s32_arr(struct device_node *np, void *desc,
+static inline void pe50_parse_dt_s32_arr(struct device_node *np,
+					 void *desc,
 					 const struct pe50_dtprop *props,
 					 int prop_cnt)
 {
@@ -4055,12 +5049,12 @@ static int pe50_parse_dt(struct pe50_algo_info *info)
 	}
 
 	desc->allow_not_check_ta_status =
-		of_property_read_bool(np, "allow_not_check_ta_status");
-	pe50_parse_dt_u32(np, (void *)desc, pe50_dtprops_u32,
+	    of_property_read_bool(np, "allow_not_check_ta_status");
+	pe50_parse_dt_u32(np, (void *) desc, pe50_dtprops_u32,
 			  ARRAY_SIZE(pe50_dtprops_u32));
-	pe50_parse_dt_u32_arr(np, (void *)desc, pe50_dtprops_u32_array,
+	pe50_parse_dt_u32_arr(np, (void *) desc, pe50_dtprops_u32_array,
 			      ARRAY_SIZE(pe50_dtprops_u32_array));
-	pe50_parse_dt_s32_arr(np, (void *)desc, pe50_dtprops_s32_array,
+	pe50_parse_dt_s32_arr(np, (void *) desc, pe50_dtprops_s32_array,
 			      ARRAY_SIZE(pe50_dtprops_s32_array));
 	if (desc->swchg_aicr == 0 || desc->swchg_ichg == 0) {
 		desc->swchg_aicr = 0;
@@ -4071,7 +5065,7 @@ static int pe50_parse_dt(struct pe50_algo_info *info)
 		data->vbat_threshold = val;
 	else {
 		pr_notice("turn off vbat_threshold checking:%d\n",
-			DISABLE_VBAT_THRESHOLD);
+			  DISABLE_VBAT_THRESHOLD);
 		data->vbat_threshold = DISABLE_VBAT_THRESHOLD;
 	}
 
@@ -4110,7 +5104,8 @@ static int pe50_probe(struct platform_device *pdev)
 	atomic_set(&data->stop_thread, 0);
 	data->state = PE50_ALGO_STOP;
 	alarm_init(&data->timer, ALARM_REALTIME, pe50_algo_timer_cb);
-	data->task = kthread_run(pe50_algo_threadfn, info, "pe50_algo_task");
+	data->task =
+	    kthread_run(pe50_algo_threadfn, info, "pe50_algo_task");
 	if (IS_ERR(data->task)) {
 		ret = PTR_ERR(data->task);
 		PE50_ERR("%s run task fail(%d)\n", __func__, ret);
@@ -4118,18 +5113,21 @@ static int pe50_probe(struct platform_device *pdev)
 	}
 	device_init_wakeup(info->dev, true);
 
-	info->alg = chg_alg_device_register("pe5", info->dev, info, &pe50_ops,
-					    NULL);
+	info->alg =
+	    chg_alg_device_register("pe5", info->dev, info, &pe50_ops,
+				    NULL);
 	if (IS_ERR_OR_NULL(info->alg)) {
 		PE50_ERR("%s reg pe5 algo fail(%d)\n", __func__, ret);
 		ret = PTR_ERR(info->alg);
 		goto err;
 	}
 	chg_alg_dev_set_drvdata(info->alg, info);
-
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+	INIT_DELAYED_WORK(&info->xm_monitor_flash_chg_statue_work, xm_monitor_flash_chg_statue_work);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 	dev_info(info->dev, "%s successfully\n", __func__);
 	return 0;
-err:
+      err:
 	mutex_destroy(&data->ext_lock);
 	mutex_destroy(&data->lock);
 	mutex_destroy(&data->notify_lock);
@@ -4181,20 +5179,21 @@ static int __maybe_unused pe50_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(pe50_pm_ops, pe50_suspend, pe50_resume);
 
 static const struct of_device_id mtk_pe50_of_match[] = {
-	{ .compatible = "mediatek,charger,pe5", },
+	{.compatible = "mediatek,charger,pe5",},
 	{},
 };
+
 MODULE_DEVICE_TABLE(of, mtk_pe50_of_match);
 
 static struct platform_driver pe50_platdrv = {
 	.probe = pe50_probe,
 	.remove = pe50_remove,
 	.driver = {
-		.name = "pe5",
-		.owner = THIS_MODULE,
-		.pm = &pe50_pm_ops,
-		.of_match_table = mtk_pe50_of_match,
-	},
+		   .name = "pe5",
+		   .owner = THIS_MODULE,
+		   .pm = &pe50_pm_ops,
+		   .of_match_table = mtk_pe50_of_match,
+		   },
 };
 
 static int __init pe50_init(void)
@@ -4206,6 +5205,7 @@ static void __exit pe50_exit(void)
 {
 	platform_driver_unregister(&pe50_platdrv);
 }
+
 late_initcall(pe50_init);
 module_exit(pe50_exit);
 

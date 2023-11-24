@@ -848,7 +848,19 @@ config CHARGER_MT6370
 
 	  This driver can also be built as a module. If so, the module
 	  will be called "mt6370-charger".
+#/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+config SC8551X_CHARGER
+        tristate "SC8551X_CHARGER Driver"
+        help
+          If you say yes here you will get support for the SC8551/SC8551A/SC8551S Charge Pump.
+          This driver can give support for SC8551/SC8551A/SC8551S Interface.
 
+config LN8000_CHARGER
+        tristate "LN8000_CHARGER Driver"
+        help
+          If you say yes here you will get support for the LN8000 Charge Pump.
+          This driver can give support for LN8000 Interface.
+#/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 config CHARGER_MT6375
 	tristate "MT6375 charger driver"
 	depends on MFD_MT6375
@@ -975,5 +987,20 @@ config GAUGE_MT6983_ALPHA_SUPPORT
 	  To compile this dirver for used touch IC.
 	  Set Y or M to select this feature for specific platform-mt6983,
 	  and set N to disable.
+
+
+# N17 code for HQ-293392 by tongjiacheng at 20230427 start
+source "drivers/power/supply/battery_secrete/Kconfig"
+# N17 code for HQ-293392 by tongjiacheng at 20230427 end
+
+# N17 code for HQ-293951 by tongjiacheng at 2023/04/26 start
+config HQ_CHARGER_SYSFS
+	tristate "Hq Charger Sysfs driver"
+	help
+	  Say yes here to enable Hq Charger Sysfs driver.
+	  This driver contains charging control flow and
+	  maintains charging status.
+	  Say no if not Hq Charger Sysfs driver.
+# N17 code for HQ-293951 by tongjiacheng at 2023/04/26 end
 
 endif # POWER_SUPPLY

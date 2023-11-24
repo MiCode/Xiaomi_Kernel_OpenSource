@@ -30,9 +30,9 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 	cmdq_msg("[SEC][TEE] %s", __func__);
 
 #if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
-	while (!is_teei_ready() && !is_mobicore_ready()) {
-		cmdq_msg("[SEC][TEE] TEE is not ready, wait...");
-		msleep(1000);
+	while (!is_teei_ready()) {
+	 	cmdq_msg("[SEC][TEE] MITEE is not ready, wait...");
+	 	msleep(1000);
 	}
 #else
 #if IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)

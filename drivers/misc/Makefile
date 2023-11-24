@@ -59,3 +59,9 @@ obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-y				+= mediatek/
+#N17 code for HQ-290612 by gaoshilin at 20230412 start
+obj-$(CONFIG_MI_MEMORY_SYSFS)	+= mi-memory/
+#N17 code for HQ-290612 by gaoshilin at 20230412 end
+#N17 code for HQ-292544 by zhengrui at 20230428 start
+obj-y				+= hqsysfs/
+#N17 code for HQ-292544 by zhengrui at 20230428 end

@@ -1,0 +1,25 @@
+&i2c7 {
+    sc8551x-charger@66{
+        compatible = "sc,sc8551x-standalone";
+        reg = <0x66>;
+        sc,sc8551x,irq-gpio = <&pio 18 0>;
+        charger_name = "primary_dvchg";
+
+        sc,sc8551x,vbat-ovp-dis = <0>; /*0:enable 1:disable*/
+        sc,sc8551x,vbat-ovp = <41>; /* val * 25 + 3500 mv [0-63]*/
+        sc,sc8551x,ibat-ocp-dis = <1>; /*0:enable 1:disable*/
+        sc,sc8551x,ibat-ocp = <61>; /* val * 100 + 2000 ma [0-127]*/
+        sc,sc8551x,vac-ovp = <1>; /* 0~6: 11 + val V, 7:6.5V*/
+        sc,sc8551x,vbus-ovp = <120>; /* val * 50 + 6000 mv*/
+        sc,sc8551x,ibus-ocp-dis = <0>; /*0:enable 1:disable*/
+        sc,sc8551x,ibus-ocp = <13>; /*val * 250 + 1000 ma*/
+        sc,sc8551x,fsw-set = <4>; /*val * 50 + 300 kHz, 7:750kHz*/
+        sc,sc8551x,wd-timeout-dis = <1>; /*0:enable 1:disable*/
+        sc,sc8551x,wd-timeout = <3>; /*0:0.5s 1:1s 2:5s 3:30s*/
+        sc,sc8551x,ss-timeout = <7>; /*0:disable 1:40ms 2:80ms 3:320ms 4:1.28s 5:5.12s 6:20.48s 7:81.92s*/
+        sc,sc8551x,vout-ovp-dis = <0>; /*0:enable 1:disable*/
+        sc,sc8551x,ibat-sns-r = <0>; /*0:2mO  1:5mO*/
+        sc,sc8551x,ibus-ucp-fall-dg = <1>; /*0:10us 1:5ms*/
+		status = "okay";
+    };
+};

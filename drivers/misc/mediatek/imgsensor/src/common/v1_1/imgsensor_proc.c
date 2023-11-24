@@ -14,6 +14,9 @@
 
 char mtk_ccm_name[camera_info_size] = { 0 };
 char mtk_i2c_dump[camera_info_size] = { 0 };
+/* N17 code for HQ-299774 by changqi at 2023/06/15 start */
+unsigned int sensor_temperature = 0;
+/* N17 code for HQ-299774 by changqi at 2023/06/15 end */
 
 static int pdaf_type_info_read(struct seq_file *m, void *v)
 {
@@ -645,6 +648,26 @@ static const struct proc_ops fcamera_proc_fops_status_info = {
 	.proc_read = seq_read,
 };
 
+/* N17 code for HQ-299774 by changqi at 2023/06/15 start */
+static int proc_sensor_temperature_read(struct seq_file *m, void *v)
+{
+	PK_DBG("%d sensor_temperature = %d\n", __func__, sensor_temperature);
+	seq_printf(m, "%d\n", sensor_temperature);
+	return 0;
+};
+
+static int proc_sensor_temperature_open(struct inode *inode,
+						struct file *file)
+{
+	return single_open(file, proc_sensor_temperature_read, NULL);
+};
+
+static const struct proc_ops fcamera_proc_fops_get_sensor_temperature = {
+	.proc_open  = proc_sensor_temperature_open,
+	.proc_read = seq_read
+};
+/* N17 code for HQ-299774 by changqi at 2023/06/15 end */
+
 enum IMGSENSOR_RETURN imgsensor_proc_init(void)
 {
 	memset(mtk_ccm_name, 0, camera_info_size);
@@ -661,7 +684,10 @@ enum IMGSENSOR_RETURN imgsensor_proc_init(void)
 				&fcamera_proc_fops_set_pdaf_type);
 	proc_create("driver/imgsensor_status_info", 0000, NULL,
 				&fcamera_proc_fops_status_info);
-
+/* N17 code for HQ-299774 by changqi at 2023/06/15 start */
+	proc_create("driver/sensor_temperature", 0000, NULL,
+				&fcamera_proc_fops_get_sensor_temperature);
+/* N17 code for HQ-299774 by changqi at 2023/06/15 end */
 	/* Camera information */
 	proc_create(PROC_CAMERA_INFO, 0000, NULL, &fcamera_proc_fops1);
 
@@ -680,5 +706,8 @@ void imgsensor_proc_exit(void)
 	 remove_proc_entry("driver/camsensor8", NULL);
 	 remove_proc_entry("driver/pdaf_type", NULL);
 	 remove_proc_entry("driver/imgsensor_status_info", NULL);
+/* N17 code for HQ-299774 by changqi at 2023/06/15 start */
+	 remove_proc_entry("driver/sensor_temperature", NULL);
+/* N17 code for HQ-299774 by changqi at 2023/06/15 end */
 	 remove_proc_entry(PROC_CAMERA_INFO, NULL);
 }

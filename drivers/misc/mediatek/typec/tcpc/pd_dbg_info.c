@@ -25,8 +25,10 @@ static struct {
 	int cnt;
 	char buf[PD_INFO_BUF_SIZE + 1 + OUT_BUF_MAX];
 } pd_dbg_buffer[2];
-
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+//static bool dbg_log_en = true;
 static bool dbg_log_en;
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 module_param(dbg_log_en, bool, 0644);
 
 static struct mutex buff_lock;

@@ -28,6 +28,13 @@ struct mtk_drm_esd_ctx {
 	u32 chk_sta;
 	u32 chk_en;
 	int need_release_eint;
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	struct task_struct *mi_disp_esd_chk_task;
+	bool panel_init;
+	char esd_read_result [ESD_CHECK_NUM][10];
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 };
 
 void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable);

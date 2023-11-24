@@ -235,4 +235,7 @@ source "drivers/interconnect/Kconfig"
 source "drivers/counter/Kconfig"
 
 source "drivers/most/Kconfig"
+#N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start
+source "drivers/switch/Kconfig"
+#N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end
 endmenu

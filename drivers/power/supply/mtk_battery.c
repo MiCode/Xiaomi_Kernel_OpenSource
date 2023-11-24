@@ -29,8 +29,11 @@
 #include <net/sock.h>		/* netlink */
 #include <linux/suspend.h>
 #include "mtk_battery.h"
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+#include "mtk_charger.h"
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
 #include "mtk_battery_table.h"
-
+#include "mtk_charger_algorithm_class.h"
 
 struct tag_bootmode {
 	u32 size;
@@ -110,6 +113,115 @@ void disable_gauge_irq(struct mtk_gauge *gauge,
 		disable_irq_nosync(gauge->irq_no[irq]);
 }
 
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+/* for smart_chg */
+static void set_error(struct mtk_battery *gm)
+{
+	gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret = 1;
+	bm_err("xm %s en_ret=%d\n", __func__, gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret);
+}
+
+static void set_success(struct mtk_battery *gm)
+{
+	gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret = 0;
+	bm_err("xm %s en_ret=%d\n", __func__, gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret);
+}
+
+static int smart_chg_is_error(struct mtk_battery *gm)
+{
+	return gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret? true : false;
+}
+
+static void handle_smart_chg_functype(struct mtk_battery *gm,
+	const int func_type, const int en_ret, const int func_val)
+{
+	switch (func_type)
+	{
+	case SMART_CHG_FEATURE_MIN_NUM ... SMART_CHG_FEATURE_MAX_NUM:
+		gm->smart_charge[func_type].en_ret = en_ret;
+		gm->smart_charge[func_type].active_status = false;
+		gm->smart_charge[func_type].func_val = func_val;
+		set_success(gm);
+		bm_err("xm %s set func_type:%d, en_ret = %d\n", __func__, func_type, en_ret);
+		break;
+	default:
+		bm_err("xm %s ERROR: Not supported func type: %d\n", __func__, func_type);
+		set_error(gm);
+		break;
+	}
+}
+
+static int handle_smart_chg_functype_status(struct mtk_battery *gm)
+{
+	int i;
+	int all_func_status = 0;
+	all_func_status |= !!gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret;	//handle bit0
+
+	bm_debug("%s all_func_status =%#X, en_ret=%d\n", __func__, all_func_status, gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret);
+
+	/* save functype[i] enable status in all_func_status bit[i] */
+	for(i = SMART_CHG_FEATURE_MIN_NUM; i <= SMART_CHG_FEATURE_MAX_NUM; i++){  //handle bit1 ~ bit SMART_CHG_FEATURE_MAX_NUM
+		if(gm->smart_charge[i].en_ret)
+			all_func_status |= BIT_MASK(i);
+		else
+			all_func_status &= ~BIT_MASK(i);
+
+		bm_err("%s type:%d, en_ret=%d, active_status=%d,func_val=%d, all_func_status=%#X\n",
+			__func__, i, gm->smart_charge[i].en_ret, gm->smart_charge[i].active_status, gm->smart_charge[i].func_val,all_func_status);
+	}
+
+	bm_err("%s all_func_status:%#X\n", __func__, all_func_status);
+	return all_func_status;
+}
+
+static int smart_chg_set(struct mtk_battery *gm,
+	struct mtk_battery_sysfs_field_info *attr,
+	int val)
+{
+	// DECLEAR_BITMAP(func_type, SMART_CHG_FEATURE_MAX_NUM);
+	bool en_ret = val & 0x1;
+	unsigned long func_type = (val & 0xFFFE) >> 1;
+	int func_val = val >> 16;
+	int bit_pos;
+	int all_func_status;
+
+	bm_err("%s get val:%#X, func_type:%#X, en_ret:%d, func_val:%d\n",
+		__func__,val, func_type, en_ret, func_val);
+
+	bit_pos = find_first_bit(&func_type, SMART_CHG_FEATURE_MAX_NUM);
+
+	/*	*/
+	if(bit_pos == SMART_CHG_FEATURE_MAX_NUM || find_next_bit(&func_type, SMART_CHG_FEATURE_MAX_NUM , bit_pos + 1) != SMART_CHG_FEATURE_MAX_NUM){
+		bm_err("%s ERROR: zero or more than one func type!\n", __func__);
+		bm_err("%s find_next_bit = %d, bit_pos = %d\n",
+			__func__, find_next_bit(&func_type, SMART_CHG_FEATURE_MAX_NUM , bit_pos + 1), bit_pos);
+		set_error(gm);
+	} else
+		set_success(gm);
+
+	// if func_type bit0 is 1, bit_pos = 0, not 1. so ++bit_pos.
+	if(!smart_chg_is_error(gm))
+		handle_smart_chg_functype(gm, ++bit_pos, en_ret, func_val);
+
+	/* update smart_chg[0] status */
+	all_func_status = handle_smart_chg_functype_status(gm);
+	gm->smart_charge[SMART_CHG_STATUS_FLAG].en_ret = all_func_status & 0x1;
+	gm->smart_charge[SMART_CHG_STATUS_FLAG].active_status = (all_func_status & 0xFFFE) >> 1;
+
+	return 0;
+}
+
+static int smart_chg_get(struct mtk_battery *gm,
+	struct mtk_battery_sysfs_field_info *attr,
+	int *val)
+{
+	/* get latest functype status*/
+	*val = handle_smart_chg_functype_status(gm);
+	bm_err("%s val:%#X\n", __func__, *val);
+	return 0;
+}
+/* smart chg end */
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 struct mtk_battery *get_mtk_battery(void)
 {
 	struct mtk_gauge *gauge;
@@ -154,7 +266,29 @@ bool is_algo_active(struct mtk_battery *gm)
 
 int fgauge_get_profile_id(void)
 {
-	return 0;
+/* N17 code for HQ-292265 by tongjiacheng at 20230515 start */
+	int ret = 0;
+	int id = 0;
+	struct power_supply *psy;
+	union power_supply_propval val;
+
+	psy = power_supply_get_by_name("batt_verify");
+	if (psy) {
+		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_TYPE,
+					&val);
+		if (ret) {
+			bm_err("%s get battery id fail, use battery0 profile\n", __func__);
+			id = 0;
+		}
+
+		if (val.intval != 0xff)
+			id =  val.intval;
+	}
+
+	bm_err("%s battery id=%d\n", __func__, id);
+
+	return id;
+  /* N17 code for HQ-292265 by tongjiacheng at 20230515 end */
 }
 
 int wakeup_fg_algo_cmd(
@@ -261,6 +395,10 @@ int check_cap_level(int uisoc)
 	else
 		return POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
 }
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+void charger_manager_set_thermal_level(int level);
+int charger_manager_get_thermal_level(void);
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end */
 
 static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -279,6 +417,16 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end */
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+	POWER_SUPPLY_PROP_ENERGY_FULL,
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 start*/
+        POWER_SUPPLY_PROP_SCOPE,
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 end*/
 };
 
 static int battery_psy_get_property(struct power_supply *psy,
@@ -286,9 +434,13 @@ static int battery_psy_get_property(struct power_supply *psy,
 	union power_supply_propval *val)
 {
 	int ret = 0;
-	int curr_now = 0, curr_avg = 0;
+	int curr_now = 0, curr_avg = 0, tbat = 0;
 	struct mtk_battery *gm;
 	struct battery_data *bs_data;
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 start*/
+        struct power_supply *chg_psy;
+	struct mtk_charger *info;
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 end*/
 
 	gm = (struct mtk_battery *)power_supply_get_drvdata(psy);
 	bs_data = &gm->bs_data;
@@ -302,6 +454,31 @@ static int battery_psy_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = bs_data->bat_status;
+		/*N17 code for HQ-314179 by hankang at 2023/08/31 start*/
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+		if (chg_psy == NULL) {
+			bm_err("[%s]psy is not rdy\n", __func__);
+			break;
+		}
+		info = (struct mtk_charger *) power_supply_get_drvdata(chg_psy);
+		if (info == NULL) {
+			bm_err("[%s] charge is not rdy\n", __func__);
+			break;
+		}
+		tbat = force_get_tbat(gm, true);
+		if (!(info->sw_jeita.charging) && tbat > 46 && info->disable_charger == false
+			&& val->intval == POWER_SUPPLY_STATUS_NOT_CHARGING) {
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			/*N17 code for HQ-328970 by hankang at 2023/09/15*/
+			bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
+		}
+		/*N17 code for HQ-314179 by hankang at 2023/08/31 end*/
+		/*N17 code for HQ-329243 by yeyinzi at 2023/09/21 start*/
+		if(val->intval == POWER_SUPPLY_STATUS_NOT_CHARGING && info->during_switching){
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
+		}
+		/*N17 code for HQ-329243 by yeyinzi at 2023/09/21 end*/
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = bs_data->bat_health;
@@ -323,7 +500,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = bs_data->bat_technology;
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		val->intval = 1;
+		val->intval = gm->bat_cycle;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
@@ -336,8 +513,15 @@ static int battery_psy_get_property(struct power_supply *psy,
 
 		if (gm->fixed_uisoc != 0xffff)
 			val->intval = gm->fixed_uisoc;
-		else
-			val->intval = bs_data->bat_capacity;
+	/* N17 code for HQ-290778 by tongjiacheng at 20230530 start */
+		else {
+			/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 start*/
+			val->intval = bs_data->final_capacity;
+			/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 end*/
+			if (val->intval <= 1)
+				val->intval = 1;
+		}
+		/* N17 code for HQ-290778 by tongjiacheng at 20230530 end */
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
@@ -364,14 +548,15 @@ static int battery_psy_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval =
-			gm->fg_table_cust_data.fg_profile[
-				gm->battery_id].q_max * 1000;
+		/*N17 code for HQ-326374 by p-xiepengfu at 2023/09/19 start*/
+		val->intval = gm->algo_qmax * 100;
 		break;
+		/*N17 code for HQ-326374 by p-xiepengfu at 2023/09/19 end*/
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+/*N17 code for HQ-291722 by wangtingting at 2023/5/5 start*/
 		val->intval = gm->ui_soc *
-			gm->fg_table_cust_data.fg_profile[
-				gm->battery_id].q_max * 1000 / 100;
+			    gm->algo_qmax / 100 * gm->aging_factor / 100;
+/*N17 code for HQ-291722 by wangtingting at 2023/5/5 end*/
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
@@ -433,25 +618,9 @@ static int battery_psy_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		if (check_cap_level(bs_data->bat_capacity) ==
-			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
-			val->intval = 0;
-		else {
-			int q_max_mah = 0;
-			int q_max_uah = 0;
-
-			q_max_mah =
-				gm->fg_table_cust_data.fg_profile[
-				gm->battery_id].q_max / 10;
-
-			q_max_uah = q_max_mah * 1000;
-			if (q_max_uah <= 100000) {
-				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
-					__func__, q_max_mah, q_max_uah);
-				q_max_uah = 100001;
-			}
-			val->intval = q_max_uah;
-		}
+/*N17 code for HQ-290757 by wangtingting at 2023/05/22 start*/
+			val->intval = 5000000;
+/*N17 code for HQ-290757 by wangtingting at 2023/05/22 end*/
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		bs_data = &gm->bs_data;
@@ -470,8 +639,34 @@ static int battery_psy_get_property(struct power_supply *psy,
 				bm_err("get CV property fail\n");
 		}
 		break;
-
-
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		val->intval = charger_manager_get_thermal_level();
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = gm->const_current;
+		break;
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end*/
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+	case POWER_SUPPLY_PROP_ENERGY_FULL:
+		val->intval = bs_data->bat_full;
+		break;
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 start*/
+        case POWER_SUPPLY_PROP_SCOPE:
+                chg_psy = power_supply_get_by_name("mtk-master-charger");
+                if (chg_psy == NULL) {
+                                bm_err("[%s]psy is not rdy\n", __func__);
+                                return ret;
+                }
+                info = (struct mtk_charger *) power_supply_get_drvdata(chg_psy);
+                if (info == NULL) {
+                                bm_err("[%s] charge is not rdy\n", __func__);
+                                return ret;
+                }
+                val->intval = info->fake_thermal_vote_current;
+                break;
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 end*/
 	default:
 		ret = -EINVAL;
 		break;
@@ -489,6 +684,10 @@ static int battery_psy_set_property(struct power_supply *psy,
 {
 	int ret = 0;
 	struct mtk_battery *gm;
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 start*/
+        struct power_supply *chg_psy;
+	struct mtk_charger *info;
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 end*/
 
 	gm = (struct mtk_battery *)power_supply_get_drvdata(psy);
 
@@ -500,8 +699,55 @@ static int battery_psy_set_property(struct power_supply *psy,
 			bm_err("[%s], dynamic_cv: %d\n",  __func__, val->intval);
 		}
 		break;
-
-
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+/* N17 code for HQ-292280 by tongjiacheng at 20230613 start */
+		if (!gm->const_current)
+			charger_manager_set_thermal_level(val->intval);
+		gm->thermal_level = val->intval;
+/* N17 code for HQ-292280 by tongjiacheng at 20230613 end */
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		gm->const_current = val->intval;
+/* N17 code for HQ-292280 by tongjiacheng at 20230613 start */
+		if (val->intval != 0)
+			charger_manager_set_thermal_level(14);
+		else
+			charger_manager_set_thermal_level(gm->thermal_level);
+/* N17 code for HQ-292280 by tongjiacheng at 20230613 end */
+		break;
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end */
+/* N17 code for fake_cycle_count by liluting at 20230726 start */
+        case POWER_SUPPLY_PROP_CYCLE_COUNT:
+                gm->fake_bat_cycle = val->intval;
+                gm->bat_cycle = val->intval;
+		break;
+/* N17 code for fake_cycle_count by liluting at 20230726 end */
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 start*/
+        case POWER_SUPPLY_PROP_SCOPE:
+                chg_psy = power_supply_get_by_name("mtk-master-charger");
+                if (chg_psy == NULL) {
+                                bm_err("[%s]psy is not rdy\n", __func__);
+                                return ret;
+                }
+                info = (struct mtk_charger *) power_supply_get_drvdata(chg_psy);
+                if (info == NULL) {
+                                bm_err("[%s] charge is not rdy\n", __func__);
+                                return ret;
+                }
+                if((val->intval > 0) && (val->intval <= 6000000)){
+                        info->fake_thermal_vote_current = val->intval;
+                }
+                else if(val->intval <= 0){
+                        info->fake_thermal_vote_current = 0;
+                        bm_err("[%s] value invalid: (0, 6000000]!\n", __func__);
+                }
+                else if(val->intval > 6000000){
+                        info->fake_thermal_vote_current = 0;
+                        bm_err("[%s] value invalid: (0, 6000000]!\n", __func__);
+                }
+                break;
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 end*/
 	default:
 		ret = -EINVAL;
 		break;
@@ -512,7 +758,23 @@ static int battery_psy_set_property(struct power_supply *psy,
 
 	return ret;
 }
-
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+static int battery_psy_is_writeable(struct power_supply *psy,
+				     enum power_supply_property psp)
+{
+	switch (psp) {
+		case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+                case POWER_SUPPLY_PROP_CYCLE_COUNT:
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 start*/
+                case POWER_SUPPLY_PROP_SCOPE:
+/*N17 code for cp_mode test by xm liluting at 2023/07/31 end*/
+			return 1;
+		default:
+			return 0;
+	}
+}
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end */
 static void mtk_battery_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_battery *gm;
@@ -552,11 +814,22 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 
 		if (!online.intval) {
 			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/12 start*/
+			bs_data->bat_full = false;
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/12 end*/
 		} else {
 			if (status.intval == POWER_SUPPLY_STATUS_NOT_CHARGING) {
-				bs_data->bat_status =
-					POWER_SUPPLY_STATUS_NOT_CHARGING;
-
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+/*N17 code for HQ-308317 by xm tianye9 at 2023/07/20 start*/
+				if(!bs_data->bat_full){
+					if (gm->smart_charge[SMART_CHG_NAVIGATION].active_status){
+						bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
+						bm_err("%s,N17:smart chg navigation trigger\n", __func__);
+					} else
+						bs_data->bat_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+				}
+/*N17 code for HQ-308317 by xm tianye9 at 2023/07/20 end*/
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
 				dv2_chg_psy = power_supply_get_by_name("mtk-mst-div-chg");
 				if (!IS_ERR_OR_NULL(dv2_chg_psy)) {
 					ret = power_supply_get_property(dv2_chg_psy,
@@ -596,8 +869,10 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		cur_chr_type = prop_type.intval;
 
 		if (cur_chr_type == POWER_SUPPLY_TYPE_UNKNOWN) {
-			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN)
+			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN) {
 				bm_err("%s chr plug out\n", __func__);
+                                gm->s_flag = LOW_FAST_NORMAL;
+                        }
 		} else {
 			if (gm->chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
@@ -632,6 +907,9 @@ void battery_service_data_init(struct mtk_battery *gm)
 	bs_data->psd.num_properties = ARRAY_SIZE(battery_props);
 	bs_data->psd.get_property = battery_psy_get_property;
 	bs_data->psd.set_property = battery_psy_set_property;
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+	bs_data->psd.property_is_writeable = battery_psy_is_writeable;
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end */
 	bs_data->psd.external_power_changed =
 		mtk_battery_external_power_changed;
 	bs_data->psy_cfg.drv_data = gm;
@@ -639,8 +917,13 @@ void battery_service_data_init(struct mtk_battery *gm)
 	bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING,
 	bs_data->bat_health = POWER_SUPPLY_HEALTH_GOOD,
 	bs_data->bat_present = 1,
-	bs_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LION,
+/*N17 code for HQ-298864 by wangtingting at 2023/06/09 start*/
+	bs_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LIPO,
+/*N17 code for HQ-298864 by wangtingting at 2023/06/09 end*/
 	bs_data->bat_capacity = -1,
+	/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 start*/
+	bs_data->final_capacity = -1,
+	/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 end*/
 	bs_data->bat_batt_vol = 0,
 	bs_data->bat_batt_temp = 0,
 
@@ -2119,11 +2402,125 @@ void battery_update_psd(struct mtk_battery *gm)
 
 	bat_data->bat_batt_temp = force_get_tbat(gm, true);
 }
+
+struct ffc_smooth {
+	int curr_lim;
+	int time;
+};
+
+#define FFC_SMOOTH_LEN			4
+struct ffc_smooth ffc_dischg_smooth[FFC_SMOOTH_LEN] = {
+	{0,    300},
+	{300,  150},
+	{600,   72},
+	{1000,  50},
+};
+
+/*N17 95% recharge by llt at 230616 start
+ *change to 97% config at 230717
+ */
+#define RECHARGE_UISOC 97
+/*N17 95% recharge by llt at 230616 end
+ *change to 97% config at 230717
+ */
 void battery_update(struct mtk_battery *gm)
 {
 	struct battery_data *bat_data = &gm->bs_data;
 	struct power_supply *bat_psy = bat_data->psy;
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+	struct power_supply *psy;
+	struct mtk_charger *info;
+	int ret;
+	int curr_now = 0;
+	int vbat_now = 0;
+/*N17 code for HQHW-4469 by miaozhichao at 2023/7/04 start*/
+	union power_supply_propval val;
+/*N17 code for HQHW-4469 by miaozhichao at 2023/7/04 end*/
+/*N17 code for HQHW-4192 by miaozhichao at 2023/6/28 start*/
+	bool chg_done = false;
+/*N17 code for HQHW-4192 by miaozhichao at 2023/6/28 end*/
+        time64_t time_now, delta_time;
+        static time64_t time_last = 0;
+        static int last_capacity;
+        int unit_time = 0, i = 0, curr_avg = 0, soc_changed = 0;
 
+	psy = power_supply_get_by_name("mtk-master-charger");
+	if (psy == NULL) {
+			bm_err("[%s]psy is not rdy\n", __func__);
+			return;
+	}
+	info = (struct mtk_charger *) power_supply_get_drvdata(psy);
+	if (info == NULL) {
+			bm_err("[%s] charge is not rdy\n", __func__);
+			return ;
+	}
+
+	/*N17 code for HQ-308499 by liyanhao at 2023/08/10 start*/
+	ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
+		&curr_now);
+	if (ret < 0) {
+		bm_err("[%s] get ibat failed\n", __func__);
+		return;
+	}
+
+	ret = gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
+		&vbat_now);
+	if (ret < 0) {
+		bm_err("[%s] get vbat failed\n", __func__);
+		return;
+	}
+	/*N17 code for HQ-308499 by liyanhao at 2023/08/10 end*/
+
+/*N17 code for HQHW-4275 by wangtingting at 2023/06/30 start*/
+	/*N17 code for HQ-319801 by p-xiepengfu start at 2023/8/23*/
+	if ((bat_data->bat_batt_temp > 35) && (bat_data->bat_batt_temp <= 48) &&
+			(info->pd_type == 4) && (info->pd_adapter->verifed == true) && chg_alg_cp_charge_finished(info->alg[0])){
+	/*N17 code for HQ-319801 by p-xiepengfu end at 2023/8/23*/
+/*N17 code for HQHW-4275 by wangtingting at 2023/06/30 end*/
+/*N17 code for HQHW-4469 by wangtingting at 2023/08/02 start*/
+		/*N17 code for HQ-319214 by p-xiepengfu at 23/08/29 start*/
+		if ((curr_now *100 <= 1100000) && (vbat_now >= 4510)) {
+		/*N17 code for HQ-319214 byp-xiepengfu at 23/08/29 end*/
+/*N17 code for HQHW-4469 by wangtingting at 2023/08/02 end*/
+			bat_data->bat_status = POWER_SUPPLY_STATUS_FULL;
+			bat_data->bat_full = true;
+			/*N17 code for HQ-319214 by p-xiepengfu at 23/09/07 start*/
+			info->is_full_flag = true;
+			/*N17 code for HQ-319214 by p-xiepengfu at 23/09/07 end*/
+/*N17 code for HQHW-4469 by miaozhichao at 2023/7/04 start*/
+			val.intval = bat_data->bat_full;
+			power_supply_set_property(psy,POWER_SUPPLY_PROP_ENERGY_FULL,&val);
+/*N17 code for HQHW-4469 by miaozhichao at 2023/7/04 end*/
+		}
+	/*N17 code for HQ-308499 by liyanhao at 2023/08/10 start*/
+	}
+
+	/*If VBAT drop below 4.4V, set bat_full to false*/
+	/*N17 code for HQ-319214 by p-xiepengfu at 23/08/29 start*/
+	if ((vbat_now <= 4410) && (bat_data->bat_full == true)) {
+	/*N17 code for HQ-319214 by p-xiepengfu at 23/08/29 end*/
+		bat_data->bat_full = false;
+		val.intval = bat_data->bat_full;
+		power_supply_set_property(psy,POWER_SUPPLY_PROP_ENERGY_FULL, &val);
+	}
+
+	bm_err("[%s]temp:%d pd_type:%d pd_verifed:%d bat_status:%d ibat:%d vbat:%d bat_full:%d\n", __func__,bat_data->bat_batt_temp,
+		info->pd_type,info->pd_adapter->verifed,bat_data->bat_status,curr_now *100,vbat_now,bat_data->bat_full);
+	/*N17 code for HQ-308499 by liyanhao at 2023/08/10 end*/
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
+/*N17 code for HQHW-4192 by miaozhichao at 2023/6/28 start*/
+	charger_dev_is_charging_done(info->chg1_dev,&chg_done);
+/*N17 code for HQHW-4275 by wangtingting at 2023/06/30 start*/
+	if (chg_done){
+		if (bat_data->bat_capacity == 100) {
+			bat_data->bat_status = POWER_SUPPLY_STATUS_FULL;
+		}
+	}
+/*N17 code for HQHW-4275 by wangtingting at 2023/06/30 end*/
+/*N17 code for HQHW-4469 by miaozhichao at 2023/7/04 start*/
+	bm_err("[%s]bat_status:%d\n",__func__,bat_data->bat_status);
+/*N17 code for HQHW-4469 by miaozhichao at 2023/7/04 end*/
+/*N17 code for HQHW-4192 by miaozhichao at 2023/6/28 end*/
 	if (gm->is_probe_done == false || bat_psy == NULL) {
 		bm_err("[%s]battery is not rdy:probe:%d\n",
 			__func__, gm->is_probe_done);
@@ -2131,7 +2528,9 @@ void battery_update(struct mtk_battery *gm)
 	}
 
 	battery_update_psd(gm);
-	bat_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LION;
+/*N17 code for HQ-298864 by wangtingting at 2023/06/09 start*/
+	bat_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LIPO;
+/*N17 code for HQ-298864 by wangtingting at 2023/06/09 end*/
 	bat_data->bat_health = POWER_SUPPLY_HEALTH_GOOD;
 	bat_data->bat_present =
 		gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
@@ -2142,6 +2541,102 @@ void battery_update(struct mtk_battery *gm)
 	if (gm->algo.active == true)
 		bat_data->bat_capacity = gm->ui_soc;
 
+/*N17 95% recharge by llt at 230616 start
+ *change to 97% config at 230717
+ */
+        if(info->is_full_flag) //battery full
+        {
+                if(gm->ui_soc > RECHARGE_UISOC)  //after battery full, before 95% recharge
+                {
+                        time_last = ktime_get_seconds(); //time_last: last time when capacity changed after 95% recharge was begined. 
+                }
+                else
+                {
+                        info->is_full_flag = false; //capacity begin to drop (fg ui_soc: 95~*, new capacity: 100~*)
+                }
+                bat_data->bat_capacity = 100;
+                last_capacity = 100;
+                bm_err("[%s]keep 100, bat_capacity = %d, ui_soc = %d, is_full_flag = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, info->is_full_flag);
+        }
+        else
+        {
+                bm_err("[%s]start of smooth, bat_capacity = %d, ui_soc = %d, last_capacity = %d, is_full_flag = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity, info->is_full_flag);
+
+                if(last_capacity > (gm->ui_soc + 1))  //95% recharge strategy was triggered while real recharge happend but capacity is bigger then uisoc+1, or charger plug out at that time.
+                {
+                        gm->s_flag = LOW_FAST_IN;
+                        time_now = ktime_get_seconds();
+                        delta_time = time_now - time_last;
+
+                        ret = gauge_get_property(GAUGE_PROP_AVERAGE_CURRENT,&curr_avg);
+                        for (i = FFC_SMOOTH_LEN-1; i >= 0; i--)
+                        {
+                                if(-curr_avg / 10 > ffc_dischg_smooth[i].curr_lim)
+                                {
+                                        unit_time = ffc_dischg_smooth[i].time; //caculate time_unit of soc_change according to average current
+                                        break;
+                                }
+                        }
+
+                        delta_time = delta_time / unit_time;
+                        if(delta_time < 1)
+                                soc_changed = 0;
+                        else
+                        {
+                                soc_changed = 1;
+                                time_last = ktime_get_seconds(); //time_last: last time when capacity changed
+                        }
+                        bm_err("[%s]curr_avg = %d, unit_time = %d, delta_time = %d, soc_changed = %d\n", __func__, curr_avg, unit_time, delta_time, soc_changed);
+
+
+                        bat_data->bat_capacity = last_capacity - soc_changed; //new capacity
+                        last_capacity = bat_data->bat_capacity; //last capacity
+                        bm_err("[%s]end of smooth, bat_capacity = %d, ui_soc = %d, last_capacity = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity);
+                }
+                else if((gm->s_flag == LOW_FAST_IN) && (last_capacity == (gm->ui_soc + 1)))//switch from low_fast_in to low_fast_normal first cycle
+                {
+                        gm->s_flag = LOW_FAST_SWITCH;
+                        bat_data->bat_capacity = gm->ui_soc + 1;
+                        last_capacity = bat_data->bat_capacity;
+                        time_last = ktime_get_seconds();
+                        bm_err("[%s]low_fast_switch smooth first cycle, bat_capacity = %d, ui_soc = %d, last_capacity = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity);
+                }
+                else if(gm->s_flag == LOW_FAST_SWITCH)//switch from low_fast_in to low_fast_normal second cycle
+                {
+                        time_now = ktime_get_seconds();
+                        delta_time = time_now - time_last;
+                        if(delta_time < 5)
+                        {
+                                soc_changed = 0;
+                        }
+                        else if((delta_time >= 5) && (last_capacity > gm->ui_soc))
+                        {
+                                soc_changed = 1;
+                                time_last = ktime_get_seconds(); //time_last: last time when capacity changed
+                        }
+                        else
+                        {
+                                gm->s_flag = LOW_FAST_NORMAL;
+                                soc_changed = 0;
+                        }
+                        bat_data->bat_capacity = last_capacity - soc_changed; //new capacity
+                        last_capacity = bat_data->bat_capacity;
+                        bm_err("[%s]low_fast_switch smooth second cycle, bat_capacity = %d, ui_soc = %d, last_capacity = %d, delta_time = %d, soc_changed = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity, delta_time, soc_changed);
+                }
+                else //normal charge and normal discharge, or after capacity was smoothed frome 100 to uisoc+1 at upstair conditions
+                {
+                        gm->s_flag = LOW_FAST_NORMAL;
+                        bat_data->bat_capacity = gm->ui_soc;
+                        last_capacity = bat_data->bat_capacity;
+                        bm_err("[%s]normal not smooth, bat_capacity = %d, ui_soc = %d, last_capacity = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity);
+                }
+        }
+/*N17 95% recharge by llt at 230616 end
+ *change to 97% config at 230717
+ */
+	/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 start*/
+	bat_data->final_capacity = bat_data->bat_capacity;
+	/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 end*/
 	power_supply_changed(bat_psy);
 
 }
@@ -2259,7 +2754,24 @@ static int temperature_set(struct mtk_battery *gm,
 	struct mtk_battery_sysfs_field_info *attr,
 	int val)
 {
+	/*N17 code for HQHW-4728 by yeyinzi at 2023/08/07 start*/
+	struct mtk_charger *info;
+	struct power_supply *psy;
+	/*N17 code for HQHW-4728 by yeyinzi at 2023/08/07 end*/
+
 	gm->fixed_bat_tmp = val;
+
+	/*N17 code for HQHW-4728 by yeyinzi at 2023/08/07 start*/
+	psy = power_supply_get_by_name("mtk-master-charger");
+	if (psy != NULL) {
+		info = (struct mtk_charger *) power_supply_get_drvdata(psy);
+		if (info != NULL) {
+			if(gm->fixed_bat_tmp > 47)
+			_wake_up_charger(info);
+		}
+	}
+	/*N17 code for HQHW-4728 by yeyinzi at 2023/08/07 end*/
+
 	bm_debug("%s %d\n", __func__, val);
 	return 0;
 }
@@ -2497,6 +3009,27 @@ static int temp_th_set(struct mtk_battery *gm,
 	return 0;
 }
 
+static int smart_batt_get(struct mtk_battery *gm,
+	struct mtk_battery_sysfs_field_info *attr,
+ 	int *val)
+ {
+	*val = gm->diff_fv_val;
+ 	bm_err("%s val:%d\n",
+ 		__func__, *val);
+	return 0;
+ }
+
+static int smart_batt_set(struct mtk_battery *gm,
+    struct mtk_battery_sysfs_field_info *attr,
+    int val)
+ {
+ 	smart_batt_set_diff_fv(val);
+ 	gm->diff_fv_val = val;
+ 	bm_err("%s val:%d\n",
+ 		__func__, val);
+	return 0;
+}
+
 static ssize_t bat_sysfs_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2556,6 +3089,10 @@ static struct mtk_battery_sysfs_field_info battery_sysfs_field_tbl[] = {
 	BAT_SYSFS_FIELD_WO(reset, BAT_PROP_FG_RESET),
 	BAT_SYSFS_FIELD_RW(log_level, BAT_PROP_LOG_LEVEL),
 	BAT_SYSFS_FIELD_WO(temp_th, BAT_PROP_TEMP_TH_GAP),
+	BAT_SYSFS_FIELD_RW(smart_batt, BAT_PROP_SMART_BATT),
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+	BAT_SYSFS_FIELD_RW(smart_chg, BAT_PROP_SMART_CHG),
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 };
 
 int battery_get_property(enum battery_property bp,
@@ -3045,7 +3582,9 @@ int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 						ktime_get_boottime();
 					bm_debug("[%s]soc_zero_percent shutdown\n",
 						__func__);
-					wakeup_fg_algo(gm, FG_INTR_SHUTDOWN);
+				/* N17 code for HQ-290778 by tongjiacheng at 20230530 start */
+					//wakeup_fg_algo(gm, FG_INTR_SHUTDOWN);
+				/* N17 code for HQ-290778 by tongjiacheng at 20230530 end */
 				}
 			}
 			mutex_unlock(&sdc->lock);
@@ -3064,7 +3603,9 @@ int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 
 					bm_debug("[%s]uisoc 1 percent shutdown\n",
 						__func__);
-					wakeup_fg_algo(gm, FG_INTR_SHUTDOWN);
+				/* N17 code for HQ-290778 by tongjiacheng at 20230530 start */
+					//wakeup_fg_algo(gm, FG_INTR_SHUTDOWN);
+				/* N17 code for HQ-290778 by tongjiacheng at 20230530 end */
 				}
 			}
 			mutex_unlock(&sdc->lock);
@@ -3237,23 +3778,29 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 				if (IS_ENABLED(
 					LOW_TEMP_DISABLE_LOW_BAT_SHUTDOWN)) {
 					if (tmp >= LOW_TEMP_THRESHOLD) {
-						down_to_low_bat = 1;
+					/* N17 code for HQ-290778 by tongjiacheng at 20230530 start */
+						//down_to_low_bat = 1;
 						bm_debug("normal tmp, battery voltage is low shutdown\n");
-						wakeup_fg_algo(gm,
-							FG_INTR_SHUTDOWN);
+						//wakeup_fg_algo(gm,
+							//FG_INTR_SHUTDOWN);
+					/* N17 code for HQ-290778 by tongjiacheng at 20230530 end */
 					} else if (sdd->avgvbat <=
 						LOW_TMP_BAT_VOLTAGE_LOW_BOUND) {
-						down_to_low_bat = 1;
+					/* N17 code for HQ-290778 by tongjiacheng at 20230530 start */
+						//down_to_low_bat = 1;
 						bm_debug("cold tmp, battery voltage is low shutdown\n");
-						wakeup_fg_algo(gm,
-							FG_INTR_SHUTDOWN);
+						//wakeup_fg_algo(gm,
+							//FG_INTR_SHUTDOWN);
+					/* N17 code for HQ-290778 by tongjiacheng at 20230530 end */
 					} else
 						bm_debug("low temp disable low battery sd\n");
 				} else {
-					down_to_low_bat = 1;
+					/* N17 code for HQ-290778 by tongjiacheng at 20230530 start */
+					//down_to_low_bat = 1;
 					bm_debug("[%s]avg vbat is low to shutdown\n",
 						__func__);
-					wakeup_fg_algo(gm, FG_INTR_SHUTDOWN);
+					//wakeup_fg_algo(gm, FG_INTR_SHUTDOWN);
+					/* N17 code for HQ-290778 by tongjiacheng at 20230530 end */
 				}
 			}
 
@@ -3538,6 +4085,7 @@ int battery_init(struct platform_device *pdev)
 	gm->log_level = BMLOG_ERROR_LEVEL;
 	gm->sw_iavg_gap = 3000;
 	gm->in_sleep = false;
+        gm->fake_bat_cycle = 0;
 	mutex_init(&gm->fg_update_lock);
 
 	init_waitqueue_head(&gm->wait_que);
@@ -3602,6 +4150,8 @@ int battery_init(struct platform_device *pdev)
 		battery_algo_init(gm);
 		bm_err("[%s]: enable Kernel mode Gauge\n", __func__);
 	}
+
+        gm->s_flag = LOW_FAST_NORMAL;
 
 	return 0;
 }

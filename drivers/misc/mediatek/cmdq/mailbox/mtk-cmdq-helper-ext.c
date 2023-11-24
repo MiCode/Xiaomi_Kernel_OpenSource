@@ -52,7 +52,9 @@ struct cmdq_sec_helper_fp *cmdq_sec_helper;
 #define CMDQ_MBOX_BUF_LIMIT	16 /* default limit count */
 
 /* sleep for 312 tick, which around 12us */
-#define CMDQ_POLL_TICK			312
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start*/
+#define CMDQ_POLL_TICK			55
+/*N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end*/
 
 #define CMDQ_GET_ADDR_H(addr)		(sizeof(addr) > 32 ? (addr >> 32) : 0)
 #define CMDQ_GET_ARG_B(arg)		(((arg) & GENMASK(31, 16)) >> 16)
@@ -1059,7 +1061,9 @@ static bool cmdq_pkt_is_finalized(struct cmdq_pkt *pkt)
 
 	expect_eoc = cmdq_pkt_get_va_by_offset(pkt,
 		pkt->cmd_buf_size - CMDQ_INST_SIZE * 2);
-	if (((struct cmdq_instruction *)expect_eoc)->op == CMDQ_CODE_JUMP)
+/*N17 code for HQ-301760 by p-lizongrui at 2023/07/03 start*/
+	if (expect_eoc && ((struct cmdq_instruction *)expect_eoc)->op == CMDQ_CODE_JUMP)
+/*N17 code for HQ-301760 by p-lizongrui at 2023/07/03 end*/
 		expect_eoc = cmdq_pkt_get_va_by_offset(pkt,
 			pkt->cmd_buf_size - CMDQ_INST_SIZE * 3);
 	if (expect_eoc && *expect_eoc == CMDQ_EOC_CMD)
@@ -3217,6 +3221,12 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 		} else if (cnt > 0 && !(curr_pa >= CMDQ_BUF_ADDR(buf) &&
 			curr_pa < CMDQ_BUF_ADDR(buf) + CMDQ_BUF_ALLOC_SIZE)) {
+/*N17 code for HQ-301760 by p-lizongrui at 2023/07/03 start*/
+			if (!buf->va_base) {
+				cmdq_err("buf->va_base is empty");
+				return -EINVAL;
+			}
+/*N17 code for HQ-301760 by p-lizongrui at 2023/07/03 end*/
 			cmdq_util_user_msg(client ? client->chan : NULL,
 				"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%llu %#018llx (skip detail) %#018llx",
 				cnt, buf, buf->va_base, &buf->pa_base,

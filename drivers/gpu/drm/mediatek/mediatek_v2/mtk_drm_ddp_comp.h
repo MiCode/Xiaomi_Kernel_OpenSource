@@ -460,6 +460,21 @@ enum mtk_ddp_io_cmd {
 	GET_FRAME_HRT_BW_BY_MODE,
 	DSI_SEND_DDIC_CMD,
 	DSI_READ_DDIC_CMD,
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+#ifdef CONFIG_MI_DISP
+	MI_DSI_READ_DDIC_CMD,
+	MI_SET_BL_BY_I2C,
+	MI_SET_DC_CRC,
+	MI_SET_DC_CRC_OFF,
+	MI_GET_DC_STATUS,
+	MI_SET_DC_BACKLIGHT,
+	MI_SET_DC_THRESHOLD,
+	MI_SET_BACKLIGHT_DIMMING,
+	MI_RESTORE_CRC_LEVEL,
+	MI_SET_DC_CRC_BL_PACK,
+	MI_GET_WP_INFO,
+#endif
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	DSI_GET_VIRTUAL_HEIGH,
 	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,
@@ -483,6 +498,13 @@ enum mtk_ddp_io_cmd {
 	DUAL_TE_INIT,
 	DSI_GET_CMD_MODE_LINE_TIME,
 	OVL_GET_SOURCE_BPC,
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	ESD_RESTORE_BACKLIGHT,
+	MI_DISP_ESD_CHECK_READ,
+	MI_DISP_ESD_CHECK_CMP,
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 };
 
 struct golden_setting_context {
@@ -644,6 +666,9 @@ struct mtk_ddp_comp {
 	u32 last_qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start*/
+	struct mutex panel_lock;
+/*N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end*/
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,

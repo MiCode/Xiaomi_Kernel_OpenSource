@@ -40,7 +40,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr/
 #endif
 
 ccflags-y += -DTUI_ENABLE_DISPLAY
-ccflags-y += -DTUI_ENABLE_TOUCH
+# N17 code for HQ-291658 by gaoxue at 2023/4/18 start
+#ccflags-y += -DTUI_ENABLE_TOUCH
+# N17 code for HQ-291658 by gaoxue at 2023/4/18 end
 ccflags-y += -DTUI_LOCK_I2C
 ccflags-y += -DTUI_ENABLE_MPU
 

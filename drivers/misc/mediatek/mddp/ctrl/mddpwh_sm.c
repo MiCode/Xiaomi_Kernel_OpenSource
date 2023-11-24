@@ -756,7 +756,7 @@ static int32_t mddpw_drv_get_mddp_feature(void)
 
 	feature = atomic_read(&app->feature);
 	if (!app->reset_cnt) {
-		MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
+		//MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
 		app->abnormal_flags |= MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
 	}
 	return feature;

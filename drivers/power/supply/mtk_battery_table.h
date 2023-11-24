@@ -152,7 +152,7 @@
 #define EXT_HWOCV_SWOCV_LT_TEMP		5
 
 /* fgc & fgv threshold */
-#define DIFFERENCE_FGC_FGV_TH1		300
+#define DIFFERENCE_FGC_FGV_TH1		100
 #define DIFFERENCE_FGC_FGV_TH2		500
 #define DIFFERENCE_FGC_FGV_TH3		300
 #define DIFFERENCE_FGC_FGV_TH_SOC1	7000
@@ -387,8 +387,10 @@ int g_FG_PSEUDO1_OFFSET[TOTAL_BATTERY_NUMBER] = {0, 0, 0, 0};
 /* pmic_min_vol by temp ,control by MULTI_TEMP_GAUGE0=1, 34000=3.4v */
 int g_PMIC_MIN_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
+/* N17 code for HQHW-4392 by tongjiacheng at 20230710 start */
+	{33450, 33450, 33450, 33450},/*T0*/
+	{33450, 33450, 33450, 33450},/*T1*/
+/* N17 code for HQHW-4392 by tongjiacheng at 20230710 end */
 	{33500, 33500, 33500, 33500},/*T2*/
 	{32200, 32200, 32200, 32200},/*T3*/
 	{31000, 31000, 31000, 31000},/*T4*/
@@ -417,11 +419,17 @@ int g_PON_SYS_IBOOT[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 /* Q_MAX_SYS_VOLTAGE by temp ,control by MULTI_TEMP_GAUGE0=1, */
 int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
-	{33500, 33500, 33500, 33500},/*T2*/
-	{32900, 32900, 32900, 32900},/*T3*/
-	{32800, 32800, 32800, 32800},/*T4*/
+/* N17 code for HQHW-4392 by tongjiacheng at 20230710 start */
+	{33450, 33450, 33450, 33450},/*T0*/
+	{33450, 33450, 33450, 33450},/*T1*/
+/* N17 code for HQHW-4392 by tongjiacheng at 20230710 end */
+/* N17 code for HQHW-4276 by tongjiacheng at 20230704 start */
+	{33100, 33100, 33100, 33100},/*T2*/
+/* N17 code for HQHW-4549 by wangtingting at 2023/07/09 start */
+	{30300, 30300, 30300, 30300},/*T3*/
+	{31250, 31250, 31250, 31250},/*T4*/
+/* N17 code for HQHW-4549 by wangtingting at 2023/07/09 end */
+/* N17 code for HQHW-4276 by tongjiacheng at 20230704 end */
 	{33500, 33500, 33500, 33500},/*T5*/
 	{33500, 33500, 33500, 33500},/*T6*/
 	{33500, 33500, 33500, 33500},/*T7*/

@@ -30,6 +30,10 @@
 #include <mt-plat/mtk_thermal_platform.h>
 #include <linux/uidgid.h>
 #include <mtk_thermal_platform_init.h>
+#include <linux/power_supply.h>
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+#include <tmp_bts.h>
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
 /* ************************************ */
 /* Definition */
 /* ************************************ */
@@ -162,6 +166,22 @@ static long _get_current_time_us(void)
 	return (t.tv_sec & 0xFFF) * 1000000 + t.tv_usec;
 }
 #endif
+
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+int get_supply_rank(void) {
+	int supply = MAIN_SUPPLY;
+	struct power_supply *psy;
+
+	psy = power_supply_get_by_name("ln8000-charger");
+	if (psy != NULL) {
+		supply = SECONDARY_SUPPLY;
+	}
+
+	THRML_LOG("%s: supply is %d\n", __func__, supply);
+	return supply;
+}
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
+
 static int mtk_thermal_get_tz_idx(char *type)
 {
 	if (strncmp(type, "mtktscpu", 8) == 0)
@@ -599,8 +619,12 @@ static int _mtkthermal_tz_read(struct seq_file *m, void *v)
 			int fake_temp = 0;
 
 			tzdata = tz->devdata;
-			if (!tzdata)
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 start */
+			if (!tzdata) {
 				WARN_ON_ONCE(1);
+				return -ENOMEM;
+			}
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 end */
 #if (MAX_STEP_MA_LEN > 1)
 			mutex_lock(&tzdata->ma_lock);
 			ma_len = tzdata->ma_len;
@@ -660,8 +684,12 @@ static ssize_t _mtkthermal_tz_write
 			struct mtk_thermal_tz_data *tzdata = NULL;
 
 			tzdata = tz->devdata;
-			if (!tzdata)
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 start */
+			if (!tzdata) {
 				WARN_ON_ONCE(1);
+				return -ENOMEM;
+			}
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 end */
 			/* THRML_ERROR_LOG(
 			 * "%s trailing=%s\n", __func__, trailing);
 			 */
@@ -714,8 +742,12 @@ static ssize_t _mtkthermal_tz_write
 			struct mtk_thermal_tz_data *tzdata = NULL;
 
 			tzdata = tz->devdata;
-			if (!tzdata)
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 start */
+			if (!tzdata) {
 				WARN_ON_ONCE(1);
+				return -ENOMEM;
+			}
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 end */
 			mutex_lock(&tzdata->ma_lock);
 			tzdata->fake_temp = (long)arg_val;
 			mutex_unlock(&tzdata->ma_lock);
@@ -1446,11 +1478,15 @@ static int mtk_cooling_wrapper_set_cur_state
 				_mtkthermal_check_cooler_conditions(mcdata)) {
 			/* pass */
 		} else {
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 start */
+			if (mcdata->tz != NULL) {
 			THRML_LOG(
 				"[.set_cur_state]condition check failed tz_type:%s cdev_type:%s trip:%d state:%lu\n",
 				mcdata->tz->type, cdev->type,
 				mcdata->trip, state);
 			state = 0;
+			}
+			/* N17 code for HQ-299577 by liunianliang at 2023/6/19 end */
 		}
 	}
 	if (state == 0) {
@@ -1521,6 +1557,7 @@ static int mtk_cooling_wrapper_set_cur_state
 	mutex_unlock(&MTM_COOLER_LOCK);
 	return ret;
 }
+
 /* Cooling callbacks OPS */
 static struct thermal_cooling_device_ops mtk_cooling_wrapper_dev_ops = {
 	.get_max_state = mtk_cooling_wrapper_get_max_state,
@@ -1708,43 +1745,50 @@ struct proc_dir_entry *mtk_thermal_get_proc_drv_therm_dir_entry(void)
 EXPORT_SYMBOL(mtk_thermal_get_proc_drv_therm_dir_entry);
 static int __init thermal_monitor_init(void)
 {
-		mtkthermal_init();
-		mtk_thermal_platform_init();
-		mtk_cooler_shutdown_init();
-		mtk_cooler_kshutdown_init();
-		mtk_cooler_atm_init();
-		mtk_cooler_dtm_init();
-		mtk_cooler_bcct_init();
-		mtk_cooler_cam_init();
-		mtk_cooler_mutt_init();
-		mtk_cooler_sysrst_init();
-		mtk_cooler_VR_FPS_init();
-		ta_init();
+	mtkthermal_init();
+	mtk_thermal_platform_init();
+	mtk_cooler_shutdown_init();
+	mtk_cooler_kshutdown_init();
+	mtk_cooler_dtm_init();
+	mtk_cooler_bcct_init();
+	mtk_cooler_cam_init();
+	mtk_cooler_mutt_init();
+	mtk_cooler_sysrst_init();
+	mtk_cooler_VR_FPS_init();
+	ta_init();
 #if defined(LVTS_CPU_PM_NTFY_CALLBACK)
-		mtk_thermal_pm_init();
+	mtk_thermal_pm_init();
 #endif
-		tscpu_init();
-		mtktspmic_init();
-		//mt6358tsbuck1_init();
-		//mt6358tsbuck2_init();
-		//mt6358tsbuck3_init();
-mt6359vcore_init();
-mt6359vproc_init();
-mt6359vgpu_init();
-mt6359tsx_init();
-mt6359dcxo_init();
-mtkts_btsnrpa_init();
-		mtktsbattery_init();
-		mtkts_bts_init();
-		mtkts_btsmdpa_init();
-		mtktspa_init();
-		mtk_mdm_txpwr_init();
-		mtktscharger_init();
-		mtk_imgs_init();
-		mtkts_dctm_init();
-		wmt_tm_init();
-		tsallts_init();
-		return 0;
+	tscpu_init();
+	mtktspmic_init();
+	//mt6358tsbuck1_init();
+	//mt6358tsbuck2_init();
+	//mt6358tsbuck3_init();
+	mt6359vcore_init();
+	mt6359vproc_init();
+	mt6359vgpu_init();
+	mt6359tsx_init();
+	mt6359dcxo_init();
+	//mtkts_btsnrpa_init();
+	mtktsbattery_init();
+	mtkts_bts_init();
+	mtkts_btsmdpa_init();
+	mtktspa_init();
+	mtk_mdm_txpwr_init();
+	mtktscharger_init();
+	mtk_imgs_init();
+	mtkts_dctm_init();
+	wmt_tm_init();
+	tsallts_init();
+
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+	mtk_cooler_char_curr_init();
+	mtk_cooler_gpu_init();
+	mtk_cooler_md_init();
+	mtkcs_cpu_init();
+	thermal_message_init();
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
+	return 0;
 }
 static void __exit thermal_monitor_exit(void)
 {
@@ -1752,7 +1796,6 @@ static void __exit thermal_monitor_exit(void)
 	mtk_thermal_platform_exit();
 	mtk_cooler_shutdown_exit();
 	mtk_cooler_kshutdown_exit();
-	mtk_cooler_atm_exit();
 	mtk_cooler_dtm_exit();
 	mtk_cooler_bcct_exit();
 	mtk_cooler_cam_exit();
@@ -1767,12 +1810,12 @@ static void __exit thermal_monitor_exit(void)
 	//mt6358tsbuck1_exit();
 	//mt6358tsbuck2_exit();
 	//mt6358tsbuck3_exit();
-mt6359vcore_exit();
-mt6359vproc_exit();
-mt6359vgpu_exit();
-mt6359tsx_exit();
-mt6359dcxo_exit();
-mtkts_btsnrpa_exit();
+	mt6359vcore_exit();
+	mt6359vproc_exit();
+	mt6359vgpu_exit();
+	mt6359tsx_exit();
+	mt6359dcxo_exit();
+	//mtkts_btsnrpa_exit();
 	mtktsbattery_exit();
 	mtkts_bts_exit();
 	mtkts_btsmdpa_exit();
@@ -1782,6 +1825,14 @@ mtkts_btsnrpa_exit();
 	mtkts_dctm_exit();
 	wmt_tm_deinit();
 	tsallts_exit();
+
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+	mtk_cooler_md_exit();
+	mtk_cooler_gpu_exit();
+	mtk_cooler_char_curr_exit();
+	mtkcs_cpu_exit();
+	thermal_message_exit();
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
 }
 module_init(thermal_monitor_init);
 module_exit(thermal_monitor_exit);

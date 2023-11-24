@@ -28,6 +28,13 @@
 #if IS_ENABLED(CONFIG_MEDIATEK_MT6577_AUXADC)
 #include <linux/iio/consumer.h>
 #endif
+
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 */
+/*
+ * This file has been modified for thermal NTC about RF PA
+ * the AUXADC is 1
+ */
+
 /*=============================================================
  *Weak functions
  *=============================================================
@@ -62,7 +69,7 @@ static int mtkts_btsmdpa_debug_log;
 static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static int num_trip;
+static int num_trip = 1;
 static char g_bind0[20] = {"mtk-cl-shutdown02"};
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
@@ -370,7 +377,7 @@ static struct BTSMDPA_TEMPERATURE BTSMDPA_Temperature_Table6[] = {
 	{125, 2560}
 };
 
-/* NCP15WF104F03RC(100K) */
+/* NCP03WF104F05RL- secondary supply(100K) */
 static struct BTSMDPA_TEMPERATURE BTSMDPA_Temperature_Table7[] = {
 	{-40, 4397119},
 	{-35, 3088599},
@@ -462,6 +469,97 @@ static struct BTSMDPA_TEMPERATURE BTSMDPA_Temperature_Table7[] = {
 	{125, 2522}
 };
 
+/* SDNT0603C104F4250FTF- main supply (100K) */
+static struct BTSMDPA_TEMPERATURE BTSMDPA_Temperature_Table8[] = {
+	{-40, 4429000},
+	{-35, 3132000},
+	{-30, 2236000},
+	{-25, 1614000},
+	{-20, 1177000},
+	{-15, 865400},
+	{-10, 642900},
+	{-5, 485200},
+	{0, 365600},
+	{5, 278500},
+	{10, 214500},
+	{15, 165400},
+	{20, 129800},
+	{25, 100000},		/* 100K */
+	{30, 79400},
+	{35, 63400},
+#if defined(APPLY_PRECISE_NTC_TABLE)
+	{40, 50770},
+	{41, 48680},
+	{42, 46790},
+	{43, 44830},
+	{44, 42720},
+	{45, 40930},
+	{46, 39220},
+	{47, 37620},
+	{48, 36060},
+	{49, 34590},
+	{50, 33190},
+	{51, 31850},
+	{52, 30560},
+	{53, 29340},
+	{54, 28170},
+	{55, 27050},
+	{56, 25980},
+	{57, 24970},
+	{58, 24000},
+	{59, 23060},
+	{60, 22160},
+	{61, 21310},
+	{62, 20490},
+	{63, 19730},
+	{64, 18970},
+	{65, 18250},
+	{66, 17570},
+	{67, 16920},
+	{68, 16290},
+	{69, 15700},
+	{70, 15110},
+	{71, 14560},
+	{72, 14030},
+	{73, 13520},
+	{74, 13040},
+	{75, 12590},
+	{76, 12130},
+	{77, 11720},
+	{78, 11290},
+	{79, 10900},
+	{80, 10510},
+	{81, 10140},
+	{82,  9779},
+	{83,  9454},
+	{84,  9134},
+	{85,  8814},
+	{86,  8521},
+	{87,  8224},
+	{88,  7952},
+	{89,  7689},
+	{90,  7421},
+#else
+	{40, 50677},
+	{45, 40930},
+	{50, 33190},
+	{55, 27050},
+	{60, 22160},
+	{65, 18250},
+	{70, 15110},
+	{75, 12590},
+	{80, 10510},
+	{85,  8814},
+	{90,  7421},
+#endif
+	{95, 6283},
+	{100, 5335},
+	{105, 4546},
+	{110, 3887},
+	{115, 3339},
+	{120, 2878},
+	{125, 2493}
+};
 
 /* convert register to temperature  */
 static __s32 mtkts_btsmdpa_thermistor_conver_temp(__s32 Res)
@@ -1151,9 +1249,13 @@ void mtkts_btsmdpa_prepare_table(int table_num)
 		BTSMDPA_Temperature_Table = BTSMDPA_Temperature_Table6;
 		ntc_tbl_size = sizeof(BTSMDPA_Temperature_Table6);
 		break;
-	case 7:		/* NCP15WF104F03RC */
+	case 7:		/* NCP03WF104F05RL- secondary supply */
 		BTSMDPA_Temperature_Table = BTSMDPA_Temperature_Table7;
 		ntc_tbl_size = sizeof(BTSMDPA_Temperature_Table7);
+		break;
+	case 8:		/* SDNT0603C104F4250FTF- main supply */
+		BTSMDPA_Temperature_Table = BTSMDPA_Temperature_Table8;
+		ntc_tbl_size = sizeof(BTSMDPA_Temperature_Table8);
 		break;
 	default:		/* AP_NTC_10 */
 		BTSMDPA_Temperature_Table = BTSMDPA_Temperature_Table4;
@@ -1417,13 +1519,13 @@ static int mtkts_btsmdpa_probe(struct platform_device *pdev)
 }
 
 #if IS_ENABLED(CONFIG_OF)
-const struct of_device_id mt_thermistor_of_match2[2] = {
-	{.compatible = "mediatek,mtboard-thermistor2",},
+const struct of_device_id mt_thermistor_of_match1[2] = {
+	{.compatible = "mediatek,mtboard-thermistor1",},
 	{},
 };
 #endif
 
-#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor2"
+#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor1"
 static struct platform_driver mtk_thermal_btsmdpa_driver = {
 	.remove = NULL,
 	.shutdown = NULL,
@@ -1433,7 +1535,7 @@ static struct platform_driver mtk_thermal_btsmdpa_driver = {
 	.driver = {
 		.name = THERMAL_THERMISTOR_NAME,
 #if IS_ENABLED(CONFIG_OF)
-		.of_match_table = mt_thermistor_of_match2,
+		.of_match_table = mt_thermistor_of_match1,
 #endif
 	},
 };
@@ -1449,7 +1551,14 @@ int mtkts_btsmdpa_init(void)
 	struct proc_dir_entry *mtkts_btsmdpa_dir = NULL;
 #endif
 
-	mtkts_btsmdpa_dprintk("[%s]\n", __func__);
+	if (get_supply_rank() == MAIN_SUPPLY) {
+		g_RAP_ntc_table = MAIN_SUPPLY_RAP_NTC_TABLE;
+		g_TAP_over_critical_low = 4429000;
+	} else {
+		g_RAP_ntc_table = BTSMDPA_RAP_NTC_TABLE;
+	}
+
+	printk("[%s], g_RAP_ntc_table = %d\n", __func__, g_RAP_ntc_table);
 
 
 #if IS_ENABLED(CONFIG_MEDIATEK_MT6577_AUXADC)

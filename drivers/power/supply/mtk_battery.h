@@ -100,6 +100,20 @@ do {\
 	.set	= _name##_set,						\
 }
 
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+/* smart chg for smart charge engine */
+enum smart_chg_functype{
+	SMART_CHG_STATUS_FLAG = 0,
+	SMART_CHG_FEATURE_MIN_NUM = 1,
+	SMART_CHG_NAVIGATION = 1,
+	SMART_CHG_OUTDOOR_CHARGE,
+        SMART_CHG_LOW_FAST = 3,
+	/* add new func here */
+	SMART_CHG_FEATURE_MAX_NUM = 15,
+};
+/* end of smart chg */
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
+
 enum battery_property {
 	BAT_PROP_TEMPERATURE,
 	BAT_PROP_COULOMB_INT_GAP,
@@ -113,6 +127,10 @@ enum battery_property {
 	BAT_PROP_FG_RESET,
 	BAT_PROP_LOG_LEVEL,
 	BAT_PROP_TEMP_TH_GAP,
+    BAT_PROP_SMART_BATT,
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+    BAT_PROP_SMART_CHG,
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 };
 
 struct battery_data {
@@ -126,9 +144,18 @@ struct battery_data {
 	int bat_present;
 	int bat_technology;
 	int bat_capacity;
+/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 start*/
+	int final_capacity;
+/*N17 code for HQHW-5058 by yeyinzi at 2023/8/28 end*/
 	/* Add for Battery Service */
 	int bat_batt_vol;
 	int bat_batt_temp;
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+	int bat_full;
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+	int soc;
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
 };
 
 struct VersionControl {
@@ -811,8 +838,9 @@ struct simulator_log {
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
+/*N17 code for HQ-290608 by liunianliang at 2023/5/23 start*/
 #define BATTERY_SHUTDOWN_TEMPERATURE 60
-
+/*N17 code for HQ-290608 by liunianliang at 2023/5/23 end*/
 struct shutdown_condition {
 	bool is_overheat;
 	bool is_soc_zero_percent;
@@ -885,6 +913,20 @@ struct zcv_filter {
 struct ag_center_data_st {
 	int data[43];
 	struct timespec64 times[3];
+};
+
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+struct smart_chg {
+	bool en_ret;
+	int active_status;
+	int func_val;
+};
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
+
+enum smooth_flag{
+	LOW_FAST_NORMAL = 0,
+	LOW_FAST_IN = 1,
+	LOW_FAST_SWITCH = 2,
 };
 
 struct mtk_battery {
@@ -1070,12 +1112,26 @@ struct mtk_battery {
 	int enable_tmp_intr_suspend;
 	struct battery_temperature_table rbat;
 	struct fg_temp *tmp_table;
+        int fake_bat_cycle;
 
 	void (*shutdown)(struct mtk_battery *gm);
 	int (*suspend)(struct mtk_battery *gm, pm_message_t state);
 	int (*resume)(struct mtk_battery *gm);
 
 	int log_level;
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 start */
+	int const_current;
+/* N17 code for HQ-292280 by tongjiacheng at 20230610 end */
+/* N17 code for HQ-292280 by tongjiacheng at 20230613 start */
+	int thermal_level;
+/* N17 code for HQ-292280 by tongjiacheng at 20230613 end */
+    int diff_fv_val;
+/* N17 smart_batt*/
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 start*/
+	struct smart_chg smart_charge[SMART_CHG_FEATURE_MAX_NUM + 1];
+/*N17 code for HQ-305986 by xm tianye9 at 2023/07/05 end*/
+        int fake_cycle_count;
+        enum smooth_flag s_flag;
 };
 
 struct mtk_battery_sysfs_field_info {

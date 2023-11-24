@@ -626,6 +626,12 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 
 	DDPINFO("%s: %d\n", __func__, bl_1024);
 
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+#if CONFIG_MI_DISP
+	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_BACKLIGHT, sizeof(bl_1024), bl_1024);
+#endif
+
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
 		if (default_comp != NULL &&
 			g_ccorr_relay_value[index_of_ccorr(default_comp->id)] != 1) {

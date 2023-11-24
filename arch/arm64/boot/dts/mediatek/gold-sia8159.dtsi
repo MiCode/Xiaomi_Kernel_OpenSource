@@ -1,0 +1,57 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pio {
+	sia81xx_gpio_L_ONE: sia81xx_gpio_L_ONE {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
+			slew-rate = <1>;
+			bias-disable;
+		};
+	};
+};
+
+&odm {
+	si_pa_L_One: si_pa@L_One {
+		compatible = "si,sia81xx";
+		si,si_pa_type = "sia81x9";
+		si,si_pa_reset = <&pio 16 0>;
+		pinctrl-names = "si_pa_gpio";
+		pinctrl-0 = <&sia81xx_gpio_L_ONE>;
+		si,si_pa_disable_pin = <1>;
+		/* the same value share a same task
+		 * valid value range : 0 ~ 7 */
+		timer_task_hdl = <0>;
+		channel_num = <0>;
+		owi_mode = <1>;
+	};
+};
+
+&sound {
+	si,sia81xx-max-num = <1>;
+	si,sia81xx-aux-devs = <&si_pa_L_One>;
+	si,sia81xx-aux-devs-prefix = "SpkrLeft";
+};
+
+/* N17 code for HQ-295628 by xuqingli at 2023/5/09 start */
+&i2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	mediatek,use-open-drain;
+	sia81xx_i2c_L: sia81xx_i2c@L {
+		compatible = "si,sia81xx-i2c";
+		reg = <0x29>;
+		si,sipa-dev = <&si_pa_L_One>;
+	};
+};
+/* N17 code for HQ-295628 by xuqingli at 2023/5/09 end */

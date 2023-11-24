@@ -67,4 +67,6 @@ mainaf-y  += common/bu63169af/OIS_func.o
 mainaf-y  += common/bu63169af/OIS_main.o
 mainaf-y  += common/bu63169af/OIS_user.o
 mainaf-y  += common/bu64253gwzaf/BU64253GWZAF.o
-
+#N17 code for HQ-293325 by chenxiaoyong at 2023/04/25 start
+mainaf-y  += common/dw9800vaf/DW9800VAF.o
+#N17 code for HQ-293325 by chenxiaoyong at 2023/04/25 end

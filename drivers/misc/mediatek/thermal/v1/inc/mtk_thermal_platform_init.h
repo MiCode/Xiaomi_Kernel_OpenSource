@@ -81,4 +81,17 @@ extern void mtk_cooler_sysrst_exit(void);
 extern int mtk_cooler_sysrst_init(void);
 extern int mtk_cooler_VR_FPS_init(void);
 extern void mtk_cooler_VR_FPS_exit(void);
+
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+extern int mtk_cooler_char_curr_init(void);
+extern void mtk_cooler_char_curr_exit(void);
+extern int mtk_cooler_gpu_init(void);
+extern void mtk_cooler_gpu_exit(void);
+extern int mtk_cooler_md_init(void);
+extern void mtk_cooler_md_exit(void);
+extern int mtkcs_cpu_init(void);
+extern void mtkcs_cpu_exit(void);
+extern int thermal_message_init(void);
+extern void thermal_message_exit(void);
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
 #endif

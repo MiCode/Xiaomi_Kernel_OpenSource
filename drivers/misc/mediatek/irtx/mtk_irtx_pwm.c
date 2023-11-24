@@ -9,7 +9,6 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
 #include <media/rc-core.h>
 
 #include <mt-plat/mtk_pwm.h>
@@ -20,8 +19,8 @@
 #define IRTX_PWM_CLOCK (26000000)
 //#define IRTX_DEBUG
 
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 start */
 struct mtk_pwm_ir {
-	struct regulator *regulator;
 	unsigned int pwm_ch;
 	unsigned int pwm_data_invert;
 	unsigned int carrier;
@@ -29,6 +28,7 @@ struct mtk_pwm_ir {
 	unsigned int cycle;
 	struct platform_device *pdev;
 };
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 end */
 
 static struct pwm_spec_config irtx_pwm_config = {
 	.pwm_no = 0,
@@ -46,6 +46,7 @@ static struct pwm_spec_config irtx_pwm_config = {
 	.PWM_MODE_MEMORY_REGS.WAVE_NUM = 1,
 };
 
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 start */
 static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 			 unsigned int count)
 {
@@ -57,7 +58,6 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	int total_time = 0;
 	int len = 0;
 	int cur_bit = 0;
-	int regulator_enabled = 0;
 #ifdef IRTX_DEBUG
 	static char logbuf[4096];
 	int cur_idx = 0;
@@ -152,18 +152,6 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 		pr_info("[%d] %s\n", cur_idx++, logbuf);
 #endif
 
-	if (pwm_ir->regulator != NULL) {
-		if (!regulator_is_enabled(pwm_ir->regulator)) {
-			ret = regulator_enable(pwm_ir->regulator);
-			if (ret < 0) {
-				pr_err("%s:%d regulator_enable fail!\n",
-						__func__, __LINE__);
-				goto exit_free;
-			} else {
-				regulator_enabled = 1;
-			}
-		}
-	}
 
 	ret = pwm_set_spec_config(&irtx_pwm_config);
 	if (ret < 0) {
@@ -176,22 +164,13 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	pr_info("[IRTX] done, clean up\n");
 	mt_pwm_disable(irtx_pwm_config.pwm_no, irtx_pwm_config.pmic_pad);
 
-	if (pwm_ir->regulator != NULL) {
-		if (regulator_enabled && regulator_is_enabled(pwm_ir->regulator)) {
-			ret = regulator_disable(pwm_ir->regulator);
-			if (ret < 0) {
-				pr_err("%s:%d regulator_disable fail!\n",
-					__func__, __LINE__);
-				goto exit_free;
-			}
-		}
-	}
 	ret = count;
 
 exit_free:
 	dma_free_coherent(&pwm_ir->pdev->dev, buf_size, wave_vir, wave_phy);
 	return ret;
 }
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 end */
 
 static int mtk_pwm_ir_set_duty_cycle(struct rc_dev *dev, u32 duty_cycle)
 {
@@ -217,12 +196,12 @@ static int mtk_pwm_ir_set_carrier(struct rc_dev *dev, u32 carrier)
 	return 0;
 }
 
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 start */
 static int mtk_pwm_ir_probe(struct platform_device *pdev)
 {
 	struct mtk_pwm_ir *pwm_ir;
 	struct rc_dev *rcdev;
 	int rc;
-	const char *pwm_str = NULL;
 
 	pwm_ir = devm_kmalloc(&pdev->dev, sizeof(*pwm_ir), GFP_KERNEL);
 	if (!pwm_ir)
@@ -232,21 +211,8 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 		&pwm_ir->pwm_ch);
 	of_property_read_u32(pdev->dev.of_node, "pwm_data_invert",
 		&pwm_ir->pwm_data_invert);
-	if (of_property_read_string(pdev->dev.of_node, "pwm-supply",
-		&pwm_str)) {
-		pr_info("Could not get pwm-supply property form dts");
-		return -ENODEV;
-	}
-
-	pwm_ir->regulator = devm_regulator_get(&pdev->dev, pwm_str);
-	if (IS_ERR(pwm_ir->regulator))
-		return PTR_ERR(pwm_ir->regulator);
 
 	pwm_ir->pdev = pdev;
-
-	rc = regulator_set_voltage(pwm_ir->regulator, 2800000, 2800000);
-	if (rc < 0)
-		return rc;
 
 	rcdev = devm_rc_allocate_device(&pdev->dev, RC_DRIVER_IR_RAW_TX);
 	if (!rcdev)
@@ -258,13 +224,14 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	rcdev->tx_ir = mtk_pwm_ir_tx;
 	rcdev->s_tx_duty_cycle = mtk_pwm_ir_set_duty_cycle;
 	rcdev->s_tx_carrier = mtk_pwm_ir_set_carrier;
-
+	pr_info("[IRTX] probe, clean up\n");
 	rc = devm_rc_register_device(&pdev->dev, rcdev);
 	if (rc < 0)
 		dev_err(&pdev->dev, "failed to register rc device\n");
 
 	return rc;
 }
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 end */
 
 static const struct of_device_id mtk_pwm_ir_of_match[] = {
 	{.compatible = "mediatek,irtx-pwm",},

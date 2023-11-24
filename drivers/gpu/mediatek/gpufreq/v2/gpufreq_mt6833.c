@@ -35,6 +35,10 @@
 #include <gpudfd_mt6833.h>
 #include <mtk_gpu_utility.h>
 
+/* N17 code for HQ-301145 by zhangyujian at 2023/6/29 start */
+extern int mtk_gpufreq_register (struct mt_gpufreq_power_table_info *freqs, int num);
+/* N17 code for HQ-301145 by zhangyujian at 2023/6/29 end */
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
@@ -53,6 +57,14 @@
 #if IS_ENABLED(CONFIG_COMMON_CLK_MT6833)
 #include <clk-fmeter.h>
 #include <clk-mt6833-fmeter.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
+#include "mtk_static_power.h"
 #endif
 
 /**
@@ -127,6 +139,10 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev);
 static int __gpufreq_pdrv_probe(struct platform_device *pdev);
 static int __gpufreq_pdrv_remove(struct platform_device *pdev);
 
+//thermal
+static void __mt_update_gpufreqs_power_table(void);
+static int (*mt_gpufreq_wrap_fp)(void);
+
 /**
  * ===============================================
  * Local Variable Definition
@@ -179,6 +195,9 @@ static unsigned int g_avs_enable;
 static unsigned int g_aging_load;
 static unsigned int g_mcl50_load;
 static enum gpufreq_dvfs_state g_dvfs_state;
+
+//thermal
+static struct mt_gpufreq_power_table_info *g_power_table;
 static DEFINE_MUTEX(gpufreq_lock);
 
 static struct gpufreq_platform_fp platform_ap_fp = {
@@ -216,6 +235,7 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_asensor_info = __gpufreq_get_asensor_info,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
+	.update_power_table = __mt_update_gpufreqs_power_table,
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
@@ -3184,6 +3204,157 @@ static void __gpufreq_init_shader_present(void)
 	GPUFREQ_LOGD("segment_id: %d, shader_present: %d", segment_id, g_shader_present);
 }
 
+void mt_gpufreq_set_gpu_wrap_fp(int (*gpu_wrap_fp)(void))
+{
+	mt_gpufreq_wrap_fp = gpu_wrap_fp;
+}
+EXPORT_SYMBOL(mt_gpufreq_set_gpu_wrap_fp);
+
+/*
+ * API : get current segment max opp index
+ */
+unsigned int mt_gpufreq_get_seg_max_opp_index(void)
+{
+	return g_gpu.segment_upbound;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_seg_max_opp_index);
+
+/* API : get OPP table index number */
+/* need to sub g_segment_max_opp_idx to map to real idx */
+unsigned int mt_gpufreq_get_dvfs_table_num(void)
+{
+	return  g_gpu.segment_lowbound - g_gpu.segment_upbound + 1;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_dvfs_table_num);
+
+/* power calculation for power table */
+static void __mt_gpufreq_calculate_power(unsigned int idx, unsigned int freq,
+			unsigned int volt, unsigned int temp)
+{
+	unsigned int p_total = 0;
+	unsigned int p_dynamic = 0;
+	unsigned int ref_freq = 0;
+	unsigned int ref_volt = 0;
+	int p_leakage = 0;
+
+	p_dynamic = __gpufreq_get_dyn_pgpu(freq, volt);
+
+#if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
+	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
+	if (p_leakage < 0)
+		p_leakage = 0;
+#else
+	p_leakage = 71;
+#endif
+
+	p_total = p_dynamic + p_leakage;
+
+	GPUFREQ_LOGD("idx = %d, p_dynamic = %d, p_leakage = %d, p_total = %d, temp = %d\n",
+			idx, p_dynamic, p_leakage, p_total, temp);
+
+	g_power_table[idx].gpufreq_power = p_total;
+
+}
+
+/*
+ * OPP power table initialization
+ */
+static void __mt_gpufreq_setup_opp_power_table(int num)
+{
+	int i = 0;
+	int temp = 0;
+
+	g_power_table = kzalloc((num) * sizeof(struct mt_gpufreq_power_table_info), GFP_KERNEL);
+
+	if (g_power_table == NULL)
+		return;
+
+#ifdef CONFIG_THERMAL
+	if (mt_gpufreq_wrap_fp)
+		temp = mt_gpufreq_wrap_fp() / 1000;
+	else
+		temp = 40;
+#else
+	temp = 40;
+#endif /* ifdef CONFIG_THERMAL */
+
+	GPUFREQ_LOGD("temp = %d\n", temp);
+
+	if ((temp < -20) || (temp > 125)) {
+		GPUFREQ_LOGD("temp < -20 or temp > 125!\n");
+		temp = 65;
+	}
+
+	for (i = 0; i < num; i++) {
+		g_power_table[i].gpufreq_khz = g_gpu.signed_table[i].freq;
+		g_power_table[i].gpufreq_volt = g_gpu.signed_table[i].volt;
+
+		__mt_gpufreq_calculate_power(i, g_power_table[i].gpufreq_khz,
+				g_power_table[i].gpufreq_volt, temp);
+
+		GPUFREQ_LOGD("[%d], freq_khz = %u, volt = %u, power = %u\n",
+				i, g_power_table[i].gpufreq_khz,
+				g_power_table[i].gpufreq_volt,
+				g_power_table[i].gpufreq_power);
+	}
+	mtk_gpufreq_register(g_power_table, num);
+}
+
+
+/* update OPP power table */
+static void __mt_update_gpufreqs_power_table(void)
+{
+	int i;
+	int temp = 0;
+	unsigned int freq = 0;
+	unsigned int volt = 0;
+
+#ifdef CONFIG_THERMAL
+	if (mt_gpufreq_wrap_fp)
+		temp = mt_gpufreq_wrap_fp() / 1000;
+	else
+		temp = 40;
+
+#else
+	temp = 40;
+#endif /* ifdef CONFIG_THERMAL */
+
+	GPUFREQ_LOGD("temp = %d\n", temp);
+
+	mutex_lock(&gpufreq_lock);
+
+	if ((temp >= -20) && (temp <= 125)) {
+		for (i = 0; i < g_gpu.signed_opp_num; i++) {
+			freq = g_power_table[i].gpufreq_khz;
+			volt = g_power_table[i].gpufreq_volt;
+
+			__mt_gpufreq_calculate_power(i, freq, volt, temp);
+
+			GPUFREQ_LOGD("[%d] freq_khz = %d, volt = %d, power = %d\n",
+				i, g_power_table[i].gpufreq_khz,
+				g_power_table[i].gpufreq_volt,
+				g_power_table[i].gpufreq_power);
+		}
+	} else {
+		GPUFREQ_LOGE("temp < -20 or temp > 125, NOT update power table!\n");
+	}
+
+	mutex_unlock(&gpufreq_lock);
+
+}
+
+struct mt_gpufreq_power_table_info *mt_gpufreq_get_power_table(void)
+{
+	return g_power_table;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_power_table);
+
+unsigned int mt_gpufreq_get_power_table_num(void)
+{
+	return g_gpu.signed_opp_num;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_power_table_num);
+
 /*
  * 1. init working OPP range
  * 2. init working OPP table = default + adjustment
@@ -3197,11 +3368,15 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 
 	/* init working OPP range */
 	segment_id = g_gpu.segment_id;
-	/* for mt6789 swrgo */
-	if (segment_id == MT6833_SEGMENT)
+	if (segment_id == MT6833_SEGMENT)    /* 5G-C */
 		g_gpu.segment_upbound = 11;
+	else if (segment_id == MT6833M_SEGMENT)    /* 5G-CM */
+		g_gpu.segment_upbound = 24;
+	else if (segment_id == MT6833T_SEGMENT)    /* 5G-C+ */
+		g_gpu.segment_upbound = 0;
 	else
-		g_gpu.segment_upbound = 8;
+		g_gpu.segment_upbound = 0;
+
 	g_gpu.segment_lowbound = SIGNED_OPP_GPU_NUM - 1;
 	g_gpu.signed_opp_num = SIGNED_OPP_GPU_NUM;
 
@@ -3253,6 +3428,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	}
 
 	__gpufreq_set_springboard();
+	__mt_gpufreq_setup_opp_power_table(g_gpu.signed_opp_num);
 
 done:
 	return ret;
@@ -3279,7 +3455,47 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	unsigned int segment_id = 0;
 	int ret = GPUFREQ_SUCCESS;
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+#endif
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_segment_cell\n", __func__);
+		PTR_ERR(efuse_cell);
+		goto done;
+	}
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_buf of efuse segment\n", __func__);
+		PTR_ERR(efuse_buf);
+		kfree(efuse_buf);
+		goto done;
+	}
+	efuse_id = (*efuse_buf & 0xFF);
+	GPUFREQ_LOGE("CONFIG_MTK_DEVINFO efuse id: 0x%x", efuse_id);
+	kfree(efuse_buf);
+#else
+	efuse_id = 0x0;
+	GPUFREQ_LOGE("CONFIG_MTK_DEVINFO Not enabled efuse id: 0x%x", efuse_id);
+#endif /* CONFIG_MTK_DEVINFO */
 	switch (efuse_id) {
+	case 0x01:
+	case 0x02:
+		segment_id = MT6833_SEGMENT;    /* 5G-C */
+		break;
+	case 0x03:
+	case 0x04:
+		segment_id = MT6833M_SEGMENT;    /* 5G-CM */
+		break;
+	case 0x06:
+	case 0x07:
+	case 0x08:
+		segment_id = MT6833T_SEGMENT;    /* 5G-C+ */
+		break;
 	default:
 		segment_id = MT6833_SEGMENT;
 		GPUFREQ_LOGW("unknown efuse id: 0x%x", efuse_id);
@@ -3287,7 +3503,7 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	}
 
 	GPUFREQ_LOGI("efuse_id: 0x%x, segment_id: %d", efuse_id, segment_id);
-
+done:
 	g_gpu.segment_id = segment_id;
 
 	return ret;
@@ -3814,6 +4030,7 @@ static int __gpufreq_pdrv_remove(struct platform_device *pdev)
 	kfree(g_gpu.sb_table);
 	kfree(g_clk);
 	kfree(g_pmic);
+	kfree(g_power_table);
 #if !GPUFREQ_SELF_CTRL_MTCMOS
 	kfree(g_mtcmos);
 #endif /* GPUFREQ_SELF_CTRL_MTCMOS */

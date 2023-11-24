@@ -15,6 +15,35 @@ struct IMGSENSOR_INIT_FUNC_LIST {
 	MUINT32 (*init)(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 };
 
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 start */
+UINT32 OV64B40_OFILM_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/* N17 code for HQ-293325 by chenxiaoyong at 2023/04/21 end */
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+UINT32 OV50D40_SUNNY_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
+/* N17 code for HQ-293326 by zhaoyue start*/
+UINT32 OV16A1Q_AAC_FRONT_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+UINT32 OV16A1Q_SUNNY_FRONT_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/* N17 code for HQ-293326 by zhaoyue end*/
+/* N17 code for HQ-293327 by changqi start*/
+UINT32 OV08D10_AAC_ULTRA_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+UINT32 OV08D10_SUNNY_ULTRA_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/* N17 code for HQ-293327 by changqi end*/
+/* N17 code for HQ-293329 by wuzhenyue start*/
+UINT32 SC202CS_AAC_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT  **pfFunc);
+/* N17 code for HQ-293329 by wuzhenyue end*/
+/* N17 code for HQ-293328 by yinrong start*/
+UINT32 SC202PCS_AAC_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/* N17 code for HQ-293328 by yinrong end*/
+/* N17 code for HQ-293329 by wuzhenyue start*/
+UINT32 SC202CS_SUNNY_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT  **pfFunc);
+/* N17 code for HQ-293329 by wuzhenyue end*/
+/* N17 code for HQ-293329 by wuzhenyue start*/
+UINT32 SC202CS_SUNNY2_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT  **pfFunc);
+/* N17 code for HQ-293329 by wuzhenyue end*/
+/* N17 code for HQ-293328 by yinrong start*/
+UINT32 SC202PCS_SUNNY_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+/* N17 code for HQ-293328 by yinrong end*/
 /*IMX*/
 UINT32 IMX586_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 IMX766_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
@@ -126,6 +155,12 @@ UINT32 S5K8AAYX_PVI_YUV_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 S5K5E8YX_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 S5K3P9SP_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 S5KHM2SP_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+//N17 code for HQ-293325 by wangqiang start
+UINT32 S5KHM6_SEMCO_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+//N17 code for HQ-293325 by wangqiang end
+//N17 code for HQ-293325 by wuzhenyue start
+UINT32 S5KHM6_AAC_MAIN_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
+//N17 code for HQ-293325 by wuzhenyue end
 /*HI*/
 UINT32 HI841_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);
 UINT32 HI707_YUV_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc);

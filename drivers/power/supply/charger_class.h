@@ -49,6 +49,13 @@ enum {
 	CHARGER_DEV_NOTIFY_BATPRO_DONE,
 };
 
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 start*/
+enum {
+	LN8000_CP = 1,
+	SC8551X_CP,
+	UNKNOWN_CP,
+};
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 end*/
 struct charger_device {
 	struct charger_properties props;
 	struct chgdev_notify noti;
@@ -72,6 +79,11 @@ union charger_propval {
 struct charger_ops {
 	int (*suspend)(struct charger_device *dev, pm_message_t state);
 	int (*resume)(struct charger_device *dev);
+
+	/* N17 code for HQHW-4906 by p-gucheng at 20230812 start */
+	/* cable online */
+	int (*get_online)(struct charger_device *dev);
+	/* N17 code for HQHW-4906 by p-gucheng at 20230812 end */
 
 	/* cable plug in/out */
 	int (*plug_in)(struct charger_device *dev);
@@ -161,6 +173,12 @@ struct charger_ops {
 	/* charger type detection */
 	int (*enable_chg_type_det)(struct charger_device *dev, bool en);
 
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+#ifdef CONFIG_MTK_SOFT_HVDCP_2
+	int (*rerun_apsd)(struct charger_device *chg_dev, bool en);
+#endif
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
+
 	/* run AICL */
 	int (*run_aicl)(struct charger_device *dev, u32 *uA);
 
@@ -200,6 +218,13 @@ struct charger_ops {
 	int (*get_property)(struct charger_device *dev,
 			    enum charger_property prop,
 			    union charger_propval *val);
+/*N17 code for HQ-306752 by xm tianye9 at 2023/07/08 start*/
+	int(*get_cp_work_mode)(struct charger_device *chg_dev, int *mode);
+	int(*set_cp_work_mode)(struct charger_device *chg_dev, int mode);
+/*N17 code for HQ-306752 by xm tianye9 at 2023/07/08 end*/
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 start*/
+	int(*get_cp_device)(void);
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 end*/
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -233,6 +258,8 @@ static inline void *charger_get_data(
 
 extern int charger_dev_enable(struct charger_device *charger_dev, bool en);
 extern int charger_dev_is_enabled(struct charger_device *charger_dev, bool *en);
+/* N17 code for HQHW-4906 by p-gucheng at 20230812 */
+extern int charger_dev_get_online(struct charger_device *charger_dev);
 extern int charger_dev_plug_in(struct charger_device *charger_dev);
 extern int charger_dev_plug_out(struct charger_device *charger_dev);
 extern int charger_dev_set_charging_current(
@@ -386,5 +413,12 @@ extern int unregister_charger_device_notifier(
 extern int charger_dev_notify(
 	struct charger_device *charger_dev, int event);
 
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 start*/
+extern int xm_get_cp_work_mode(struct charger_device *chg_dev, int *work_mode);
+extern int xm_set_cp_work_mode(struct charger_device *chg_dev, int work_mode);
+/*N17 code for HQ-307853 by xm tianye9 at 2023/07/17 end*/
 
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 start*/
+extern int xm_get_cp_device(struct charger_device *chg_dev);
+/*N17 code for HQ-309331 by xm tianye9 at 2023/07/27 end*/
 #endif /*LINUX_POWER_CHARGER_CLASS_H*/

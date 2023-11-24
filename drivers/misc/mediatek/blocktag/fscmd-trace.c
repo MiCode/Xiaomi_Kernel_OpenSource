@@ -11,7 +11,6 @@
 #include <linux/tracepoint.h>
 #include <linux/types.h>
 #include <trace/events/android_fs.h>
-#include <trace/events/f2fs.h>
 
 #include "fscmd-trace.h"
 

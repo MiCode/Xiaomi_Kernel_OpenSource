@@ -64,6 +64,9 @@
 /* dependent on platform */
 #include "mtk_charger.h"
 
+/* N17 code for HQHW-5241 by p-xuyechen at 2023/9/11 */
+#define ADC_GET_RETRY_TIME 5
+
 struct pd_hal {
 	struct charger_device *chg1_dev;
 	struct charger_device *chg2_dev;
@@ -137,10 +140,11 @@ int pd_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
 	pd_dbg("%s type:%d\n", __func__, type);
 
 	if (type == MTK_PD_CONNECT_PE_READY_SNK ||
-		type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
-		type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
 		return ALG_READY;
-	else if (type == MTK_PD_CONNECT_TYPEC_ONLY_SNK)
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 */
+	else if (type == MTK_PD_CONNECT_TYPEC_ONLY_SNK ||
+		type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
 		return ALG_TA_NOT_SUPPORT;
 	return ALG_TA_CHECKING;
 }
@@ -222,14 +226,28 @@ int pd_hal_get_vbus(struct chg_alg_device *alg)
 int pd_hal_get_ibus(struct chg_alg_device *alg, int *ibus)
 {
 	int ret = 0;
+	/* N17 code for HQHW-5241 by p-xuyechen at 2023/9/11 */
+	int retry = 0;
 	struct pd_hal *hal;
 
 	if (alg == NULL)
 		return -EINVAL;
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	ret = charger_dev_get_ibus(hal->chg1_dev, ibus);
+
+	/* N17 code for HQHW-5241 by p-xuyechen at 2023/9/11 start */
+	while (retry < ADC_GET_RETRY_TIME) {
+		ret = charger_dev_get_ibus(hal->chg1_dev, ibus);
+		if (ret == 0)
+			break;
+		retry++;
+	}
+
+	if (retry > 0)
+		pd_err("%s: get ibus retry = %d \n", __func__, retry);
+	/* N17 code for HQHW-5241 by p-xuyechen at 2023/9/11 end */
+
 	if (ret < 0)
-		pd_err("%s: get vbus failed: %d\n", __func__, ret);
+		pd_err("%s: get ibus failed: %d\n", __func__, ret);
 
 	return ret;
 }

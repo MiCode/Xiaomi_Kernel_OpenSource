@@ -554,7 +554,8 @@
 
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
-		svp-region-based-size = <0 0x18000000>;
+		svp-region-based-size = <0 0x20000000>;
+		svp-page-based-size = <0 0x19000000>;
 		tui-size = <0 0x4000000>;
 		wfd-region-based-size = <0 0x4000000>;
 		prot-region-based-size = <0 0x8000000>;
@@ -563,6 +564,11 @@
 	ssmr {
 		compatible = "mediatek,trusted_mem";
 		memory-region = <&ssmr_cma_mem>;
+	};
+
+	goodix_fp: fingerprint {
+		compatible = "mediatek,fpc1022_irq","mediatek,goodix-fp";
+		status = "okay";
 	};
 
 	device_mpu_low@1021a000 {
@@ -845,6 +851,14 @@
 		#clock-cells = <1>;
 	};
 
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 start */
+	irtx_pwm:irtx_pwm {
+			compatible = "mediatek,irtx-pwm";
+			pwm_ch = <1>;
+			pwm_data_invert = <0>;
+			//pwm-supply = "vio28";
+	};
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 end */
 	atf_logger: atf_logger {
 		compatible = "mediatek,atf_logger";
 	};
@@ -890,6 +904,21 @@
 				>;
 		};
 	};
+
+/* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
+	xiaomi_touch{
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+/* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
+
+/* N17 code for HQ-304945 by liunianliang at 2023/06/27 start */
+	security_ao@1001a000 {
+		compatible = "mediatek,security_ao";
+		reg = <0 0x1001a000 0 0x1000>;
+	};
+/* N17 code for HQ-304945 by liunianliang at 2023/06/27 end */
 
 	sleep_sram@1001e000 {
 		compatible = "mediatek,sleep_sram";
@@ -1848,7 +1877,12 @@
 
 	md1_sim2_hot_plug_eint:MD1_SIM2_HOT_PLUG_EINT {
 	};
-
+/* N17 code for HQ-292079 by yangjinhao at 2023/04/25 start */
+	swtp: swtp {
+		compatible = "mediatek, swtp-eint";
+		swtp-gpio = <&pio 45 0>;
+	};
+/* N17 code for HQ-292079 by yangjinhao at 2023/04/25 end */
 	watchdog: watchdog@10007000 {
 		compatible = "mediatek,mt6833-wdt",
 				"mediatek,mt6589-wdt",
@@ -1927,6 +1961,7 @@
 		dma-bits = <34>;
 	};
 
+/*N17 code for HQ-305431 by p-chenzimo at 2023/07/07 start*/
 	gce: gce_mbox@10228000 {
 		compatible = "mediatek,mt6833-gce";
 		reg = <0 0x10228000 0 0x4000>;
@@ -1946,7 +1981,9 @@
 		clocks = <&infracfg_ao_clk CLK_IFRAO_GCE>,
 			 <&infracfg_ao_clk CLK_IFRAO_GCE_26M>;
 		clock-names = "gce", "gce-timer";
+		skip-poll-sleep;
 	};
+/*N17 code for HQ-305431 by p-chenzimo at 2023/07/07 end*/
 
 	gce_sec: gce_mbox_sec@10228000 {
 		compatible = "mediatek,mailbox-gce-sec";
@@ -2007,10 +2044,6 @@
 		dmas = <&apdma 2
 				&apdma 3>;
 		dma-names = "tx", "rx";
-	};
-
-	goodix_fp: fingerprint {
-		compatible = "mediatek,goodix-fp";
 	};
 
 	emicen: emicen@10219000 {
@@ -2307,9 +2340,9 @@
 			"ufs-unipro-clk",
 			"ufs-mp-clk",
 			"ufs-crypto-clk",
-			"ufs-vendor-crypto-clk-mux",
-			"ufs-vendor-crypto-normal-parent-clk",
-			"ufs-vendor-crypto-perf-parent-clk";
+                        "crypt_mux",
+			"crypt_lp",
+			"crypt_perf";
 		freq-table-hz =
 			<0 0>,
 			<0 0>,
@@ -2715,7 +2748,10 @@
 			     <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>;
 		#mbox-cells = <1>;
 	};
-
+/*N17 HQ-291635 adb bringup by miaozhichao at 2023/4/18 start*/
+	tcpc_pd: tcpc_pd {
+	};
+/*N17 HQ-291635 adb bringup by miaozhichao at 2023/4/18 end*/
 	imp_iic_wrap_c_clk: syscon@11007000 {
 		compatible = "mediatek,mt6833-imp_iic_wrap_c", "syscon";
 		reg = <0 0x11007000 0 0x1000>;
@@ -2818,23 +2854,35 @@
 		clock-names = "therm-main";
 	};
 
-	tboard_thermistor1: thermal-sensor1 {
-		compatible = "mediatek,mtboard-thermistor1";
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 start */
+	/* cpu */
+	tboard_thermistor0: thermal-sensor0 {
+		compatible = "mediatek,mtboard-thermistor0";
 		io-channels = <&auxadc 0>;
 		io-channel-names = "thermistor-ch0";
 	};
 
-	tboard_thermistor2: thermal-sensor2 {
-		compatible = "mediatek,mtboard-thermistor2";
+	/* RF PA */
+	tboard_thermistor1: thermal-sensor1 {
+		compatible = "mediatek,mtboard-thermistor1";
 		io-channels = <&auxadc 1>;
 		io-channel-names = "thermistor-ch1";
 	};
 
-	tboard_thermistor3: thermal-sensor3 {
-		compatible = "mediatek,mtboard-thermistor3";
+	/* Chargerpump */
+	tboard_thermistor2: thermal-sensor2 {
+		compatible = "mediatek,mtboard-thermistor2";
 		io-channels = <&auxadc 2>;
 		io-channel-names = "thermistor-ch2";
 	};
+
+	/* main board-AP */
+	tboard_thermistor3: thermal-sensor3 {
+		compatible = "mediatek,mtboard-thermistor3";
+		io-channels = <&auxadc 3>;
+		io-channel-names = "thermistor-ch3";
+	};
+	/* N17 code for HQ-296383 by liunianliang at 2023/05/17 end */
 
 	thermal_ipi_legacy: thermal_ipi_legacy {
 		compatible = "mediatek,thermal_ipi_legacy";
@@ -2963,6 +3011,8 @@
 #endif
 		_vgpu-supply = <&mt6359p_vproc1_reg>;
 		_vsram_gpu-supply = <&mt6359p_vsram_md_reg>;
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 		fhctl-supply = <&fhctl>;
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
 	};
@@ -3937,6 +3987,15 @@
 		clock-names = "MDP_WROT1";
 	};
 
+	/* Huaqin modify for HQ-292539 by zhengrui at 2023/4/28 start */
+	board_id: board_id {
+	    compatible = "mediatek,board_id";
+	    io-channels = <&auxadc 5>;
+		io-channel-names = "board_id-channel";
+		status = "okay";
+	};
+	/* Huaqin modify for HQ-292539 by zhengrui at 2023/4/28 end */
+
 	mdp_tdshp0: mdp_tdshp0@1f00c000 {
 		compatible = "mediatek,mdp_tdshp0";
 		reg = <0 0x1f00c000 0 0x1000>;
@@ -4494,9 +4553,10 @@
 		clock-div = <1>;
 	};
 
-	pwm: pwm@11006000 {
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 start */
+	pwm: pwm@10048000 {
 		compatible = "mediatek,pwm";
-		reg = <0 0x11006000 0 0x10000>;
+		reg = <0 0x10048000 0 0x1000>;
 		interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&infracfg_ao_clk CLK_IFRAO_PWM1>,
 				<&infracfg_ao_clk CLK_IFRAO_PWM2>,
@@ -4523,6 +4583,7 @@
 
 		pwmsrcclk = <&infracfg_ao_clk>;
 	};
+/* N17 code for HQ-291671 by yangjinhao at 2023/05/08 end */
 
 	spi0: spi0@1100a000 {
 		compatible = "mediatek,mt6765-spi";
@@ -4626,13 +4687,22 @@
 		/* reserved for overlay by odm */
 	};
 
+/* N17 code for HQ-292289 by yangjinhao at 2023/04/25 start */
+	simtray: simtray {
+		compatible = "simtray-status";
+		status-gpio = <&pio 4 0>;
+	};
+/* N17 code for HQ-292289 by yangjinhao at 2023/04/25 end */
+
+/* N17 code for HQ-305904 by yangjinhao at 2023/07/05 start */
 	regulator_vibrator: regulator_vibrator {
 		compatible = "regulator-vibrator";
 		label = "vibrator";
-		min-volt = <2800000>;
-		max-volt = <3500000>;
+		min-volt = <3000000>;
+		max-volt = <3000000>;
 		vib-supply = <&mt6359p_vibr_reg>;
 		};
+/* N17 code for HQ-305904 by yangjinhao at 2023/07/05 end */
 
 	mtk_leds: mtk_leds {
 		backlight {
@@ -5270,20 +5340,22 @@
 		status = "disabled";
 	};
 
+	/*N17 code for HQ-291664 by chenzimo at 2023/4/23 start*/
 	mt6382_nfc: mt6382_nfc {
 		compatible = "mediatek, mt6382_nfc-eint";
 		interrupt-parent = <&pio>;
-		interrupts = <25 IRQ_TYPE_EDGE_BOTH 25 0>;
-		mt6382_nfc_srclk = <&pio 25 0x0>;
+		interrupts = <81 IRQ_TYPE_EDGE_BOTH 81 0>;
+		mt6382_nfc_srclk = <&pio 81 0x0>;
 		status = "okay";
 	};
 
 	mt6382_eint: mt6382_eint {
 		compatible = "mediatek, mt6382_eint";
 		interrupt-parent = <&pio>;
-		interrupts = <5 IRQ_TYPE_LEVEL_HIGH 5 0>;
+		interrupts = <11 IRQ_TYPE_LEVEL_HIGH 11 0>;
 		status = "okay";
 	};
+	/*N17 code for HQ-291664 by chenzimo at 2023/4/23 end*/
 
 	bdg_support: bdg_support {
 		compatible = "mediatek,disp,6382,bdg";
@@ -5722,6 +5794,17 @@
 			reg = <0 0x11e40000 0 0x700>;
 			clocks = <&clk26m>;
 			clock-names = "ref";
+/*N17 code for HQ-295528 by wangtingting at 2023/5/6 start*/
+			mediatek,eye-vrt-host = <7>;
+			mediatek,eye-term-host = <7>;
+			mediatek,rev6-host = <2>;
+			mediatek,eye-vrt = <6>;
+			mediatek,eye-term = <6>;
+			mediatek,rev6 = <2>;
+/*N17 code for HQ-295528 by wangtingting at 2023/5/6 end*/
+/*N17 code for HQHW-4190 by miaozhichao at 2023/6/20 start*/
+			mediatek,discth = <15>;
+/*N17 code for HQHW-4190 by miaozhichao at 2023/6/20 end*/
 			#phy-cells = <1>;
 			status = "okay";
 		};
@@ -5737,6 +5820,9 @@
 		interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>;
 		interconnect-names = "icc-bw";
 		required-opps = <&dvfsrc_freq_opp0>;
+		//N17 HQ-309013 by p-xiepengfu at 20230810 start
+		usb-audio;
+		//N17 HQ-309013 by p-xiepengfu at 20230810 end
 		small-core = <1300000>;
 	};
 
@@ -5746,14 +5832,20 @@
 		/* enable_pe_plus; */
 		enable_pd20_reset;
 		power_path_support;
-		max_charger_voltage = <6500000>;
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+		max_charger_voltage = <14500000>;
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 		fast_charge_voltage = <3000000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+		ac_charger_input_current = <2050000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
+/*N17 code for HQ-290909 by miaozhichao at 2023/5/25 start*/
+		non_std_ac_charger_current = <1000000>;
+/*N17 code for HQ-290909 by miaozhichao at 2023/5/25 end*/
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
 		pd_charger_current = <500000>;
@@ -5763,11 +5855,30 @@
 		temp_t3_threshold = <45>;
 		temp_t1_threshold = <0>;
 	};
+/* N17 code for HQ-293392 by tongjiacheng at 2022/04/27 start */
+	onewire_gpio: onewire_gpio {
 
+	};
+
+	maxim_ds28e16: maxim_ds28e16 {
+
+	};
+
+	acl_slg: acl_slg {
+
+	};
+/* N17 code for HQ-293392 by tongjiacheng at 2022/04/27 end */
+/* N17 code for HQ-293392 by tongjiacheng at 2023/04/28 start */
+	st_stick: st_stick {
+
+	};
+/* N17 code for HQ-293392 by tongjiacheng at 2023/04/28 end */
 	pe: pe {
 		compatible = "mediatek,charger,pe";
 		gauge = <&mtk_gauge>;
-
+/*N17 code for HQ-291625 by miaozhichao at 2023/05/04 start*/
+		status = "disabled";
+/*N17 code for HQ-291625 by miaozhichao at 2023/05/04 end*/
 		ta_12v_support;
 		ta_9v_support;
 
@@ -5786,7 +5897,9 @@
 	pe2: pe2 {
 		compatible = "mediatek,charger,pe2";
 		gauge = <&mtk_gauge>;
-
+/*N17 code for HQ-291625 by miaozhichao at 2023/05/04 start*/
+		status = "disabled";
+/*N17 code for HQ-291625 by miaozhichao at 2023/05/04 end*/
 		/* PE 2.0 */
 		pe20_ichg_level_threshold = <1000000>; /* uA */
 		ta_start_battery_soc = <0>;
@@ -5814,18 +5927,20 @@
 	pdc: pdc {
 		compatible = "mediatek,charger,pd";
 		gauge = <&mtk_gauge>;
-
 		min_charger_voltage = <4600000>;
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <5000000>;
+		/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 */
+		pd_vbus_upper_bound = <9000000>;
 		vsys_watt = <5000000>;
 		ibus_err = <14>;
 
 		pd_stop_battery_soc = <80>;
 
 		/* single charger */
-		sc_input_current = <3200000>;
-		sc_charger_current = <3000000>;
+		/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 start */
+		sc_input_current = <2000000>;
+		sc_charger_current = <3600000>;
+		/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 end */
 
 		/* dual charger in series*/
 		dcs_input_current = <3200000>;
@@ -5841,7 +5956,9 @@
 	pe4: pe4 {
 		compatible = "mediatek,charger,pe4";
 		gauge = <&mtk_gauge>;
-
+/*N17 code for HQ-291625 by miaozhichao at 2023/05/04 start*/
+		status = "disabled";
+/*N17 code for HQ-291625 by miaozhichao at 2023/05/04 end*/
 		min_charger_voltage = <4600000>;
 		pe40_stop_battery_soc = <80>;
 
@@ -5870,6 +5987,68 @@
 		vbat_threshold = <4150>;
 	};
 
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+	pe5: pe5 {
+		compatible = "mediatek,charger,pe5";
+		gauge = <&mtk_gauge>;
+		polling_interval = <10000>;
+		ta_cv_ss_repeat_tmin = <25>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+		vbat_cv = <4510>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
+		start_soc_min = <0>;
+		start_soc_max = <80>;
+		start_vbat_max = <4300>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+		idvchg_term = <1000>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
+		idvchg_step = <50>;
+		ita_level = <3000 2500 2000 1500>;
+		rcable_level = <250 300 375 500>;
+		ita_level_dual = <5000 3700 3400 3000>;
+		rcable_level_dual = <230 350 450 550>;
+		idvchg_ss_init = <1000>;
+		idvchg_ss_step = <250>;
+		idvchg_ss_step1 = <100>;
+		idvchg_ss_step2 = <50>;
+		idvchg_ss_step1_vbat = <4000>;
+		idvchg_ss_step2_vbat = <4200>;
+		ta_blanking = <400>;
+		swchg_aicr = <0>;
+		swchg_ichg = <1200>;
+		swchg_aicr_ss_init = <400>;
+		swchg_aicr_ss_step = <200>;
+		swchg_off_vbat = <4250>;
+		force_ta_cv_vbat = <4250>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+		chg_time_max = <10800>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
+		tta_level_def = <0 0 0 0 25 50 60 70 80>;
+		tta_curlmt = <0 0 0 0 0 300 600 900 (-1)>;
+		tta_recovery_area = <3>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+		tbat_level_def = <5 5 10 15 25 35 48 58 58>;
+		tbat_curlmt = <(-1) (-1) 1800 1050 0 0 1800 (-1) (-1)>;
+		tbat_recovery_area = <3>;
+		tdvchg_level_def = <0 0 0 5 25 55 60 65 90>;
+		tdvchg_curlmt = <(-1) (-1) (-1) 50 0 50 50 100 (-1)>;
+		tdvchg_recovery_area = <3>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
+		tswchg_level_def = <0 0 0 5 25 65 70 75 80>;
+		tswchg_curlmt = <(-1) (-1) (-1) 200 0 200 300 400 (-1)>;
+		tswchg_recovery_area = <3>;
+		ifod_threshold = <600>;
+		rsw_min = <20>;
+		ircmp_rbat = <40>;
+		ircmp_vclamp = <0>;
+		vta_cap_min = <6800>;
+		vta_cap_max = <11000>;
+		ita_cap_min = <1000>;
+		support_ta = "pd_adapter";
+		vbat_threshold = <4150>;
+		allow_not_check_ta_status;
+	};
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
 	charger: charger {
 		compatible = "mediatek,charger";
 		gauge = <&mtk_gauge>;
@@ -5879,32 +6058,43 @@
 
 		algorithm_name = "Basic";
 		charger_configuration= <0>;
-
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
 		/* common */
-		battery_cv = <4350000>;
-		max_charger_voltage = <6500000>;
-		min_charger_voltage = <4600000>;
-
+		battery_cv = <4510000>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+		max_charger_voltage = <14500000>;
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+		min_charger_voltage = <4400000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
 		/* sw jeita */
-		/* enable_sw_jeita; */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
-		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
-		temp_t2_thres = <10>;
-		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
-		temp_t0_thres = <0>;
-		temp_t0_thres_plus_x_degree = <0>;
-		temp_neg_10_thres = <0>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+		enable_sw_jeita;
+		/*N17 code for HQ-319214 by p-xiepengfu start at 2023/8/23*/
+		disable_aicl;
+		/*N17 code for HQ-319214 by p-xiepengfu end at 2023/8/23*/
+		jeita_temp_above_t6_cv = <4100000>;//>58
+		jeita_temp_t5_to_t6_cv = <4100000>;//48-58
+/*N17 code for HQHW-4607 by miaozhichao at 2023/7/14 start*/
+		jeita_temp_t4_to_t5_cv = <4460000>;//35-48
+		jeita_temp_t3_to_t4_cv = <4460000>;//15-35
+/*N17 code for HQHW-4607 by miaozhichao at 2023/7/14 end*/
+		jeita_temp_t2_to_t3_cv = <4480000>;//10-15
+		jeita_temp_t1_to_t2_cv = <4480000>;//5-10
+		jeita_temp_t0_to_t1_cv = <4480000>;//0-5
+/*N17 code for HQHW-4607 by tongjiacheng at 2023/07/31 start*/
+		jeita_temp_below_t0_cv = <4470000>;//<0
+/*N17 code for HQHW-4607 by tongjiacheng at 2023/07/31 end*/
 
+		jeita_temp_t5_to_t6_cc = <2450000>;
+		jeita_temp_t4_to_t5_cc = <3600000>;
+		jeita_temp_t3_to_t4_cc = <3600000>;
+		jeita_temp_t2_to_t3_cc = <3000000>;
+		jeita_temp_t1_to_t2_cc = <2450000>;
+		jeita_temp_t0_to_t1_cc = <980000>;
+		jeita_temp_below_t0_cc = <490000>;
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
 		/* battery temperature protection */
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
@@ -5915,17 +6105,29 @@
 		/* charging current */
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+		ac_charger_input_current = <2050000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
 		charging_host_charger_current = <1500000>;
 
 		/* dynamic mivr */
 		enable_dynamic_mivr;
-		min_charger_voltage_1 = <4400000>;
-		min_charger_voltage_2 = <4200000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 start*/
+		min_charger_voltage_1 = <4200000>;
+		min_charger_voltage_2 = <4000000>;
+/*N17 code for HQ-293343 by miaozhichao at 2023/5/1 end*/
 		max_dmivr_charger_current = <1800000>;
 
 		/* fast charging algo support indicator */
-		enable_fast_charging_indicator;
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 start*/
+		/*enable_fast_charging_indicator;*/
+/*N17 code for HQ-291625 by miaozhichao at 2023/04/26 end*/
+
+/*N17 code for dropfv by liluting at 2023/5/30 start*/
+                cyclecount = <100 300 800 65535>;
+		dropfv_ffc = <0 20 20 40>;
+                dropfv_noffc = <0 10 20 40>;
+/*N17 code for dropfv by liluting at 2023/5/30 end*/
 	};
 
 	afe: mt6833-afe-pcm@11210000 {
@@ -6109,16 +6311,15 @@
 		/*INFRA MISC, conn_bt_cvsd_mask*/
 		/*cvsd_mcu_read, write, packet_indicator*/
 	};
-
+/* N17 code for HQ-291622 by zhouchenghua at 2023/4/21 start */
 	sound: sound {
 		compatible = "mediatek,mt6833-mt6359p-sound";
 		mediatek,headset-codec = <&accdet>;
 		mediatek,platform = <&afe>;
-		mediatek,speaker-codec {
-			sound-dai = <&speaker_amp>;
+                mediatek,speaker-codec {
 		};
 	};
-
+/* N17 code for HQ-291622 by zhouchenghua at 2023/4/21 end */
 	mtk_ssc: mtk_ssc {
 		compatible = "mediatek,ssc";
 		ssc_disable = <0x1>;
@@ -6133,6 +6334,11 @@
 
 	gps: gps@18c00000 {
 		compatible = "mediatek,gps";
+		emi-region = <29>;
+		emi-offset = <0x400000>;
+		emi-size = <0xfffff>;
+		emi-domain-ap = <0>;
+		emi-domain-conn = <2>;
 	};
 
 	mtk_lpm: mtk_lpm {
@@ -6554,9 +6760,15 @@
 			ichg = <2000000>;		/* uA */
 			aicr = <500000>;		/* uA */
 			mivr = <4400000>;		/* uV */
-			cv = <4350000>;			/* uA */
-			ieoc = <150000>;		/* uA */
-			safety_timer = <12>;		/* hour */
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 start*/
+			cv = <4510000>;			/* uA */
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 start*/
+			ieoc = <250000>;		/* uA */
+/*N17 code for HQ-299665 by miaozhichao at 2023/6/14 end*/
+/*N17 code for HQ-291115 by miaozhichao at 2023/5/30 end*/
+/*N17 code for HQHW-4734 by yeyinzi at 2023/08/16 start*/
+			safety_timer = <20>;		/* hour */
+/*N17 code for HQHW-4734 by yeyinzi at 2023/08/16 end*/
 			ircmp_resistor = <25000>;	/* uohm */
 			ircmp_vclamp = <32000>;		/* uV */
 			en_te = <1>;
@@ -6678,20 +6890,24 @@
 		};
 		ldo {
 			compatible = "mediatek,mt6360_ldo";
+			/* N17 code for HQ-291641 by zhujingyi at 2023/04/24 start*/
 			mt_pmic_vfp_ldo_reg: ldo1 {
 				regulator-compatible = "LDO1";
 				regulator-name = "mt6360,ldo1";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3600000>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-allowed-modes = <0 2>;
 			};
+			/*N17 code for HQ-291641 by zhujingyi at 2023/04/24 end*/
+			/*N17 code for HQ-291658 by gaoxue at 2023/4/20 start*/
 			mt_pmic_vtp_ldo_reg: ldo2 {
 				regulator-compatible = "LDO2";
 				regulator-name = "vtp";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3600000>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-allowed-modes = <0 2>;
 			};
+			/*N17 code for HQ-291658 by gaoxue at 2023/4/20 end*/
 			mt_pmic_vmc_ldo_reg: ldo3 {
 				regulator-compatible = "LDO3";
 				regulator-name = "mt6360,ldo3";
@@ -6713,8 +6929,10 @@
 		reg = <0x4e>;
 		mt-dual,supported_modes = <0>; /* 0: dfp/ufp, 1: dfp, 2: ufp */
 		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
-		/* 0: SNK Only, 1: SRC Only, 2: DRP, 3: Try.SRC, 4: Try.SNK */
-		mt-tcpc,role_def = <4>;
+/*N17 code for HQHW-4214 by miaozhichao at 2023/6/26 start*/
+		/*0:none 1: SNK Only, 2: SRC Only, 3: DRP, 4: Try.SRC, 5: Try.SNK */
+		mt-tcpc,role_def = <5>;
+/*N17 code for HQHW-4214 by miaozhichao at 2023/6/26 end*/
 		mt-tcpc,rp_level = <1>; /* 0: Default, 1: 1.5, 2: 3.0 */
 		/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
 		mt-tcpc,vconn_supply  = <1>;
@@ -6827,16 +7045,17 @@
 	};
 };
 
-&i2c6 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	speaker_amp: speaker_amp@34 {
-		compatible = "mediatek,speaker_amp";
-		#sound-dai-cells = <0>;
-		reg = <0x34>;
-		status = "okay";
-	};
+/* N17 code for HQ-296513 by xuqingli at 2023/5/18 start */
+&i2c7 {
+         aw87xxx_pa@5b {
+         compatible = "awinic,aw87xxx_pa";
+         reg = <0x5b>;
+         reset-gpio = <&pio 16 0>;
+         dev_index = < 0 >;
+         status = "okay";
+         };
 };
+/* N17 code for HQ-296513 by xuqingli at 2023/5/18 end */
 
 &pmic {
 	interrupt-parent = <&pio>;
@@ -6909,15 +7128,18 @@
 				regulator-always-on;
 			};
 
+/*N17 code for HQ-295621 by zhangyujian at 2023/05/09 start*/
 			mt6315_3_vbuck3: 3_vbuck3 {
 				regulator-compatible = "vbuck3";
 				regulator-name = "3_vbuck3";
-				regulator-min-microvolt = <300000>;
+				regulator-min-microvolt = <1193750>;
 				regulator-max-microvolt = <1193750>;
 				regulator-enable-ramp-delay = <256>;
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
+				regulator-boot-on;
 			};
+/*N17 code for HQ-295621 by zhangyujian at 2023/05/09 end*/
 
 			mt6315_3_vbuck4: 3_vbuck4 {
 				regulator-compatible = "vbuck4";
@@ -7126,3 +7348,4 @@
 
 #include "mediatek/cust_mt6833_msdc.dtsi"
 #include "mediatek/trusty.dtsi"
+#include "mediatek/cust_mt6833_fingerprint.dtsi"

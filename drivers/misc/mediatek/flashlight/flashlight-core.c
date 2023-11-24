@@ -566,7 +566,8 @@ static int pt_arg_verify(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	int is_low = 0;
-
+/*N17 code for HQ-296316 by jixinji at 2023.05.17 start.*/
+/*
 	if (pt_low_bat != BATTERY_PERCENT_LEVEL_0
 			|| pt_low_vol != LOW_BATTERY_LEVEL_0
 			|| pt_over_cur != BATTERY_OC_LEVEL_0) {
@@ -574,7 +575,8 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 		if (pt_strict)
 			is_low = 2;
 	}
-
+*/
+/* N17 code for HQ-296316 by jixinji at 2023.05.17 end */
 	return is_low;
 }
 

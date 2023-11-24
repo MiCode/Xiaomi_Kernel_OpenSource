@@ -318,7 +318,9 @@
 
 			mt6359p_vio28_reg: ldo_vio28 {
 				regulator-name = "vio28";
-				regulator-min-microvolt = <2800000>;
+		/* N17 code for HQ-293392 by tongjiacheng at 2022/04/27 start */
+				regulator-min-microvolt = <3300000>;
+		/* N17 code for HQ-293392 by tongjiacheng at 2022/04/27 end */
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <1920>;
 				regulator-always-on;
@@ -329,6 +331,7 @@
 				regulator-min-microvolt = <2500000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <240>;
+				regulator-always-on;
 			};
 
 			mt6359p_vcn33_2_bt_reg: ldo_vcn33_2_bt {

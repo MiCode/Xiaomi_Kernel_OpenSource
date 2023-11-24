@@ -43,6 +43,9 @@
 #include "aed.h"
 #include "mrdump_helper.h"
 
+#include <mt-plat/mboot_params.h>
+#include <linux/sysfs.h>
+
 struct aee_req_queue {
 	struct list_head list;
 	spinlock_t lock;
@@ -78,6 +81,8 @@ static DECLARE_RWSEM(ke_rw_ops_sem);
 
 static int ee_num;
 static int kernelapi_num;
+#define MAX_CMDLINE_PARAM_LEN 128
+static char powerup_reason[MAX_CMDLINE_PARAM_LEN];
 
 /******************************************************************************
  * DEBUG UTILITIES
@@ -2481,6 +2486,52 @@ static int aed_proc_done(void)
 }
 
 /******************************************************************************
+ * * Add pureason
+ *****************************************************************************/
+//N17 code for HQ-290906 by zhengrui at 20230519 start
+
+static ssize_t powerup_reason_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, sizeof(powerup_reason), "%s\n", powerup_reason);
+};
+
+static struct kobj_attribute powerup_reason_attr ={ \
+	.attr = { .name = __stringify(powerup_reason), .mode = 0644 },
+	.show = powerup_reason_show,
+};
+
+static struct attribute *bootinfo_attrs[] = {
+	&powerup_reason_attr.attr,
+	NULL,
+};
+
+static struct attribute_group bootinfo_attr_group = {
+	.attrs = bootinfo_attrs,
+};
+
+static struct kobject *bootinfo_kobj;
+
+int bootinfo_sys_init(void)
+{
+	int ret = -ENOMEM;
+
+	bootinfo_kobj = kobject_create_and_add("bootinfo", NULL);
+	if (!bootinfo_kobj) {
+		pr_err("set powerup reason failed\n");
+		return ret;
+	}
+
+	ret = sysfs_create_group(bootinfo_kobj, &bootinfo_attr_group);
+	if (ret){
+		pr_err("set powerup reason failed\n");
+		kobject_put(bootinfo_kobj);
+	}
+	return ret;
+
+}
+//N17 code for HQ-290906 by zhengrui at 20230519 end
+/******************************************************************************
  * Module related
  *****************************************************************************/
 static const struct file_operations aed_ee_fops = {
@@ -2564,6 +2615,8 @@ static int __init aed_init(void)
 		return err;
 	}
 	pr_notice("aee kernel api ready");
+	pr_err("powerup reason: %s", powerup_reason);
+	bootinfo_sys_init();
 
 	mtk_slog_init();
 
@@ -2591,3 +2644,4 @@ module_exit(aed_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek AED Driver");
 MODULE_AUTHOR("MediaTek Inc.");
+module_param_string(pureason, powerup_reason, MAX_CMDLINE_PARAM_LEN,0644);

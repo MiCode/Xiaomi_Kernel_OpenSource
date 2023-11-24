@@ -34,9 +34,20 @@
 #include "mtk_dump.h"
 #include "mtk_disp_bdg.h"
 #include "mtk_dsi.h"
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_esd_check.h"
+#include "mi_disp/mi_disp_feature.h"
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+#define ESD_CHECK_IRQ_PERIOD 10 /* ms */
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 static DEFINE_MUTEX(pinctrl_lock);
 
 /* pinctrl implementation */
@@ -214,8 +225,14 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, MI_DISP_ESD_CHECK_READ, NULL);
+#else
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
 				    (void *)mtk_crtc);
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
@@ -255,7 +272,15 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
 
-	cmdq_pkt_flush(cmdq_handle);
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+	if (mtk_dsi_is_cmd_mode(output_comp)) { /*cmd mode*/
+#ifndef CONFIG_MI_DISP_ESD_CHECK
+		cmdq_pkt_flush(cmdq_handle);
+#endif
+	} else {
+		cmdq_pkt_flush(cmdq_handle);
+	}
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
 
@@ -278,8 +303,19 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		goto done;
 	}
 
-	ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
-				  (void *)mtk_crtc);
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+	if (mtk_dsi_is_cmd_mode(output_comp)) { /*cmd mode*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, MI_DISP_ESD_CHECK_CMP, NULL);
+#else
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
+					  (void *)mtk_crtc);
+#endif
+	} else { /*video mode*/
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
+					  (void *)mtk_crtc);
+	}
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 done:
 	cmdq_pkt_destroy(cmdq_handle);
 	return ret;
@@ -494,6 +530,19 @@ done:
 	return ret;
 }
 
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+static atomic_t panel_dead;
+int get_panel_dead_flag(void) {
+	return atomic_read(&panel_dead);
+}
+EXPORT_SYMBOL(get_panel_dead_flag);
+
+void set_panel_dead_flag(int value) {
+	atomic_set(&panel_dead, value);
+}
+EXPORT_SYMBOL(set_panel_dead_flag);
+
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -503,6 +552,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	int ret = 0;
 	struct mtk_dsi *dsi = NULL;
 
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+	atomic_set(&panel_dead, 1);
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
 	if (crtc->state && !crtc->state->active) {
 		DDPMSG("%s: crtc is inactive\n", __func__);
@@ -584,6 +636,12 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);
 
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_RESTORE_BACKLIGHT, NULL);
+#endif
+
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 	mtk_crtc_hw_block_ready(crtc);
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 		cmdq_pkt_set_event(cmdq_handle,
@@ -600,6 +658,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	cmdq_pkt_destroy(cmdq_handle);
 done:
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+	atomic_set(&panel_dead, 0);
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), esd_recovery, 0, ret);
 
 	return 0;

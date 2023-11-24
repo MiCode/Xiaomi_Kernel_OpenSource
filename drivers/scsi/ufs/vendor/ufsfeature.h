@@ -40,9 +40,9 @@
 #define _UFSFEATURE_H_
 
 #include <scsi/scsi_cmnd.h>
-
-#include "ufs.h"
-
+/*N17 code for HQ-290612 by gaoshilin at 20230411 start*/
+#include "xiaomi/ufs.h"
+/*N17 code for HQ-290612 by gaoshilin at 20230411 end*/
 #include "ufsshpb.h"
 #include "ufstw.h"
 #include "ufshid.h"

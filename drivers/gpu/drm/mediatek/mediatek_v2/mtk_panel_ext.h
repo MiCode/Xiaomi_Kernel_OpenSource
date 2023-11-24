@@ -459,6 +459,12 @@ struct mtk_panel_params {
 	struct mtk_panel_cm_params cm_params;
 	struct mtk_panel_spr_params spr_params;
 	enum MTK_PANEL_ROTATION rotate;
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP
+	int err_flag_irq_gpio;
+	int err_flag_irq_flags;
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 };
 
 struct mtk_panel_ext {
@@ -574,6 +580,82 @@ struct mtk_panel_funcs {
 
 	int (*send_ddic_cmd_pack)(struct drm_panel *panel,
 		void *dsi_drv, dcs_write_gce_pack cb, void *handle);
+	/*N17 code for HQ-291618 by p-chenzimo at 2023/05/09 start*/
+	int (*init_power)(struct drm_panel *panel);
+	int (*power_down)(struct drm_panel *panel);
+	/*N17 code for HQ-291618 by p-chenzimo at 2023/05/09 end*/
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	/* power-on for vddi */
+	int (*panel_poweron)(struct drm_panel *panel);
+
+	/* power-off for vddi */
+	int (*panel_poweroff)(struct drm_panel *panel);
+
+	bool (*get_panel_initialized)(struct drm_panel *panel);
+	int (*get_panel_info)(struct drm_panel *panel, char *buf);
+	int (*set_backlight_i2c)(struct drm_panel *panel, unsigned int level);
+	int (*led_i2c_reg_op)(char *buffer, int op, int count);
+	int (*hbm_fod_control)(struct drm_panel *panel, bool en);
+	int (*normal_hbm_control)(struct drm_panel *panel, uint32_t level);
+	int (*setbacklight_control)(struct drm_panel *panel, unsigned int level);
+	int (*set_doze_brightness)(struct drm_panel *panel, int doze_brightness);
+	int (*get_doze_brightness)(struct drm_panel *panel, u32 *doze_brightness);
+	void (*aod_set_state)(struct drm_panel *panel, bool *state);
+	void (*aod_get_state)(struct drm_panel *panel, bool *state);
+	void (*set_nolp)(struct drm_panel *panel);
+	void (*get_unset_doze_brightness)(struct drm_panel *panel, int *state);
+	void (*panel_id_get)(struct drm_panel *panel);
+	void (*panel_set_crc_srgb)(struct drm_panel *panel);
+	void (*panel_set_crc_p3)(struct drm_panel *panel);
+	void (*panel_set_crc_p3_d65)(struct drm_panel *panel);
+	void (*panel_set_crc_p3_flat)(struct drm_panel *panel);
+	void (*panel_set_crc_off)(struct drm_panel *panel);
+	void (*panel_dimming_control)(struct drm_panel *panel, bool en);
+	int (*panel_freq_switch)(struct drm_panel *panel, unsigned int cur_mode, unsigned int dst_mode);
+	void (*hbm_need_delay)(struct drm_panel *panel, bool *state);
+	void (*panel_elvss_control)(struct drm_panel *panel, bool en);
+	void (*get_hbm_solution)(struct drm_panel *panel, int *solution);
+	int (*get_panel_dynamic_fps)(struct drm_panel *panel, u32 *fps);
+	int (*fps_switch_mode_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
+			    dcs_write_gce cb, void *handle);
+	void (*panel_set_dc)(struct drm_panel *panel, bool enable);
+	bool (*panel_get_dc)(struct drm_panel *panel);
+	void (*set_dc_backlight)(struct drm_panel *panel, int brightness);
+	int (*panel_pwm_demura_gain_update)(struct drm_panel *panel, int high_brightness);
+	struct mtk_ddic_dsi_msg* (*get_esd_check_read_prepare_cmdmesg)(void);
+	int (*get_panel_max_brightness_clone)(struct drm_panel *panel, u32 *max_brightness_clone);
+	int (*get_panel_factory_max_brightness)(struct drm_panel *panel, u32 *max_brightness_clone);
+	int (*panel_set_gir_on)(struct drm_panel *panel);
+	int (*panel_set_gir_off)(struct drm_panel *panel);
+	int (*panel_get_gir_status)(struct drm_panel *panel);
+	void (*panel_set_bist_enable)(struct drm_panel *panel, bool enable);
+	void (*panel_set_bist_color)(struct drm_panel *panel, u8 *rgb);
+	void (*panel_set_round_enable)(struct drm_panel *panel, bool enable);
+	void (*panel_set_gir_on_read_B8reg)(void);
+	void (*panel_set_dc_lut_params)(struct drm_panel *panel, char *exitDClut60, char *enterDClut60, char *exitDClut120, char *enterDClut120, int count);
+	void (*init)(struct drm_panel *panel);
+	int (*trigger_get_wpinfo)(struct drm_panel *panel, char *buf, size_t size);
+	int (*get_wp_info)(struct drm_panel *panel, char *buf, size_t size);
+	int (*get_grayscale_info)(struct drm_panel *panel, char *buf, size_t size);
+	int (*set_spr_status)(struct drm_panel *panel, int status);
+	int (*panel_set_dc_crc)(struct drm_panel *panel, int hw_brightness_evel, int crc_coef0, int crc_coef1);
+	int (*panel_set_dc_crc_bl_pack)(struct drm_panel *panel, int hw_brightness_evel, int crc_coef0, int crc_coef1);
+	int (*panel_set_dc_crc_off)(struct drm_panel *panel);
+	int (*panel_restore_crc_level)(struct drm_panel *panel, bool need_lock);
+	void (*set_dc_threshold)(struct drm_panel *panel, int dc_threshold);
+	int (*panel_fod_lhbm_init)(struct mtk_dsi * dsi);
+	int (*doze_suspend)(struct drm_panel *panel, void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*fod_state_check)(void *dsi_drv, dcs_write_gce cb, void *handle);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	void (*esd_restore_backlight)(struct mtk_dsi *dsi, struct drm_panel *panel);
+	int (*esd_check_read_prepare)(struct drm_panel *panel);
+#else
+	void (*esd_restore_backlight)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

@@ -136,6 +136,46 @@ int chg_alg_set_current_limit(struct chg_alg_device *alg_dev,
 	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(chg_alg_set_current_limit);
+/* N17 code for HQHW-4275 by tongjiacheng at 20230627 start */
+int chg_alg_thermal_restart(struct chg_alg_device *alg_dev,
+	bool run_once)
+{
+	pr_notice("%s\n", __func__);
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->thermal_restart)
+		return alg_dev->ops->thermal_restart(alg_dev, run_once);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_thermal_restart);
+/* N17 code for HQHW-4275 by tongjiacheng at 20230627 end */
+
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 start*/
+int chg_alg_cp_statemachine_restart(struct chg_alg_device *alg_dev,
+	bool run_once)
+{
+	pr_notice("%s\n", __func__);
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->cp_statemachine_restart)
+		return alg_dev->ops->cp_statemachine_restart(alg_dev, run_once);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_cp_statemachine_restart);
+/*N17 code for HQ-308229 by xm tianye9 at 2023/07/20 end*/
+
+/* N17 code for HQ-311096 by p-gucheng at 2023/08/09 start*/
+int chg_alg_cp_charge_finished(struct chg_alg_device *alg_dev)
+{
+	pr_notice("%s\n", __func__);
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->cp_charge_finished)
+		return alg_dev->ops->cp_charge_finished(alg_dev);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_cp_charge_finished);
+/* N17 code for HQ-311096 by p-gucheng at 2023/08/09  end*/
 
 char *chg_alg_state_to_str(int state)
 {

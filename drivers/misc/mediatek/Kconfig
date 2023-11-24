@@ -185,6 +185,9 @@ source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
 source "drivers/misc/mediatek/gate_ic/Kconfig"
+# N17 code for HQ-292289 by yangjinhao at 2023/04/25 start
+source "drivers/misc/mediatek/simtray/Kconfig"
+# N17 code for HQ-292289 by yangjinhao at 2023/04/25 end
 endmenu # Other Peripheral
 
 menu "Performance"

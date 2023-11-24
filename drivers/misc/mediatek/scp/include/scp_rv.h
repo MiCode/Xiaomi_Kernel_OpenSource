@@ -158,7 +158,10 @@ enum feature_id {
 	VOW_DUAL_MIC_BARGE_IN_FEATURE_ID = 12,
 	ULTRA_FEATURE_ID = 13,
 	RVSPKPROCESS_FEATURE_ID = 14,
-	NUM_FEATURE_ID = 15,
+	/*N17 code for HQ-297564 by wangshizhen at 2023/06/12 start*/
+	FUSION_FEATURE_ID,
+	NUM_FEATURE_ID ,
+	/*N17 code for HQ-297564 by wangshizhen at 2023/06/12 end*/
 };
 
 extern struct mtk_mbox_device scp_mboxdev;

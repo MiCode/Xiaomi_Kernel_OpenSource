@@ -143,6 +143,15 @@ void (*__initdata late_time_init)(void);
 char __initdata boot_command_line[COMMAND_LINE_SIZE];
 /* Untouched saved command line (eg. for /proc) */
 char *saved_command_line;
+
+// xiaomi start
+/*
+ * mitee driver need to get teeOS type from command line
+ * modidy by xiaomi, wangxiaoxu5@xiaomi.com
+ * */
+EXPORT_SYMBOL(saved_command_line);
+// xiaomi end
+
 /* Command line for parameter parsing */
 static char *static_command_line;
 /* Untouched extra command line */

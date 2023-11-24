@@ -30,6 +30,9 @@
 #include <linux/mfd/mt6397/core.h>
 #include "mt6359p-accdet.h"
 #include "mt6359.h"
+/* N17 code for HQ-xxxxx by zhouchenghua at 2023/4/28 start */
+#include <linux/switch.h>
+/* N17 code for HQ-xxxxx by zhouchenghua at 2023/4/28 end */
 /* grobal variable definitions */
 #define REGISTER_VAL(x)	(x - 1)
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
@@ -62,6 +65,11 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+
+/*N17 code for HQ-292207 by xuqingli at 2023-05-18 start*/
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/*N17 code for HQ-292207 by xuqingli at 2023-05-18 end*/
 
 struct mt63xx_accdet_data {
 	struct snd_soc_jack jack;
@@ -161,6 +169,9 @@ static struct timer_list micbias_timer;
 static void dis_micbias_timerhandler(struct timer_list *t);
 static bool dis_micbias_done;
 static char accdet_log_buf[1280];
+/* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start */
+static struct switch_dev accdet_data;
+/* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end */
 static bool debug_thread_en;
 static bool dump_reg;
 static struct task_struct *thread;
@@ -919,6 +930,9 @@ static void send_status_event(u32 cable_type, u32 status)
 		}
 		pr_info("accdet HEADPHONE(3-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+                /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start */
+                switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+                /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end */
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -938,6 +952,18 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+                /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start */
+                switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+                /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end */
+		/* N17 code for HQ-313288 by lichuchu at 2023/8/21 start */
+		/* when press key for a long time then plug in
+		* even recoginized as 4-pole
+		* disable micbias timer still timeout after 6s
+		* it check AB=00(because keep to press key) then disable
+		* micbias, it will cause key no response
+		*/
+		del_timer_sync(&micbias_timer);
+		/* N17 code for HQ-313288 by lichuchu at 2023/8/21 end */
 		break;
 	case LINE_OUT_DEVICE:
 		if (status)
@@ -949,6 +975,9 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_LINEOUT);
 		pr_info("accdet LineOut %s\n",
 			status ? "PlugIn" : "PlugOut");
+                /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start */
+                switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+                /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end */
 		break;
 	default:
 		pr_info("%s Invalid cableType\n", __func__);
@@ -2975,10 +3004,15 @@ int mt6359p_accdet_init(struct snd_soc_component *component,
 	}
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
+          /* N17 code for HQ-296950 by xuqingli at 2023/5/29 start */
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+        //snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
+	//snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+        /* N17 code for HQ-296950 by xuqingli at 2023/5/29 end */
+
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
 
@@ -3148,7 +3182,16 @@ static int accdet_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
-
+        /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start */
+        accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		pr_notice("%s switch_dev_register fail:%d!\n", __func__, ret);
+		return -1;
+	}
+        /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end */
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet->accdet_devno, 0, 1, ACCDET_DEVNAME);
 	if (ret)
@@ -3239,6 +3282,9 @@ static int accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->delay_init_workqueue);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
+        /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start */
+        switch_dev_unregister(&accdet_data);
+        /* N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end */
 	devm_kfree(&pdev->dev, accdet);
 	return 0;
 }

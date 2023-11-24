@@ -20,6 +20,11 @@
 #define ST21NFC_GET_POLARITY _IO(ST21NFC_MAGIC, 0x07)
 #define ST21NFC_RECOVERY _IO(ST21NFC_MAGIC, 0x08)
 #define ST21NFC_USE_ESE _IOW(ST21NFC_MAGIC, 0x09, unsigned int)
+#define ST21NFC_CLK_DISABLE_UNPREPARE _IO(ST21NFC_MAGIC, 0x0A)
+#define NFC_SECURE_ZONE _IO(ST21NFC_MAGIC, 0x0B)
+#define ST21NFC_CLK_ENABLE _IO(ST21NFC_MAGIC, 0x11)
+#define ST21NFC_CLK_DISABLE _IO(ST21NFC_MAGIC, 0x12)
+#define ST21NFC_CLK_STATE _IO(ST21NFC_MAGIC, 0x13)
 
 // Keep compatibility with older user applications.
 #define ST21NFC_LEGACY_GET_WAKEUP _IOR(ST21NFC_MAGIC, 0x01, unsigned int)
@@ -29,6 +34,10 @@
 #define ST21NFC_LEGACY_SET_POLARITY_HIGH _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
 #define ST21NFC_LEGACY_GET_POLARITY _IOR(ST21NFC_MAGIC, 0x07, unsigned int)
 #define ST21NFC_LEGACY_RECOVERY _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
+#define ST21NFC_LEGACY_CLK_ENABLE _IOR(ST21NFC_MAGIC, 0x11, unsigned int)
+#define ST21NFC_LEGACY_CLK_DISABLE _IOR(ST21NFC_MAGIC, 0x12, unsigned int)
+#define ST21NFC_LEGACY_CLK_STATE _IOR(ST21NFC_MAGIC, 0x13, unsigned int)
+
 
 #define ST54SPI_CB_RESET_END 0
 #define ST54SPI_CB_RESET_START 1
@@ -37,5 +46,6 @@
 void st21nfc_register_st54spi_cb(void (*cb)(int, void *), void *data);
 void st21nfc_unregister_st54spi_cb(void);
 
+// newer kernels since 5.4
 #define ACCESS_OK(x, y, z) access_ok(y, z)
 

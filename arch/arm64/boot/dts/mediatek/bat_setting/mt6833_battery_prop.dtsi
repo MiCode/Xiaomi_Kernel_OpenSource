@@ -10,7 +10,7 @@
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(5)>;
 	/* If ui_soc shows 1% more than X minites, system will shutdown */
-	KEEP_100_PERCENT = <(1)>;
+	KEEP_100_PERCENT = <(3)>;
 	R_FG_VALUE = <(5)>;
 	/* R_sense resistance */
 	EMBEDDED_SEL = <(0)>;
@@ -19,7 +19,9 @@
 	/* System shutdown current */
 	FG_METER_RESISTANCE = <(100)>;
 	/* The resistance of PCB */
-	CAR_TUNE_VALUE = <(100)>;
+   /*N17 code for HQHW-4672 by miaozhichao at 2023/7/24 start*/
+	CAR_TUNE_VALUE = <(102)>;
+   /*N17 code for HQHW-4672 by miaozhichao at 2023/7/24 end*/
 	/* Tune value for current measurement */
 	PMIC_MIN_VOL = <(33500)>;
 	/* vboot voltage for gauge 0%*/
@@ -35,10 +37,10 @@
 	/* Battery temperature T2 */
 	TEMPERATURE_T3 = <(0)>;
 	/* Battery temperature T3 */
-	TEMPERATURE_T4 = <(-6)>;
+/* N17 code for HQHW-4276 by tongjiacheng at 20230704 start */
+	TEMPERATURE_T4 = <(-10)>;
+/* N17 code for HQHW-4276 by tongjiacheng at 20230704 end */
 	/* Battery temperature T4 */
-	TEMPERATURE_T5 = <(-10)>;
-	/* Battery temperature T5 */
 	g_FG_PSEUDO100_T0 = <(100)>;
 	/* Pseudo 100% percentage at T0 */
 	g_FG_PSEUDO100_T1 = <(100)>;
@@ -63,10 +65,14 @@
 	/* compensate R_sense resistance */
 	enable_tmp_intr_suspend = <(0)>;
 	/* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+/* N17 code for HQHW-4276 by tongjiacheng at 20230704 start */
+	ACTIVE_TABLE = <(5)>;
+/* N17 code for HQHW-4276 by tongjiacheng at 20230704 end */
 	/* Table numbers per battery */
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
-#include "mt6833_battery_table.dtsi"
+/*N17 code for HQ-291630 by miaozhichao at 2023/6/1 start*/
+#include "mt6833_battery_table_ext.dtsi"
+/*N17 code for HQ-291630 by miaozhichao at 2023/6/1 end*/
 #include "mt6833_battery_prop_dim2_ext.dtsi"
 };

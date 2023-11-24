@@ -149,8 +149,10 @@ extern int is_cpu_power_unlimit(void);	/* in mtk_ts_cpu.c */
 extern int is_cpu_power_min(void);	/* in mtk_ts_cpu.c */
 extern int get_cpu_target_tj(void);
 extern int get_cpu_target_offset(void);
+/* N17 code for HQ-301145 by zhangyujian at 2023/6/29 start */
 extern int mtk_gpufreq_register
 (struct mt_gpufreq_power_table_info *freqs, int num);
+/* N17 code for HQ-301145 by zhangyujian at 2023/6/29 end */
 extern int get_target_tj(void);
 extern int mtk_thermal_get_tpcb_target(void);
 extern void thermal_set_big_core_speed

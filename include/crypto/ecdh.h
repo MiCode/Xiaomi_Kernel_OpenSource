@@ -25,7 +25,9 @@
 /* Curves IDs */
 #define ECC_CURVE_NIST_P192	0x0001
 #define ECC_CURVE_NIST_P256	0x0002
-
+/* N17 code for HQ-293392 by tongjiacheng at 20230427 start */
+#define ECC_CURVE_NIST_P384	0x0003
+/* N17 code for HQ-293392 by tongjiacheng at 20230427 end */
 /**
  * struct ecdh - define an ECDH private key
  *

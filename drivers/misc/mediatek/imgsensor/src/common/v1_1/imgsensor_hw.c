@@ -21,6 +21,9 @@ char * const imgsensor_hw_pin_names[] = {
 	"vcama1",
 	"vcamaf",
 	"vcamd",
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+	"vcamd1",
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
 	"vcamio",
 	"mipi_switch_en",
 	"mipi_switch_sel",
@@ -31,7 +34,10 @@ char * const imgsensor_hw_pin_names[] = {
 char * const imgsensor_hw_id_names[] = {
 	"mclk",
 	"regulator",
-	"gpio"
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+	"gpio",
+	"smatrldo",
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
 };
 char * const imgsensor_prj_names[] = {
 	"tb8781p2_64"
@@ -84,7 +90,9 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 		case IMGSENSOR_SENSOR_IDX_MAIN2:
 			{
 				if (IS_MT6877(phw->g_platform_id) ||
-					IS_MT6833(phw->g_platform_id) ||
+                                    /* N17 code for HQ-293329 by wuzhenyue start*/
+					//IS_MT6833(phw->g_platform_id) ||
+                                    /* N17 code for HQ-293329 by wuzhenyue end*/
 					IS_MT6781(phw->g_platform_id) ||
 					IS_MT6779(phw->g_platform_id))
 					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_1;

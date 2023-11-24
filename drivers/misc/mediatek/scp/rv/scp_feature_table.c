@@ -56,6 +56,13 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	{
 		.feature        = RVSPKPROCESS_FEATURE_ID,
 	},
+	/*N17 code for HQ-297564 by wangshizhen at 2023/06/12 start*/
+	{
+		.feature	= FUSION_FEATURE_ID,
+		.freq		= 300,
+		.enable		= 0,
+	},
+	/*N17 code for HQ-297564 by wangshizhen at 2023/06/12 end*/
 };
 
 /*scp sensor type list*/

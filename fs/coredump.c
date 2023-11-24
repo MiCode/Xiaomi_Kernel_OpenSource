@@ -531,7 +531,7 @@ static bool dump_interrupted(void)
 	}
 	return ret;
 #else
-	return signal_pending(current);
+	return fatal_signal_pending(current) || freezing(current);
 #endif
 }
 

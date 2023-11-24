@@ -1320,6 +1320,11 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 	bg_tx_data_phy_cycle = (timcon1.DA_HS_EXIT + 1) + timcon0.LPX +
 					timcon0.HS_PRPR + timcon0.HS_ZERO + 1;
 
+/*N17 code for HQ-299527 by p-luozhibin1 at 2023/08/07 start*/
+	timcon0.HS_TRAIL -= 1;
+	timcon2.CLK_TRAIL -= 3;
+/*N17 code for HQ-299527 by p-luozhibin1 at 2023/08/07 end*/
+
 	DDPINFO(
 		"%s, bg_tx_data_phy_cycle=%d, LPX=%d, HS_PRPR=%d, HS_ZERO=%d, HS_TRAIL=%d, DA_HS_EXIT=%d\n",
 		__func__, bg_tx_data_phy_cycle, timcon0.LPX, timcon0.HS_PRPR,
@@ -1393,7 +1398,9 @@ int bdg_tx_txrx_ctrl(enum DISP_BDG_ENUM module,
 {
 	unsigned int i;
 	int lane_num = dsi->lanes;
-	bool hstx_cklp_en = false;
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 start*/
+	bool hstx_cklp_en = true;
+/*N17 code for HQ-305688 by p-lizongrui at 2023/07/05 end*/
 	bool dis_eotp_en = dsi->ext->params->is_cphy ? true : false;
 	bool ext_te_en = (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) ? false : true;
 
@@ -5323,8 +5330,23 @@ void output_debug_signal(void)
 
 void bdg_first_init(void)
 {
+	/*N17 code for HQ-296202 by p-chenzimo at 2023/06/01 start*/
+	DISPSYS_REG = (struct BDG_DISPSYS_CONFIG_REGS *)DISPSYS_BDG_MMSYS_CONFIG_BASE;
+	DSI2_REG = (struct BDG_MIPIDSI2_REGS *)DISPSYS_BDG_MIPIDSI2_DEVICE_BASE;
 	SYS_REG = (struct BDG_SYSREG_CTRL_REGS *)DISPSYS_BDG_SYSREG_CTRL_BASE;
+	RDMA_REG = (struct BDG_RDMA0_REGS *)DISPSYS_BDG_RDMA0_REGS_BASE;
+	MUTEX_REG = (struct BDG_MUTEX_REGS *)DISPSYS_BDG_MUTEX_REGS_BASE;
+	OCLA_REG = (struct BDG_OCLA_REGS *)DISPSYS_BDG_OCLA_BASE;
 	TX_REG[0] = (struct BDG_TX_REGS *)DISPSYS_BDG_TX_DSI0_BASE;
+	MIPI_TX_REG = (struct BDG_MIPI_TX_REGS *)DISPSYS_BDG_MIPI_TX_BASE;
+	DSC_REG = (struct BDG_DISP_DSC_REGS *)DISPSYS_BDG_DISP_DSC_BASE;
+	APMIXEDSYS = (struct BDG_APMIXEDSYS_REGS *)DISPSYS_BDG_APMIXEDSYS_BASE;
+	TOPCKGEN = (struct BDG_TOPCKGEN_REGS *)DISPSYS_BDG_TOPCKGEN_BASE;
+	GCE_REG = (struct BDG_GCE_REGS *)DISPSYS_BDG_GCE_BASE;
+	EFUSE = (struct BDG_EFUSE_REGS *)DISPSYS_BDG_EFUSE_BASE;
+	GPIO = (struct BDG_GPIO_REGS *)DISPSYS_BDG_GPIO_BASE;
+	TX_CMDQ_REG[0] = (struct DSI_TX_CMDQ_REGS *)(DISPSYS_BDG_TX_DSI0_BASE + 0xd00);
+	/*N17 code for HQ-296202 by p-chenzimo at 2023/06/01 end*/
 
 	// request eint irq
 	bdg_request_eint_irq();
@@ -5374,6 +5396,9 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 #else
 	clk_buf_hw_ctrl("XO_NFC", 1);
 #endif
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+	mdelay(5);
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
 	bdg_tx_pull_6382_reset_pin(dsi);
 
 	/* spi init & set low speed */
@@ -5479,6 +5504,10 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 
 	output_debug_signal();
 
+	/* N17 code for HQ-301859 by liunianliang at 2023/06/30 start */
+	need_6382_init = 0;
+	/* N17 code for HQ-301859 by liunianliang at 2023/06/30 end */
+
 	DDPMSG("%s-\n", __func__);
 
 	return ret;
@@ -5543,6 +5572,9 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 #else
 	clk_buf_hw_ctrl("XO_NFC", 1);
 #endif
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+	mdelay(5);
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
 	bdg_tx_pull_6382_reset_pin(dsi);
 	set_LDO_on(cmdq);
 	set_mtcmos_on(cmdq);

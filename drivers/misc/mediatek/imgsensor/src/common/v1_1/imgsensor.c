@@ -54,7 +54,9 @@
 #if defined(CONFIG_MTK_CAM_SECURE_I2C)
 #include "imgsensor_ca.h"
 #endif
-
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+#include "camera_hw/smartldo/smartldo.h"
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
 #include "seninf_drv.h"
 
 static DEFINE_MUTEX(gimgsensor_mutex);
@@ -485,7 +487,9 @@ MINT32 imgsensor_sensor_close(struct IMGSENSOR_SENSOR *psensor)
 	}
 
 	IMGSENSOR_FUNCTION_EXIT();
-
+/* N17 code for HQ-299774 by changqi at 2023/06/28 start */
+	sensor_temperature = 0;
+/* N17 code for HQ-299774 by changqi at 2023/06/28 end */
 	return ret;
 }
 
@@ -555,6 +559,9 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 	imgsensor_hw_power(&pimgsensor->hw,
 			psensor,
 			IMGSENSOR_HW_POWER_STATUS_OFF);
+	/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+	mdelay(5);
+	/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
 	IMGSENSOR_PROFILE(&psensor_inst->profile_time, "CheckIsAlive");
 
 	return err ? -EIO : err;
@@ -652,7 +659,11 @@ unsigned int Get_Camera_Temperature(
 					(MUINT32 *) &FeatureParaLen);
 
 		PK_DBG("indexDual(%d), temperature(%d)\n", indexDual, *temp);
-
+/* N17 code for HQ-299774 by changqi at 2023/06/15 start */
+#if defined(S5KHM6_SEMCO_MAIN_MIPI_RAW) || defined(S5KHM6_AAC_MAIN_MIPI_RAW)
+        sensor_temperature = *temp;
+#endif
+/* N17 code for HQ-299774 by changqi at 2023/06/15 end */
 		*valid &= ~SENSOR_TEMPERATURE_NOT_POWER_ON;
 
 		if (*temp != 0) {
@@ -2413,7 +2424,9 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 	}
 
 	phw->common.pplatform_device = pplatform_device;
-
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+	smartldo_i2c_create();
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
 	imgsensor_hw_init(phw);
 	imgsensor_i2c_create();
 	imgsensor_proc_init();
@@ -2429,7 +2442,9 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 static int imgsensor_remove(struct platform_device *pplatform_device)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
-
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 start */
+	smartldo_i2c_delete();
+/* N17 code for HQ-293742 by miaozhongshu at 2023/05/08 end */
 	imgsensor_i2c_delete();
 
 	/* Release char driver */

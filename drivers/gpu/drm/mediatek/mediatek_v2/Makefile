@@ -1,5 +1,6 @@
 subdir-ccflags-y += -Werror
 
+#N17 code for HQ-301563 by p-chenzimo at 2023/07/06 start
 mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_tdshp.o \
 		  mtk_disp_color.o \
@@ -52,6 +53,8 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_inlinerotate.o \
 		  mtk_mmlsys_bypass_mode.o \
 		  platform/mtk_drm_6789.o \
+		  mtk_notifier_odm.o
+#N17 code for HQ-301563 by p-chenzimo at 2023/07/06 end
 
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o
@@ -77,6 +80,12 @@ endif
 
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
 
+#N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start
+ifeq ($(CONFIG_MI_DISP), y)
+include $(src)/mi_disp/Makefile
+endif
+
+#N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_sync.o
 
@@ -130,3 +139,8 @@ ccflags-y += -DCCORR_SUPPORT
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+#N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/
+#N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end

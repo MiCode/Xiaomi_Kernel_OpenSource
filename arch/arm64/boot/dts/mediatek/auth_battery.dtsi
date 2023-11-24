@@ -1,0 +1,43 @@
+
+&pio {
+	w1_pins: w1_pins {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO19__FUNC_GPIO19>;
+			drive-strength = <7>;
+			output-high;
+		};
+	};
+};
+
+&onewire_gpio {
+	compatible = "xiaomi,onewire_gpio";
+	gpios = <&pio 19 0x00>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&w1_pins>;
+	status = "okay";
+};
+
+&maxim_ds28e16 {
+	compatible = "maxim,ds28e30";
+	/* N17 code for HQ-295595 by tongjiacheng at 20230509 start*/
+	auth_name = "main_suppiler";
+	/* N17 code for HQ-295595 by tongjiacheng at 20230509 end*/
+	status = "okay";
+};
+
+&acl_slg {
+	compatible = "acl,slg";
+	/* N17 code for HQ-295595 by tongjiacheng at 20230509 start*/
+	auth_name = "second_supplier";
+	/* N17 code for HQ-295595 by tongjiacheng at 20230509 end*/
+	status = "okay";
+};
+/* N17 code for HQ-293392 by tongjiacheng at 2023/04/28 start */
+&st_stick {
+	compatible = "st,stick";
+	/* N17 code for HQ-295595 by tongjiacheng at 20230509 start*/
+	auth_name = "third_supplier";
+	/* N17 code for HQ-295595 by tongjiacheng at 20230509 end*/
+	status = "okay";
+};
+/* N17 code for HQ-293392 by tongjiacheng at 2023/04/28 end */

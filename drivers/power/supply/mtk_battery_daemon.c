@@ -1786,6 +1786,35 @@ static ssize_t UI_SOC_store(
 	return size;
 }
 
+// N17 code for HQHW-4727 by p-liyanhao at 20230801 start
+static ssize_t RSOC_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+	// N17 code for HQHW-4827 by p-liyanhao at 20230807 start
+	int rsoc;
+
+	gm = get_mtk_battery();
+	if (gm == NULL) {
+		bm_err("[%s]can not get gm\n", __func__);
+		return sprintf(buf, "err\n");
+	}
+
+	rsoc = gm->soc;
+	if (rsoc > 100) {
+		rsoc = 100;
+	} else if (rsoc < 0) {
+		rsoc = 0;
+	}
+
+	bm_info("%s: %d\n",
+		__func__, rsoc);
+	return sprintf(buf, "%d\n", rsoc);
+	// N17 code for HQHW-4827 by p-liyanhao at 20230807 end
+
+}
+// N17 code for HQHW-4727 by p-liyanhao at 20230801 end
+
 static ssize_t uisoc_update_type_show(
 	struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -2448,6 +2477,9 @@ static ssize_t BAT_HEALTH_store(
 
 static DEVICE_ATTR_RW(Battery_Temperature);
 static DEVICE_ATTR_RW(UI_SOC);
+// N17 code for HQHW-4727 by p-liyanhao at 20230801 start
+static DEVICE_ATTR_RO(RSOC);
+// N17 code for HQHW-4727 by p-liyanhao at 20230801 end
 static DEVICE_ATTR_RW(uisoc_update_type);
 static DEVICE_ATTR_RW(disable_nafg);
 static DEVICE_ATTR_RW(ntc_disable_nafg);
@@ -2475,6 +2507,12 @@ static int mtk_battery_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_UI_SOC);
 	if (ret)
 		goto _out;
+
+// N17 code for HQHW-4727 by p-liyanhao at 20230801 start
+	ret = device_create_file(&(pdev->dev), &dev_attr_RSOC);
+	if (ret)
+		goto _out;
+// N17 code for HQHW-4727 by p-liyanhao at 20230801 end
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_uisoc_update_type);
 	if (ret)
@@ -3902,9 +3940,16 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_SET_BAT_CYCLES:
 	{
 		memcpy(&int_value, &msg->fgd_data[0], sizeof(int_value));
-		gm->bat_cycle = int_value;
-		bm_debug("[K]FG_DAEMON_CMD_SET_BAT_CYCLES %d\n",
-		gm->bat_cycle);
+                if(gm->fake_bat_cycle > 0){
+                        gm->bat_cycle = gm->fake_bat_cycle;
+                        bm_err("[K] FG_DAEMON_CMD_SET_BAT_CYCLES use fake_cycle_count: %d\n",
+		        gm->bat_cycle);
+                }
+                else{
+		        gm->bat_cycle = int_value;
+                        bm_err("[K] FG_DAEMON_CMD_SET_BAT_CYCLES %d\n",
+		        gm->bat_cycle);
+                }
 	}
 	break;
 	case FG_DAEMON_CMD_SET_NCAR:

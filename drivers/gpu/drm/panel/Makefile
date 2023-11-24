@@ -101,6 +101,15 @@ obj-$(CONFIG_DRM_PANEL_HX83112B_AUO_VDO_RT5081) += panel-hx83112b-auo-vdo-60hz-r
 obj-$(CONFIG_DRM_PANEL_TD4320_FHDP__AUO_VDO_RT5081) += panel-td4320-fhdp-dsi-vdo-auo-rt5081.o
 obj-$(CONFIG_DRM_PANEL_BOE_HX83102J_VDO) += panel-boe-hx83102j-vdo.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_HX83102J_VDO) += panel-tianma-hx83102j-vdo.o
+# N17 code for HQ-291664 by chenzimo at 2023/4/23 start
+obj-$(CONFIG_DRM_PANEL_N17_36_02_0A_DSC_VDO) += panel-n17-36-02-0a-dsc-vdo.o
+#N17 code for HQ-291669 by p-lizongrui at 2023/05/29 start
+obj-$(CONFIG_DRM_PANEL_N17_42_0D_0B_DSC_VDO) += panel-n17-42-0d-0b-dsc-vdo.o
+#N17 code for HQ-298851 by p-lizongrui at 2023/06/08 start
+obj-$(CONFIG_DRM_PANEL_N17_36_0F_0C_DSC_VDO) += panel-n17-36-0f-0c-dsc-vdo.o
+#N17 code for HQ-298851 by p-lizongrui at 2023/06/08 end
+#N17 code for HQ-291669 by p-lizongrui at 2023/05/29 end
+# N17 code for HQ-291664 by chenzimo at 2023/4/23 end
 
 obj-$(CONFIG_BACKLIGHT_KTZ8866)         += ktz8866.o
 obj-$(CONFIG_DRM_PANEL_EDO_HX5329_CMD_120) += panel-edo-hx5329-cmd-120hz.o

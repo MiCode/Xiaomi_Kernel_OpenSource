@@ -25,6 +25,7 @@
 #include "mtk_thermal_timer.h"
 #include <mtk_ts_setting.h>
 
+
 #if IS_ENABLED(CONFIG_MTK_CLKMGR)
 #include <mach/mtk_clkmgr.h>
 #else
@@ -375,6 +376,7 @@ void set_taklking_flag(bool flag)
 	tscpu_printk("talking_flag=%d\n", talking_flag);
 }
 
+/* N17 code for HQ-301145 by zhangyujian at 2023/6/29 start */
 int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 {
 	int i = 0;
@@ -406,6 +408,7 @@ int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 
 	return 0;
 }
+/* N17 code for HQ-301145 by zhangyujian at 2023/6/29 end */
 EXPORT_SYMBOL(mtk_gpufreq_register);
 
 static int tscpu_bind
@@ -1764,6 +1767,16 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		thermal_disable_all_periodoc_temp_sensing();
 #endif
 
+/*N17 code for HQ-297931 by chenweijun at 20230612 start*/
+#if CFG_LVTS_DOMINATOR
+#if CFG_THERM_LVTS
+		lvts_config_all_tc_hw_protect(trip_temp[0], tc_mid_trip);
+#endif
+#else
+		tscpu_config_all_tc_hw_protect(trip_temp[0], tc_mid_trip);
+#endif
+/*N17 code for HQ-297931 by chenweijun at 20230612 end*/
+
 #if !defined(CFG_THERM_NO_AUXADC)
 		tscpu_thermal_initial_all_tc();
 
@@ -1778,13 +1791,6 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		lvts_enable_all_sensing_points();
 #endif
 
-#if CFG_LVTS_DOMINATOR
-#if CFG_THERM_LVTS
-		lvts_config_all_tc_hw_protect(trip_temp[0], tc_mid_trip);
-#endif
-#else
-		tscpu_config_all_tc_hw_protect(trip_temp[0], tc_mid_trip);
-#endif
 
 #if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY) && \
 	!defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY_ONLY_AT_SHUTDOWN)

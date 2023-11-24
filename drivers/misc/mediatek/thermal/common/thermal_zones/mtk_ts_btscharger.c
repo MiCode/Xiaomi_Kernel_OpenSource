@@ -18,10 +18,16 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
-#include <tmp_btscharger.h>
 #if IS_ENABLED(CONFIG_MEDIATEK_MT6577_AUXADC)
 #include <linux/iio/consumer.h>
 #endif
+#include <tmp_bts.h>
+
+/* N17 code for HQ-296383 by liunianliang at 2023/05/17 */
+/*
+ * This file has been modified for thermal NTC about ChargePump
+ * the AUXADC is 2
+ */
 
 int __attribute__ ((weak))
 IMM_IsAdcInitReady(void)
@@ -59,7 +65,6 @@ static kuid_t uid = KUIDT_INIT(0);
 static kgid_t gid = KGIDT_INIT(1000);
 static DEFINE_SEMAPHORE(sem_mutex);
 
-static int kernelmode;
 static unsigned int interval; /* seconds, 0 : no auto polling */
 static int num_trip = 1;
 static int trip_temp[10] = { 125000, 110000, 100000, 90000, 80000,
@@ -346,7 +351,7 @@ static struct BTSCHARGER_TEMPERATURE BTSCHARGER_Temperature_Table6[] = {
 	{125, 2560}
 };
 
-/* NCP15WF104F03RC(100K) */
+/* NCP03WF104F05RL- secondary supply(100K) */
 static struct BTSCHARGER_TEMPERATURE BTSCHARGER_Temperature_Table7[] = {
 	{-40, 4397119},
 	{-35, 3088599},
@@ -438,14 +443,113 @@ static struct BTSCHARGER_TEMPERATURE BTSCHARGER_Temperature_Table7[] = {
 	{125, 2522}
 };
 
+/* SDNT0603C104F4250FTF- main supply (100K) */
+static struct BTSCHARGER_TEMPERATURE BTSCHARGER_Temperature_Table8[] = {
+	{-40, 4429000},
+	{-35, 3132000},
+	{-30, 2236000},
+	{-25, 1614000},
+	{-20, 1177000},
+	{-15, 865400},
+	{-10, 642900},
+	{-5, 485200},
+	{0, 365600},
+	{5, 278500},
+	{10, 214500},
+	{15, 165400},
+	{20, 129800},
+	{25, 100000},		/* 100K */
+	{30, 79400},
+	{35, 63400},
+#if defined(APPLY_PRECISE_NTC_TABLE)
+	{40, 50770},
+	{41, 48680},
+	{42, 46790},
+	{43, 44830},
+	{44, 42720},
+	{45, 40930},
+	{46, 39220},
+	{47, 37620},
+	{48, 36060},
+	{49, 34590},
+	{50, 33190},
+	{51, 31850},
+	{52, 30560},
+	{53, 29340},
+	{54, 28170},
+	{55, 27050},
+	{56, 25980},
+	{57, 24970},
+	{58, 24000},
+	{59, 23060},
+	{60, 22160},
+	{61, 21310},
+	{62, 20490},
+	{63, 19730},
+	{64, 18970},
+	{65, 18250},
+	{66, 17570},
+	{67, 16920},
+	{68, 16290},
+	{69, 15700},
+	{70, 15110},
+	{71, 14560},
+	{72, 14030},
+	{73, 13520},
+	{74, 13040},
+	{75, 12590},
+	{76, 12130},
+	{77, 11720},
+	{78, 11290},
+	{79, 10900},
+	{80, 10510},
+	{81, 10140},
+	{82,  9779},
+	{83,  9454},
+	{84,  9134},
+	{85,  8814},
+	{86,  8521},
+	{87,  8224},
+	{88,  7952},
+	{89,  7689},
+	{90,  7421},
+#else
+	{40, 50677},
+	{45, 40930},
+	{50, 33190},
+	{55, 27050},
+	{60, 22160},
+	{65, 18250},
+	{70, 15110},
+	{75, 12590},
+	{80, 10510},
+	{85,  8814},
+	{90,  7421},
+#endif
+	{95, 6283},
+	{100, 5335},
+	{105, 4546},
+	{110, 3887},
+	{115, 3339},
+	{120, 2878},
+	{125, 2493}
+};
 
 /* convert register to temperature  */
-static __s16 mtkts_btscharger_thermistor_conver_temp(__s32 Res)
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+static __s32 mtkts_btscharger_thermistor_conver_temp(__s32 Res)
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 {
 	int i = 0;
 	int asize = 0;
 	__s32 RES1 = 0, RES2 = 0;
 	__s32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
+
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef APPLY_PRECISE_BTS_TEMP
+	TAP_Value = TAP_Value * 1000;
+#endif
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 
 	asize = (ntc_tbl_size / sizeof(struct BTSCHARGER_TEMPERATURE));
 	/* mtktscharger_dprintk("btscharger() :
@@ -453,9 +557,19 @@ static __s16 mtkts_btscharger_thermistor_conver_temp(__s32 Res)
 	 */
 	if (Res >= BTSCHARGER_Temperature_Table[0].TemperatureR) {
 		TAP_Value = -40;	/* min */
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef APPLY_PRECISE_BTS_TEMP
+		TAP_Value = TAP_Value * 1000;
+#endif
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 	} else if (Res <=
 		BTSCHARGER_Temperature_Table[asize - 1].TemperatureR) {
 		TAP_Value = 125;	/* max */
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef APPLY_PRECISE_BTS_TEMP
+		TAP_Value = TAP_Value * 1000;
+#endif
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 	} else {
 		RES1 = BTSCHARGER_Temperature_Table[0].TemperatureR;
 		TMP1 = BTSCHARGER_Temperature_Table[0].BTSCHARGER_Temp;
@@ -484,17 +598,43 @@ static __s16 mtkts_btscharger_thermistor_conver_temp(__s32 Res)
 			 */
 		}
 
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef APPLY_PRECISE_BTS_TEMP
+		TAP_Value = mult_frac((((Res - RES2) * TMP1) +
+			((RES1 - Res) * TMP2)), 1000, (RES1 - RES2));
+#else
 		TAP_Value = (((Res - RES2) * TMP1) + ((RES1 - Res) * TMP2))
 								/ (RES1 - RES2);
+#endif
 	}
 
-
+	mtktscharger_dprintk(
+			"%s() : TAP_Value = %d\n", __func__,
+			TAP_Value);
+	mtktscharger_dprintk(
+			"%s() : Res = %d\n", __func__,
+			Res);
+	mtktscharger_dprintk(
+			"%s() : RES1 = %d\n", __func__,
+			RES1);
+	mtktscharger_dprintk(
+			"%s() : RES2 = %d\n", __func__,
+			RES2);
+	mtktscharger_dprintk(
+			"%s() : TMP1 = %d\n", __func__,
+			TMP1);
+	mtktscharger_dprintk(
+			"%s() : TMP2 = %d\n", __func__,
+			TMP2);
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 	return TAP_Value;
 }
 
 /* convert ADC_AP_temp_volt to register */
 /*Volt to Temp formula same with 6589*/
-static __s16 mtk_ts_btscharger_volt_to_temp(__u32 dwVolt)
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+static __s32 mtk_ts_btscharger_volt_to_temp(__u32 dwVolt)
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 {
 	__s32 TRes;
 	__u64 dwVCriAP = 0;
@@ -513,7 +653,17 @@ static __s16 mtk_ts_btscharger_volt_to_temp(__u32 dwVolt)
 	dwVCriAP2 = (g_TAP_over_critical_low + g_RAP_pull_up_R);
 	do_div(dwVCriAP, dwVCriAP2);
 
-
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef APPLY_PRECISE_BTS_TEMP
+	if ((dwVolt / 100) > ((__u32)dwVCriAP)) {
+		TRes = g_TAP_over_critical_low;
+	} else {
+		/* TRes = (39000*dwVolt) / (1800-dwVolt); */
+		/* TRes = (RAP_PULL_UP_R*dwVolt) / (RAP_PULL_UP_VOLT-dwVolt); */
+		TRes = ((long long)g_RAP_pull_up_R * dwVolt) /
+					(g_RAP_pull_up_voltage * 100 - dwVolt);
+	}
+#else
 	if (dwVolt > ((__u32)dwVCriAP)) {
 		TRes = g_TAP_over_critical_low;
 	} else {
@@ -523,6 +673,8 @@ static __s16 mtk_ts_btscharger_volt_to_temp(__u32 dwVolt)
 		TRes = (g_RAP_pull_up_R * dwVolt)
 				/ (g_RAP_pull_up_voltage - dwVolt);
 	}
+#endif
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 	/* ------------------------------------------------------------------ */
 
 	g_btscharger_TemperatureR = TRes;
@@ -557,7 +709,13 @@ static int mtktscharger_get_hw_temp(void)
 
 	/* NOT need to do the conversion "val * 1500 / 4096" */
 	/* iio_read_channel_processed can get mV immediately */
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+#ifdef APPLY_PRECISE_BTS_TEMP
+	ret = val * 100;
+#else
 	ret = val;
+#endif
+/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 #else
 	if (IMM_IsAdcInitReady() == 0) {
 		mtktscharger_dprintk_always(
@@ -630,7 +788,9 @@ static int mtktscharger_get_hw_temp(void)
 
 static int mtktscharger_get_temp(struct thermal_zone_device *thermal, int *t)
 {
-	*t = mtktscharger_get_hw_temp() * 1000;
+	/* N17 code for HQ-306221 by liunianliang at 2023/07/11 start */
+	*t = mtktscharger_get_hw_temp();
+	/* N17 code for HQ-306221 by liunianliang at 2023/07/11 end */
 	mtktscharger_dprintk("%s %d\n", __func__, *t);
 
 	if (*t >= 85000)
@@ -723,20 +883,6 @@ static int mtktscharger_unbind(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int mtktscharger_get_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
-{
-	*mode = (kernelmode) ? THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
-	return 0;
-}
-
-static int mtktscharger_set_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode mode)
-{
-	kernelmode = mode;
-	return 0;
-}
-
 static int mtktscharger_get_trip_type(
 struct thermal_zone_device *thermal, int trip, enum thermal_trip_type *type)
 {
@@ -763,8 +909,6 @@ static struct thermal_zone_device_ops mtktscharger_dev_ops = {
 	.bind = mtktscharger_bind,
 	.unbind = mtktscharger_unbind,
 	.get_temp = mtktscharger_get_temp,
-	.get_mode = mtktscharger_get_mode,
-	.set_mode = mtktscharger_set_mode,
 	.get_trip_type = mtktscharger_get_trip_type,
 	.get_trip_temp = mtktscharger_get_trip_temp,
 	.get_crit_temp = mtktscharger_get_crit_temp,
@@ -875,9 +1019,13 @@ void mtkts_btscharger_prepare_table(int table_num)
 		BTSCHARGER_Temperature_Table = BTSCHARGER_Temperature_Table6;
 		ntc_tbl_size = sizeof(BTSCHARGER_Temperature_Table6);
 		break;
-	case 7:		/* NCP15WF104F03RC */
+	case 7:		/* NCP03WF104F05RL- secondary supply */
 		BTSCHARGER_Temperature_Table = BTSCHARGER_Temperature_Table7;
 		ntc_tbl_size = sizeof(BTSCHARGER_Temperature_Table7);
+		break;
+	case 8:		/* SDNT0603C104F4250FTF- main supply */
+		BTSCHARGER_Temperature_Table = BTSCHARGER_Temperature_Table8;
+		ntc_tbl_size = sizeof(BTSCHARGER_Temperature_Table8);
 		break;
 	default:		/* AP_NTC_10 */
 		BTSCHARGER_Temperature_Table = BTSCHARGER_Temperature_Table4;
@@ -1217,24 +1365,21 @@ static int mtkts_btscharger_param_open(struct inode *inode, struct file *file)
 }
 
 
-static const struct file_operations mtktscharger_fops = {
-	.owner = THIS_MODULE,
-	.open = mtktscharger_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = mtktscharger_write,
-	.release = single_release,
+static const struct proc_ops mtktscharger_fops = {
+	.proc_open = mtktscharger_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_write = mtktscharger_write,
+	.proc_release = single_release,
 };
 
-static const struct file_operations mtkts_btscharger_param_fops = {
-	.owner = THIS_MODULE,
-	.open = mtkts_btscharger_param_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = mtkts_btscharger_param_write,
-	.release = single_release,
+static const struct proc_ops mtkts_btscharger_param_fops = {
+	.proc_open = mtkts_btscharger_param_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_write = mtkts_btscharger_param_write,
+	.proc_release = single_release,
 };
-
 
 #if IS_ENABLED(CONFIG_MEDIATEK_MT6577_AUXADC)
 static int mtktscharger_pdrv_probe(struct platform_device *pdev)
@@ -1302,27 +1447,27 @@ static int mtktscharger_pdrv_remove(struct platform_device *pdev)
 
 
 #if IS_ENABLED(CONFIG_OF)
-const struct of_device_id mt_thermistor_of_match3[2] = {
-	{.compatible = "mediatek,mtboard-thermistor3",},
+const struct of_device_id mt_thermistor_of_match2[2] = {
+	{.compatible = "mediatek,mtboard-thermistor2",},
 	{},
 };
 #endif
 
-#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor3"
+#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor2"
 static struct platform_driver mtktscharger_driver = {
 	.probe = mtktscharger_pdrv_probe,
 	.remove = mtktscharger_pdrv_remove,
 	.driver = {
 		.name = THERMAL_THERMISTOR_NAME,
 #if IS_ENABLED(CONFIG_OF)
-		.of_match_table = mt_thermistor_of_match3,
+		.of_match_table = mt_thermistor_of_match2,
 #endif
 	},
 };
 
 #endif /*CONFIG_MEDIATEK_MT6577_AUXADC*/
 
-static int __init mtktscharger_init(void)
+int mtktscharger_init(void)
 {
 	int err = 0;
 #if IS_ENABLED(CONFIG_MEDIATEK_MT6577_AUXADC)
@@ -1334,6 +1479,15 @@ static int __init mtktscharger_init(void)
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mtktscharger_dir = NULL;
 #endif
+
+	if (get_supply_rank() == MAIN_SUPPLY) {
+		g_RAP_ntc_table = MAIN_SUPPLY_RAP_NTC_TABLE;
+		g_TAP_over_critical_low = 4429000;
+	} else {
+		g_RAP_ntc_table = BTS_RAP_NTC_TABLE;
+	}
+
+	printk("[%s], g_RAP_ntc_table = %d\n", __func__, g_RAP_ntc_table);
 
 	mtkts_btscharger_prepare_table(g_RAP_ntc_table);
 	err = mtktscharger_register_cooler();
@@ -1378,14 +1532,9 @@ err_unreg:
 }
 
 
-static void __exit mtktscharger_exit(void)
+void mtktscharger_exit(void)
 {
 	mtktscharger_dprintk("%s\n", __func__);
 	mtktscharger_unregister_thermal();
 	mtktscharger_unregister_cooler();
 }
-
-late_initcall(mtktscharger_init);
-module_exit(mtktscharger_exit);
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("MediaTek Inc.");

@@ -189,3 +189,6 @@ obj-$(CONFIG_GNSS)		+= gnss/
 obj-$(CONFIG_INTERCONNECT)	+= interconnect/
 obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
+#N17 code for HQ-294026 by zhouchenghua at 2023/4/28 start
+obj-$(CONFIG_SWITCH)		+= switch/
+#N17 code for HQ-294026 by zhouchenghua at 2023/4/28 end

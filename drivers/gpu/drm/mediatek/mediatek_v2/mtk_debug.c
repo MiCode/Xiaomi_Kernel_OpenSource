@@ -42,6 +42,11 @@
 #include "mtk_disp_bdg.h"
 #include "mtk_dsi.h"
 #include <linux/pm_domain.h>
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+#include "mi_disp/mi_disp_esd_check.h"
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -156,6 +161,16 @@ static bool logger_enable;
 int polling_rdma_output_line_enable;
 static struct notifier_block nb;
 static unsigned long pm_penpd_status = GENPD_NOTIFY_OFF;
+
+static u32 get_adjusted_width_cwb(struct drm_crtc *crtc) {
+	u32 calculated_width = crtc->state->adjusted_mode.hdisplay;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	if (priv->data->mmsys_id == MMSYS_MT6833)
+		return calculated_width;
+	else
+		return MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+}
 
 /* SW workaround.
  * Polling RDMA output line isn't 0 && RDMA status is run,
@@ -989,7 +1004,9 @@ static void mtk_ddic_send_cb(struct cmdq_cb_data data)
 }
 
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking)
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+			bool blocking, bool queueing)
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
@@ -1026,25 +1043,30 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	private = crtc->dev->dev_private;
 	mtk_crtc = to_mtk_crtc(crtc);
 
-	mutex_lock(&private->commit.lock);
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	if (!queueing) {
+		mutex_lock(&private->commit.lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	if (!mtk_crtc->enabled) {
-		DDPMSG("crtc%d disable skip %s\n",
-			drm_crtc_index(&mtk_crtc->base), __func__);
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
-		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
-		return -EINVAL;
-	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		DDPMSG("skip %s, ddp_mode: NO_USE\n",
-			__func__);
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
-		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
-		return -EINVAL;
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		if (!mtk_crtc->enabled) {
+			DDPMSG("crtc%d disable skip %s\n",
+				drm_crtc_index(&mtk_crtc->base), __func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
+			return -EINVAL;
+		} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+			DDPMSG("skip %s, ddp_mode: NO_USE\n",
+				__func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
+			return -EINVAL;
+		}
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	}
-
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s:invalid output comp\n", __func__);
@@ -1061,31 +1083,47 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	CRTC_MMP_MARK(index, ddic_send_cmd, 1, 0);
 
 	/* Kick idle */
-	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	if (!queueing) {
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	/* only use CLIENT_DSI_CFG for VM CMD scenario */
-	/* use CLIENT_CFG otherwise */
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		/* only use CLIENT_DSI_CFG for VM CMD scenario */
+		/* use CLIENT_CFG otherwise */
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	gce_client = (!is_frame_mode && use_lpm) ?
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] :
-			mtk_crtc->gce_obj.client[CLIENT_CFG];
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		gce_client = (!is_frame_mode && use_lpm) ?
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] :
+				mtk_crtc->gce_obj.client[CLIENT_CFG];
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	mtk_crtc_pkt_create(&cmdq_handle, crtc, gce_client);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		mtk_crtc_pkt_create(&cmdq_handle, crtc, gce_client);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH, 0);
-	else
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH, 0);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_SECOND_PATH, 0);
+		else
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_FIRST_PATH, 0);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 
-	if (is_frame_mode) {
-		cmdq_pkt_clear_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-		cmdq_pkt_wfe(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		if (is_frame_mode) {
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+			cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		}
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	}
 
 	/* DSI_SEND_DDIC_CMD */
@@ -1093,32 +1131,42 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
 		DSI_SEND_DDIC_CMD, cmd_msg);
 
-	if (is_frame_mode) {
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-	}
-
-	if (blocking) {
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-	} else {
-		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-		if (!cb_data) {
-			DDPPR_ERR("%s:cb data creation failed\n", __func__);
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mutex_unlock(&private->commit.lock);
-			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
-			return -EINVAL;
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	if (!queueing) {
+		if (is_frame_mode) {
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 		}
 
-		cb_data->cmdq_handle = cmdq_handle;
-		cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+		if (blocking) {
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		} else {
+			cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+			if (!cb_data) {
+				DDPPR_ERR("%s:cb data creation failed\n", __func__);
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+				mutex_unlock(&private->commit.lock);
+				CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
+				return -EINVAL;
+			}
+
+			cb_data->cmdq_handle = cmdq_handle;
+			cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+		}
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	}
 	DDPMSG("%s -\n", __func__);
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-	mutex_unlock(&private->commit.lock);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	if (!queueing) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+	}
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
 			blocking);
 
@@ -1339,7 +1387,9 @@ void ddic_dsi_send_cmd_test(unsigned int case_num)
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -1411,7 +1461,9 @@ void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 start*/
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+/*N17 code for HQ-291715 by p-chenzimo at 2023/05/18 end*/
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -1700,16 +1752,16 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 	if (!cwb_info->buffer[0].dst_roi.width ||
 		!cwb_info->buffer[0].dst_roi.height) {
 		mtk_rect_make(&cwb_info->buffer[0].dst_roi, 0, 0,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH);
+			get_adjusted_width_cwb(crtc),
+			get_adjusted_width_cwb(crtc));
 		mtk_rect_make(&cwb_info->buffer[1].dst_roi, 0, 0,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH);
+			get_adjusted_width_cwb(crtc),
+			get_adjusted_width_cwb(crtc));
 	}
 
 	/*alloc && config two fb*/
 	if (!cwb_info->buffer[0].fb) {
-		mode.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		mode.width = get_adjusted_width_cwb(crtc);
 		mode.height = cwb_info->src_roi.height;
 		mode.pixel_format = DRM_FORMAT_RGB888;
 		mode.pitches[0] = mode.width * 3;
@@ -1803,6 +1855,7 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 	struct mtk_cwb_info *cwb_info;
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_mode_fb_cmd2 mode = {0};
+	struct mtk_drm_private *priv;
 
 	if (IS_ERR_OR_NULL(drm_dev)) {
 		DDPPR_ERR("%s, invalid drm dev\n", __func__);
@@ -1816,6 +1869,7 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 		return false;
 	}
 
+	priv = crtc->dev->dev_private;
 	mtk_crtc = to_mtk_crtc(crtc);
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc->cwb_info) {
@@ -1841,8 +1895,10 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 			return false;
 	}
 
-	if (rect.width > MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH)
-		rect.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+	if (priv->data->mmsys_id != MMSYS_MT6833) {
+		if (rect.width > MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH)
+			rect.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+	}
 
 	if (rect.x + rect.width > cwb_info->src_roi.width)
 		rect.width = cwb_info->src_roi.width - rect.x;
@@ -1850,7 +1906,7 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 		rect.height = cwb_info->src_roi.height - rect.y;
 
 	if (!cwb_info->buffer[0].fb) {
-		mode.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		mode.width = get_adjusted_width_cwb(crtc);
 		mode.height = cwb_info->src_roi.height;
 		mode.pixel_format = DRM_FORMAT_RGB888;
 		mode.pitches[0] = mode.width * 3;
@@ -3147,6 +3203,7 @@ static void process_dbg_opt(const char *opt)
 		struct mtk_drm_crtc *mtk_crtc;
 		struct mtk_cwb_info *cwb_info;
 		int width, height, size, ret;
+		struct mtk_drm_private *priv;
 
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
@@ -3156,16 +3213,20 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
+		priv = crtc->dev->dev_private;
 		mtk_crtc = to_mtk_crtc(crtc);
 		cwb_info = mtk_crtc->cwb_info;
 		if (!cwb_info)
 			return;
 
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-		width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		width = get_adjusted_width_cwb(crtc);
 		height = cwb_info->src_roi.height;
 		size = sizeof(u8) * width * height * 3;
-		user_buffer = kzalloc(size, GFP_KERNEL);
+		if (priv->data->mmsys_id == MMSYS_MT6833)
+			user_buffer = vmalloc(size);
+		else
+			user_buffer = kzalloc(size, GFP_KERNEL);
 		mtk_drm_set_cwb_user_buf((void *)user_buffer, IMAGE_ONLY);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		DDPMSG("[capture] wait frame complete\n");
@@ -3320,6 +3381,39 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 16, "-1", 2) == 0)
 			g_mml_mode = MML_MODE_NOT_SUPPORT;
 		DDPMSG("mml_mode:%d", g_mml_mode);
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	}else if (strncmp(opt, "mi_err_flag_irq_switch:", 23) == 0) {
+		char *p = (char *)opt + 23;
+		unsigned int flg = 0;
+		struct drm_crtc *crtc = NULL;
+		int ret = 0;
+
+		ret = kstrtouint(p, 0, &flg);
+		if (ret) {
+			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		if(flg) {
+			mi_disp_err_flag_esd_check_switch(crtc, true);
+			DDPMSG("Enable err_flag_irq via mtkfb\n");
+		}
+		else {
+			mi_disp_err_flag_esd_check_switch(crtc, false);
+			DDPMSG("Disable err_flag_irq via mtkfb\n");
+		}
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 	} else if (strncmp(opt, "force_mml:", 10) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -4161,3 +4255,8 @@ void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,
 		*start = 0;
 	}
 }
+/*N17 code for HQ-296959 by p-lizongrui at 2023/05/29 start*/
+
+EXPORT_SYMBOL(mtk_ddic_dsi_read_cmd);
+EXPORT_SYMBOL(mtk_ddic_dsi_send_cmd);
+/*N17 code for HQ-296959 by p-lizongrui at 2023/05/29 end*/

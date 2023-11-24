@@ -66,7 +66,8 @@ static int pd_dbg_level = PD_DEBUG_LEVEL;
 
 int pd_get_debug_level(void)
 {
-	return pd_dbg_level;
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 */
+	return PD_DEBUG_LEVEL;
 }
 
 static char *pd_state_to_str(int state)
@@ -160,11 +161,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = pd_hal_is_pd_adapter_ready(alg);
 		if (ret_value == ALG_READY) {
 			uisoc = pd_hal_get_uisoc(alg);
-			if (pd->input_current_limit1 != -1 ||
-				pd->charging_current_limit1 != -1 ||
-				pd->input_current_limit2 != -1 ||
-				pd->charging_current_limit2 != -1 ||
-				uisoc >= pd->pd_stop_battery_soc ||
+			if ((uisoc >= pd->pd_stop_battery_soc) ||
 				(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
 				ret_value = ALG_NOT_READY;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
@@ -509,7 +506,8 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	bool chg1_mivr = false;
 	bool chg2_mivr = false;
 	int chg_cnt, i, is_chip_enabled;
-
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 */
+	int temp_index = -1;
 
 	__mtk_pdc_init_table(alg);
 	__mtk_pdc_get_reset_idx(alg);
@@ -604,18 +602,33 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 		chg2_watt,
 		now_max_watt);
 
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 start */
 	pd_min_watt = cap->max_mv[pd->pd_buck_idx] * cap->ma[pd->pd_buck_idx]
 			/ 100 * (100 - pd->ibus_err)
-			- pd->vsys_watt;
+			- pd->vsys_watt - 1500000;
 
-	pd_dbg("pd_min_watt:%d %d %d %d %d\n", pd->pd_buck_idx,
+	pd_dbg("vsys_watt:%d %d %d %d %d\n", pd->pd_buck_idx,
 		cap->max_mv[pd->pd_buck_idx],
 		cap->ma[pd->pd_buck_idx],
 		pd->ibus_err,
 		pd->vsys_watt);
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 end */
 
 	if (pd_min_watt <= 5000000)
 		pd_min_watt = 5000000;
+
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 start */
+	if (cap->max_mv[idx] == 5000) {
+		for (temp_index = 0; temp_index < cap->nr; temp_index++) {
+			if (cap->max_mv[temp_index] == 9000) {
+				pd_info("get 9V cap, index = %d\n", temp_index);
+				break;
+			}
+		}
+		if (temp_index == cap->nr)
+			pd_info("TA dont suppoert 9V!\n");
+	}
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 end */
 
 	if ((now_max_watt >= pd_max_watt) || chg1_mivr || chg2_mivr) {
 		*newidx = pd->pd_boost_idx;
@@ -623,6 +636,11 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	} else if (now_max_watt <= pd_min_watt) {
 		*newidx = pd->pd_buck_idx;
 		buck = true;
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 start */
+	} else if ((cap->max_mv[idx] == 5000) && (temp_index < cap->nr) && (temp_index > -1)) {
+		*newidx = temp_index;
+		boost = true;
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 end */
 	} else {
 		*newidx = selected_idx;
 		boost = false;
@@ -909,11 +927,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 				pd->state = PD_TA_NOT_SUPPORT;
 			else if (ret_value == ALG_READY) {
 				uisoc = pd_hal_get_uisoc(alg);
-				if (pd->input_current_limit1 != -1 ||
-					pd->charging_current_limit1 != -1 ||
-					pd->input_current_limit2 != -1 ||
-					pd->charging_current_limit2 != -1 ||
-					uisoc >= pd->pd_stop_battery_soc ||
+				if ( uisoc >= pd->pd_stop_battery_soc ||
 					(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
 					ret_value = ALG_NOT_READY;
 				else {
@@ -1065,6 +1079,8 @@ static int pd_full_evt(struct chg_alg_device *alg)
 			if (pd->state == PD_RUN) {
 				pd_err("%s evt full\n",  __func__);
 				pd->state = PD_HW_READY;
+				/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 */
+				pd_hal_set_adapter_cap(alg, 5000, 3000);
 			}
 		}
 		break;
@@ -1134,6 +1150,11 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 		pd->pd_6pin_en = 0;
 		ret_value = 0;
 		break;
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 start */
+	case EVT_PLUG_IN:
+		pd->state = PD_HW_READY;
+		pd_info("%s evt: EVT_PLUG_IN, reset pd state to PD_HW_READY\n");
+	/* N17 code for HQHW-4815 by p-xuyechen at 2023/8/15 end */
 	default:
 		ret_value = -EINVAL;
 	}

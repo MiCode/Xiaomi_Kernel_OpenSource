@@ -26,6 +26,9 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcama1"},
 	{"vcamaf"},
 	{"vcamd"},
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 start */
+	{"vcamd1"},
+/* N17 code for HQ-293325 by miaozhongshu at 2023/04/21 end */
 	{"vcamio"},
 };
 

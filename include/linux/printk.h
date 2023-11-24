@@ -6,7 +6,6 @@
 #include <linux/init.h>
 #include <linux/kern_levels.h>
 #include <linux/linkage.h>
-#include <linux/cache.h>
 #include <linux/ratelimit_types.h>
 
 extern const char linux_banner[];
@@ -16,6 +15,7 @@ extern int oops_in_progress;	/* If set, an oops, panic(), BUG() or die() is in p
 
 #define PRINTK_MAX_SINGLE_HEADER_LEN 2
 #ifdef CONFIG_MTK_PRINTK_DEBUG
+#include <linux/cache.h>
 int get_printk_wake_up_time(unsigned long long *t0, unsigned long long *t1);
 void set_printk_uart_status(int value);
 #endif

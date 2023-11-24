@@ -244,8 +244,23 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 {
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 start*/
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		return;
+	}
+
 	mtk_drm_idlemgr_disable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+/*N17 code for HQ-308987 by p-chenzimo at 2023/07/31 start*/
+	if (mtk_crtc && mtk_crtc->esd_ctx) {
+/*N17 code for HQ-308987 by p-chenzimo at 2023/07/31 end*/
+		atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+	}
+#endif
+/*N17 code for HQ-290979 by p-chenzimo at 2023/06/13 end*/
 }
 
 static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
@@ -410,7 +425,11 @@ unsigned int mtk_drm_set_idlemgr(struct drm_crtc *crtc, unsigned int flag,
 
 	if (flag) {
 		DDPINFO("[LP] enable idlemgr\n");
+		/*N17 code for HQ-302523 by p-chenzimo at 2023/06/28 start*/
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 start*/
 		atomic_set(&idlemgr->idlemgr_task_active, 1);
+/*N17 code for HQ-291716 by p-chenzimo at 2023/06/30 end*/
+		/*N17 code for HQ-302523 by p-chenzimo at 2023/06/28 end*/
 		wake_up_interruptible(&idlemgr->idlemgr_wq);
 	} else {
 		DDPINFO("[LP] disable idlemgr\n");
@@ -661,7 +680,9 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 	idlemgr->idlemgr_task =
 		kthread_create(mtk_drm_idlemgr_monitor_thread, crtc, name);
 	init_waitqueue_head(&idlemgr->idlemgr_wq);
-	atomic_set(&idlemgr->idlemgr_task_active, 1);
+/*N17 code for HQ-305797 by p-chenzimo at 2023/07/06 start*/
+	atomic_set(&idlemgr->idlemgr_task_active, 0);
+/*N17 code for HQ-305797 by p-chenzimo at 2023/07/06 end*/
 
 	wake_up_process(idlemgr->idlemgr_task);
 

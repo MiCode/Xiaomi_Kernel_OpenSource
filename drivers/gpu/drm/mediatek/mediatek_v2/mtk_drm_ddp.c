@@ -9846,6 +9846,10 @@ static int mtk_ddp_mout_en_MT6833(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6833_DISP_REG_CONFIG_DISP_DITHER0_MOUT_EN;
 		value = MT6833_DITHER0_MOUT_TO_DISP_DSI0_SEL;
 	/*No cur or next component*/
+	} else if (cur == DDP_COMPONENT_DITHER0 &&
+		next == DDP_COMPONENT_WDMA0) {
+		*addr = MT6833_DISP_REG_CONFIG_DISP_DITHER0_MOUT_EN;
+		value = MT6833_DITHER0_MOUT_TO_DISP_DISP_WDMA0;
 	} else {
 		value = -1;
 	}

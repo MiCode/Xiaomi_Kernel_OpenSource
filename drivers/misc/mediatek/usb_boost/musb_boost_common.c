@@ -385,8 +385,12 @@ static void audio_boost_work(struct work_struct *work_struct)
 {
 	audio_boost_inst.request_func = __request_empty;
 	USB_BOOST_NOTICE("audio_boost, begin of work\n");
+	// Forced not to enter idle
 	audio_core_hold();
-	audio_freq_hold();
+	/* N17 code for HQ-319216 by lichuchu at 2023/8/29 start */
+	// Cancel the frequency limit in the type-c scenario and schedule according to the system
+	// audio_freq_hold();
+	/* N17 code for HQ-319216 by lichuchu at 2023/8/29 end */
 
 	while (1) {
 		int timeout;
@@ -402,7 +406,9 @@ static void audio_boost_work(struct work_struct *work_struct)
 	}
 
 	audio_core_release();
-	audio_freq_release();
+	/* N17 code for HQ-319216 by lichuchu at 2023/8/29 start */
+	// audio_freq_release();
+	/* N17 code for HQ-319216 by lichuchu at 2023/8/29 end */
 	audio_boost_inst.request_func = __request_audio;
 	USB_BOOST_NOTICE("audio_boost, end of work\n");
 }

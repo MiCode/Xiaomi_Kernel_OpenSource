@@ -19,6 +19,11 @@
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_qos.h>
+/*N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+#include <linux/time.h>
+#include <linux/timekeeping.h>
+/*N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
+#include "../input/touchscreen/FT3683G/focaltech_core.h"
 
 #define SPI_CFG0_REG                      0x0000
 #define SPI_CFG1_REG                      0x0004
@@ -108,6 +113,10 @@
 
 #define DMA_ADDR_EXT_BITS (36)
 #define DMA_ADDR_DEF_BITS (32)
+/*N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+/*reference to core layer timeout (ns) */
+#define MTK_SPI_TRANSFER_TIMEOUT (200000000)
+/*N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
 
 struct mtk_spi_compatible {
 	bool need_pad_sel;
@@ -140,6 +149,7 @@ struct mtk_spi {
 	const struct mtk_spi_compatible *dev_comp;
 	struct pm_qos_request spi_qos_request;
 	u32 spi_clk_hz;
+	u32 is_fifo_polling;/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 */
 };
 
 static const struct mtk_spi_compatible mtk_common_compat;
@@ -697,8 +707,10 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 				 struct spi_device *spi,
 				 struct spi_transfer *xfer)
 {
-	int cnt, remainder;
-	u32 reg_val;
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start */
+	u32 reg_val, cnt, remainder, len, irq_status;
+	u64 cur_time;
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end */
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
 	mdata->cur_transfer = xfer;
@@ -718,12 +730,85 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 		}
 	}
 
-	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start */
+	if (!mdata->is_fifo_polling) {
+	/* make sure all reg setting done before transfer */
+		mb();
+		spi_debug("spi setting Done.Dump reg before Transfer start:\n");
+		spi_dump_reg(mdata, master);
+		mtk_spi_enable_transfer(master);
+		return 1;
+	}
+	//disable irq
+	reg_val = readl(mdata->base + SPI_CMD_REG);
+	reg_val &= ~(SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE);
+	writel(reg_val, mdata->base + SPI_CMD_REG);
+	/* make sure all reg setting done before transfer */
+	mb();
+
+	spi_debug("spi setting Done.Dump reg before Transfer start(polling):\n");
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end */
 	spi_dump_reg(mdata, master);
 
 	mtk_spi_enable_transfer(master);
 
-	return 1;
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+	cur_time = ktime_get_ns();
+	while (1) {
+		do {
+			irq_status = readl(mdata->base+SPI_STATUS1_REG);
+			/*Reference to core layer timeout (ns) */
+			if (ktime_get_ns() - cur_time > MTK_SPI_TRANSFER_TIMEOUT) {
+				return -ETIMEDOUT;
+			}
+			cpu_relax();
+		} while (!irq_status);
+		reg_val = readl(mdata->base + SPI_STATUS0_REG);
+		if (reg_val & MTK_SPI_PAUSE_INT_STATUS)
+			mdata->state = MTK_SPI_PAUSED;
+		else
+			mdata->state = MTK_SPI_IDLE;
+		if (xfer->rx_buf) {
+			cnt = mdata->xfer_len / 4;
+			ioread32_rep(mdata->base + SPI_RX_DATA_REG,
+					xfer->rx_buf + mdata->num_xfered, cnt);
+			remainder = mdata->xfer_len % 4;
+			if (remainder > 0) {
+				reg_val = readl(mdata->base + SPI_RX_DATA_REG);
+				memcpy(xfer->rx_buf +
+					mdata->num_xfered +
+					(cnt * 4),
+					&reg_val,
+					remainder);
+			}
+		}
+		mdata->num_xfered += mdata->xfer_len;
+		if (mdata->num_xfered == xfer->len)
+			break;
+		len = xfer->len - mdata->num_xfered;
+		mdata->xfer_len = min(MTK_SPI_MAX_FIFO_SIZE, len);
+		mtk_spi_setup_packet(master);
+		if (xfer->tx_buf) {
+			cnt = mdata->xfer_len / 4;
+			iowrite32_rep(mdata->base + SPI_TX_DATA_REG,
+					xfer->tx_buf + mdata->num_xfered, cnt);
+			remainder = mdata->xfer_len % 4;
+			if (remainder > 0) {
+				reg_val = 0;
+				memcpy(&reg_val,
+				xfer->tx_buf + (cnt * 4) + mdata->num_xfered,
+				remainder);
+				writel(reg_val, mdata->base + SPI_TX_DATA_REG);
+			}
+		}
+		/* make sure all reg setting done before transfer */
+		mb();
+		spi_debug("spi setting Done.Dump reg before Transfer start:(polling)\n");
+		spi_dump_reg(mdata, master);
+		mtk_spi_enable_transfer(master);
+	}
+	return 0;
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
 }
 
 static int mtk_spi_dma_transfer(struct spi_master *master,
@@ -769,7 +854,17 @@ static int mtk_spi_dma_transfer(struct spi_master *master,
 
 	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
 	spi_dump_reg(mdata, master);
-
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+	if (mdata->is_fifo_polling) {
+		//enable irq
+		cmd |= SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE;
+		writel(cmd, mdata->base + SPI_CMD_REG);
+	}
+	/* make sure all reg setting done before transfer */
+	mb();
+	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
+	spi_dump_reg(mdata, master);
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
 	mtk_spi_enable_transfer(master);
 
 	return 1;
@@ -991,6 +1086,12 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		}
 	}
 
+/* N17 code for HQ-291634 by liunianliang at 2023/5/26 start */
+#ifdef FTS_TP_ADD
+	master->num_chipselect = mdata->pad_num; //add
+#endif
+/* N17 code for HQ-291634 by liunianliang at 2023/5/26 end */
+
 	platform_set_drvdata(pdev, master);
 	mdata->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(mdata->base)) {
@@ -1055,12 +1156,16 @@ static int mtk_spi_probe(struct platform_device *pdev)
 			goto err_put_master;
 		}
 
+/* N17 code for HQ-291634 by liunianliang at 2023/5/26 start */
+#ifndef FTS_TP_ADD
 		if (!master->cs_gpios && master->num_chipselect > 1) {
 			dev_err(&pdev->dev,
 				"cs_gpios not specified and num_chipselect > 1\n");
 			ret = -EINVAL;
 			goto err_put_master;
 		}
+#endif
+/* N17 code for HQ-291634 by liunianliang at 2023/5/26 end */
 
 		if (master->cs_gpios) {
 			for (i = 0; i < master->num_chipselect; i++) {
@@ -1088,6 +1193,16 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	if (ret)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
 			addr_bits, ret);
+
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 start*/
+	#if IS_ENABLED(CONFIG_MTK_MT6382_BDG) //N17 code for HQ-335747 to fix vts test fail 1014
+		if (!strcmp(pdev->name, "1100a000.spi0"))
+				mdata->is_fifo_polling = 1;
+
+		dev_notice(&pdev->dev, "probe %s mdata->is_fifo_polling:%d\n",
+					pdev->name, mdata->is_fifo_polling);
+	#endif
+	/* N17 code for HQ-331334 by p-chenguanghe3 at 2023/10/10 end*/
 
 	if (mdata->dev_comp->no_need_unprepare) {
 		ret = clk_prepare(mdata->spi_clk);

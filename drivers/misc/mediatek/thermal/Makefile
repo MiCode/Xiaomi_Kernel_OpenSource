@@ -53,8 +53,9 @@ thermal_monitor-y += common/thermal_zones/mtk_ts_btsmdpa.o
 
 thermal_monitor-y += common/thermal_zones/mtk_ts_pa.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_pa_thput.o
-thermal_monitor-y += common/thermal_zones/mtk_ts_charger.o
-
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 start
+thermal_monitor-y += common/thermal_zones/mtk_ts_btscharger.o
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 end
 
 
 thermal_monitor-y += common/thermal_zones/mtk_ts_wmt.o
@@ -114,6 +115,9 @@ else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
 include $(srctree)/drivers/misc/mediatek/thermal/v1/src/Makefile
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/v1/inc
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 start
+ccflags-y  += -I$(srctree)/drivers/power/supply
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 end
 thermal_monitor-y += common/thermal_zones/mtk_ts_imgsensor.o
 thermal_monitor-y += v1/mtk_thermal_monitor.o
 thermal_monitor-y += v1/src/mtk_pmic_efuse_mt6833.o
@@ -126,9 +130,20 @@ thermal_monitor-y += v1/src/mtk_ts_6359vcore.o
 thermal_monitor-y += v1/src/mtk_ts_6359vgpu.o
 thermal_monitor-y += v1/src/mtk_ts_6359vproc.o
 
-thermal_monitor-y += common/thermal_zones/mtk_ts_btsnrpa.o
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 start
+#thermal_monitor-y += common/thermal_zones/mtk_ts_btsnrpa.o
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 end
 thermal_monitor-y += common/thermal_zones/mtk_ts_dctm.o
 thermal_monitor-y += common/coolers/mtk_cooler_bcct_v2.o
 thermal_monitor-y += common/coolers/mtk_cooler_mutt_gen97.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_cpu_noBankv2.o
+
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 start
+thermal_monitor-y += common/thermal_zones/mtk_cs_cpu.o
+thermal_monitor-y += common/coolers/mtk_cooler_gpu_cus.o
+thermal_monitor-y += common/coolers/mtk_cooler_md_cus.o
+thermal_monitor-y += common/coolers/mtk_cooler_char_curr_cus.o
+
+thermal_monitor-y += common/mi_thermal_message.o
+# N17 code for HQ-296383 by liunianliang at 2023/05/17 end
 endif
