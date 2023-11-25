@@ -339,9 +339,10 @@ nla_policy wil_rf_sector_cfg_policy[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1] = {
 };
 
 static const struct
-nla_policy wil_nl_60g_policy[QCA_ATTR_WIL_MAX + 1] = {
+nla_policy wil_nl_60g_policy[QCA_ATTR_WIL_MAX] = {
 	[WIL_ATTR_60G_CMD_TYPE] = { .type = NLA_U32 },
-	[WIL_ATTR_60G_BUF] = { .type = NLA_BINARY },
+	[WIL_ATTR_60G_BUF] = { .type = NLA_BINARY,
+			       .len = IEEE80211_MAX_DATA_LEN },
 };
 
 enum qca_nl80211_vendor_subcmds {
@@ -476,7 +477,8 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_UNSPEC,
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.policy = VENDOR_CMD_RAW_DATA,
+		.policy = wil_nl_60g_policy,
+		.maxattr = QCA_ATTR_WIL_MAX,
 		.doit = wil_nl_60g_handle_cmd
 	},
 };
