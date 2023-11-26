@@ -21,6 +21,7 @@
 #include "kxr_spi_xfer.h"
 #include "kxr_spi_xchg.h"
 #include "kxr_spi_uart.h"
+#include "kxr_aphost_v1.h"
 
 #pragma once
 
@@ -34,6 +35,7 @@ struct kxr_aphost {
 	struct kxr_spi_xfer xfer;
 	struct kxr_spi_xchg xchg;
 	struct kxr_spi_uart uart;
+	struct js_spi_client js;
 
 #ifndef CONFIG_KXR_SIMULATION_TEST
 	struct pinctrl *pinctrl;
@@ -73,6 +75,10 @@ bool kxr_spi_uart_sync(struct kxr_aphost *aphost);
 
 int kxr_spi_dfu_probe(struct kxr_aphost *aphost);
 void kxr_spi_dfu_remove(struct kxr_aphost *aphost);
+
+bool js_thread(struct kxr_aphost *aphost);
+int js_spi_driver_probe(struct kxr_aphost *aphost);
+int js_spi_driver_remove(struct kxr_aphost *aphost);
 
 static inline struct kxr_aphost *kxr_aphost_get_drv_data(const struct device *dev)
 {

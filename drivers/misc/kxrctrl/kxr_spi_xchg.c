@@ -18,8 +18,8 @@ int kxr_spi_xchg_read_response(struct kxr_aphost *aphost, char *buff, int size)
 	int times = 20;
 	int length;
 
-	while (header->ack == 0)
-		if (times < 1) {
+	while (header->ack == 0) {
+		if (times < 1)
 			return scnprintf(buff, PAGE_SIZE, "no need to ack\n");
 
 		msleep(21);
@@ -84,13 +84,14 @@ int kxr_spi_xchg_read_response(struct kxr_aphost *aphost, char *buff, int size)
 void kxr_spi_xchg_write_command(struct kxr_aphost *aphost, u32 command)
 {
 	struct kxr_spi_xchg *xchg = &aphost->xchg;
-	union kxr_spi_xchg_req *req = &xchg->req;
+	struct kxr_spi_xchg_req *req = &xchg->req;
 	union kxr_spi_xchg_header *header = &req->header;
 
 	header->key_ack = command >> 24;
-	header->value = command >> 8;
+	header->value = command & 0xFFFFFF;
 	req->type = KXR_SPI_XCHG_TAG;
 	xchg->header.ack = 0;
+	xchg->req_times = 0;
 
 	if (kxr_spi_xfer_post_xchg(&aphost->xfer) && header->key == setPowerStateRequest)
 		kxr_aphost_power_mode_set(aphost, (enum kxr_spi_power_mode) req->header.args[0]);
@@ -110,20 +111,31 @@ void kxr_spi_xchg_clear(struct kxr_spi_xchg *xchg)
 bool kxr_spi_xchg_sync(struct kxr_aphost *aphost)
 {
 	struct kxr_spi_xchg *xchg = &aphost->xchg;
-	union kxr_spi_xchg_req *req = &xchg->req;
+	struct kxr_spi_xchg_req *req = &xchg->req;
 	struct kxr_spi_xchg_rsp *rsp = &xchg->rsp;
 	int ret;
-
 	ret = kxr_spi_xfer_sync(&aphost->xfer, req, rsp, KXR_SPI_XCHG_SIZE);
 	if (ret < 0)
 		return false;
+	if (req->type == 0x00)
+		return false;
 
-	if (rsp->header.ack)
+	if (rsp->header.ack && rsp->header_value != 0xFFFFFFFF) {
 		memcpy(&xchg->header, &rsp->header, sizeof(union kxr_spi_xchg_header));
+		req->type = 0x00;
+		return false;
+	}
 
-	req->type = 0x00;
+	pr_debug("req_times: %d\n", xchg->req_times);
 
-	return false;
+	if (xchg->req_times > 50) {
+		req->type = 0x00;
+		return false;
+	}
+
+	xchg->req_times++;
+
+	return true;
 }
 
 static ssize_t jsrequest_show(struct device *dev, struct device_attribute *attr, char *buff)

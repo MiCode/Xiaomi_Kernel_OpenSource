@@ -152,9 +152,14 @@ static irqreturn_t kxr_spi_xfer_isr(int irq, void *dev_id)
 }
 #endif
 
+static bool kxr_spi_xfer_mode_set_def(struct kxr_spi_xfer *xfer)
+{
+	return kxr_spi_xfer_mode_set(xfer, xfer->mode_def);
+}
+
 static void kxr_spi_xfer_resume(struct kxr_aphost *aphost)
 {
-	kxr_spi_xfer_mode_set(&aphost->xfer, KXR_SPI_WORK_MODE_UART);
+	kxr_spi_xfer_mode_set_def(&aphost->xfer);
 	kxr_spi_uart_clear(&aphost->uart);
 	kxr_spi_xchg_clear(&aphost->xchg);
 }
@@ -183,13 +188,9 @@ static bool kxr_spi_xfer_mode_user(struct kxr_aphost *aphost)
 static bool kxr_spi_xfer_mode_idle(struct kxr_aphost *aphost)
 {
 	pr_info("%s:%d\n", __FILE__, __LINE__);
-	mutex_lock(&aphost->power_mutex);
-	if (kxr_aphost_power_disabled()) {
-		mutex_unlock(&aphost->power_mutex);
+	if (kxr_aphost_power_disabled())
 		return false;
-	}
 	kxr_spi_xfer_resume(aphost);
-	mutex_unlock(&aphost->power_mutex);
 
 	return true;
 }
@@ -210,8 +211,7 @@ static bool kxr_spi_xfer_mode_xchg(struct kxr_aphost *aphost)
 #ifndef CONFIG_KXR_SIMULATION_TEST
 	int times;
 #endif
-
-	kxr_spi_xfer_mode_set(&aphost->xfer, KXR_SPI_WORK_MODE_UART);
+	kxr_spi_xfer_mode_set_def(&aphost->xfer);
 
 	kxr_spi_xchg_sync(aphost);
 
@@ -223,6 +223,11 @@ static bool kxr_spi_xfer_mode_xchg(struct kxr_aphost *aphost)
 	kxr_spi_xchg_sync(aphost);
 
 	return false;
+}
+
+static bool kxr_spi_xfer_mode_old(struct kxr_aphost *aphost)
+{
+	return js_thread(aphost);
 }
 
 bool kxr_spi_xfer_mode_set(struct kxr_spi_xfer *xfer, enum kxr_spi_work_mode mode)
@@ -262,6 +267,7 @@ bool kxr_spi_xfer_mode_set(struct kxr_spi_xfer *xfer, enum kxr_spi_work_mode mod
 
 	case KXR_SPI_WORK_MODE_UART:
 		dev_info(&xfer->spi->dev, "KXR_SPI_WORK_MODE_UART\n");
+		xfer->mode_def = KXR_SPI_WORK_MODE_UART;
 		xfer->handler = kxr_spi_xfer_mode_uart;
 		break;
 
@@ -270,9 +276,16 @@ bool kxr_spi_xfer_mode_set(struct kxr_spi_xfer *xfer, enum kxr_spi_work_mode mod
 		xfer->handler = kxr_spi_xfer_mode_xchg;
 		break;
 
+	case KXR_SPI_WORK_MODE_OLD:
+		dev_info(&xfer->spi->dev, "KXR_SPI_WORK_MODE_OLD\n");
+		xfer->mode_def = KXR_SPI_WORK_MODE_OLD;
+		xfer->handler = kxr_spi_xfer_mode_old;
+		break;
+
 	default:
 		dev_err(&xfer->spi->dev, "Invalid xfer mode: %d\n", mode);
 		kxr_spi_xfer_mode = mode_backup;
+		mutex_unlock(&xfer->mode_mutex);
 		return false;
 	}
 
@@ -288,15 +301,18 @@ enum kxr_spi_work_mode kxr_spi_xfer_mode_get(void)
 
 bool kxr_spi_xfer_post_xchg(struct kxr_spi_xfer *xfer)
 {
-	mutex_lock(&xfer->mode_mutex);
-	if (kxr_spi_xfer_mode == KXR_SPI_WORK_MODE_USER) {
-		mutex_unlock(&xfer->mode_mutex);
-		return false;
+
+	switch (kxr_spi_xfer_mode) {
+	case KXR_SPI_WORK_MODE_USER:
+		return true;
+	case KXR_SPI_WORK_MODE_OLD:
+		break;
+	default:
+		kxr_spi_xfer_mode_set(xfer, KXR_SPI_WORK_MODE_XCHG);
+		break;
 	}
 
-	kxr_spi_xfer_mode_set(xfer, KXR_SPI_WORK_MODE_XCHG);
 	kxr_spi_xfer_wakeup(xfer);
-	mutex_unlock(&xfer->mode_mutex);
 	return true;
 }
 
@@ -399,5 +415,6 @@ void kxr_spi_xfer_remove(struct kxr_aphost *aphost)
 
 	device_remove_file(&xfer->spi->dev, &dev_attr_xfer_mode);
 	kxr_spi_xfer_mode_set(xfer, KXR_SPI_WORK_MODE_EXIT);
+	mutex_destroy(&xfer->mode_mutex);
 	kthread_stop(xfer->task);
 }

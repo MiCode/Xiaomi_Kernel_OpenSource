@@ -56,13 +56,9 @@ struct kxr_spi_xchg_node {
 	u8 buff[26];
 };
 
-union kxr_spi_xchg_req {
-	struct {
-		u8 type;
-		union kxr_spi_xchg_header header;
-	};
-
-	u8 buff[KXR_SPI_XCHG_SIZE];
+struct kxr_spi_xchg_req {
+	u8 type;
+	union kxr_spi_xchg_header header;
 };
 
 struct kxr_spi_xchg_rsp {
@@ -80,9 +76,18 @@ struct kxr_spi_xchg_rsp {
 #pragma pack()
 
 struct kxr_spi_xchg {
-	union kxr_spi_xchg_req req;
-	struct kxr_spi_xchg_rsp rsp;
+	union {
+		struct kxr_spi_xchg_req req;
+		u8 tx_buff[KXR_SPI_XCHG_SIZE];
+	};
+
+	union {
+		struct kxr_spi_xchg_rsp rsp;
+		u8 rx_buff[KXR_SPI_XCHG_SIZE];
+	};
+
 	union kxr_spi_xchg_header header;
+	u8 req_times;
 };
 
 void kxr_spi_xchg_clear(struct kxr_spi_xchg *xchg);
