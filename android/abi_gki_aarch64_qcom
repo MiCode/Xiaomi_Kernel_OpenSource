@@ -34,6 +34,7 @@
   android_debug_for_each_module
   android_debug_per_cpu_symbol
   android_debug_symbol
+  android_gki_sysctl_vals
   android_rvh_probe_register
   anon_inode_getfile
   arc4_crypt
