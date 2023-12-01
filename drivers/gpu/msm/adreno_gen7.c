@@ -1252,6 +1252,9 @@ int gen7_probe_common(struct platform_device *pdev,
 	device->pwrctrl.rt_bus_hint = gen7_core->rt_bus_hint;
 	kgsl_pwrscale_fast_bus_hint(gen7_core->fast_bus_hint);
 
+	if (adreno_is_gen7_3_0(adreno_dev))
+		adreno_drawobj_timeout = 4500;
+
 	return adreno_device_probe(pdev, adreno_dev);
 }
 
