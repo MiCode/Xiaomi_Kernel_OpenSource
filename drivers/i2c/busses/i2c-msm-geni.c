@@ -643,21 +643,68 @@ static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 	return 0;
 }
 
+static void geni_i2c_irq_handle_watermark(struct geni_i2c_dev *gi2c, u32 m_stat)
+{
+	struct i2c_msg *cur = gi2c->cur;
+	int i, j;
+	u32 rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
+
+	if (((m_stat & M_RX_FIFO_WATERMARK_EN) ||
+	     (m_stat & M_RX_FIFO_LAST_EN)) && (cur->flags & I2C_M_RD)) {
+		u32 rxcnt = rx_st & RX_FIFO_WC_MSK;
+
+		for (j = 0; j < rxcnt; j++) {
+			u32 temp;
+			int p;
+
+			temp = readl_relaxed(gi2c->base + SE_GENI_RX_FIFOn);
+			for (i = gi2c->cur_rd, p = 0; (i < cur->len && p < 4);
+				i++, p++)
+				cur->buf[i] = (u8)((temp >> (p * 8)) & 0xff);
+			gi2c->cur_rd = i;
+			if (gi2c->cur_rd == cur->len) {
+				dev_dbg(gi2c->dev, "FIFO i:%d,read 0x%x\n",
+					i, temp);
+				break;
+			}
+		}
+	} else if ((m_stat & M_TX_FIFO_WATERMARK_EN) &&
+					!(cur->flags & I2C_M_RD)) {
+		for (j = 0; j < gi2c->tx_wm; j++) {
+			u32 temp = 0;
+			int p;
+
+			for (i = gi2c->cur_wr, p = 0; (i < cur->len && p < 4);
+				i++, p++)
+				temp |= (((u32)(cur->buf[i]) << (p * 8)));
+			writel_relaxed(temp, gi2c->base + SE_GENI_TX_FIFOn);
+			gi2c->cur_wr = i;
+			dev_dbg(gi2c->dev, "FIFO i:%d,wrote 0x%x\n", i, temp);
+			if (gi2c->cur_wr == cur->len) {
+				dev_dbg(gi2c->dev, "FIFO i2c bytes done writing\n");
+				writel_relaxed(0, (gi2c->base + SE_GENI_TX_WATERMARK_REG));
+				break;
+			}
+		}
+	} else {
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			    "%s: m_irq_status:0x%x cur->flags:%d\n", __func__, m_stat, cur->flags);
+	}
+}
+
 static irqreturn_t geni_i2c_irq(int irq, void *dev)
 {
 	struct geni_i2c_dev *gi2c = dev;
-	int i, j;
 	bool is_clear_watermark = false;
 	bool m_cancel_done = false;
 	u32 m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
-	u32 rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
 	u32 dm_tx_st = readl_relaxed(gi2c->base + SE_DMA_TX_IRQ_STAT);
 	u32 dm_rx_st = readl_relaxed(gi2c->base + SE_DMA_RX_IRQ_STAT);
 	u32 dma = readl_relaxed(gi2c->base + SE_GENI_DMA_MODE_EN);
 	struct i2c_msg *cur = gi2c->cur;
 
 	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-		"%s: m_irq_status:0x%x\n", __func__, m_stat);
+		    "%s: m_irq_status:0x%x\n", __func__, m_stat);
 
 	if (!cur) {
 		I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev, "Spurious irq\n");
@@ -674,7 +721,6 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		(m_stat & M_GP_IRQ_1_EN) ||
 		(m_stat & M_GP_IRQ_3_EN) ||
 		(m_stat & M_GP_IRQ_4_EN)) {
-
 		if (m_stat & M_GP_IRQ_1_EN) {
 			if (readl_relaxed(gi2c->base + SE_GENI_M_GP_LENGTH))
 				geni_i2c_err(gi2c, I2C_DATA_NACK);
@@ -714,48 +760,8 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		goto irqret;
 	}
 
-	if (((m_stat & M_RX_FIFO_WATERMARK_EN) ||
-		(m_stat & M_RX_FIFO_LAST_EN)) && (cur->flags & I2C_M_RD)) {
-		u32 rxcnt = rx_st & RX_FIFO_WC_MSK;
+	geni_i2c_irq_handle_watermark(gi2c, m_stat);
 
-		for (j = 0; j < rxcnt; j++) {
-			u32 temp;
-			int p;
-
-			temp = readl_relaxed(gi2c->base + SE_GENI_RX_FIFOn);
-			for (i = gi2c->cur_rd, p = 0; (i < cur->len && p < 4);
-				i++, p++)
-				cur->buf[i] = (u8) ((temp >> (p * 8)) & 0xff);
-			gi2c->cur_rd = i;
-			if (gi2c->cur_rd == cur->len) {
-				dev_dbg(gi2c->dev, "FIFO i:%d,read 0x%x\n",
-					i, temp);
-				break;
-			}
-		}
-	} else if ((m_stat & M_TX_FIFO_WATERMARK_EN) &&
-					!(cur->flags & I2C_M_RD)) {
-		for (j = 0; j < gi2c->tx_wm; j++) {
-			u32 temp = 0;
-			int p;
-
-			for (i = gi2c->cur_wr, p = 0; (i < cur->len && p < 4);
-				i++, p++)
-				temp |= (((u32)(cur->buf[i]) << (p * 8)));
-			writel_relaxed(temp, gi2c->base + SE_GENI_TX_FIFOn);
-			gi2c->cur_wr = i;
-			dev_dbg(gi2c->dev, "FIFO i:%d,wrote 0x%x\n", i, temp);
-			if (gi2c->cur_wr == cur->len) {
-				dev_dbg(gi2c->dev, "FIFO i2c bytes done writing\n");
-				writel_relaxed(0,
-				(gi2c->base + SE_GENI_TX_WATERMARK_REG));
-				break;
-			}
-		}
-	} else {
-		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-			    "%s: m_irq_status:0x%x cur->flags:%d\n", __func__, m_stat, cur->flags);
-	}
 irqret:
 	if (!dma && is_clear_watermark)
 		writel_relaxed(0, (gi2c->base + SE_GENI_TX_WATERMARK_REG));
