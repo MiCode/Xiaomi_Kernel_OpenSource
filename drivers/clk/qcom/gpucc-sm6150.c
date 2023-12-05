@@ -245,6 +245,19 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_sa6155_gpu_cc_gx_gfx3d_clk_src[] = {
+	F(290000000, P_CRC_DIV_PLL1_OUT_AUX2, 1, 0, 0),
+	F(350000000, P_CRC_DIV_PLL1_OUT_AUX2, 1, 0, 0),
+	F(435000000, P_CRC_DIV_PLL1_OUT_AUX2, 1, 0, 0),
+	F(500000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	F(550000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	F(650000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	F(700000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	F(745000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	F(845000000, P_CRC_DIV_PLL0_OUT_AUX2, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
 	.cmd_rcgr = 0x101c,
 	.mnd_width = 0,
@@ -367,6 +380,7 @@ static struct clk_branch gpu_cc_cxo_aon_clk = {
 	},
 };
 
+/* CLK_DONT_HOLD_STATE flag is needed due to sync_state */
 static struct clk_branch gpu_cc_cxo_clk = {
 	.halt_reg = 0x109c,
 	.halt_check = BRANCH_HALT,
@@ -375,6 +389,7 @@ static struct clk_branch gpu_cc_cxo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cxo_clk",
+			.flags = CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -524,6 +539,7 @@ static void gpucc_sm6150_fixup_sa6155(struct platform_device *pdev)
 	vdd_mx.num_levels = VDD_NUM_SA6155;
 	vdd_mx.cur_level = VDD_NUM_SA6155;
 	gpu_cc_gx_gfx3d_clk_src.clkr.vdd_data.rate_max[VDD_HIGH_L1] = 0;
+	gpu_cc_gx_gfx3d_clk_src.freq_tbl = ftbl_sa6155_gpu_cc_gx_gfx3d_clk_src;
 
 	gpu_cc_pll0.clkr.hw.init = &gpu_cc_pll0_sa6155;
 	gpu_cc_pll1.clkr.hw.init = &gpu_cc_pll1_sa6155;

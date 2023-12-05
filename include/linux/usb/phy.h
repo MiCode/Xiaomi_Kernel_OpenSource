@@ -13,6 +13,7 @@
 #include <linux/extcon.h>
 #include <linux/notifier.h>
 #include <linux/usb.h>
+#include <linux/android_kabi.h>
 #include <uapi/linux/usb/charger.h>
 
 enum usb_phy_interface {
@@ -155,6 +156,18 @@ struct usb_phy {
 	 * manually detect the charger type.
 	 */
 	enum usb_charger_type (*charger_detect)(struct usb_phy *x);
+
+	/*
+	 * Reserved slot 0 here is seserved for a notify_port_status callback addition that narrowly
+	 * missed the ABI freeze deadline due to upstream review disussions.  See
+	 * https://lore.kernel.org/linux-usb/20230607062500.24669-1-stanley_chang@realtek.com/
+	 * for details.  All other slots are for "normal" future ABI breaks in LTS updates
+	 */
+	ANDROID_KABI_RESERVE(0);
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /* for board-specific init logic */

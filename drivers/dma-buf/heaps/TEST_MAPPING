@@ -1,0 +1,14 @@
+{
+  "presubmit": [
+     {
+       "name": "dmabuf_reserve_pool_test_host",
+       "file_patterns": ["dmabuf_reserve_pool\\.[ch]"]
+     }
+   ],
+   "postsubmit": [
+     {
+       "name": "dmabuf_reserve_pool_test_host",
+       "file_patterns": ["dmabuf_reserve_pool\\.[ch]"]
+     }
+   ]
+}

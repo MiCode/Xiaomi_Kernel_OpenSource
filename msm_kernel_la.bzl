@@ -1,5 +1,4 @@
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
-load("//build/bazel_common_rules/test_mappings:test_mappings.bzl", "test_mappings_dist")
 load(
     "//build/kernel/kleaf:kernel.bzl",
     "kernel_abi",
@@ -22,6 +21,7 @@ load(
     "get_gki_ramdisk_prebuilt_binary",
     "get_vendor_ramdisk_binaries",
 )
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(":msm_common.bzl", "define_top_level_config", "gen_config_without_source_lines", "get_out_dir")
 load(":msm_dtc.bzl", "define_dtc_dist")
 load(":msm_abl.bzl", "define_abl_dist")
@@ -30,9 +30,11 @@ load(":avb_boot_img.bzl", "avb_sign_boot_image")
 load(":image_opts.bzl", "boot_image_opts")
 load(":target_variants.bzl", "la_variants")
 load(":modules.bzl", "COMMON_GKI_MODULES_LIST")
+load(":merge_list_files.bzl", "merge_list_files")
 
 def _define_build_config(
         msm_target,
+        msm_arch,
         target,
         variant,
         boot_image_opts = boot_image_opts(),
@@ -42,54 +44,36 @@ def _define_build_config(
     Creates a `kernel_build_config` for input to a `kernel_build` rule.
 
     Args:
-      msm_target: name of target platform (e.g. "kalama")
+      msm_target: name of target platform (e.g. "shennong")
+      msm_arch: architecture of target platform (e.g. "pineapple")
       variant: variant of kernel to build (e.g. "gki")
     """
 
-    gen_config_command = """
-      cat << 'EOF' > "$@"
-KERNEL_DIR="msm-kernel"
-VARIANTS=(%s)
-MSM_ARCH=%s
-VARIANT=%s
-ABL_SRC=bootable/bootloader/edk2
-BOOT_IMAGE_HEADER_VERSION=%d
-BASE_ADDRESS=0x%X
-PAGE_SIZE=%d
-BUILD_VENDOR_DLKM=1
-PREPARE_SYSTEM_DLKM=1
-SUPER_IMAGE_SIZE=0x%X
-TRIM_UNUSED_MODULES=1
-BUILD_INIT_BOOT_IMG=1
-LZ4_RAMDISK=%d
-[ -z "$$DT_OVERLAY_SUPPORT" ] && DT_OVERLAY_SUPPORT=1
-
-if [ "$$KERNEL_CMDLINE_CONSOLE_AUTO" != "0" ]; then
-    KERNEL_VENDOR_CMDLINE+=' earlycon=%s '
-fi
-
-KERNEL_VENDOR_CMDLINE+=' %s '
-VENDOR_BOOTCONFIG+='androidboot.first_stage_console=1 androidboot.hardware=qcom_kp'
-EOF
-    """ % (
-        " ".join(la_variants),
-        msm_target.replace("-", "_"),
-        variant.replace("-", "_"),
-        boot_image_opts.boot_image_header_version,
-        boot_image_opts.base_address,
-        boot_image_opts.page_size,
-        boot_image_opts.super_image_size,
-        int(boot_image_opts.lz4_ramdisk),
-        boot_image_opts.earlycon_addr,
-        " ".join(boot_image_opts.kernel_vendor_cmdline_extras),
-    )
-
-    # Generate the build config
-    native.genrule(
+    write_file(
         name = "{}_build_config_bazel".format(target),
-        srcs = [],
-        outs = ["build.config.msm.{}.generated".format(target)],
-        cmd_bash = gen_config_command,
+        out = "build.config.msm.{}.generated".format(target),
+        content = [
+            'KERNEL_DIR="msm-kernel"',
+            "VARIANTS=({})".format(" ".join(la_variants)),
+            "MSM_TARGET={}".format(msm_target.replace("-", "_")),
+            "MSM_ARCH={}".format(msm_arch.replace("-", "_")),
+            "VARIANT={}".format(variant.replace("-", "_")),
+            "ABL_SRC=bootable/bootloader/edk2",
+            "BOOT_IMAGE_HEADER_VERSION={}".format(boot_image_opts.boot_image_header_version),
+            "BASE_ADDRESS=0x%X" % boot_image_opts.base_address,
+            "PAGE_SIZE={}".format(boot_image_opts.page_size),
+            "BUILD_VENDOR_DLKM=1",
+            "PREPARE_SYSTEM_DLKM=1",
+            "SUPER_IMAGE_SIZE=0x%X" % boot_image_opts.super_image_size,
+            "TRIM_UNUSED_MODULES=1",
+            "BUILD_INIT_BOOT_IMG=1",
+            "LZ4_RAMDISK={}".format(int(boot_image_opts.lz4_ramdisk)),
+            '[ -z "$DT_OVERLAY_SUPPORT" ] && DT_OVERLAY_SUPPORT=1',
+            '[ "$KERNEL_CMDLINE_CONSOLE_AUTO" != "0" ] && KERNEL_VENDOR_CMDLINE+=\' earlycon={} \''.format(boot_image_opts.earlycon_addr),
+            "KERNEL_VENDOR_CMDLINE+=' {} '".format(" ".join(boot_image_opts.kernel_vendor_cmdline_extras)),
+            "VENDOR_BOOTCONFIG+='androidboot.first_stage_console=1 androidboot.hardware=qcom_kp'",
+            "",  # Needed for newline at end of file
+        ],
     )
 
     top_level_config = define_top_level_config(target)
@@ -111,14 +95,20 @@ EOF
         ],
     )
 
-    board_extras = " ".join(boot_image_opts.board_kernel_cmdline_extras)
-    if board_extras:
-        native.genrule(
+    board_cmdline_extras = " ".join(boot_image_opts.board_kernel_cmdline_extras)
+    if board_cmdline_extras:
+        write_file(
             name = "{}_extra_cmdline".format(target),
-            outs = ["board_extra_cmdline_{}".format(target)],
-            cmd_bash = """
-                echo {} > "$@"
-            """.format(board_extras),
+            out = "board_extra_cmdline_{}".format(target),
+            content = [board_cmdline_extras, ""],
+        )
+
+    board_bc_extras = " ".join(boot_image_opts.board_bootconfig_extras)
+    if board_bc_extras:
+        write_file(
+            name = "{}_extra_bootconfig".format(target),
+            out = "board_extra_bootconfig_{}".format(target),
+            content = [board_bc_extras, ""],
         )
 
 def _define_kernel_build(
@@ -195,6 +185,7 @@ def _define_kernel_build(
 def _define_image_build(
         target,
         msm_target,
+        msm_arch,
         base_kernel,
         build_boot = True,
         build_dtbo = False,
@@ -213,7 +204,8 @@ def _define_image_build(
 
     Args:
       target: name of main Bazel target (e.g. `kalama_gki`)
-      msm_target: name of target platform (e.g. "kalama")
+      msm_target: name of target platform (e.g. "pineapple")
+      msm_arch: architecture of target platform (e.g. "pineapple")
       base_kernel: kernel_build base kernel
       build_boot: whether to build a boot image
       build_dtbo: whether to build a dtbo image
@@ -233,11 +225,30 @@ def _define_image_build(
         srcs = [],
         outs = ["modules.list.vendor_dlkm.{}".format(target)],
         cmd_bash = """
+          touch "$@"
           for module in {mod_list}; do
             basename "$$module" >> "$@"
           done
         """.format(mod_list = " ".join(in_tree_module_list)),
     )
+
+    # Regenerate the follow  list
+    #   modules.list.msm.{}
+    #   modules.systemdlkm_blocklist.msm.{}
+    #   modules.vendor_blocklist.msm.{}
+    prefixes = [
+        "modules.list.msm",
+        "modules.systemdlkm_blocklist.msm",
+        "modules.vendor_blocklist.msm",
+    ]
+    modules_list_name = {}
+    for prefix in prefixes:
+        modules_list_name[prefix] = "{prefix}.{target}_generated".format(prefix = prefix, target = target)
+        files = [ prefix + ".{}".format(msm_target) ] if msm_target == msm_arch else [
+            prefix + ".{}".format(msm_arch),
+            prefix + ".{}".format(msm_target),
+        ]
+        merge_list_files( name = modules_list_name[prefix], files = files )
 
     kernel_images(
         name = "{}_images".format(target),
@@ -251,20 +262,20 @@ def _define_image_build(
         build_vendor_kernel_boot = build_vendor_kernel_boot,
         build_vendor_dlkm = build_vendor_dlkm,
         build_system_dlkm = build_system_dlkm,
-        modules_list = "modules.list.msm.{}".format(msm_target),
+        modules_list = ":{}".format(modules_list_name["modules.list.msm"]),
         system_dlkm_modules_list = "android/gki_system_dlkm_modules",
         vendor_dlkm_modules_list = ":{}_vendor_dlkm_modules_list_generated".format(target),
-        system_dlkm_modules_blocklist = "modules.systemdlkm_blocklist.msm.{}".format(msm_target),
-        vendor_dlkm_modules_blocklist = "modules.vendor_blocklist.msm.{}".format(msm_target),
+        system_dlkm_modules_blocklist = "modules.systemdlkm_blocklist.msm.{}".format(msm_arch),
+        vendor_dlkm_modules_blocklist = "modules.vendor_blocklist.msm.{}".format(msm_arch),
         dtbo_srcs = [":{}/".format(target) + d for d in dtbo_list] if dtbo_list else None,
         vendor_ramdisk_binaries = vendor_ramdisk_binaries,
         gki_ramdisk_prebuilt_binary = gki_ramdisk_prebuilt_binary,
         boot_image_outs = boot_image_outs,
         deps = [
-            "modules.list.msm.{}".format(msm_target),
-            "modules.vendor_blocklist.msm.{}".format(msm_target),
-            "modules.systemdlkm_blocklist.msm.{}".format(msm_target),
             "android/gki_system_dlkm_modules",
+            ":{}".format(modules_list_name["modules.list.msm"]),
+            "modules.vendor_blocklist.msm.{}".format(msm_arch),
+            "modules.systemdlkm_blocklist.msm.{}".format(msm_arch),
         ],
     )
 
@@ -336,9 +347,13 @@ def _define_kernel_dist(
 
     msm_dist_targets.append("{}_avb_sign_boot_image".format(target))
 
-    board_extras = " ".join(boot_image_opts.board_kernel_cmdline_extras)
-    if board_extras:
+    board_cmdline_extras = " ".join(boot_image_opts.board_kernel_cmdline_extras)
+    if board_cmdline_extras:
         msm_dist_targets.append("{}_extra_cmdline".format(target))
+
+    board_bc_extras = " ".join(boot_image_opts.board_bootconfig_extras)
+    if board_bc_extras:
+        msm_dist_targets.append("{}_extra_bootconfig".format(target))
 
     if define_abi_targets:
         kernel_abi_dist(
@@ -381,16 +396,6 @@ def _define_kernel_dist(
             log = "info",
         )
 
-    native.alias(
-        name = "{}_test_mapping".format(target),
-        actual = ":{}_dist".format(target),
-    )
-
-    test_mappings_dist(
-        name = "{}_test_mapping_dist".format(target),
-        dist_dir = dist_dir,
-    )
-
 def _define_uapi_library(target):
     """Define a cc_library for userspace programs to use
 
@@ -404,6 +409,7 @@ def _define_uapi_library(target):
 
 def define_msm_la(
         msm_target,
+        msm_arch,
         variant,
         in_tree_module_list,
         kmi_enforced = True,
@@ -445,6 +451,7 @@ def define_msm_la(
 
     _define_build_config(
         msm_target,
+        msm_arch,
         target,
         variant,
         boot_image_opts = boot_image_opts,
@@ -465,6 +472,7 @@ def define_msm_la(
     _define_image_build(
         target,
         msm_target,
+        msm_arch,
         base_kernel,
         # When building a GKI target, we take the kernel and boot.img directly from
         # common, so no need to build here.

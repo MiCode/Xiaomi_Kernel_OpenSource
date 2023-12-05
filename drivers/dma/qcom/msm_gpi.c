@@ -453,6 +453,7 @@ struct gpi_dev {
 	u32 ipc_log_lvl;
 	u32 klog_lvl;
 	struct dentry *dentry;
+	bool is_le_vm;
 };
 
 static struct gpi_dev *gpi_dev_dbg[5];
@@ -550,7 +551,8 @@ struct gpii_chan {
 	void __iomem *ch_cmd_reg;
 	u32 req_tres; /* # of tre's client requested */
 	u32 dir;
-	struct gpi_ring ch_ring;
+	struct gpi_ring *ch_ring;
+	dma_addr_t gpii_chan_dma;
 	struct gpi_client_info client_info;
 	u32 lock_tre_set;
 	u32 num_tre;
@@ -558,8 +560,7 @@ struct gpii_chan {
 
 struct gpii {
 	u32 gpii_id;
-	struct gpii_chan *gpii_chan;
-	dma_addr_t gpii_chan_dma;
+	struct gpii_chan gpii_chan[MAX_CHANNELS_PER_GPII];
 	struct gpi_dev *gpi_dev;
 	enum EV_PRIORITY ev_priority;
 	enum se_protocol protocol;
@@ -578,7 +579,8 @@ struct gpii {
 	bool configured_irq;
 	enum gpi_pm_state pm_state;
 	rwlock_t pm_lock;
-	struct gpi_ring ev_ring;
+	struct gpi_ring *ev_ring;
+	dma_addr_t event_dma_addr;
 	struct tasklet_struct ev_task; /* event processing tasklet */
 	struct completion cmd_completion;
 	enum gpi_cmd gpi_cmd;
@@ -782,36 +784,37 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 							reg_info->offset);
 	}
 
-	if (!dbg_reg_table->gpi_debug_regs) {
-		dbg_reg_table->gpi_debug_regs =
-			kzalloc(sizeof(gpi_debug_regs), gfp);
-		if (!dbg_reg_table->gpi_debug_regs)
-			return;
-		memcpy((void *)dbg_reg_table->gpi_debug_regs,
-			(void *)gpi_debug_regs, sizeof(gpi_debug_regs));
+	/* Skip dumping gpi debug and qsb registers for levm */
+	if (!gpii->gpi_dev->is_le_vm) {
+		if (!dbg_reg_table->gpi_debug_regs) {
+			dbg_reg_table->gpi_debug_regs =
+				kzalloc(sizeof(gpi_debug_regs), gfp);
+			if (!dbg_reg_table->gpi_debug_regs)
+				return;
+			memcpy((void *)dbg_reg_table->gpi_debug_regs,
+			       (void *)gpi_debug_regs, sizeof(gpi_debug_regs));
+		}
+
+		/* log debug register */
+		reg_info = dbg_reg_table->gpi_debug_regs;
+		for (; reg_info->name; reg_info++)
+			reg_info->val = readl_relaxed(gpii->gpi_dev->regs + reg_info->offset);
+
+		if (!dbg_reg_table->gpi_debug_qsb_regs) {
+			dbg_reg_table->gpi_debug_qsb_regs =
+				kzalloc(sizeof(gpi_debug_qsb_regs), gfp);
+			if (!dbg_reg_table->gpi_debug_qsb_regs)
+				return;
+			memcpy((void *)dbg_reg_table->gpi_debug_qsb_regs,
+			       (void *)gpi_debug_qsb_regs,
+					sizeof(gpi_debug_qsb_regs));
+		}
+
+		/* log QSB register */
+		reg_info = dbg_reg_table->gpi_debug_qsb_regs;
+		for (; reg_info->name; reg_info++)
+			reg_info->val = readl_relaxed(gpii->gpi_dev->regs + reg_info->offset);
 	}
-
-	/* log debug register */
-	reg_info = dbg_reg_table->gpi_debug_regs;
-	for (; reg_info->name; reg_info++)
-		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
-					reg_info->offset);
-
-	if (!dbg_reg_table->gpi_debug_qsb_regs) {
-		dbg_reg_table->gpi_debug_qsb_regs =
-			kzalloc(sizeof(gpi_debug_qsb_regs), gfp);
-		if (!dbg_reg_table->gpi_debug_qsb_regs)
-			return;
-		memcpy((void *)dbg_reg_table->gpi_debug_qsb_regs,
-			(void *)gpi_debug_qsb_regs,
-				sizeof(gpi_debug_qsb_regs));
-	}
-
-	/* log QSB register */
-	reg_info = dbg_reg_table->gpi_debug_qsb_regs;
-	for (; reg_info->name; reg_info++)
-		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
-					reg_info->offset);
 
 	/* dump scratch registers */
 	dbg_reg_table->ev_scratch_0 = readl_relaxed(gpii->regs +
@@ -823,14 +826,14 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 	/* Copy the ev ring */
 	if (!dbg_reg_table->ev_ring) {
-		dbg_reg_table->ev_ring_len = gpii->ev_ring.len;
+		dbg_reg_table->ev_ring_len = gpii->ev_ring->len;
 		dbg_reg_table->ev_ring =
 				kzalloc(dbg_reg_table->ev_ring_len, gfp);
 		if (!dbg_reg_table->ev_ring)
 			return;
 	}
-	memcpy(dbg_reg_table->ev_ring, gpii->ev_ring.base,
-		dbg_reg_table->ev_ring_len);
+	memcpy(dbg_reg_table->ev_ring, gpii->ev_ring->base,
+	       dbg_reg_table->ev_ring_len);
 
 	/* Copy Transfer rings */
 	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
@@ -838,14 +841,14 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 		if (!dbg_reg_table->ch_ring[chan]) {
 			dbg_reg_table->ch_ring_len[chan] =
-					gpii_chan->ch_ring.len;
+					gpii_chan->ch_ring->len;
 			dbg_reg_table->ch_ring[chan] =
 				kzalloc(dbg_reg_table->ch_ring_len[chan], gfp);
 			if (!dbg_reg_table->ch_ring[chan])
 				return;
 		}
 
-		memcpy(dbg_reg_table->ch_ring[chan], gpii_chan->ch_ring.base,
+		memcpy(dbg_reg_table->ch_ring[chan], gpii_chan->ch_ring->base,
 		       dbg_reg_table->ch_ring_len[chan]);
 	}
 
@@ -1490,7 +1493,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 					struct immediate_data_event *imed_event)
 {
 	struct gpii *gpii = gpii_chan->gpii;
-	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	struct gpi_ring *ch_ring = gpii_chan->ch_ring;
 	struct virt_dma_desc *vd;
 	struct gpi_desc *gpi_desc;
 	void *tre = ch_ring->base +
@@ -1605,7 +1608,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 					 struct xfer_compl_event *compl_event)
 {
 	struct gpii *gpii = gpii_chan->gpii;
-	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	struct gpi_ring *ch_ring = gpii_chan->ch_ring;
 	void *ev_rp = to_virtual(ch_ring, compl_event->ptr);
 	struct virt_dma_desc *vd;
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
@@ -1708,7 +1711,7 @@ gpi_free_desc:
 /* process all events */
 static void gpi_process_events(struct gpii *gpii)
 {
-	struct gpi_ring *ev_ring = &gpii->ev_ring;
+	struct gpi_ring *ev_ring = gpii->ev_ring;
 	phys_addr_t cntxt_rp, local_rp;
 	void *rp;
 	union gpi_event *gpi_event;
@@ -1819,7 +1822,7 @@ static void gpi_ev_tasklet(unsigned long data)
 void gpi_mark_stale_events(struct gpii_chan *gpii_chan)
 {
 	struct gpii *gpii = gpii_chan->gpii;
-	struct gpi_ring *ev_ring = &gpii->ev_ring;
+	struct gpi_ring *ev_ring = gpii->ev_ring;
 	void *ev_rp;
 	u32 cntxt_rp, local_rp;
 
@@ -1846,7 +1849,7 @@ void gpi_mark_stale_events(struct gpii_chan *gpii_chan)
 static int gpi_reset_chan(struct gpii_chan *gpii_chan, enum gpi_cmd gpi_cmd)
 {
 	struct gpii *gpii = gpii_chan->gpii;
-	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	struct gpi_ring *ch_ring = gpii_chan->ch_ring;
 	unsigned long flags;
 	LIST_HEAD(list);
 	int ret;
@@ -1908,7 +1911,7 @@ static int gpi_start_chan(struct gpii_chan *gpii_chan)
 static int gpi_alloc_chan(struct gpii_chan *gpii_chan, bool send_alloc_cmd)
 {
 	struct gpii *gpii = gpii_chan->gpii;
-	struct gpi_ring *ring = &gpii_chan->ch_ring;
+	struct gpi_ring *ring = gpii_chan->ch_ring;
 	int i;
 	int ret;
 	struct {
@@ -2002,7 +2005,7 @@ static int gpi_alloc_chan(struct gpii_chan *gpii_chan, bool send_alloc_cmd)
 /* allocate and configure event ring */
 static int gpi_alloc_ev_chan(struct gpii *gpii)
 {
-	struct gpi_ring *ring = &gpii->ev_ring;
+	struct gpi_ring *ring = gpii->ev_ring;
 	int i;
 	int ret;
 	struct {
@@ -2218,7 +2221,7 @@ static void gpi_queue_xfer(struct gpii *gpii,
 	int ret;
 
 	/* get next tre location we can copy */
-	ret = gpi_ring_add_element(&gpii_chan->ch_ring, (void **)&ch_tre);
+	ret = gpi_ring_add_element(gpii_chan->ch_ring, (void **)&ch_tre);
 	if (unlikely(ret)) {
 		GPII_CRITIC(gpii, gpii_chan->chid,
 			    "Error adding ring element to xfer ring\n");
@@ -2309,7 +2312,7 @@ terminate_exit:
 static void gpi_noop_tre(struct gpii_chan *gpii_chan)
 {
 	struct gpii *gpii = gpii_chan->gpii;
-	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	struct gpi_ring *ch_ring = gpii_chan->ch_ring;
 	phys_addr_t local_rp, local_wp;
 	void *cntxt_rp;
 	u32 noop_mask, noop_tre;
@@ -2355,7 +2358,7 @@ static int gpi_pause(struct dma_chan *chan)
 	struct gpii *gpii = gpii_chan->gpii;
 	int i, ret, idx = 0;
 	u32 offset1, offset2, type1, type2;
-	struct gpi_ring *ev_ring = &gpii->ev_ring;
+	struct gpi_ring *ev_ring = gpii->ev_ring;
 	phys_addr_t cntxt_rp, local_rp;
 	void *rp, *rp1;
 	union gpi_event *gpi_event;
@@ -2537,7 +2540,7 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	u32 nr_req = 0;
 	int i, j;
 	struct scatterlist *sg;
-	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	struct gpi_ring *ch_ring = gpii_chan->ch_ring;
 	void *tre, *wp = NULL;
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
@@ -2637,7 +2640,7 @@ static void gpi_issue_pending(struct dma_chan *chan)
 	}
 
 	gpi_desc = to_gpi_desc(vd);
-	gpi_write_ch_db(gpii_chan, &gpii_chan->ch_ring, gpi_desc->db);
+	gpi_write_ch_db(gpii_chan, gpii_chan->ch_ring, gpi_desc->db);
 	read_unlock_irqrestore(&gpii->pm_lock, pm_lock_flags);
 }
 
@@ -2694,7 +2697,7 @@ static int gpi_config(struct dma_chan *chan,
 		/* allocate memory for event ring */
 		elements = max(gpii->gpii_chan[0].req_tres,
 			       gpii->gpii_chan[1].req_tres);
-		ret = gpi_alloc_ring(&gpii->ev_ring, elements << ev_factor,
+		ret = gpi_alloc_ring(gpii->ev_ring, elements << ev_factor,
 				     sizeof(union gpi_event), gpii);
 		if (ret) {
 			GPII_ERR(gpii, gpii_chan->chid,
@@ -2778,7 +2781,7 @@ error_alloc_chan:
 error_alloc_ev_ring:
 	gpi_disable_interrupts(gpii);
 error_config_int:
-	gpi_free_ring(&gpii->ev_ring, gpii);
+	gpi_free_ring(gpii->ev_ring, gpii);
 exit_gpi_init:
 	mutex_unlock(&gpii->ctrl_lock);
 	return ret;
@@ -2819,7 +2822,7 @@ static void gpi_free_chan_resources(struct dma_chan *chan)
 	}
 
 	/* free all allocated memory */
-	gpi_free_ring(&gpii_chan->ch_ring, gpii);
+	gpi_free_ring(gpii_chan->ch_ring, gpii);
 	vchan_free_chan_resources(&gpii_chan->vc);
 
 	write_lock_irq(&gpii->pm_lock);
@@ -2828,7 +2831,7 @@ static void gpi_free_chan_resources(struct dma_chan *chan)
 
 	/* if other rings are still active exit */
 	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++)
-		if (gpii->gpii_chan[i].ch_ring.configured)
+		if (gpii->gpii_chan[i].ch_ring->configured)
 			goto exit_free;
 
 	GPII_INFO(gpii, gpii_chan->chid, "disabling gpii\n");
@@ -2846,7 +2849,7 @@ static void gpi_free_chan_resources(struct dma_chan *chan)
 	if (cur_state == ACTIVE_STATE)
 		gpi_send_cmd(gpii, NULL, GPI_EV_CMD_DEALLOC);
 
-	gpi_free_ring(&gpii->ev_ring, gpii);
+	gpi_free_ring(gpii->ev_ring, gpii);
 
 	/* disable interrupts */
 	if (cur_state == ACTIVE_STATE)
@@ -2873,7 +2876,7 @@ static int gpi_alloc_chan_resources(struct dma_chan *chan)
 	mutex_lock(&gpii->ctrl_lock);
 
 	/* allocate memory for transfer ring */
-	ret = gpi_alloc_ring(&gpii_chan->ch_ring, gpii_chan->req_tres,
+	ret = gpi_alloc_ring(gpii_chan->ch_ring, gpii_chan->req_tres,
 			     sizeof(struct msm_gpi_tre), gpii);
 	if (ret) {
 		GPII_ERR(gpii, gpii_chan->chid,
@@ -3127,19 +3130,37 @@ static int gpi_probe(struct platform_device *pdev)
 	if (!gpi_dev->gpiis)
 		return -ENOMEM;
 
+	gpi_dev->is_le_vm = of_property_read_bool(pdev->dev.of_node, "qcom,le-vm");
+	if (gpi_dev->is_le_vm)
+		GPI_LOG(gpi_dev, "LE-VM usecase\n");
+
 	/* setup all the supported gpii */
 	INIT_LIST_HEAD(&gpi_dev->dma_device.channels);
 	for (i = 0; i < gpi_dev->max_gpii; i++) {
 		struct gpii *gpii = &gpi_dev->gpiis[i];
 		int chan;
 
-		gpii->gpii_chan = dmam_alloc_coherent(gpi_dev->dev,
-				MAX_CHANNELS_PER_GPII * sizeof(struct gpii_chan),
-				&gpii->gpii_chan_dma, GFP_KERNEL);
-
-		if (!gpii->gpii_chan) {
-			GPI_ERR(gpi_dev,
-				"No memory for GPII chan alloc\n");
+		gpii->gpii_chan[0].ch_ring = dmam_alloc_coherent(gpi_dev->dev,
+								 sizeof(struct gpi_ring),
+								 &gpii->gpii_chan[0].gpii_chan_dma,
+								 GFP_KERNEL);
+		if (!gpii->gpii_chan[0].ch_ring) {
+			GPI_LOG(gpi_dev, "could not allocate for gpii->gpii_chan[0].ch_ring\n");
+			return -ENOMEM;
+		}
+		gpii->gpii_chan[1].ch_ring = dmam_alloc_coherent(gpi_dev->dev,
+								 sizeof(struct gpi_ring),
+								 &gpii->gpii_chan[1].gpii_chan_dma,
+								 GFP_KERNEL);
+		if (!gpii->gpii_chan[1].ch_ring) {
+			GPI_LOG(gpi_dev, "could not allocate for gpii->gpii_chan[1].ch_ring\n");
+			return -ENOMEM;
+		}
+		gpii->ev_ring = dmam_alloc_coherent(gpi_dev->dev,
+						    sizeof(struct gpi_ring),
+						    &gpii->event_dma_addr, GFP_KERNEL);
+		if (!gpii->ev_ring) {
+			GPI_LOG(gpi_dev, "could not allocate for gpii->ev_ring\n");
 			return -ENOMEM;
 		}
 

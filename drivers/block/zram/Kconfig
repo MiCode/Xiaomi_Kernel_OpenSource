@@ -78,3 +78,13 @@ config ZRAM_MEMORY_TRACKING
 	  /sys/kernel/debug/zram/zramX/block_state.
 
 	  See Documentation/admin-guide/blockdev/zram.rst for more information.
+
+config MIUI_ZRAM_MEMORY_TRACKING
+	bool "Track zRam stats"
+	depends on ZRAM
+	help
+	  With this feature, admin can track the state of zram
+	  of zRAM. Admin could see the information via
+	  /sys/block/zramX/.
+
+	  See Documentation/blockdev/zram.txt for more information.

@@ -13,6 +13,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
+#include "../../misc/hwid/hwid.h"
 
 #define EUSB2_3P0_VOL_MIN			3075000 /* uV */
 #define EUSB2_3P0_VOL_MAX			3300000 /* uV */
@@ -116,6 +117,8 @@ struct eusb2_repeater {
 
 	u32			*param_override_seq;
 	u8			param_override_seq_cnt;
+	u32			*host_param_override_seq;
+	u8			host_param_override_seq_cnt;
 };
 
 /* Perform one or more register read */
@@ -334,8 +337,19 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	unsigned int rptr_init_cnt = INIT_MAX_CNT;
 
 	/* override init sequence using devicetree based values */
-	eusb2_repeater_update_seq(er, er->param_override_seq,
+	if (ur->flags & PHY_HOST_MODE) {
+		eusb2_repeater_update_seq(er, er->host_param_override_seq,
+			er->host_param_override_seq_cnt);
+		dev_info(er->ur.dev, "HI MI init host!\n");
+	} else {
+		eusb2_repeater_update_seq(er, er->param_override_seq,
 			er->param_override_seq_cnt);
+		dev_info(er->ur.dev, "HI MI init device!\n");
+	}
+
+	if (ur->flags & PHY_HOST_MODE)
+		eusb2_repeater_update_seq(er, er->host_param_override_seq,
+				er->host_param_override_seq_cnt);
 
 	/* override tune params using debugfs based values */
 	if (er->usb2_crossover <= 0x7)
@@ -450,11 +464,38 @@ static int eusb2_repeater_powerdown(struct usb_repeater *ur)
 	return eusb2_repeater_power(er, false);
 }
 
+static int eusb2_repeater_read_overrides(struct device *dev, const char *prop,
+		u32 **seq, u8 *seq_cnt)
+{
+	int num_elem, ret;
+
+	num_elem = of_property_count_elems_of_size(dev->of_node, prop, sizeof(**seq));
+	if (num_elem > 0) {
+		if (num_elem % 2) {
+			dev_err(dev, "invalid len for %s\n", prop);
+			return -EINVAL;
+		}
+
+		*seq_cnt = num_elem;
+		*seq = devm_kcalloc(dev, num_elem, sizeof(**seq), GFP_KERNEL);
+		if (!*seq)
+			return -ENOMEM;
+
+		ret = of_property_read_u32_array(dev->of_node, prop, *seq, num_elem);
+		if (ret) {
+			dev_err(dev, "%s read failed %d\n", prop, ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int eusb2_repeater_probe(struct platform_device *pdev)
 {
 	struct eusb2_repeater *er;
 	struct device *dev = &pdev->dev;
-	int ret = 0, num_elem, base;
+	int ret = 0, base;
 
 	er = devm_kzalloc(dev, sizeof(*er), GFP_KERNEL);
 	if (!er) {
@@ -489,36 +530,15 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		ret = PTR_ERR(er->vdd18);
 		goto err_probe;
 	}
-
-	num_elem = of_property_count_elems_of_size(dev->of_node,
-				"qcom,param-override-seq",
-				sizeof(*er->param_override_seq));
-	if (num_elem > 0) {
-		if (num_elem % 2) {
-			dev_err(dev, "invalid param_override_seq_len\n");
-			ret = -EINVAL;
-			goto err_probe;
-		}
-
-		er->param_override_seq_cnt = num_elem;
-		er->param_override_seq = devm_kcalloc(dev,
-				er->param_override_seq_cnt,
-				sizeof(*er->param_override_seq), GFP_KERNEL);
-		if (!er->param_override_seq) {
-			ret = -ENOMEM;
-			goto err_probe;
-		}
-
-		ret = of_property_read_u32_array(dev->of_node,
-				"qcom,param-override-seq",
-				er->param_override_seq,
-				er->param_override_seq_cnt);
-		if (ret) {
-			dev_err(dev, "qcom,param-override-seq read failed %d\n",
-									ret);
-			goto err_probe;
-		}
-	}
+	/*This is the device parameters.*/
+	ret = eusb2_repeater_read_overrides(dev, "qcom,param-override-seq",
+                       &er->param_override_seq, &er->param_override_seq_cnt);
+	if (ret < 0)
+		goto err_probe;
+	ret = eusb2_repeater_read_overrides(dev, "qcom,param-override-seq-host",
+			&er->host_param_override_seq, &er->host_param_override_seq_cnt);
+	if (ret < 0)
+		goto err_probe;
 
 	er->ur.dev = dev;
 	platform_set_drvdata(pdev, er);

@@ -22,6 +22,7 @@
 #include <linux/mm_types.h>
 #include <linux/page-flags.h>
 #include <linux/local_lock.h>
+#include <linux/android_kabi.h>
 #include <asm/page.h>
 
 /* Free memory management - zoned buddy allocator.  */
@@ -46,8 +47,6 @@ enum migratetype {
 	MIGRATE_UNMOVABLE,
 	MIGRATE_MOVABLE,
 	MIGRATE_RECLAIMABLE,
-	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
-	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
 #ifdef CONFIG_CMA
 	/*
 	 * MIGRATE_CMA migration type is designed to mimic the way
@@ -61,6 +60,8 @@ enum migratetype {
 	 */
 	MIGRATE_CMA,
 #endif
+	MIGRATE_PCPTYPES, /* the number of types on the pcp lists */
+	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
 #ifdef CONFIG_MEMORY_ISOLATION
 	MIGRATE_ISOLATE,	/* can't allocate from here */
 #endif
@@ -73,9 +74,11 @@ extern const char * const migratetype_names[MIGRATE_TYPES];
 #ifdef CONFIG_CMA
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #  define is_migrate_cma_page(_page) (get_pageblock_migratetype(_page) == MIGRATE_CMA)
+#  define get_cma_migrate_type() MIGRATE_CMA
 #else
 #  define is_migrate_cma(migratetype) false
 #  define is_migrate_cma_page(_page) false
+#  define get_cma_migrate_type() MIGRATE_MOVABLE
 #endif
 
 static inline bool is_migrate_movable(int mt)
@@ -91,7 +94,7 @@ static inline bool is_migrate_movable(int mt)
  */
 static inline bool migratetype_is_mergeable(int mt)
 {
-	return mt < MIGRATE_PCPTYPES;
+	return mt <= MIGRATE_RECLAIMABLE;
 }
 
 #define for_each_migratetype_order(order, type) \
@@ -435,6 +438,9 @@ struct lru_gen_folio {
 	/* per-node lru_gen_folio list for global reclaim */
 	struct hlist_nulls_node list;
 #endif
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 enum {
@@ -453,18 +459,16 @@ enum {
 struct lru_gen_mm_state {
 	/* set to max_seq after each iteration */
 	unsigned long seq;
-	/* where the current iteration continues (inclusive) */
+	/* where the current iteration continues after */
 	struct list_head *head;
-	/* where the last iteration ended (exclusive) */
+	/* where the last iteration ended before */
 	struct list_head *tail;
-	/* to wait for the last page table walker to finish */
-	struct wait_queue_head wait;
 	/* Bloom filters flip after each iteration */
 	unsigned long *filters[NR_BLOOM_FILTERS];
 	/* the mm stats for debugging */
 	unsigned long stats[NR_HIST_GENS][NR_MM_STATS];
-	/* the number of concurrent page table walkers */
-	int nr_walkers;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct lru_gen_mm_walk {
@@ -482,6 +486,9 @@ struct lru_gen_mm_walk {
 	int batched;
 	bool can_swap;
 	bool force_scan;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 void lru_gen_init_lruvec(struct lruvec *lruvec);
@@ -539,6 +546,9 @@ struct lru_gen_memcg {
 	struct hlist_nulls_head	fifo[MEMCG_NR_GENS][MEMCG_NR_BINS];
 	/* protects the above */
 	spinlock_t lock;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 void lru_gen_init_pgdat(struct pglist_data *pgdat);
@@ -633,6 +643,9 @@ struct lruvec {
 #ifdef CONFIG_MEMCG
 	struct pglist_data *pgdat;
 #endif
+	ANDROID_VENDOR_DATA(1);
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 /* Isolate unmapped pages */
@@ -972,6 +985,11 @@ struct zone {
 	/* Zone statistics */
 	atomic_long_t		vm_stat[NR_VM_ZONE_STAT_ITEMS];
 	atomic_long_t		vm_numa_event[NR_VM_NUMA_EVENT_ITEMS];
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 } ____cacheline_internodealigned_in_smp;
 
 enum pgdat_flags {
@@ -1257,6 +1275,7 @@ typedef struct pglist_data {
 
 	int kswapd_failures;		/* Number of 'reclaimed == 0' runs */
 
+	ANDROID_OEM_DATA(1);
 #ifdef CONFIG_COMPACTION
 	int kcompactd_max_order;
 	enum zone_type kcompactd_highest_zoneidx;

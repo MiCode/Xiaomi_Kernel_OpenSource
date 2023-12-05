@@ -161,8 +161,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_tick_entry,
 	TP_ARGS(rq), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_schedule,
-	TP_PROTO(struct task_struct *prev, struct task_struct *next, struct rq *rq),
-	TP_ARGS(prev, next, rq), 1);
+	TP_PROTO(unsigned int sched_mode, struct task_struct *prev,
+		struct task_struct *next, struct rq *rq),
+	TP_ARGS(sched_mode, prev, next, rq), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_sched_cpu_starting,
 	TP_PROTO(int cpu),
@@ -253,6 +254,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_by_task,
 DECLARE_RESTRICTED_HOOK(android_rvh_do_sched_yield,
 	TP_PROTO(struct rq *rq),
 	TP_ARGS(rq), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_before_do_sched_yield,
+	TP_PROTO(long *unused),
+	TP_ARGS(unused), 1);
 
 DECLARE_HOOK(android_vh_free_task,
 	TP_PROTO(struct task_struct *p),
@@ -375,6 +380,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_effective_cpu_util,
 	TP_PROTO(int cpu, unsigned long util_cfs, unsigned long max, int type,
 		 struct task_struct *p, unsigned long *new_util),
 	TP_ARGS(cpu, util_cfs, max, type, p, new_util), 1);
+
+DECLARE_HOOK(android_vh_mmput,
+	TP_PROTO(struct mm_struct *mm),
+	TP_ARGS(mm));
 
 /* macro versions of hooks are no longer required */
 

@@ -1,5 +1,4 @@
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
-load("//build/bazel_common_rules/test_mappings:test_mappings.bzl", "test_mappings_dist")
 load("//build/kernel/kleaf:constants.bzl", "aarch64_outs")
 load(
     "//build/kernel/kleaf:kernel.bzl",
@@ -8,6 +7,7 @@ load(
     "kernel_compile_commands",
     "kernel_images",
     "kernel_modules_install",
+    "kernel_uapi_headers_cc_library",
     "merged_kernel_uapi_headers",
 )
 load(
@@ -19,6 +19,7 @@ load(
     "get_dtstree",
     "get_vendor_ramdisk_binaries",
 )
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load(":msm_common.bzl", "define_top_level_config", "gen_config_without_source_lines", "get_out_dir")
 load(":msm_dtc.bzl", "define_dtc_dist")
 load(":msm_abl.bzl", "define_abl_dist")
@@ -41,40 +42,28 @@ def _define_build_config(
       variant: variant of kernel to build (e.g. "gki")
     """
 
-    gen_config_command = """
-      cat << 'EOF' > "$@"
-KERNEL_DIR="msm-kernel"
-SOC_NAME="monaco_auto"
-VARIANTS=(%s)
-MSM_ARCH=%s
-VARIANT=%s
-ABL_SRC=bootable/bootloader/edk2
-BOOT_IMAGE_HEADER_VERSION=%d
-BASE_ADDRESS=0x%X
-PAGE_SIZE=%d
-TARGET_HAS_SEPARATE_RD=1
-PREFERRED_USERSPACE=lxc
-BUILD_BOOT_IMG=1
-SKIP_UNPACKING_RAMDISK=1
-BUILD_INITRAMFS=1
-[ -z "$${DT_OVERLAY_SUPPORT}" ] && DT_OVERLAY_SUPPORT=1
-KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x99c000 qcom_geni_serial.con_enabled=1 loglevel=8 nokaslr printk.devkmsg=on root=/dev/ram0 rw rootwait'
-EOF
-    """ % (
-        " ".join([v.replace("-", "_") for v in lxc_variants]), # VARIANTS
-        msm_target.replace("-", "_"),
-        variant.replace("-", "_"),
-        boot_image_opts.boot_image_header_version,
-        boot_image_opts.base_address,
-        boot_image_opts.page_size,
-    )
-
-    # Generate the build config
-    native.genrule(
+    write_file(
         name = "{}_build_config_bazel".format(target),
-        srcs = [],
-        outs = ["build.config.msm.{}.generated".format(target)],
-        cmd_bash = gen_config_command,
+        out = "build.config.msm.{}.generated".format(target),
+        content = [
+            'KERNEL_DIR="msm-kernel"',
+            'SOC_NAME="monaco_auto"',
+            "VARIANTS=({})".format(" ".join([v.replace("-", "_") for v in lxc_variants])),
+            "MSM_ARCH={}".format(msm_target.replace("-", "_")),
+            "VARIANT={}".format(variant.replace("-", "_")),
+            "ABL_SRC=bootable/bootloader/edk2",
+            "BOOT_IMAGE_HEADER_VERSION={}".format(boot_image_opts.boot_image_header_version),
+            "BASE_ADDRESS=0x%X" % boot_image_opts.base_address,
+            "PAGE_SIZE={}".format(boot_image_opts.page_size),
+            "TARGET_HAS_SEPARATE_RD=1",
+            "PREFERRED_USERSPACE=lxc",
+            "BUILD_BOOT_IMG=1",
+            "SKIP_UNPACKING_RAMDISK=1",
+            "BUILD_INITRAMFS=1",
+            '[ -z "$DT_OVERLAY_SUPPORT" ] && DT_OVERLAY_SUPPORT=1',
+            "KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x99c000 qcom_geni_serial.con_enabled=1 loglevel=8 nokaslr printk.devkmsg=on root=/dev/ram0 rw rootwait '",
+            "",  # Needed for newline at end of file
+        ],
     )
 
     top_level_config = define_top_level_config(target)
@@ -144,7 +133,6 @@ def _define_kernel_build(
         kernel_build = ":{}".format(target),
     )
 
-
     merged_kernel_uapi_headers(
         name = "{}_merged_kernel_uapi_headers".format(target),
         kernel_build = ":{}".format(target),
@@ -154,7 +142,6 @@ def _define_kernel_build(
         name = "{}_compile_commands".format(target),
         kernel_build = ":{}".format(target),
     )
-
 
 def _define_kernel_dist(target, msm_target, variant):
     """Creates distribution targets for kernel builds
@@ -168,7 +155,7 @@ def _define_kernel_dist(target, msm_target, variant):
     """
 
     dist_dir = get_out_dir(msm_target, variant) + "/dist"
-    lxc_target = msm_target.split("-")[0];
+    lxc_target = msm_target.split("-")[0]
 
     msm_dist_targets = [
         # do not sort
@@ -197,14 +184,15 @@ def _define_kernel_dist(target, msm_target, variant):
         log = "info",
     )
 
-    native.alias(
-        name = "{}_test_mapping".format(target),
-        actual = ":{}_dist".format(target),
-    )
+def _define_uapi_library(target):
+    """Define a cc_library for userspace programs to use
 
-    test_mappings_dist(
-        name = "{}_test_mapping_dist".format(target),
-        dist_dir = dist_dir,
+    Args:
+      target: kernel_build target name (e.g. "kalama_gki")
+    """
+    kernel_uapi_headers_cc_library(
+        name = "{}_uapi_header_library".format(target),
+        kernel_build = ":{}".format(target),
     )
 
 def define_msm_lxc(
@@ -232,12 +220,12 @@ def define_msm_lxc(
     # Enforce format of "//msm-kernel:target-foo_variant-bar" (underscore is the delimeter
     # between target and variant)
     target = msm_target.replace("_", "-") + "_" + variant.replace("_", "-")
-    lxc_target = msm_target.split("-")[0];
+    lxc_target = msm_target.split("-")[0]
 
     dtb_list = get_dtb_list(lxc_target)
     dtbo_list = get_dtbo_list(lxc_target)
     dtstree = get_dtstree(lxc_target)
-    vendor_ramdisk_binaries = None
+    vendor_ramdisk_binaries = get_vendor_ramdisk_binaries(target, flavor = "le")
     build_config_fragments = get_build_config_fragments(lxc_target)
 
     _define_build_config(
@@ -271,6 +259,10 @@ def define_msm_lxc(
 
     _define_kernel_dist(target, msm_target, variant)
 
+    _define_uapi_library(target)
+
     define_abl_dist(target, msm_target, variant)
 
     define_dtc_dist(target, msm_target, variant)
+
+    define_extras(target)

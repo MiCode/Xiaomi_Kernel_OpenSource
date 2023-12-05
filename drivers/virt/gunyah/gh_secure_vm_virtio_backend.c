@@ -761,7 +761,7 @@ int gh_virtio_backend_mmap(const char *vm_name,
 	if (mmap_size != vm->shmem_size)
 		return -EINVAL;
 
-	vma->vm_flags = vma->vm_flags | VM_DONTEXPAND | VM_DONTDUMP;
+	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP);
 
 	if (vm->is_static) {
 		if (io_remap_pfn_range(vma, vma->vm_start,
@@ -953,7 +953,6 @@ new_vm(struct device *dev, const char *vm_name, struct device_node *np)
 	} else {
 		vm->com_mem_dev = gh_alloc_memdev(dev, "com_mem", 1);
 		if (!vm->com_mem_dev) {
-			device_unregister(vm->com_mem_dev);
 			return NULL;
 		}
 
@@ -1089,13 +1088,14 @@ done:
 
 int gh_parse_virtio_properties(struct device *dev, const char *vm_name)
 {
-	struct device_node *np = dev->of_node;
+	struct device_node *np;
 	int idx = 0;
 	u32 len, nr_entries = 0;
 
 	if (!dev || !vm_name)
 		return -EINVAL;
 
+	np = dev->of_node;
 	if (of_find_property(np, "virtio-backends", &len))
 		nr_entries = len / 4;
 	if (!nr_entries) {

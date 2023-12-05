@@ -27,7 +27,7 @@
 #define BD_WAIT_TIME_MS		1000
 
 #define MAX_NUM_VOTABLES	12
-#define MAX_NUM_VOTERS		32
+#define MAX_NUM_VOTERS		64
 #define MAX_NAME_LEN		12
 
 struct all_votables_data {
@@ -42,7 +42,7 @@ struct votable_data {
 	u32				eff_val;
 	u8				voter_ids[MAX_NUM_VOTERS]; /* unused */
 	u32				votes[MAX_NUM_VOTERS];
-	u32				active_voter_mask;
+	u64				active_voter_mask;
 	u32				eff_voter;
 	u32				override_voter;
 };

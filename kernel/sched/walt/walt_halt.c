@@ -46,7 +46,7 @@ void
 detach_one_task_core(struct task_struct *p, struct rq *rq,
 		     struct list_head *tasks)
 {
-	lockdep_assert_held(&rq->__lock);
+	walt_lockdep_assert_rq(rq, p);
 
 	p->on_rq = TASK_ON_RQ_MIGRATING;
 	deactivate_task(rq, p, 0);
@@ -57,7 +57,7 @@ void attach_tasks_core(struct list_head *tasks, struct rq *rq)
 {
 	struct task_struct *p;
 
-	lockdep_assert_held(&rq->__lock);
+	walt_lockdep_assert_rq(rq, NULL);
 
 	while (!list_empty(tasks)) {
 		p = list_first_entry(tasks, struct task_struct, se.group_node);
@@ -260,6 +260,30 @@ static int __ref try_drain_rqs(void *data)
 	return 0;
 }
 
+void restrict_cpus_and_freq(struct cpumask *cpus)
+{
+	struct cpumask restrict_cpus;
+	int cpu = 0;
+
+	cpumask_copy(&restrict_cpus, cpus);
+
+	if (cpumask_intersects(cpus, cpu_partial_halt_mask) &&
+			!cpumask_intersects(cpus, cpu_halt_mask) &&
+			is_state1()) {
+		for_each_cpu(cpu, cpus)
+			fmax_cap[PARTIAL_HALT_CAP][cpu_cluster(cpu)->id] =
+				sysctl_max_freq_partial_halt;
+	} else {
+		for_each_cpu(cpu, cpus) {
+			cpumask_or(&restrict_cpus, &restrict_cpus, &(cpu_cluster(cpu)->cpus));
+			fmax_cap[PARTIAL_HALT_CAP][cpu_cluster(cpu)->id] =
+				FREQ_QOS_MAX_DEFAULT_VALUE;
+		}
+	}
+
+	update_fmax_cap_capacities(PARTIAL_HALT_CAP);
+}
+
 struct task_struct *walt_drain_thread;
 
 static int halt_cpus(struct cpumask *cpus, enum pause_type type)
@@ -292,6 +316,8 @@ static int halt_cpus(struct cpumask *cpus, enum pause_type type)
 		/* guarantee mask written at this time */
 		wmb();
 	}
+
+	restrict_cpus_and_freq(cpus);
 
 	/* migrate tasks off the cpu */
 	if (type == HALT) {
@@ -333,6 +359,8 @@ static int start_cpus(struct cpumask *cpus, enum pause_type type)
 		 */
 		walt_smp_call_newidle_balance(cpu);
 	}
+
+	restrict_cpus_and_freq(cpus);
 
 	trace_halt_cpus(cpus, start_time, 0, 0);
 
@@ -406,7 +434,7 @@ int walt_pause_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_halt_cpus(cpus, client, HALT);
 }
-EXPORT_SYMBOL(walt_pause_cpus);
+EXPORT_SYMBOL_GPL(walt_pause_cpus);
 
 int walt_partial_pause_cpus(struct cpumask *cpus, enum pause_client client)
 {
@@ -414,7 +442,7 @@ int walt_partial_pause_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_halt_cpus(cpus, client, PARTIAL_HALT);
 }
-EXPORT_SYMBOL(walt_partial_pause_cpus);
+EXPORT_SYMBOL_GPL(walt_partial_pause_cpus);
 
 /* cpus will be modified */
 static int walt_start_cpus(struct cpumask *cpus, enum pause_client client, enum pause_type type)
@@ -450,7 +478,7 @@ int walt_resume_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_start_cpus(cpus, client, HALT);
 }
-EXPORT_SYMBOL(walt_resume_cpus);
+EXPORT_SYMBOL_GPL(walt_resume_cpus);
 
 int walt_partial_resume_cpus(struct cpumask *cpus, enum pause_client client)
 {
@@ -458,19 +486,38 @@ int walt_partial_resume_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_start_cpus(cpus, client, PARTIAL_HALT);
 }
-EXPORT_SYMBOL(walt_partial_resume_cpus);
+EXPORT_SYMBOL_GPL(walt_partial_resume_cpus);
 
-/* return true if the requested client has fully halted one of the cpus */
+/**
+ * cpus_halted_by_client: determine if client has halted a cpu
+ *   where all cpus in the mask are halted.
+ *
+ * If all cpus in the cluster are halted, and one of them is
+ * halted for this client, then and only then indicate pass.
+ *
+ * Otherwise, if not all cpus are halted, or none of the cpus
+ * are halted by this particular client, then reject.
+ *
+ * return true if conditions are met, false otherwise.
+ */
 bool cpus_halted_by_client(struct cpumask *cpus, enum pause_client client)
 {
 	struct halt_cpu_state *halt_cpu_state;
+	bool cpu_halted_for_client = false;
 	int cpu;
 
 	for_each_cpu(cpu, cpus) {
 		halt_cpu_state = per_cpu_ptr(&halt_state, cpu);
-		if ((bool)(halt_cpu_state->client_vote_mask[HALT] & client))
-			return true;
+
+		if (!halt_cpu_state->client_vote_mask[HALT])
+			return false;
+
+		if (halt_cpu_state->client_vote_mask[HALT] & client)
+			cpu_halted_for_client = true;
 	}
+
+	if (cpu_halted_for_client)
+		return true;
 
 	return false;
 }

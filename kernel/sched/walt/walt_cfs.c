@@ -82,11 +82,12 @@ bias_to_this_cpu(struct task_struct *p, int cpu, int start_cpu)
 
 static inline bool task_demand_fits(struct task_struct *p, int dst_cpu)
 {
-	if (is_max_cluster_cpu(dst_cpu))
+	if (is_max_possible_cluster_cpu(dst_cpu))
 		return true;
 
 	if (!task_in_related_thread_group(p) && p->prio >= 124 &&
-			!is_min_cluster_cpu(dst_cpu) && !is_max_cluster_cpu(dst_cpu)) {
+			!is_min_possible_cluster_cpu(dst_cpu) &&
+			!is_max_possible_cluster_cpu(dst_cpu)) {
 		/* a non topapp low prio task fits on gold */
 		return true;
 	}
@@ -118,6 +119,7 @@ struct find_best_target_env {
  * utilization of the specified task, whenever the task is currently
  * contributing to the CPU utilization.
  */
+
 static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	unsigned int util;
@@ -194,7 +196,6 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 				break;
 		return;
 	}
-
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
 		walt_task_skip_min_cpu(p)) {
@@ -273,6 +274,39 @@ static inline bool walt_should_reject_fbt_cpu(struct walt_rq *wrq, struct task_s
 	return false;
 }
 
+bool select_prev_cpu_fastpath(int prev_cpu, int start_cpu, int order_index,
+		struct task_struct *p)
+{
+	struct walt_rq *prev_wrq = &per_cpu(walt_rq, prev_cpu);
+	struct walt_rq *start_wrq = &per_cpu(walt_rq, start_cpu);
+	bool valid_part_haltable_prev_cpu = false, valid_prev_cpu = false;
+
+	if (!cpu_active(prev_cpu))
+		return false;
+
+	if (!available_idle_cpu(prev_cpu))
+		return false;
+
+	if (!cpumask_test_cpu(prev_cpu, p->cpus_ptr))
+		return false;
+
+	if (cpu_halted(prev_cpu))
+		return false;
+
+	if (is_reserved(prev_cpu))
+		return false;
+
+	valid_part_haltable_prev_cpu = cpumask_test_cpu(prev_cpu, &part_haltable_cpus) &&
+					((order_index == 0 && cpu_partial_halted(prev_cpu)) ||
+					 (order_index == 1 && !cpu_partial_halted(prev_cpu)));
+	valid_prev_cpu = (prev_wrq->cluster->id == start_wrq->cluster->id);
+
+	if (!(valid_part_haltable_prev_cpu || valid_prev_cpu))
+		return false;
+
+	return true;
+}
+
 #define DIRE_STRAITS_PREV_NR_LIMIT 10
 static void walt_find_best_target(struct sched_domain *sd,
 					cpumask_t *candidates,
@@ -297,12 +331,8 @@ static void walt_find_best_target(struct sched_domain *sd,
 	cpumask_t visit_cpus;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	int packing_cpu;
-	struct walt_rq *prev_wrq = &per_cpu(walt_rq, prev_cpu);
-	struct walt_rq *start_wrq;
-
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
-	start_wrq = &per_cpu(walt_rq, start_cpu);
 
 	/*
 	 * For higher capacity worth I/O tasks, stop the search
@@ -317,7 +347,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 		stop_index = 0;
 		most_spare_wake_cap = LONG_MIN;
 	}
-
 	/* fast path for packing_cpu */
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(start_cpu, p);
 	if (packing_cpu >= 0) {
@@ -327,14 +356,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 	}
 
 	/* fast path for prev_cpu */
-	if (((prev_wrq->cluster->id == start_wrq->cluster->id) ||
-				asym_cap_siblings(prev_cpu, start_cpu)) &&
-				cpu_active(prev_cpu) &&
-				available_idle_cpu(prev_cpu) &&
-				cpumask_test_cpu(prev_cpu, p->cpus_ptr) &&
-				!cpu_halted(prev_cpu) &&
-				(order_index == 0 || !cpu_partial_halted(prev_cpu)) &&
-				!is_reserved(prev_cpu)) {
+	if (select_prev_cpu_fastpath(prev_cpu, start_cpu, order_index, p)) {
 		fbt_env->fastpath = PREV_CPU_FASTPATH;
 		cpumask_set_cpu(prev_cpu, candidates);
 		goto out;
@@ -349,7 +371,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 		target_max_spare_cap = 0;
 		min_exit_latency = INT_MAX;
 		best_idle_cuml_util = ULONG_MAX;
-
 		cpumask_and(&visit_cpus, p->cpus_ptr,
 				&cpu_array[order_index][cluster]);
 		for_each_cpu(i, &visit_cpus) {
@@ -844,7 +865,8 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 			walt_task_skip_min_cpu(p) &&
 			cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
 			cpu_active(pipeline_cpu) &&
-			!cpu_halted(pipeline_cpu)) {
+			!cpu_halted(pipeline_cpu))
+	{
 		if (!walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr)) {
 			best_energy_cpu = pipeline_cpu;
 			fbt_env.fastpath = PIPELINE_FASTPATH;
@@ -947,6 +969,10 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		trace_sched_compute_energy(p, prev_cpu, prev_energy, 0, 0, 0, &output);
 	} else {
 		prev_energy = best_energy = ULONG_MAX;
+		if (weight == 1) {
+			best_energy_cpu = first_cpu;
+			goto unlock;
+		}
 	}
 
 	/* Select the best candidate energy-wise. */
@@ -1005,7 +1031,6 @@ fail:
 	rcu_read_unlock();
 	return -1;
 }
-
 static void
 walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 				int sd_flag, int wake_flags, int *target_cpu)
@@ -1160,7 +1185,7 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 	u64 slice;
 	unsigned int limit;
 
-	lockdep_assert_held(&rq->__lock);
+	walt_lockdep_assert_rq(rq, NULL);
 
 	/*
 	 * RQ clock update happens in tick path in the scheduler.

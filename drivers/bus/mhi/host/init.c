@@ -1022,10 +1022,6 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 	/* Init wakeup source */
 	device_init_wakeup(&mhi_dev->dev, true);
 
-	ret = device_add(&mhi_dev->dev);
-	if (ret)
-		goto err_release_dev;
-
 	mhi_cntrl->mhi_dev = mhi_dev;
 
 	ret = mhi_misc_register_controller(mhi_cntrl);
@@ -1033,15 +1029,25 @@ int mhi_register_controller(struct mhi_controller *mhi_cntrl,
 		dev_err(mhi_cntrl->cntrl_dev,
 			"Could not enable miscellaneous features\n");
 		mhi_cntrl->mhi_dev = NULL;
-		goto err_release_dev;
+		goto err_ida_free;
 	}
+
+	ret = device_add(&mhi_dev->dev);
+	if (ret)
+		goto err_misc_release;
+
+	ret = mhi_misc_sysfs_create(mhi_cntrl);
+	if (ret)
+		goto err_release_dev;
 
 	mhi_create_debugfs(mhi_cntrl);
 
 	return 0;
 
 err_release_dev:
-	put_device(&mhi_dev->dev);
+	device_del(&mhi_dev->dev);
+err_misc_release:
+	mhi_misc_unregister_controller(mhi_cntrl);
 error_setup_irq:
 	mhi_deinit_free_irq(mhi_cntrl);
 err_ida_free:
@@ -1066,6 +1072,7 @@ void mhi_unregister_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_deinit_free_irq(mhi_cntrl);
 	mhi_misc_unregister_controller(mhi_cntrl);
+	mhi_misc_sysfs_destroy(mhi_cntrl);
 
 	/* Free the memory controller wanted to preserve for BHIe images */
 	if (mhi_cntrl->img_pre_alloc) {
@@ -1115,7 +1122,7 @@ EXPORT_SYMBOL_GPL(mhi_free_controller);
 int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
-	u32 bhi_off, bhie_off;
+	u32 bhi_off, bhie_off, offset;
 	int ret;
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
@@ -1161,9 +1168,22 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		 * This controller supports RDDM, so we need to manually clear
 		 * BHIE RX registers since POR values are undefined.
 		 */
-		memset_io(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS,
-			  0, BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS +
-			  4);
+		if (!((uintptr_t)(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS) & 0x0f)) {
+			memset_io(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS,
+			 0, BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS +
+			 4);
+		} else {
+			for (offset = BHIE_RXVECADDR_LOW_OFFS;
+				offset <= BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS;
+				offset += 4) {
+				mhi_write_reg(mhi_cntrl, mhi_cntrl->bhie, offset, 0);
+				if (!((uintptr_t)(mhi_cntrl->bhie + offset + 4) & 0x0f))
+					break;
+			}
+			if (offset <= BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS)
+				memset_io(mhi_cntrl->bhie + offset + 4,
+					0, BHIE_RXVECSTATUS_OFFS - offset);
+		}
 		/*
 		 * Allocate RDDM table for debugging purpose if specified
 		 */

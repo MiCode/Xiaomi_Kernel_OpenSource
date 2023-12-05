@@ -170,13 +170,13 @@ static void qmsgq_process_recv(struct qmsgq_gh_device *qdev, void *buf, size_t l
 
 		rx_buf->len = sizeof(*hdr) + hdr->size;
 		rx_buf->hdr_received = true;
+	}
 
-		/* Check len size, can not be smaller than amount copied*/
-		if (rx_buf->len < rx_buf->copied) {
-			pr_err("%s: Size mismatch len:%d, copied:%d\n", __func__,
-			       rx_buf->len, rx_buf->copied);
-			goto err;
-		}
+	/* Check len size, can not be smaller than amount copied*/
+	if (rx_buf->len < rx_buf->copied) {
+		pr_err("%s: Size mismatch len:%d, copied:%d\n", __func__,
+		       rx_buf->len, rx_buf->copied);
+		goto err;
 	}
 
 	if (rx_buf->len == rx_buf->copied) {
@@ -234,9 +234,13 @@ static int qmsgq_gh_send(struct qmsgq_gh_device *qdev, void *buf, size_t len)
 		chunk = (left > GH_MSGQ_MAX_MSG_SIZE_BYTES) ? GH_MSGQ_MAX_MSG_SIZE_BYTES : left;
 		rc = gh_msgq_send(qdev->msgq_hdl, buf + offset, chunk, GH_MSGQ_TX_PUSH);
 		if (rc) {
-			pr_err("%s: gh_msgq_send failed: %d\n", __func__, rc);
-			mutex_unlock(&qdev->tx_lock);
-			goto err;
+			if (rc == -ERESTARTSYS) {
+				continue;
+			} else {
+				pr_err("%s: gh_msgq_send failed: %d\n", __func__, rc);
+				mutex_unlock(&qdev->tx_lock);
+				goto err;
+			}
 		}
 		left -= chunk;
 		offset += chunk;

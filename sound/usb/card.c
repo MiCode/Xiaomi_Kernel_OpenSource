@@ -119,6 +119,56 @@ MODULE_PARM_DESC(skip_validation, "Skip unit descriptor validation (default: no)
 static DEFINE_MUTEX(register_mutex);
 static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
 static struct usb_driver usb_audio_driver;
+static struct snd_usb_audio_vendor_ops *usb_vendor_ops;
+
+int snd_vendor_set_ops(struct snd_usb_audio_vendor_ops *ops)
+{
+	if ((!ops->set_interface) ||
+	    (!ops->set_pcm_intf) ||
+	    (!ops->set_pcm_connection))
+		return -EINVAL;
+
+	usb_vendor_ops = ops;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_vendor_set_ops);
+
+struct snd_usb_audio_vendor_ops *snd_vendor_get_ops(void)
+{
+	return usb_vendor_ops;
+}
+
+int snd_vendor_set_interface(struct usb_device *udev,
+			     struct usb_host_interface *intf,
+			     int iface, int alt)
+{
+	struct snd_usb_audio_vendor_ops *ops = snd_vendor_get_ops();
+
+	if (ops)
+		return ops->set_interface(udev, intf, iface, alt);
+	return 0;
+}
+
+int snd_vendor_set_pcm_intf(struct usb_interface *intf, int iface, int alt,
+			    int direction, struct snd_usb_substream *subs)
+{
+	struct snd_usb_audio_vendor_ops *ops = snd_vendor_get_ops();
+
+	if (ops)
+		return ops->set_pcm_intf(intf, iface, alt, direction, subs);
+	return 0;
+}
+
+int snd_vendor_set_pcm_connection(struct usb_device *udev,
+				  enum snd_vendor_pcm_open_close onoff,
+				  int direction)
+{
+	struct snd_usb_audio_vendor_ops *ops = snd_vendor_get_ops();
+
+	if (ops)
+		return ops->set_pcm_connection(udev, onoff, direction);
+	return 0;
+}
 
 /*
  * disconnect streams
@@ -778,6 +828,8 @@ static int usb_audio_probe(struct usb_interface *intf,
 	int ifnum;
 	u32 id;
 
+	dev_info(&dev->dev, "usb audio probe called for ifnum %d\n", intf->altsetting->desc.bInterfaceNumber);
+
 	alts = &intf->altsetting[0];
 	ifnum = get_iface_desc(alts)->bInterfaceNumber;
 	id = USB_ID(le16_to_cpu(dev->descriptor.idVendor),
@@ -914,6 +966,9 @@ static int usb_audio_probe(struct usb_interface *intf,
 	usb_set_intfdata(intf, chip);
 	atomic_dec(&chip->active);
 	mutex_unlock(&register_mutex);
+
+	dev_info(&dev->dev, "usb audio probe called success !\n");
+
 	return 0;
 
  __error:

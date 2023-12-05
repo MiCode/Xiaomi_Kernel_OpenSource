@@ -17,18 +17,18 @@ def sign_boot_img(ctx):
     proplist = " ".join(["--prop {}".format(x) for x in ctx.attr.props])
 
     command = """
-    cp {boot_img} {boot_dir}/{boot_name}
+    /bin/cp {boot_img} {boot_dir}/{boot_name}
     {tool} add_hash_footer --image {boot_dir}/{boot_name} --algorithm SHA256_RSA4096 \
             --key {key} --partition_size {boot_partition_size} --partition_name boot \
             {proplist}
     """.format(
-            boot_img = boot_img.path,
-            tool = ctx.file.avbtool.path,
-            key = ctx.file.key.path,
-            boot_dir = outputs.dirname,
-            boot_name = outputs.basename,
-            boot_partition_size = ctx.attr.boot_partition_size,
-            proplist = proplist,
+        boot_img = boot_img.path,
+        tool = ctx.file.avbtool.path,
+        key = ctx.file.key.path,
+        boot_dir = outputs.dirname,
+        boot_name = outputs.basename,
+        boot_partition_size = ctx.attr.boot_partition_size,
+        proplist = proplist,
     )
 
     ctx.actions.run_shell(
@@ -63,7 +63,7 @@ avb_sign_boot_image = rule(
         ),
         "boot_partition_size": attr.int(
             mandatory = False,
-            default = 0x6000000, # bytes, = 98304 kb
+            default = 0x6000000,  # bytes, = 98304 kb
             doc = "Final size of boot.img desired",
         ),
         "props": attr.string_list(

@@ -177,6 +177,9 @@ static void shm_svc_restart_worker(struct work_struct *work)
 		return;
 	}
 
+	atomic_set(&tmp_hma_info->report_count,
+		atomic_read(&tmp_hma_info->check_count));
+
 	if (!tmp_hma_info->connected || (rwp->sq_node != tmp_hma_info->sq.sq_node ||
 	    rwp->sq_port != tmp_hma_info->sq.sq_port)) {
 		SHM_INFO_LOG(
@@ -193,6 +196,10 @@ static void shm_svc_restart_worker(struct work_struct *work)
 		kfree(rwp);
 		return;
 	}
+
+	if (tmp_hma_info->rproc->recovery_disabled)
+		panic("%s: HMA in %s failed to respond in time, panic!\n", __func__,
+		      tmp_hma_info->subsys_name);
 
 	SHM_ERR("%s: HMA in %s failed to respond in time. Restarting %s...\n",
 		__func__, tmp_hma_info->subsys_name,

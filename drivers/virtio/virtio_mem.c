@@ -3,7 +3,7 @@
  * Virtio-mem device driver.
  *
  * Copyright Red Hat, Inc. 2020
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Author(s): David Hildenbrand <david@redhat.com>
  */
@@ -27,6 +27,7 @@
 #include <linux/bitmap.h>
 #include <linux/lockdep.h>
 #include <linux/log2.h>
+#include <linux/sched/mm.h>
 
 #include <acpi/acpi_numa.h>
 
@@ -172,6 +173,12 @@ struct virtio_mem {
 	 * is located at offset sb_size in a memory_block.
 	 */
 	bool memmap_on_memory;
+
+	/*
+	 * Indicates the virtio_mem driver should enable memory encryption on
+	 * any transferred memory regions.
+	 */
+	bool use_memory_encryption;
 
 	union {
 		struct {
@@ -2409,6 +2416,7 @@ static void virtio_mem_run_wq(struct work_struct *work)
 	struct virtio_mem *vm = container_of(work, struct virtio_mem, wq);
 	uint64_t diff;
 	int rc;
+	unsigned int noreclaim_flag;
 
 	if (unlikely(vm->in_kdump)) {
 		dev_warn_once(&vm->vdev->dev,
@@ -2422,6 +2430,7 @@ static void virtio_mem_run_wq(struct work_struct *work)
 		return;
 
 	atomic_set(&vm->wq_active, 1);
+
 retry:
 	rc = 0;
 
@@ -2441,7 +2450,9 @@ retry:
 	if (!rc && vm->requested_size != vm->plugged_size) {
 		if (vm->requested_size > vm->plugged_size) {
 			diff = vm->requested_size - vm->plugged_size;
+			noreclaim_flag = memalloc_noreclaim_save();
 			rc = virtio_mem_plug_request(vm, diff);
+			memalloc_noreclaim_restore(noreclaim_flag);
 		} else {
 			diff = vm->plugged_size - vm->requested_size;
 			rc = virtio_mem_unplug_request(vm, diff);
@@ -2730,11 +2741,72 @@ static int virtio_mem_init_kdump(struct virtio_mem *vm)
 #endif /* CONFIG_PROC_VMCORE */
 }
 
+static int virtio_mem_encryption_setup(struct virtio_mem *vm)
+{
+	char *propname;
+	struct device_node *np = vm->vdev->dev.of_node;
+	u32 flags;
+	u64 size, ipa_base;
+	const struct range pluggable_range = mhp_get_pluggable_range(true);
+	struct range range;
+	int ret;
+
+	propname = "qcom,memory-encryption";
+	vm->use_memory_encryption = of_property_read_bool(np, propname);
+
+	propname = "qcom,max-size";
+	ret = of_property_read_u64(np, propname, &size);
+	if (ret) {
+		dev_err(&vm->vdev->dev, "Missing %s\n", propname);
+		return -EINVAL;
+	}
+	if (!IS_ALIGNED(size, memory_block_size_bytes())) {
+		dev_err(&vm->vdev->dev, "%s must be aligned to %lx\n",
+			propname, memory_block_size_bytes());
+		return -EINVAL;
+	}
+
+	/* qcom,ipa-range includes range.start & range.end */
+	propname = "qcom,ipa-range";
+	ret = of_property_read_u64_index(np, propname, 0, &range.start);
+	ret |= of_property_read_u64_index(np, propname, 1, &range.end);
+	if (ret) {
+		dev_err(&vm->vdev->dev, "Missing %s\n", propname);
+		return -EINVAL;
+	}
+
+	range.start = max(range.start, pluggable_range.start);
+	range.end = min(range.end, pluggable_range.end);
+
+	/*
+	 * Using the DEFAULT flag will request the same encryption level
+	 * as the base kernel memory.
+	 */
+	if (vm->use_memory_encryption)
+		flags = GH_RM_IPA_RESERVE_DEFAULT;
+	else
+		flags = GH_RM_IPA_RESERVE_NORMAL;
+
+	ret = gh_rm_ipa_reserve(size, memory_block_size_bytes(),
+				range, flags, 0,
+				&ipa_base);
+	if (ret) {
+		if (ret == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+
+		dev_err(&vm->vdev->dev, "Hypervisor ipa reserve not supported\n");
+		return ret;
+	}
+
+	vm->addr = ipa_base;
+	vm->region_size = size;
+	return 0;
+}
+
 static int virtio_mem_init(struct virtio_mem *vm)
 {
 	uint16_t node_id;
 	int ret;
-	struct resource res;
 	u32 device_block_size;
 
 	/* Fetch all properties that can't change. */
@@ -2749,13 +2821,11 @@ static int virtio_mem_init(struct virtio_mem *vm)
 
 	node_id = NUMA_NO_NODE;
 	vm->nid = virtio_mem_translate_node_id(vm, node_id);
-	ret = of_address_to_resource(vm->vdev->dev.of_node, 0, &res);
-	if (ret) {
-		dev_err(&vm->vdev->dev, "Failed to parse reg property\n");
-		return -EINVAL;
-	}
-	vm->addr = res.start;
-	vm->region_size = resource_size(&res);
+
+	/* Also determines the ipa_address and size */
+	ret = virtio_mem_encryption_setup(vm);
+	if (ret)
+		return ret;
 
 	/* Determine the nid for the device based on the lowest address. */
 	if (vm->nid == NUMA_NO_NODE)
@@ -2978,6 +3048,28 @@ static void virtio_mem_config_changed(struct platform_device *vdev)
 
 	atomic_set(&vm->config_changed, 1);
 	virtio_mem_retry(vm);
+}
+
+int virtio_mem_get_device_block_size(uint64_t *device_block_size)
+{
+	struct virtio_mem *vm = virtio_mem_dev;
+
+	if (!vm)
+		return -EINVAL;
+
+	*device_block_size = vm->device_block_size;
+	return 0;
+}
+
+int virtio_mem_get_max_plugin_threshold(uint64_t *max_plugin_threshold)
+{
+	struct virtio_mem *vm = virtio_mem_dev;
+
+	if (!vm)
+		return -EINVAL;
+
+	*max_plugin_threshold = vm->region_size;
+	return 0;
 }
 
 int virtio_mem_update_config_size(s64 size, bool sync)

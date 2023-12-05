@@ -4,6 +4,8 @@ build.config.msm.kalama
 build.config.msm.pineapple.vm
 build.config.msm.kalama.vm
 build.config.msm.pineapple.allyes
+build.config.msm.shennong
+build.config.msm.houji
 build.config.msm.blair
 build.config.msm.gen3auto
 build.config.msm.gen4auto

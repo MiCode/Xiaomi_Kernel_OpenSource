@@ -130,7 +130,7 @@ static int hgsl_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		(mem_node->page_count < page_count + vma->vm_pgoff))
 		return -EINVAL;
 
-	vma->vm_flags |= VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY;
+	vm_flags_set(vma, VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY);
 	vma->vm_private_data = mem_node;
 	cache_mode = mem_node->flags & GSL_MEMFLAGS_CACHEMODE_MASK;
 	switch (cache_mode) {
@@ -506,9 +506,8 @@ static int hgsl_alloc_pages(struct device *dev, uint32_t requested_pcount,
 	return pcount;
 }
 
-static int hgsl_export_dma_buf_fd(struct hgsl_mem_node *mem_node)
+static int hgsl_export_dma_buf(struct hgsl_mem_node *mem_node)
 {
-	int fd = -1;
 	struct dma_buf *dma_buf = NULL;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
@@ -523,14 +522,6 @@ static int hgsl_export_dma_buf_fd(struct hgsl_mem_node *mem_node)
 		return -ENOMEM;
 	}
 	mem_node->dma_buf = dma_buf;
-
-	fd = dma_buf_fd(dma_buf, O_CLOEXEC);
-	if (fd < 0) {
-		LOGE("dma buf to fd failed");
-		return -EINVAL;
-	}
-	get_dma_buf(dma_buf);
-	mem_node->fd = fd;
 
 	return 0;
 }
@@ -569,6 +560,7 @@ int hgsl_sharedmem_alloc(struct device *dev, uint32_t sizebytes,
 	mem_node->sg_nents = nents;
 	mem_node->memtype = GSL_USER_MEM_TYPE_ASHMEM;
 	mem_node->memdesc.size = requested_size;
+	mem_node->fd = -1;
 
 	if (requested_pcount != 0)
 		return -ENOMEM;
@@ -579,7 +571,7 @@ int hgsl_sharedmem_alloc(struct device *dev, uint32_t sizebytes,
 			return ret;
 	}
 
-	return hgsl_export_dma_buf_fd(mem_node);
+	return hgsl_export_dma_buf(mem_node);
 }
 
 void hgsl_sharedmem_free(struct hgsl_mem_node *mem_node)

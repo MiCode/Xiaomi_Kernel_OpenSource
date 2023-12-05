@@ -131,6 +131,11 @@ static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 	return container_of(dom, struct arm_smmu_domain, domain);
 }
 
+static struct arm_smmu_domain *cb_cfg_to_smmu_domain(struct arm_smmu_cfg *cfg)
+{
+	return container_of(cfg, struct arm_smmu_domain, cfg);
+}
+
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
 	int i = 0;
@@ -1226,6 +1231,11 @@ static void arm_smmu_qcom_tlb_add_inv(void *cookie)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
+	if (smmu_domain->skip_tlb_management) {
+		smmu_domain->deferred_flush = false;
+		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+		return;
+	}
 	smmu_domain->deferred_flush = true;
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 }
@@ -1233,6 +1243,15 @@ static void arm_smmu_qcom_tlb_add_inv(void *cookie)
 static void arm_smmu_qcom_tlb_sync(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
+	if (smmu_domain->skip_tlb_management) {
+		smmu_domain->deferred_flush = false;
+		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 
 	arm_smmu_rpm_get(smmu_domain->smmu);
 	__arm_smmu_flush_iotlb_all(&smmu_domain->domain, false);
@@ -1280,11 +1299,11 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
 	struct io_pgtable_ops *pgtbl_ops;
-	struct qcom_io_pgtable_info pgtbl_info = {};
-	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info.cfg;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct qcom_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
+	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info->cfg;
 	irqreturn_t (*context_fault)(int irq, void *dev);
 	struct io_pgtable *iop;
 
@@ -1406,12 +1425,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (smmu_domain->mapping_cfg.fast) {
 		fmt = ARM_V8L_FAST;
 		ret = qcom_iommu_get_fast_iova_range(dev,
-					&pgtbl_info.iova_base,
-					&pgtbl_info.iova_end);
+					&pgtbl_info->iova_base,
+					&pgtbl_info->iova_end);
 		if (ret < 0)
 			goto out_unlock;
 	} else if (arm_smmu_has_secure_vmid(smmu_domain)) {
-		pgtbl_info.vmid = smmu_domain->secure_vmid;
+		pgtbl_info->vmid = smmu_domain->secure_vmid;
 	}
 
 	ret = arm_smmu_alloc_context_bank(smmu_domain, smmu, dev, start);
@@ -1434,9 +1453,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	else
 		cfg->asid = cfg->cbndx;
 
-	pgtbl_info.iommu_tlb_ops = &arm_smmu_iotlb_ops;
-	pgtbl_info.pgtable_log_ops = &arm_smmu_pgtable_log_ops;
-	pgtbl_info.cfg = (struct io_pgtable_cfg) {
+	pgtbl_info->iommu_tlb_ops = &arm_smmu_iotlb_ops;
+	pgtbl_info->pgtable_log_ops = &arm_smmu_pgtable_log_ops;
+	pgtbl_info->cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
 		.oas		= oas,
@@ -1454,12 +1473,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (smmu_domain->pgtbl_quirks)
 		pgtbl_cfg->quirks |= smmu_domain->pgtbl_quirks;
 
-	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, &pgtbl_info, smmu_domain);
+	pgtbl_ops = qcom_alloc_io_pgtable_ops(fmt, pgtbl_info, smmu_domain);
 	if (!pgtbl_ops) {
 		ret = -ENOMEM;
 		goto out_clear_smmu;
 	}
 
+	smmu_domain->pgtbl_fmt = fmt;
 	iop = container_of(pgtbl_ops, struct io_pgtable, ops);
 	ret = iommu_logger_register(&smmu_domain->logger, domain,
 				    smmu_domain->dev, iop);
@@ -2188,6 +2208,15 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
+	if (smmu_domain->skip_tlb_management) {
+		smmu_domain->deferred_flush = false;
+		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
@@ -2212,8 +2241,10 @@ static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain, bool force)
 	 * 1) GPU - old implementation uses upstream io-pgtable-arm.c
 	 * 2) fastmap
 	 * once these users have gone away, force parameter can be removed.
+	 *
+	 * Also return, If skip_tlb_management is set.
 	 */
-	if (!force && !smmu_domain->deferred_flush) {
+	if (smmu_domain->skip_tlb_management || (!force && !smmu_domain->deferred_flush)) {
 		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 		return;
 	}
@@ -2805,6 +2836,17 @@ static int arm_smmu_get_mappings_configuration(struct iommu_domain *domain)
 	return ret;
 }
 
+static void  arm_smmu_skip_tlb_management(struct iommu_domain *domain,
+					bool skip)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
+	smmu_domain->skip_tlb_management = skip;
+	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard		= arm_smmu_iova_to_phys_hard,
 	.sid_switch			= arm_smmu_sid_switch,
@@ -2816,6 +2858,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 	.set_fault_handler_irq		= arm_smmu_set_fault_handler_irq,
 	.enable_s1_translation		= arm_smmu_enable_s1_translation,
 	.get_mappings_configuration	= arm_smmu_get_mappings_configuration,
+	.skip_tlb_management		= arm_smmu_skip_tlb_management,
 
 	.domain_ops = {
 		.attach_dev		= arm_smmu_attach_dev,
@@ -3738,12 +3781,76 @@ static int arm_smmu_pm_prepare(struct device *dev)
 
 	return (atomic_read(&dev->power.usage_count) == 1) ? -EINPROGRESS : 0;
 }
+static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	struct arm_smmu_domain *smmu_domain;
+	struct io_pgtable_ops *pgtbl_ops;
+	struct io_pgtable_cfg *pgtbl_cfg;
+	struct arm_smmu_cb *cb;
+	int idx, ret;
+
+	/*
+	 * Restore the page tables for secure vmids as they are lost
+	 * after hibernation in secure code context.
+	 */
+	for (idx = 0; idx < smmu->num_context_banks; idx++) {
+		cb = &smmu->cbs[idx];
+		if (!cb->cfg)
+			continue;
+		smmu_domain = cb_cfg_to_smmu_domain(cb->cfg);
+		if (!arm_smmu_has_secure_vmid(smmu_domain))
+			continue;
+		pgtbl_cfg = &smmu_domain->pgtbl_info.cfg;
+		pgtbl_ops = qcom_alloc_io_pgtable_ops(smmu_domain->pgtbl_fmt,
+					&smmu_domain->pgtbl_info, smmu_domain);
+		if (!pgtbl_ops) {
+			dev_err(smmu->dev,
+			"failed to allocate page tables	during pm restore for cxt %d %s\n",
+				idx, dev_name(dev));
+			return -ENOMEM;
+		}
+		smmu_domain->pgtbl_ops = pgtbl_ops;
+		arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
+	}
+	arm_smmu_pm_resume(dev);
+	ret = arm_smmu_runtime_suspend(dev);
+	if (ret) {
+		dev_err(dev, "Failed to suspend\n");
+		return ret;
+	}
+	return 0;
+}
+
+static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_cb *cb;
+	int idx;
+
+	for (idx = 0; idx < smmu->num_context_banks; idx++) {
+		cb = &smmu->cbs[idx];
+		if (cb && cb->cfg) {
+			smmu_domain = cb_cfg_to_smmu_domain(cb->cfg);
+			if (smmu_domain &&
+				arm_smmu_has_secure_vmid(smmu_domain)) {
+				qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+			}
+		}
+	}
+	return 0;
+}
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(arm_smmu_pm_suspend, arm_smmu_pm_resume)
 	SET_RUNTIME_PM_OPS(arm_smmu_runtime_suspend,
 			   arm_smmu_runtime_resume, NULL)
 	.prepare = arm_smmu_pm_prepare,
+	.suspend  = arm_smmu_pm_suspend,
+	.resume   = arm_smmu_pm_resume,
+	.thaw_early = arm_smmu_pm_restore_early,
+	.freeze_late = arm_smmu_pm_freeze_late,
+	.restore_early = arm_smmu_pm_restore_early,
 };
 
 static struct platform_driver arm_smmu_driver = {

@@ -1,0 +1,6 @@
+config XM_POWER
+	tristate "XM Power Debug Feature"
+	default n
+	help
+	  XM Power Feature
+

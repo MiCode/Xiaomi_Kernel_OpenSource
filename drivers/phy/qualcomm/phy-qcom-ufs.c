@@ -303,6 +303,14 @@ skip_txrx_clk:
 				   &phy_common->rx_sym1_phy_clk, false);
 	 __ufs_qcom_phy_clk_get(phy_common->dev, "tx_sym0_phy_clk",
 				   &phy_common->tx_sym0_phy_clk, false);
+	if (!phy_common->rx_sym0_mux_clk ||
+		!phy_common->rx_sym1_mux_clk ||
+		!phy_common->tx_sym0_mux_clk ||
+		!phy_common->ref_clk_src ||
+		!phy_common->rx_sym0_phy_clk ||
+		!phy_common->rx_sym1_phy_clk ||
+		!phy_common->tx_sym0_phy_clk)
+		dev_err(phy_common->dev, "%s: null clock\n", __func__);
 out:
 	return err;
 }
@@ -358,6 +366,16 @@ static int ufs_qcom_phy_init_vreg(struct device *dev,
 	} else if (!strcmp(name, "vdda-phy")) {
 		vreg->max_uV = VDDA_PHY_MAX_UV;
 		vreg->min_uV = VDDA_PHY_MIN_UV;
+
+		snprintf(prop_name, MAX_PROP_NAME, "%s-min-microvolt", name);
+		of_property_read_u32(dev->of_node,
+				     prop_name, &vreg->min_uV);
+		if (vreg->min_uV < VDDA_PHY_MIN_UV ||
+			vreg->min_uV > VDDA_PHY_MAX_UV) {
+			dev_err(dev, "%s: ufs vdda-phy invalid min_uV=%duV\n",
+				__func__, vreg->min_uV);
+			vreg->min_uV = VDDA_PHY_MIN_UV;
+		}
 	} else if (!strcmp(name, "vddp-ref-clk")) {
 		vreg->max_uV = VDDP_REF_CLK_MAX_UV;
 		vreg->min_uV = VDDP_REF_CLK_MIN_UV;
@@ -677,10 +695,8 @@ void ufs_qcom_phy_set_src_clk_h8_enter(struct phy *generic_phy)
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 
 	if (!ufs_qcom_phy->rx_sym0_mux_clk || !ufs_qcom_phy->rx_sym1_mux_clk ||
-		!ufs_qcom_phy->tx_sym0_mux_clk || !ufs_qcom_phy->ref_clk_src) {
-		dev_err(ufs_qcom_phy->dev, "%s: null clock\n", __func__);
+		!ufs_qcom_phy->tx_sym0_mux_clk || !ufs_qcom_phy->ref_clk_src)
 		return;
-	}
 
 	/*
 	 * Before entering hibernate, select xo as source of symbol
@@ -702,10 +718,8 @@ void ufs_qcom_phy_set_src_clk_h8_exit(struct phy *generic_phy)
 		!ufs_qcom_phy->tx_sym0_mux_clk ||
 		!ufs_qcom_phy->rx_sym0_phy_clk ||
 		!ufs_qcom_phy->rx_sym1_phy_clk ||
-		!ufs_qcom_phy->tx_sym0_phy_clk) {
-		dev_err(ufs_qcom_phy->dev, "%s: null clock\n", __func__);
+		!ufs_qcom_phy->tx_sym0_phy_clk)
 		return;
-	}
 
 	/*
 	 * Refer to the UFS Host Controller Hardware Programming Guide's
@@ -838,6 +852,18 @@ void ufs_qcom_phy_ctrl_rx_linecfg(struct phy *generic_phy, bool ctrl)
 		ufs_qcom_phy->phy_spec_ops->ctrl_rx_linecfg(ufs_qcom_phy, ctrl);
 }
 EXPORT_SYMBOL(ufs_qcom_phy_ctrl_rx_linecfg);
+
+int ufs_qcom_phy_get_tx_hs_equalizer(struct phy *generic_phy, u32 gear, u32 *val)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+
+	if (!ufs_qcom_phy->phy_spec_ops->get_tx_hs_equalizer)
+		return -EOPNOTSUPP;
+
+	*val = ufs_qcom_phy->phy_spec_ops->get_tx_hs_equalizer(ufs_qcom_phy, gear);
+	return 0;
+}
+EXPORT_SYMBOL(ufs_qcom_phy_get_tx_hs_equalizer);
 
 int ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy, int offset,
 		int len, char *prefix)

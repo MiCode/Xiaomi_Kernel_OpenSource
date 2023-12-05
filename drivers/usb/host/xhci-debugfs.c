@@ -15,6 +15,7 @@
 
 static const struct debugfs_reg32 xhci_cap_regs[] = {
 	dump_register(CAPLENGTH),
+	dump_register(HCIVERSION),
 	dump_register(HCSPARAMS1),
 	dump_register(HCSPARAMS2),
 	dump_register(HCSPARAMS3),

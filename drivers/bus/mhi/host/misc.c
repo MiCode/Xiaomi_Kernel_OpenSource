@@ -274,6 +274,34 @@ void mhi_reg_write_work(struct work_struct *w)
 	msm_pcie_allow_l1(parent);
 }
 
+int mhi_misc_sysfs_create(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	int ret = 0;
+
+	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
+	if (ret) {
+		MHI_ERR(dev, "Failed to create misc sysfs group\n");
+		return ret;
+	}
+
+	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
+	if (ret) {
+		MHI_ERR(dev, "Failed to create time synchronization sysfs group\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+void  mhi_misc_sysfs_destroy(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+
+	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
+	sysfs_remove_group(&dev->kobj, &mhi_misc_group);
+}
+
 int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
@@ -329,14 +357,6 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	atomic_set(&mhi_priv->write_idx, -1);
 
-	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
-	if (ret)
-		MHI_ERR(dev, "Failed to create misc sysfs group\n");
-
-	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
-	if (ret)
-		MHI_ERR(dev, "Failed to create time synchronization sysfs group\n");
-
 	return 0;
 
 wq_cleanup:
@@ -349,7 +369,6 @@ ipc_ctx_cleanup:
 
 void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 {
-	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
 
 	if (!mhi_priv)
@@ -358,9 +377,6 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_priv->node);
 	mutex_unlock(&mhi_bus.lock);
-
-	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
-	sysfs_remove_group(&dev->kobj, &mhi_misc_group);
 
 	kfree(mhi_priv->reg_write_q);
 
@@ -1340,6 +1356,13 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	int ret = 0;
 
 	spin_lock_bh(&mhi_event->lock);
+	if (!is_valid_ring_ptr(ev_ring, er_ctxt->rp)) {
+		MHI_ERR(dev, "Event ring rp points outside of the event ring or unalign rp %llx\n",
+				er_ctxt->rp);
+		spin_unlock_bh(&mhi_event->lock);
+		goto exit_tsync_process;
+	}
+
 	dev_rp = mhi_misc_to_virtual(ev_ring, er_ctxt->rp);
 	if (ev_ring->rp == dev_rp) {
 		spin_unlock_bh(&mhi_event->lock);
@@ -1445,6 +1468,12 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 		goto exit_bw_scale_process;
 
 	spin_lock_bh(&mhi_event->lock);
+	if (!is_valid_ring_ptr(ev_ring, er_ctxt->rp)) {
+		MHI_ERR(dev, "Event ring rp points outside of the event ring or unalign rp %llx\n",
+				er_ctxt->rp);
+		spin_unlock_bh(&mhi_event->lock);
+		return 0;
+	}
 	dev_rp = mhi_misc_to_virtual(ev_ring, er_ctxt->rp);
 
 	/**

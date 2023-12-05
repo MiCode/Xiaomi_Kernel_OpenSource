@@ -6638,7 +6638,7 @@ static void __sched notrace __schedule(unsigned int sched_mode)
 	rq->last_seen_need_resched_ns = 0;
 #endif
 
-	trace_android_rvh_schedule(prev, next, rq);
+	trace_android_rvh_schedule(sched_mode, prev, next, rq);
 	if (likely(prev != next)) {
 		rq->nr_switches++;
 		/*
@@ -8446,6 +8446,10 @@ static void do_sched_yield(void)
 {
 	struct rq_flags rf;
 	struct rq *rq;
+
+	long skip = 0;
+	trace_android_rvh_before_do_sched_yield(&skip);
+	if (skip) return;
 
 	rq = this_rq_lock_irq(&rf);
 

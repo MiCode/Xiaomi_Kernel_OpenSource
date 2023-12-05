@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/memory.h>
@@ -237,17 +238,17 @@ static int aop_send_msg(unsigned long addr, bool online)
 	return mbox_send_message(mailbox.mbox, &pkt);
 }
 
-static long get_memblk_bits(unsigned int seg_idx, unsigned long memblk_addr)
+static long get_memblk_bits(int seg_idx, unsigned long memblk_addr)
 {
-	if (memblk_addr > segment_infos[seg_idx].start_addr +
-			segment_infos[seg_idx].seg_size)
+	if (seg_idx < 0 || (memblk_addr > segment_infos[seg_idx].start_addr +
+			segment_infos[seg_idx].seg_size))
 		return -EINVAL;
 
 	return (1 << ((memblk_addr - segment_infos[seg_idx].start_addr) /
 				memory_block_size_bytes()));
 }
 
-static long get_segment_addr_to_idx(unsigned long addr)
+static int get_segment_addr_to_idx(unsigned long addr)
 {
 	int i;
 
@@ -329,7 +330,7 @@ undo:
 
 static void set_memblk_bitmap_online(unsigned long addr)
 {
-	unsigned long seg_idx;
+	int seg_idx;
 	long cur_blk_bit;
 
 	seg_idx = get_segment_addr_to_idx(addr);
@@ -350,7 +351,7 @@ static void set_memblk_bitmap_online(unsigned long addr)
 
 static void set_memblk_bitmap_offline(unsigned long addr)
 {
-	unsigned long seg_idx;
+	int seg_idx;
 	long cur_blk_bit;
 
 	seg_idx = get_segment_addr_to_idx(addr);
@@ -516,7 +517,7 @@ static int mem_event_callback(struct notifier_block *self,
 	ktime_t delay = 0;
 	phys_addr_t start_addr, end_addr;
 	unsigned int idx = end_section_nr - start_section_nr + 1;
-	unsigned long seg_idx;
+	int seg_idx;
 
 	start = SECTION_ALIGN_DOWN(mn->start_pfn);
 	end = SECTION_ALIGN_UP(mn->start_pfn + mn->nr_pages);
@@ -1451,8 +1452,8 @@ static int get_segment_region_info(void)
 {
 	uint8_t r = 0; // region index
 	unsigned long region_end, segment_start, segment_size, r0_segment_size;
-	unsigned long num_kernel_blks, seg_idx = 0, addr;
-	int i;
+	unsigned long num_kernel_blks, addr;
+	int i, seg_idx = 0;
 
 	num_segments = get_num_offlinable_segments();
 
@@ -1551,6 +1552,11 @@ static int get_ddr_regions_info(void)
 	}
 
 	num_ddr_regions = get_num_ddr_regions(node);
+
+	if (!num_ddr_regions) {
+		pr_err("mem-offine: num_ddr_regions is %d\n", num_ddr_regions);
+		return -EINVAL;
+	}
 
 	ddr_regions = kcalloc(num_ddr_regions, sizeof(*ddr_regions), GFP_KERNEL);
 	if (!ddr_regions)

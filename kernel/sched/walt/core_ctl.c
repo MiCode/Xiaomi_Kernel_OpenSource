@@ -103,6 +103,7 @@ static unsigned int get_assist_active_cpu_count(const struct cluster_data *clust
 static unsigned int active_cpu_count_from_mask(const cpumask_t *cpus);
 static void __ref do_core_ctl(void);
 
+cpumask_t part_haltable_cpus = { CPU_BITS_NONE };
 /* ========================= sysfs interface =========================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -114,6 +115,7 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 		return -EINVAL;
 
 	state->min_cpus = min(val, state->num_cpus);
+
 	sysfs_param_changed(state);
 
 	return count;
@@ -134,6 +136,11 @@ static ssize_t store_min_partial_cpus(struct cluster_data *state,
 
 	state->min_partial_cpus = min(val, state->num_cpus);
 	sysfs_param_changed(state);
+
+	if (state->min_partial_cpus)
+		cpumask_or(&part_haltable_cpus, &part_haltable_cpus, &state->cpu_mask);
+	else
+		cpumask_andnot(&part_haltable_cpus, &part_haltable_cpus, &state->cpu_mask);
 
 	return count;
 }
@@ -933,7 +940,7 @@ static int compute_cluster_nr_busy(int index)
 	return nr_busy;
 }
 
-static void update_running_avg(void)
+static void update_running_avg(u64 window_start, u32 wakeup_ctr_sum)
 {
 	struct cluster_data *cluster;
 	unsigned int index = 0;
@@ -985,6 +992,7 @@ static void update_running_avg(void)
 
 	last_nr_big = big_avg;
 	walt_rotation_checkpoint(big_avg);
+	fmax_uncap_checkpoint(big_avg, window_start, wakeup_ctr_sum);
 }
 
 #define MAX_NR_THRESHOLD	4
@@ -1152,6 +1160,45 @@ static void wake_up_core_ctl_thread(void)
 	wake_up_process(core_ctl_thread);
 }
 
+static inline int set_cluster_boost(struct cluster_data *cluster, bool boost,
+				    bool *boost_state_changed)
+{
+	int ret = 0;
+
+	if (boost) {
+		*boost_state_changed = !cluster->boost;
+		++cluster->boost;
+	} else {
+		if (!cluster->boost)
+			return -EINVAL;
+		--cluster->boost;
+		*boost_state_changed = !cluster->boost;
+	}
+
+	return ret;
+}
+
+int core_ctl_set_cluster_boost(int idx, bool boost)
+{
+	struct cluster_data *cluster;
+	bool boost_state_changed = false;
+	unsigned long flags;
+	int ret = 0;
+
+	if (idx >= num_clusters)
+		return -EINVAL;
+
+	spin_lock_irqsave(&state_lock, flags);
+	cluster = &cluster_state[idx];
+	ret = set_cluster_boost(cluster, boost, &boost_state_changed);
+	spin_unlock_irqrestore(&state_lock, flags);
+
+	if (boost_state_changed)
+		sysfs_param_changed(cluster);
+
+	return ret;
+}
+
 static u64 core_ctl_check_timestamp;
 
 int core_ctl_set_boost(bool boost)
@@ -1166,19 +1213,8 @@ int core_ctl_set_boost(bool boost)
 		return 0;
 
 	spin_lock_irqsave(&state_lock, flags);
-	for_each_cluster(cluster, index) {
-		if (boost) {
-			boost_state_changed = !cluster->boost;
-			++cluster->boost;
-		} else {
-			if (!cluster->boost) {
-				ret = -EINVAL;
-				break;
-			}
-			--cluster->boost;
-			boost_state_changed = !cluster->boost;
-		}
-	}
+	for_each_cluster(cluster, index)
+		ret = set_cluster_boost(cluster, boost, &boost_state_changed);
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	if (boost_state_changed) {
@@ -1192,19 +1228,19 @@ int core_ctl_set_boost(bool boost)
 
 	return ret;
 }
-EXPORT_SYMBOL(core_ctl_set_boost);
+EXPORT_SYMBOL_GPL(core_ctl_set_boost);
 
 void core_ctl_notifier_register(struct notifier_block *n)
 {
 	atomic_notifier_chain_register(&core_ctl_notifier, n);
 }
-EXPORT_SYMBOL(core_ctl_notifier_register);
+EXPORT_SYMBOL_GPL(core_ctl_notifier_register);
 
 void core_ctl_notifier_unregister(struct notifier_block *n)
 {
 	atomic_notifier_chain_unregister(&core_ctl_notifier, n);
 }
-EXPORT_SYMBOL(core_ctl_notifier_unregister);
+EXPORT_SYMBOL_GPL(core_ctl_notifier_unregister);
 
 static void core_ctl_call_notifier(void)
 {
@@ -1257,14 +1293,26 @@ static bool core_ctl_check_masks_set(void)
 }
 
 /* is the system in a single-big-thread case? */
-static inline bool is_sbt(void)
+static inline bool is_sbt(bool prev_is_sbt, int prev_is_sbt_windows)
 {
 	struct cluster_data *cluster = &cluster_state[MAX_CLUSTERS - 1];
+	bool ret = false;
 
-	if (last_nr_big == 1 && cluster->nr_big == 1)
-		return true;
+	if (!sysctl_sched_sbt_enable)
+		goto out;
 
-	return false;
+	if (last_nr_big != 1)
+		goto out;
+
+	if (cluster->nr_big != 1)
+		goto out;
+
+	ret = true;
+out:
+	trace_core_ctl_sbt(&cpus_for_sbt_pause, prev_is_sbt, ret,
+			    prev_is_sbt_windows, cluster->nr_big);
+
+	return ret;
 }
 
 /**
@@ -1281,7 +1329,8 @@ void sbt_ctl_check(void)
 {
 	static bool prev_is_sbt;
 	static int prev_is_sbt_windows;
-	bool now_is_sbt = is_sbt();
+	bool now_is_sbt = is_sbt(prev_is_sbt, prev_is_sbt_windows);
+	cpumask_t local_cpus;
 
 	/* if there are cpus to adjust */
 	if (cpumask_weight(&cpus_for_sbt_pause) != 0) {
@@ -1295,12 +1344,14 @@ void sbt_ctl_check(void)
 		if (now_is_sbt && prev_is_sbt_windows-- > 0)
 			return;
 
+		cpumask_copy(&local_cpus, &cpus_for_sbt_pause);
+
 		if (!prev_is_sbt && now_is_sbt)
 			/*sbt entry*/
-			walt_pause_cpus(&cpus_for_sbt_pause, PAUSE_SBT);
+			walt_pause_cpus(&local_cpus, PAUSE_SBT);
 		else if (prev_is_sbt && !now_is_sbt)
 			/* sbt exit */
-			walt_resume_cpus(&cpus_for_sbt_pause, PAUSE_SBT);
+			walt_resume_cpus(&local_cpus, PAUSE_SBT);
 
 		prev_is_sbt_windows = sysctl_sched_sbt_delay_windows;
 		prev_is_sbt = now_is_sbt;
@@ -1315,7 +1366,7 @@ void sbt_ctl_check(void)
  * window based. Therefore core_ctl_check must only be called from
  * window rollover, or walt_irq_work for not migration.
  */
-void core_ctl_check(u64 window_start)
+void core_ctl_check(u64 window_start, u32 wakeup_ctr_sum)
 {
 	int cpu;
 	struct cpu_data *c;
@@ -1350,7 +1401,7 @@ void core_ctl_check(u64 window_start)
 	}
 	spin_unlock_irqrestore(&state_lock, flags);
 
-	update_running_avg();
+	update_running_avg(window_start, wakeup_ctr_sum);
 
 	for_each_cluster(cluster, index)
 		wakeup |= eval_need(cluster);

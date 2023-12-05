@@ -54,6 +54,10 @@ struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt)
 	int i;
 	struct scatterlist *sg;
 
+	/* gh_sgl_desc uses u16. Use struct scatterlist instead in future */
+	if (WARN(sgt->orig_nents > U16_MAX, "Too many sgl_entries\n"))
+		return ERR_PTR(-EINVAL);
+
 	size = offsetof(struct gh_sgl_desc, sgl_entries[sgt->orig_nents]);
 	gh_sgl = kvmalloc(size, GFP_KERNEL);
 	if (!gh_sgl)
@@ -316,7 +320,7 @@ EXPORT_SYMBOL(mem_buf_map_mem_s1);
 int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc)
 {
 	u64 base, size;
-	int i, ret;
+	int i, ret = 0;
 
 	for (i = 0; i < sgl_desc->n_sgl_entries; i++) {
 		base = sgl_desc->sgl_entries[i].ipa_base;

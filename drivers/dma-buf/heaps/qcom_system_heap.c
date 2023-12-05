@@ -155,6 +155,15 @@ static bool __dynamic_pool_zone_watermark_ok(struct zone *z, unsigned int order,
 			continue;
 
 		for (mt = 0; mt < MIGRATE_PCPTYPES; mt++) {
+#ifdef CONFIG_CMA
+			/*
+			 * Note that this check is needed only
+			 * when MIGRATE_CMA < MIGRATE_PCPTYPES.
+			 */
+			if (mt == MIGRATE_CMA)
+				continue;
+#endif
+
 			if (!free_area_empty(area, mt))
 				return true;
 		}
@@ -388,7 +397,6 @@ void qcom_system_heap_free(struct qcom_sg_buffer *buffer)
 			PAGE_ALIGN(buffer->len) / PAGE_SIZE);
 }
 
-
 struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **pools,
 						   unsigned long size,
 						   unsigned int max_order,
@@ -461,9 +469,9 @@ int system_qcom_sg_buffer_alloc(struct dma_heap *heap,
 			goto free_mem;
 
 		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
-							     size_remaining,
-							     max_order,
-							     movable);
+									size_remaining,
+									max_order,
+									movable);
 		if (!page)
 			goto free_mem;
 
@@ -556,8 +564,21 @@ free_buf_struct:
 	return ERR_PTR(ret);
 }
 
+static long get_pool_size_bytes(struct dma_heap *heap)
+{
+	long total_size = 0;
+	int i;
+	struct qcom_system_heap *sys_heap = dma_heap_get_drvdata(heap);
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		total_size += dynamic_page_pool_total(sys_heap->pool_list[i], true);
+
+	return total_size << PAGE_SHIFT;
+}
+
 static const struct dma_heap_ops system_heap_ops = {
 	.allocate = system_heap_allocate,
+	.get_pool_size = get_pool_size_bytes,
 };
 
 void qcom_system_heap_create(const char *name, const char *system_alias, bool uncached)
@@ -592,7 +613,7 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 	ret = system_heap_create_refill_worker(sys_heap, name);
 	if (ret)
 		goto free_pools;
-
+	
 	heap = dma_heap_add(&exp_info);
 	if (IS_ERR(heap)) {
 		ret = PTR_ERR(heap);

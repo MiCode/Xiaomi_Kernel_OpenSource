@@ -26,6 +26,7 @@
 #include <linux/serial.h>
 #include <linux/serial_core.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/ioctl.h>
@@ -2553,6 +2554,19 @@ static int stop_rx_sequencer(struct uart_port *uport)
 			goto exit_rx_seq;
 		}
 		port->s_cmd_done = false;
+
+		/* Check if Cancel Interrupt arrived but irq is delayed */
+		s_irq_status = geni_read_reg(uport->membase, SE_GENI_S_IRQ_STATUS);
+		if (s_irq_status & S_CMD_CANCEL_EN) {
+			/* Clear delayed Cancel IRQ */
+			geni_write_reg(S_CMD_CANCEL_EN, uport->membase, SE_GENI_S_IRQ_CLEAR);
+			UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+				     "%s Cancel Command succeeded 0x%x\n", __func__, s_irq_status);
+			/* Reset the error code and skip abort operation */
+			msm_geni_update_uart_error_code(port, UART_ERROR_DEFAULT);
+			goto exit_enable_irq;
+		}
+
 		reinit_completion(&port->s_cmd_timeout);
 		geni_se_abort_s_cmd(&port->se);
 		/* Ensure this goes through before polling. */
@@ -2602,6 +2616,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 			}
 		}
 	}
+exit_enable_irq:
 	/* Enable the interrupts once the cancel operation is done. */
 	msm_geni_serial_enable_interrupts(uport);
 	port->s_cmd = false;
@@ -3321,7 +3336,6 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			 */
 			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 					"%s: Stop Rx Engine\n", __func__);
-			dmaengine_terminate_all(msm_port->gsi->rx_c);
 			timeout = wait_for_completion_timeout
 				(&msm_port->xfer,
 				msecs_to_jiffies(POLL_WAIT_TIMEOUT_MSEC));
@@ -4858,6 +4872,32 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 	return 0;
 }
 
+static int msm_geni_serial_sys_hib_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
+	struct uart_port *uport = &port->uport;
+
+	if (uart_console(uport)) {
+		uart_resume_port((struct uart_driver *)uport->private_data, uport);
+		/*
+		 * For hibernation usecase clients for
+		 * console UART won't call port setup during restore.
+		 * Hence call port setup for console uart.
+		 */
+		msm_geni_serial_port_setup(uport);
+	} else {
+		/*
+		 * Peripheral register settings are lost during hibernation.
+		 * Update setup flag such that port setup happens again
+		 * during next session. Clients of HS-UART will close and
+		 * open the port during hibernation.
+		 */
+		port->port_setup = false;
+	}
+	return 0;
+}
+
 static int msm_geni_serial_sys_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -4879,6 +4919,7 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 	}
 	return 0;
 }
+
 #else
 static int msm_geni_serial_runtime_suspend(struct device *dev)
 {
@@ -4899,6 +4940,11 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 {
 	return 0;
 }
+
+static int msm_geni_serial_sys_hib_resume(struct device *dev)
+{
+	return 0;
+}
 #endif
 
 static const struct dev_pm_ops msm_geni_serial_pm_ops = {
@@ -4906,6 +4952,9 @@ static const struct dev_pm_ops msm_geni_serial_pm_ops = {
 	.runtime_resume = msm_geni_serial_runtime_resume,
 	.suspend = msm_geni_serial_sys_suspend,
 	.resume = msm_geni_serial_sys_resume,
+	.freeze = msm_geni_serial_sys_suspend,
+	.restore = msm_geni_serial_sys_hib_resume,
+	.thaw = msm_geni_serial_sys_hib_resume,
 };
 
 static struct platform_driver msm_geni_serial_platform_driver = {

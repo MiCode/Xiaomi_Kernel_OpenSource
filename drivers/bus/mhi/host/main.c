@@ -271,11 +271,6 @@ static void mhi_del_ring_element(struct mhi_controller *mhi_cntrl,
 	smp_wmb();
 }
 
-static bool is_valid_ring_ptr(struct mhi_ring *ring, dma_addr_t addr)
-{
-	return addr >= ring->iommu_base && addr < ring->iommu_base + ring->len;
-}
-
 int mhi_destroy_device(struct device *dev, void *data)
 {
 	struct mhi_chan *ul_chan, *dl_chan;
@@ -1778,6 +1773,8 @@ void mhi_unprepare_from_transfer(struct mhi_device *mhi_dev)
 	struct mhi_chan *mhi_chan;
 	int dir;
 
+	/* Get out of suspended state */
+	mhi_cntrl->runtime_get(mhi_cntrl);
 	for (dir = 0; dir < 2; dir++) {
 		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
 		if (!mhi_chan)
@@ -1785,6 +1782,8 @@ void mhi_unprepare_from_transfer(struct mhi_device *mhi_dev)
 
 		mhi_unprepare_channel(mhi_cntrl, mhi_chan);
 	}
+	/* Allow suspend */
+	mhi_cntrl->runtime_put(mhi_cntrl);
 }
 EXPORT_SYMBOL_GPL(mhi_unprepare_from_transfer);
 

@@ -5,6 +5,7 @@ llcc-qcom.ko
 mem_buf.ko
 mem_buf_dev.ko
 mem_buf_msgq.ko
+debug_symbol.ko
 minidump.ko
 msm_qmp.ko
 msm_dma_iommu_mapping.ko
@@ -44,6 +45,7 @@ reboot-mode.ko
 qcom-pon.ko
 rtc-pm8xxx.ko
 nvmem_qcom-spmi-sdam.ko
+nvmem_qfprom.ko
 clk-rpmh.ko
 clk-qcom.ko
 clk-dummy.ko
@@ -60,6 +62,7 @@ qcom-cpufreq-hw.ko
 socinfo.ko
 qcom_ipc_logging.ko
 phy-qcom-ufs.ko
+phy-qcom-ufs-qmp-v3-660.ko
 phy-qcom-ufs-qmp-v4.ko
 ufs_qcom.ko
 crypto-qti-common.ko

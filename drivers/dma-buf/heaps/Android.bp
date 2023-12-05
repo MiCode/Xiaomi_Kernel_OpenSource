@@ -1,0 +1,18 @@
+sh_test {
+    name: "dmabuf_reserve_pool_test_device",
+    src:"dmabuf_reserve_pool_test_device.sh",
+    filename_from_src: true,
+}
+
+
+sh_test {
+    name: "dmabuf_reserve_pool_test_host",
+    src:"dmabuf_reserve_pool_test_host.sh",
+    host_supported: true,
+    device_supported: false,
+    filename_from_src: true,
+    test_suites: ["general-tests"],
+    require_root: true,
+    target_required: [
+    "dmabuf_reserve_pool_test_device" ]
+}

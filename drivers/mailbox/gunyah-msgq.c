@@ -96,8 +96,9 @@ static int gh_msgq_send_data(struct mbox_chan *chan, void *data)
 	if (gh_error == GH_ERROR_OK) {
 		if (!ready)
 			return 0;
-	} else
+	} else {
 		dev_err(msgq->mbox.dev, "Failed to send data: %d (%d)\n", gh_error, msgq->last_ret);
+	}
 
 	/**
 	 * We can send more messages. Mailbox framework requires that tx done
@@ -197,6 +198,8 @@ EXPORT_SYMBOL_GPL(gh_msgq_init);
 
 void gh_msgq_remove(struct gh_msgq *msgq)
 {
+	mbox_free_channel(gh_msgq_chan(msgq));
+
 	if (msgq->rx_ghrsc)
 		free_irq(msgq->rx_ghrsc->irq, msgq);
 

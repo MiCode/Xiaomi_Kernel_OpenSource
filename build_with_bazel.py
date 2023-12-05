@@ -12,17 +12,49 @@ import sys
 import subprocess
 
 HOST_TARGETS = ["dtc"]
-DEFAULT_SKIP_LIST = ["abi", "test_mapping"]
+DEFAULT_SKIP_LIST = ["abi"]
 MSM_EXTENSIONS = "build/msm_kernel_extensions.bzl"
 ABL_EXTENSIONS = "build/abl_extensions.bzl"
 DEFAULT_MSM_EXTENSIONS_SRC = "../msm-kernel/msm_kernel_extensions.bzl"
 DEFAULT_ABL_EXTENSIONS_SRC = "../bootable/bootloader/edk2/abl_extensions.bzl"
+DEFAULT_OUT_DIR = "{workspace}/out/msm-kernel-{target}-{variant}"
 
+class Target:
+    def __init__(self, workspace, target, variant, bazel_label, out_dir=None):
+        self.workspace = workspace
+        self.target = target
+        self.variant = variant
+        self.bazel_label = bazel_label
+        self.out_dir = out_dir
+
+    def __lt__(self, other):
+        return len(self.bazel_label) < len(other.bazel_label)
+
+    def get_out_dir(self, suffix=None):
+        if self.out_dir:
+            out_dir = self.out_dir
+        else:
+            # Mirror the logic in msm_common.bzl:get_out_dir()
+            if "allyes" in self.target:
+                target_norm = self.target.replace("_", "-")
+            else:
+                target_norm = self.target.replace("-", "_")
+
+            variant_norm = self.variant.replace("-", "_")
+
+            out_dir = DEFAULT_OUT_DIR.format(
+                workspace = self.workspace, target=target_norm, variant=variant_norm
+            )
+
+        if suffix:
+            return os.path.join(out_dir, suffix)
+        else:
+            return out_dir
 
 class BazelBuilder:
     """Helper class for building with Bazel"""
 
-    def __init__(self, target_list, skip_list, out_dir, user_opts):
+    def __init__(self, target_list, skip_list, out_dir, dry_run, user_opts):
         self.workspace = os.path.realpath(
             os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
         )
@@ -41,9 +73,15 @@ class BazelBuilder:
 
         self.target_list = target_list
         self.skip_list = skip_list
-        self.out_dir = out_dir
+        self.dry_run = dry_run
         self.user_opts = user_opts
         self.process_list = []
+        if len(self.target_list) > 1 and out_dir:
+            logging.error("cannot specify multiple targets with one out dir")
+            sys.exit(1)
+        else:
+            self.out_dir = out_dir
+
         self.setup_extensions()
 
     def __del__(self):
@@ -81,17 +119,16 @@ class BazelBuilder:
         """Query for build targets"""
         logging.info("Querying build targets...")
 
-        cross_target_list = []
-        host_target_list = []
+        targets = []
         for t, v in self.target_list:
             if v == "ALL":
+                if self.out_dir:
+                    logging.error("cannot specify multiple targets (ALL variants) with one out dir")
+                    sys.exit(1)
+
                 skip_list_re = [
                     re.compile(r"//{}:{}_.*_{}_dist".format(self.kernel_dir, t, s))
                     for s in self.skip_list
-                ]
-                host_target_list_re = [
-                    re.compile(r"//{}:{}_.*_{}_dist".format(self.kernel_dir, t, h))
-                    for h in HOST_TARGETS
                 ]
                 query = 'filter("{}_.*_dist$", attr(generator_function, define_msm_platforms, {}/...))'.format(
                     t, self.kernel_dir
@@ -100,10 +137,6 @@ class BazelBuilder:
                 skip_list_re = [
                     re.compile(r"//{}:{}_{}_{}_dist".format(self.kernel_dir, t, v, s))
                     for s in self.skip_list
-                ]
-                host_target_list_re = [
-                    re.compile(r"//{}:{}_{}_{}_dist".format(self.kernel_dir, t, v, h))
-                    for h in HOST_TARGETS
                 ]
                 query = 'filter("{}_{}.*_dist$", attr(generator_function, define_msm_platforms, {}/...))'.format(
                     t, v, self.kernel_dir
@@ -124,14 +157,14 @@ class BazelBuilder:
                     cmdline, cwd=self.workspace, stdout=subprocess.PIPE
                 )
                 self.process_list.append(query_cmd)
-                target_list = [l.decode("utf-8") for l in query_cmd.stdout.read().splitlines()]
+                label_list = [l.decode("utf-8") for l in query_cmd.stdout.read().splitlines()]
             except Exception as e:
                 logging.error(e)
                 sys.exit(1)
 
             self.process_list.remove(query_cmd)
 
-            if not target_list:
+            if not label_list:
                 logging.error(
                     "failed to find any Bazel targets for target/variant combo %s_%s",
                     t,
@@ -139,20 +172,26 @@ class BazelBuilder:
                 )
                 sys.exit(1)
 
-            for target in target_list:
-                if any((skip_re.match(target) for skip_re in skip_list_re)):
+            for label in label_list:
+                if any((skip_re.match(label) for skip_re in skip_list_re)):
                     continue
-                if any((host_re.match(target) for host_re in host_target_list_re)):
-                    host_target_list.append(target)
+
+                if v == "ALL":
+                    real_variant = re.search(
+                        r"//{}:{}_([^_]+)_".format(self.kernel_dir, t), label
+                    ).group(1)
                 else:
-                    cross_target_list.append(target)
+                    real_variant = v
 
-        # Sort build targets by string length to guarantee the base target goes
+                targets.append(
+                    Target(self.workspace, t, real_variant, label, self.out_dir)
+                )
+
+        # Sort build targets by label string length to guarantee the base target goes
         # first when copying to output directory
-        cross_target_list.sort(key=len)
-        host_target_list.sort(key=len)
+        targets.sort()
 
-        return (cross_target_list, host_target_list)
+        return targets
 
     def clean_legacy_generated_files(self):
         """Clean generated files from legacy build to avoid conflicts with Bazel"""
@@ -179,7 +218,7 @@ class BazelBuilder:
         cmdline = [self.bazel_bin, bazel_subcommand]
         if extra_options:
             cmdline.extend(extra_options)
-        cmdline.extend(targets)
+        cmdline.extend([t.bazel_label for t in targets])
         if bazel_target_opts is not None:
             cmdline.extend(["--"] + bazel_target_opts)
 
@@ -190,6 +229,8 @@ class BazelBuilder:
             self.process_list.append(build_proc)
             build_proc.wait()
             if build_proc.returncode != 0:
+                cmdline_del = [self.bazel_bin, "clean", "--expunge"]
+                subprocess.Popen(cmdline_del, cwd=self.workspace, shell=True)
                 sys.exit(build_proc.returncode)
         except Exception as e:
             logging.error(e)
@@ -197,72 +238,73 @@ class BazelBuilder:
 
         self.process_list.remove(build_proc)
 
-    def build_targets(self, targets, user_opts=None):
+    def build_targets(self, targets):
         """Run "bazel build" on all targets in parallel"""
-        if not targets:
-            logging.warning("no targets to build")
-        self.bazel("build", targets, extra_options=user_opts)
+        self.bazel("build", targets, extra_options=self.user_opts)
 
-    def run_targets(self, targets, out_subdir="dist", user_opts=None):
+    def run_targets(self, targets):
         """Run "bazel run" on all targets in serial (since bazel run cannot have multiple targets)"""
-        bto = []
-        if self.out_dir:
-            bto.extend(["--dist_dir", os.path.join(self.out_dir, out_subdir)])
         for target in targets:
-            self.bazel("run", [target], extra_options=user_opts, bazel_target_opts=bto)
+            # Set the output directory based on if it's a host target
+            if any(
+                re.match(r"//{}:.*_{}_dist".format(self.kernel_dir, h), target.bazel_label)
+                    for h in HOST_TARGETS
+            ):
+                out_dir = target.get_out_dir("host")
+            else:
+                out_dir = target.get_out_dir("dist")
+            self.bazel(
+                "run",
+                [target],
+                extra_options=self.user_opts,
+                bazel_target_opts=["--dist_dir", out_dir]
+            )
+            self.write_opts(out_dir)
 
     def run_menuconfig(self):
         """Run menuconfig on all target-variant combos class is initialized with"""
         for t, v in self.target_list:
-            self.bazel("run", ["//{}:{}_{}_config".format(self.kernel_dir, t, v)],
-                    bazel_target_opts=["menuconfig"])
+            menuconfig_label = "//{}:{}_{}_config".format(self.kernel_dir, t, v)
+            menuconfig_target = [Target(self.workspace, t, v, menuconfig_label, self.out_dir)]
+            self.bazel("run", menuconfig_target, bazel_target_opts=["menuconfig"])
+
+    def write_opts(self, out_dir):
+        with open(os.path.join(out_dir, "build_opts.txt"), "w") as opt_file:
+            if self.user_opts:
+                opt_file.write("{}".format("\n".join(self.user_opts)))
+            opt_file.write("\n")
 
     def build(self):
         """Determine which targets to build, then build them"""
-        cross_targets_to_build, host_targets_to_build = self.get_build_targets()
+        targets_to_build = self.get_build_targets()
 
-        logging.debug(
-            "Building the following device targets:\n%s",
-            "\n".join(cross_targets_to_build),
-        )
-        logging.debug(
-            "Building the following host targets:\n%s", "\n".join(host_targets_to_build)
-        )
-
-        if not cross_targets_to_build and not host_targets_to_build:
+        if not targets_to_build:
             logging.error("no targets to build")
             sys.exit(1)
-
-        self.clean_legacy_generated_files()
 
         if self.skip_list:
             self.user_opts.extend(["--//msm-kernel:skip_{}=true".format(s) for s in self.skip_list])
 
-        self.user_opts.extend(["--config=stamp"])
+        self.user_opts.extend([
+            "--user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom",
+            "--ignore_missing_projects",
+        ])
 
-        self.user_opts.append("--config=android_arm64")
+        if self.dry_run:
+            self.user_opts.append("--nobuild")
 
-        logging.info("Building device targets...")
-        self.build_targets(
-            cross_targets_to_build,
-            user_opts=self.user_opts,
-        )
-        self.run_targets(
-            cross_targets_to_build,
-            user_opts=self.user_opts,
-        )
-
-        # Replace the last option above (--config=android_arm64) with the host config
-        self.user_opts[-1] = "--config=hermetic_cc"
-
-        logging.info("Building host targets...")
-        self.build_targets(
-            host_targets_to_build, user_opts=self.user_opts
-        )
-        self.run_targets(
-            host_targets_to_build, out_subdir="host", user_opts=self.user_opts
+        logging.debug(
+            "Building the following targets:\n%s",
+            "\n".join([t.bazel_label for t in targets_to_build])
         )
 
+        self.clean_legacy_generated_files()
+
+        logging.info("Building targets...")
+        self.build_targets(targets_to_build)
+
+        if not self.dry_run:
+            self.run_targets(targets_to_build)
 
 def main():
     """Main script entrypoint"""
@@ -304,6 +346,12 @@ def main():
         action="store_true",
         help="Run menuconfig for <target>-<variant> and exit without building",
     )
+    parser.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="Perform a dry-run of the build which will perform loading/analysis of build files",
+    )
 
     args, user_opts = parser.parse_known_args(sys.argv[1:])
 
@@ -314,7 +362,7 @@ def main():
 
     args.skip.extend(DEFAULT_SKIP_LIST)
 
-    builder = BazelBuilder(args.target, args.skip, args.out_dir, user_opts)
+    builder = BazelBuilder(args.target, args.skip, args.out_dir, args.dry_run, user_opts)
     try:
         if args.menuconfig:
             builder.run_menuconfig()
@@ -325,8 +373,10 @@ def main():
         del builder
         sys.exit(1)
 
-    logging.info("Build completed successfully!")
-
+    if args.dry_run:
+        logging.info("Dry-run completed successfully!")
+    else:
+        logging.info("Build completed successfully!")
 
 if __name__ == "__main__":
     main()

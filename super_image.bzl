@@ -54,7 +54,7 @@ When included in a `copy_to_dist_dir` rule, this rule copies a `super.img` to `D
             mandatory = True,
         ),
         "super_img_size": attr.int(
-            default = 0x10000000,
+            default = 0x20000000,
             doc = "Size of super.img",
         ),
     }),
