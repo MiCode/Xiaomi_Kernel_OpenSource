@@ -165,14 +165,13 @@ static int hdcp1_app_load(struct hdcp1_smcinvoke_handle *handle)
 	ret = load_app(HDCP1OPS_APP_NAME, &(handle->hdcp1ops_app_obj),
 		   &(handle->hdcp1ops_appcontroller_obj));
 	if (ret) {
-		pr_err("hdcp1ops TA load failed :%d\n", ret);
-		goto error;
+		pr_warn("hdcp1ops TA load failed :%d\n", ret);
+		SMCI_OBJECT_ASSIGN_NULL(handle->hdcp1ops_app_obj);
 	}
 
 	if (SMCI_OBJECT_IS_NULL(handle->hdcp1ops_app_obj)) {
-		pr_err("hdcp1ops_app_obj is NULL\n");
-		ret = -EINVAL;
-		goto error;
+		pr_warn("hdcp1ops_app_obj is NULL\n");
+		ret = 0;
 	}
 
 	handle->hdcp_state |= HDCP_STATE_APP_LOADED;
