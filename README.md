@@ -195,3 +195,4 @@
 | xun-t-oss | Redmi Pad SE | Android T | AU_LINUX_ANDROID_LA.VENDOR.13.2.1.R1.11.00.00.587.064 | [xun-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xun-t-oss) |
 | zircon-t-oss  | Redmi Note 13 Pro+ | Android T | t-alps-release-t0.mp1.tc8sp2-V1.14 | [zircon-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zircon-t-oss) |
 | gold-s-oss  | Redmi Note 13 5G | Android T | t-alps-release-s0.mp1.tc8sp-cs2-V1 | [gold-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gold-s-oss) |
+| shennong-u-oss  | Xiaomi 14, Xiaomi 14 Pro | Android U | KERNEL.PLATFORM.3.0.r1-03200-kernel.0-1 | [shennong-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/shennong-u-oss) |
