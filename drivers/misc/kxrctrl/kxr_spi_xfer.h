@@ -80,6 +80,7 @@ enum kxr_spi_work_mode {
 	KXR_SPI_WORK_MODE_USER,
 	KXR_SPI_WORK_MODE_UART,
 	KXR_SPI_WORK_MODE_XCHG,
+	KXR_SPI_WORK_MODE_OLD,
 	KXR_SPI_WORK_MODE_IDLE,
 	KXR_SPI_WORK_MODE_EXIT,
 };
@@ -105,6 +106,7 @@ struct kxr_spi_xfer {
 #endif
 
 	bool irq_disabled;
+	enum kxr_spi_work_mode mode_def;
 
 #ifndef CONFIG_KXR_SIMULATION_TEST
 	struct spi_device *spi;

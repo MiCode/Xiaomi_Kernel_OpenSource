@@ -191,6 +191,7 @@ bool kxr_aphost_power_mode_set(struct kxr_aphost *aphost, enum kxr_spi_power_mod
 		break;
 
 	default:
+		mutex_unlock(&aphost->power_mutex);
 		return false;
 	}
 
@@ -276,10 +277,16 @@ static int kxr_aphost_driver_probe(struct spi_device *spi)
 		goto out_kxr_spi_xchg_remove;
 	}
 
+	ret = js_spi_driver_probe(aphost);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to js_spi_driver_probe: %d\n", ret);
+		goto out_kxr_spi_uart_remove;
+	}
+
 	ret = kxr_spi_xfer_start(aphost);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to kxr_spi_xfer_start: %d\n", ret);
-		goto out_kxr_spi_uart_remove;
+		goto out_js_spi_driver_remove;
 	}
 
 	device_create_file(&spi->dev, &dev_attr_jspower);
@@ -287,6 +294,8 @@ static int kxr_aphost_driver_probe(struct spi_device *spi)
 
 	return 0;
 
+out_js_spi_driver_remove:
+	js_spi_driver_remove(aphost);
 out_kxr_spi_uart_remove:
 	kxr_spi_uart_remove(aphost);
 out_kxr_spi_xchg_remove:
@@ -434,6 +443,7 @@ static int kxr_aphost_platform_driver_remove(struct platform_device *pdev)
 	kxr_spi_uart_remove(aphost);
 	kxr_spi_xchg_remove(aphost);
 	kxr_spi_xfer_remove(aphost);
+	mutex_destroy(&aphost->power_mutex);
 
 	return 0;
 }
