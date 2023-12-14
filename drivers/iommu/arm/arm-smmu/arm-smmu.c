@@ -42,6 +42,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/irq.h>
 #include <linux/wait.h>
+#include <trace/hooks/iommu.h>
 
 #include <linux/fsl/mc.h>
 
@@ -3499,6 +3500,17 @@ static void arm_smmu_rmr_install_bypass_smr(struct arm_smmu_device *smmu)
 	iort_put_rmr_sids(dev_fwnode(smmu->dev), &rmr_list);
 }
 
+/* skip pcie iommu bus probe if smmuv2 and smmuv3 both enabled. */
+#if IS_ENABLED(CONFIG_ARM_PARAVIRT_SMMU_V3)
+static void arm_smmu_iommu_pcie_device_probe(void *data, struct iommu_device *iommu,
+					struct bus_type *bus, bool *skip)
+{
+	if (iommu != (struct iommu_device *)data)
+		return;
+	*skip = !strcmp(bus->name, "pci");
+}
+#endif
+
 static int arm_smmu_device_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -3633,6 +3645,11 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 		goto out_power_off;
 	}
 
+	#if IS_ENABLED(CONFIG_ARM_PARAVIRT_SMMU_V3)
+	if (of_find_compatible_node(NULL, NULL, "arm,virt-smmu-v3"))
+		register_trace_android_vh_bus_iommu_probe(arm_smmu_iommu_pcie_device_probe,
+							(void *)&smmu->iommu);
+	#endif
 	err = iommu_device_register(&smmu->iommu, &arm_smmu_ops.iommu_ops, dev);
 	if (err) {
 		dev_err(dev, "Failed to register iommu\n");
@@ -3841,7 +3858,13 @@ static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
 	struct arm_smmu_domain *smmu_domain;
 	struct arm_smmu_cb *cb;
-	int idx;
+	int idx, ret;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret) {
+		dev_err(smmu->dev, "Couldn't power on the smmu during pm freeze: %d\n", ret);
+		return ret;
+	}
 
 	for (idx = 0; idx < smmu->num_context_banks; idx++) {
 		cb = &smmu->cbs[idx];
@@ -3853,6 +3876,8 @@ static int __maybe_unused arm_smmu_pm_freeze_late(struct device *dev)
 			}
 		}
 	}
+
+	arm_smmu_power_off(smmu, smmu->pwr);
 	return 0;
 }
 

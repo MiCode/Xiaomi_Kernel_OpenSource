@@ -28,6 +28,7 @@
 #define TIMEOUT_MSECONDS		10 /* 10 milliseconds */
 #define RETRIES				1
 #define Q2SPI_MAX_DATA_LEN		4096
+#define Q2SPI_MAX_TX_RETRIES		3
 /* Host commands */
 #define HC_DB_REPORT_LEN_READ		1
 #define HC_DB_REPORT_BODY_READ		2
@@ -53,6 +54,7 @@
 #define ADDR_LESS_WR_ACCESS		3
 #define ADDR_LESS_RD_ACCESS		4
 #define BULK_ACCESS_STATUS		8
+#define CR_ADDR_LESS_RD			0xF4
 
 #define Q2SPI_HEADER_LEN		7 /* 7 bytes header excluding checksum we use in SW */
 #define DMA_Q2SPI_SIZE			2048
@@ -187,7 +189,7 @@ if (q2spi_ptr) { \
 } while (0)
 
 #define DATA_BYTES_PER_LINE	(64)
-#define CHUNK_SIZE (16)
+#define Q2SPI_DATA_DUMP_SIZE	(16)
 
 static unsigned int q2spi_max_speed;
 /* global storage for device Major number */
@@ -207,6 +209,7 @@ enum q2spi_pkt_in_use_state {
 	IN_USE_FALSE = 0,
 	IN_USE_TRUE = 1,
 	IN_DELETION = 2,
+	DELETED = 3,
 };
 
 struct q2spi_mc_hrf_entry {
@@ -400,7 +403,11 @@ struct q2spi_dma_transfer {
  * @irq: IRQ of the SE
  * @lock: Lock to protect xfer
  * @tid_idr: tid id allocator
- * @readq: waitqueue for rx data.
+ * @readq: waitqueue for rx data
+ * @hw_state_is_bad: used when HW is in un-recoverable state
+ * @max_dump_data_size: max size of data to be dumped as part of dump_ipc function
+ * @doorbell_pending: Set when independent doorbell CR received
+ * @retry: used when independent doorbell processing is pending to retry the request from host
  */
 struct q2spi_geni {
 	struct device *wrapper_dev;
@@ -474,6 +481,10 @@ struct q2spi_geni {
 	bool doorbell_setup;
 	struct qup_q2spi_cr_header_event q2spi_cr_hdr_event;
 	wait_queue_head_t read_wq;
+	bool hw_state_is_bad;
+	int max_data_dump_size;
+	atomic_t doorbell_pending;
+	atomic_t retry;
 };
 
 /**
@@ -554,5 +565,7 @@ int q2spi_alloc_xfer_tid(struct q2spi_geni *q2spi);
 int q2spi_geni_gsi_setup(struct q2spi_geni *q2spi);
 int check_gsi_transfer_completion(struct q2spi_geni *q2spi);
 int check_gsi_transfer_completion_rx(struct q2spi_geni *q2spi);
+int q2spi_read_reg(struct q2spi_geni *q2spi, int reg_offset);
+void q2spi_dump_client_error_regs(struct q2spi_geni *q2spi);
 
 #endif /* _SPI_Q2SPI_MSM_H_ */

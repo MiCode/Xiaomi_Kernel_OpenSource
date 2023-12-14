@@ -240,6 +240,7 @@ static int msm_pinmux_set_mux(struct pinctrl_dev *pctldev,
 {
 	struct msm_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 	struct gpio_chip *gc = &pctrl->chip;
+	const struct  msm_pinctrl_soc_data *ps = pctrl->soc;
 	unsigned int irq = irq_find_mapping(gc->irq.domain, group);
 	struct irq_data *d = irq_get_irq_data(irq);
 	unsigned int gpio_func = pctrl->soc->gpio_func;
@@ -303,9 +304,13 @@ static int msm_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	} else {
 		val &= ~mask;
 		val |= i << g->mux_bit;
-		/* Claim ownership of pin if egpio capable */
-		if (egpio_func && val & BIT(g->egpio_present))
-			val |= BIT(g->egpio_enable);
+		/* Claim ownership of pin if egpio capable and
+		 * also need check if setting NA in funcs.
+		 */
+		if (egpio_func && val & BIT(g->egpio_present)) {
+			if (g->funcs[egpio_func] != ps->nfunctions)
+				val |= BIT(g->egpio_enable);
+		}
 	}
 
 	msm_writel_ctl(val, pctrl, g);
@@ -1470,6 +1475,21 @@ static int msm_gpio_irq_set_affinity(struct irq_data *d,
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+	unsigned int i, n_dir_conns = pctrl->n_dir_conns;
+	struct irq_data *gpio_irq_data;
+	struct msm_dir_conn *dc = NULL;
+
+	for (i = n_dir_conns; i > 0; i--) {
+		dc = &pctrl->soc->dir_conn[i];
+		gpio_irq_data = irq_get_irq_data(dc->irq);
+
+		if (!gpio_irq_data || !(gpio_irq_data->chip) ||
+				!(gpio_irq_data->chip->irq_set_affinity))
+			continue;
+
+		if (d->hwirq == dc->gpio)
+			return gpio_irq_data->chip->irq_set_affinity(gpio_irq_data, dest, force);
+	}
 
 	if (d->parent_data && test_bit(d->hwirq, pctrl->skip_wake_irqs))
 		return irq_chip_set_affinity_parent(d, dest, force);
