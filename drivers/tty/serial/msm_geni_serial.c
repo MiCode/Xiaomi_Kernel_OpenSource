@@ -332,6 +332,7 @@ struct msm_geni_serial_port {
 	struct completion wakeup_comp;
 	atomic_t flush_buffers;
 	bool shutdown_in_progress;
+	bool pm_auto_suspend_disable;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -754,6 +755,9 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 	int ret = -ENOIOCTLCMD;
 	enum uart_error_code uart_error;
 
+	if (port->pm_auto_suspend_disable)
+		return ret;
+
 	switch (cmd) {
 	case MSM_GENI_SERIAL_TIOCPMGET: {
 		ret = vote_clock_on(uport);
@@ -985,8 +989,11 @@ static void msm_geni_serial_power_off(struct uart_port *uport)
 								__func__);
 		return;
 	}
-	pm_runtime_mark_last_busy(uport->dev);
-	pm_runtime_put_autosuspend(uport->dev);
+
+	if (pm_runtime_enabled(uport->dev)) {
+		pm_runtime_mark_last_busy(uport->dev);
+		pm_runtime_put_autosuspend(uport->dev);
+	}
 }
 
 static int msm_geni_serial_poll_bit(struct uart_port *uport,
@@ -1271,8 +1278,7 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 
 		msm_geni_serial_enable_interrupts(uport);
 		port->m_cmd = false;
-	} else if ((geni_status & M_GENI_CMD_ACTIVE) &&
-						!port->cur_tx_remaining) {
+	} else if (geni_status & M_GENI_CMD_ACTIVE) {
 		/* It seems we can interrupt existing transfers unless all data
 		 * has been sent, in which case we need to look for done first.
 		 */
@@ -1498,7 +1504,7 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 		goto exit_start_tx;
 	}
 
-	if (!uart_console(uport)) {
+	if (!uart_console(uport) && pm_runtime_enabled(uport->dev)) {
 		UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 			"%s.Power on.\n", __func__);
 		pm_runtime_get(uport->dev);
@@ -2782,17 +2788,26 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			msm_geni_serial_power_on(uport);
 
 		msm_geni_serial_stop_tx(uport);
+	}
 
+	if (msm_port->pm_auto_suspend_disable)
+		disable_irq(uport->irq);
+
+	if (!uart_console(uport)) {
 		if (msm_port->ioctl_count) {
 			UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
 				     "%s: IOCTL vote present. Resetting ioctl count\n", __func__);
 			msm_port->ioctl_count = 0;
 		}
 
-		ret = pm_runtime_put_sync_suspend(uport->dev);
-		if (ret)
-			UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
-				     "%s: Failed to suspend:%d\n", __func__, ret);
+		if (pm_runtime_enabled(uport->dev)) {
+			ret = pm_runtime_put_sync_suspend(uport->dev);
+			if (ret) {
+				UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
+					     "%s: Failed to suspend:%d\n",
+					     __func__, ret);
+			}
+		}
 
 		atomic_set(&msm_port->check_wakeup_byte, 0);
 
@@ -2935,7 +2950,7 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	 * and disabled in runtime_suspend to avoid spurious interrupts
 	 * after suspend.
 	 */
-	if (uart_console(uport))
+	if (uart_console(uport) ||  msm_port->pm_auto_suspend_disable)
 		enable_irq(uport->irq);
 
 exit_startup:
@@ -3413,9 +3428,6 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
-	if (unlikely(!uart_console(uport)))
-		return;
-
 	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF) {
 		se_geni_resources_on(&msm_port->serial_rsc);
 		msm_geni_enable_disable_se_clk(uport, true);
@@ -3429,6 +3441,36 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 		/* Disable Interrupt */
 		IPC_LOG_MSG(msm_port->console_log, "%s Disable IRQ\n", __func__);
 		disable_irq(uport->irq);
+		msm_geni_enable_disable_se_clk(uport, false);
+		se_geni_resources_off(&msm_port->serial_rsc);
+	}
+}
+
+static void msm_geni_serial_hs_pm(struct uart_port *uport,
+		unsigned int new_state, unsigned int old_state)
+{
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
+	/*
+	 * This will get call for system suspend/resume and
+	 * Applicable for hs-uart without runtime pm framework support.
+	 */
+	if (pm_runtime_enabled(uport->dev))
+		return;
+
+	/*
+	 * Default PM State is UNDEFINED Setting it to OFF State.
+	 * This will allow add one port to do resources on and off during probe
+	 */
+	if (old_state == UART_PM_STATE_UNDEFINED)
+		old_state = UART_PM_STATE_OFF;
+	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF) {
+		se_geni_resources_on(&msm_port->serial_rsc);
+		msm_geni_enable_disable_se_clk(uport, true);
+		atomic_set(&msm_port->is_clock_off, 0);
+	} else if (new_state == UART_PM_STATE_OFF &&
+			old_state == UART_PM_STATE_ON) {
+		atomic_set(&msm_port->is_clock_off, 1);
 		msm_geni_enable_disable_se_clk(uport, false);
 		se_geni_resources_off(&msm_port->serial_rsc);
 	}
@@ -3468,6 +3510,8 @@ static const struct uart_ops msm_geni_serial_pops = {
 	.break_ctl = msm_geni_serial_break_ctl,
 	.flush_buffer = msm_geni_serial_flush,
 	.ioctl = msm_geni_serial_ioctl,
+	/* For HSUART nodes without IOCTL support */
+	.pm = msm_geni_serial_hs_pm,
 };
 
 static const struct of_device_id msm_geni_device_tbl[] = {
@@ -3832,6 +3876,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to Read FW ver: %d\n", ret);
 		goto exit_geni_serial_probe;
 	}
+	/*
+	 * To Disable PM runtime API that will make ioctl based
+	 * vote_clock_on/off optional and rely on system PM
+	 */
+	dev_port->pm_auto_suspend_disable =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,auto-suspend-disable");
 
 	if (is_console) {
 		dev_port->handle_rx = handle_rx_console;
@@ -3850,10 +3901,15 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto exit_geni_serial_probe;
 		}
-		pm_runtime_set_suspended(&pdev->dev);
-		pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
-		pm_runtime_use_autosuspend(&pdev->dev);
-		pm_runtime_enable(&pdev->dev);
+		if (dev_port->pm_auto_suspend_disable) {
+			pm_runtime_set_active(&pdev->dev);
+			pm_runtime_forbid(&pdev->dev);
+		} else {
+			pm_runtime_set_suspended(&pdev->dev);
+			pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
+			pm_runtime_use_autosuspend(&pdev->dev);
+			pm_runtime_enable(&pdev->dev);
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING) &&
@@ -3910,6 +3966,8 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 		wakeup_source_unregister(port->geni_wake);
 		port->geni_wake = NULL;
 	}
+	if (port->pm_auto_suspend_disable)
+		pm_runtime_allow(&pdev->dev);
 	uart_remove_one_port(drv, &port->uport);
 	if (port->rx_dma) {
 		geni_se_iommu_free_buf(port->wrapper_dev, &port->rx_dma,
@@ -4091,7 +4149,7 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 	 */
 	if (port->is_console && !con_enabled) {
 		return 0;
-	} else if (uart_console(uport)) {
+	} else if (uart_console(uport) || port->pm_auto_suspend_disable) {
 		IPC_LOG_MSG(port->console_log, "%s start\n", __func__);
 		uart_suspend_port((struct uart_driver *)uport->private_data,
 					uport);
@@ -4122,8 +4180,9 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
 	struct uart_port *uport = &port->uport;
 
-	if (uart_console(uport) &&
-	    console_suspend_enabled && uport->suspended) {
+	if ((uart_console(uport) &&
+	    console_suspend_enabled && uport->suspended) ||
+		port->pm_auto_suspend_disable) {
 		IPC_LOG_MSG(port->console_log, "%s start\n", __func__);
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);

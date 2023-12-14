@@ -24,6 +24,8 @@ struct a6xx_hwsched_hfi {
 	struct kgsl_memdesc *big_ib;
 	/** @big_ib_recurring: GMU buffer to hold big recurring IBs */
 	struct kgsl_memdesc *big_ib_recurring;
+	/** @perfctr_scratch: Buffer to hold perfcounter PM4 commands */
+	struct kgsl_memdesc *perfctr_scratch;
 	/** @msg_mutex: Mutex for accessing the msgq */
 	struct mutex msgq_mutex;
 };

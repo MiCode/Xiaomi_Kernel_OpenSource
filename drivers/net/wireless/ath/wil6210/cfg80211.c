@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/etherdevice.h>
@@ -145,6 +146,7 @@ enum wil_nl_60g_evt_type {
 
 enum wil_nl_60g_generic_evt {
 	NL_60G_GEN_EVT_FW_STATE,
+	NL_60G_GEN_EVT_ARC,
 };
 
 struct wil_nl_60g_generic_event { /* NL_60G_EVT_DRIVER_GENERIC */
@@ -154,6 +156,12 @@ struct wil_nl_60g_generic_event { /* NL_60G_EVT_DRIVER_GENERIC */
 struct wil_nl_60g_fw_state_event {
 	struct wil_nl_60g_generic_event hdr;
 	u32 fw_state; /* wil_fw_state */
+} __packed;
+
+struct wil_nl_60g_arc_event {
+	struct wil_nl_60g_generic_event hdr;
+	u8 ramp_up;
+	u16 target_rate;
 } __packed;
 
 enum wil_nl_60g_debug_cmd {
@@ -331,9 +339,10 @@ nla_policy wil_rf_sector_cfg_policy[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1] = {
 };
 
 static const struct
-nla_policy wil_nl_60g_policy[QCA_ATTR_WIL_MAX + 1] = {
+nla_policy wil_nl_60g_policy[QCA_ATTR_WIL_MAX] = {
 	[WIL_ATTR_60G_CMD_TYPE] = { .type = NLA_U32 },
-	[WIL_ATTR_60G_BUF] = { .type = NLA_BINARY },
+	[WIL_ATTR_60G_BUF] = { .type = NLA_BINARY,
+			       .len = IEEE80211_MAX_DATA_LEN },
 };
 
 enum qca_nl80211_vendor_subcmds {
@@ -468,7 +477,8 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_UNSPEC,
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.policy = VENDOR_CMD_RAW_DATA,
+		.policy = wil_nl_60g_policy,
+		.maxattr = QCA_ATTR_WIL_MAX,
 		.doit = wil_nl_60g_handle_cmd
 	},
 };
@@ -2494,6 +2504,14 @@ static int wil_cfg80211_start_ap(struct wiphy *wiphy,
 				    info->beacon_interval, channel->hw_value,
 				    wmi_edmg_channel, bcon, hidden_ssid,
 				    info->pbss);
+	if (rc)
+		return rc;
+
+	if (wil->config_arc_enable)
+		if (wmi_set_arc_config(wil, true,
+				       wil->config_arc_monitoring_period,
+				       wil->config_arc_rate_limit_frac))
+			wil_err(wil, "failed to enable ARC");
 
 	return rc;
 }
@@ -2536,6 +2554,12 @@ static int wil_cfg80211_stop_ap(struct wiphy *wiphy,
 		wil_bcast_fini(vif);
 
 	mutex_unlock(&wil->mutex);
+
+	if (wil->config_arc_enable)
+		if (wmi_set_arc_config(wil, false,
+				       wil->config_arc_monitoring_period,
+				       wil->config_arc_rate_limit_frac))
+			wil_err(wil, "failed to disable ARC");
 
 	return 0;
 }
@@ -3867,6 +3891,59 @@ void wil_nl_60g_fw_state_change(struct wil6210_priv *wil,
 	wil_dbg_misc(wil, "fw_state change:%d => %d", wil->fw_state, fw_state);
 	wil->fw_state = fw_state;
 	wil_nl_60g_fw_state_evt(wil);
+}
+
+static void wil_nl_60g_fw_arc_update_evt(struct wil6210_priv *wil,
+					 struct wmi_arc_update_event *arc_evt)
+{
+	struct sk_buff *vendor_event = NULL;
+	struct wil_nl_60g_event *evt;
+	struct wil_nl_60g_arc_event *wil_nl_arc_event;
+
+	if (!wil->publish_nl_evt)
+		return;
+
+	evt = kzalloc(sizeof(*evt) + sizeof(*wil_nl_arc_event), GFP_KERNEL);
+	if (!evt)
+		return;
+
+	evt->evt_type = NL_60G_EVT_DRIVER_GENERIC;
+	evt->buf_len = sizeof(*wil_nl_arc_event);
+
+	wil_nl_arc_event = (struct wil_nl_60g_arc_event *)evt->buf;
+	wil_nl_arc_event->hdr.evt_id = NL_60G_GEN_EVT_ARC;
+	wil_nl_arc_event->ramp_up = arc_evt->rampup;
+	wil_nl_arc_event->target_rate = arc_evt->target_rate;
+
+	vendor_event = cfg80211_vendor_event_alloc(wil_to_wiphy(wil),
+						   NULL,
+						   4 + NLMSG_HDRLEN +
+						   sizeof(*evt) +
+						   sizeof(*wil_nl_arc_event),
+						   QCA_EVENT_UNSPEC_INDEX,
+						   GFP_KERNEL);
+	if (!vendor_event) {
+		wil_err(wil, "failed to allocate vendor_event\n");
+		goto out;
+	}
+
+	if (nla_put(vendor_event, WIL_ATTR_60G_BUF,
+		    sizeof(*evt) + sizeof(*wil_nl_arc_event), evt)) {
+		wil_err(wil, "failed to fill WIL_ATTR_60G_BUF\n");
+		kfree_skb(vendor_event);
+		goto out;
+	}
+
+	cfg80211_vendor_event(vendor_event, GFP_KERNEL);
+out:
+	kfree(evt);
+}
+
+void wil_nl_60g_fw_arc_update(struct wil6210_priv *wil,
+			      struct wmi_arc_update_event *fw_arc_evt)
+{
+	wil_dbg_misc(wil, "fw arc evt");
+	wil_nl_60g_fw_arc_update_evt(wil, fw_arc_evt);
 }
 
 static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,

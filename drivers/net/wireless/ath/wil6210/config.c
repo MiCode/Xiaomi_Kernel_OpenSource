@@ -142,6 +142,11 @@ struct wil_config_file_entry {
 #define WIL_CONFIG_PS_PROFILE_MIN WMI_PS_PROFILE_TYPE_DEFAULT
 #define WIL_CONFIG_PS_PROFILE_MAX WMI_PS_PROFILE_TYPE_LOW_LATENCY_PS
 
+/* bool parameter */
+#define WIL_CONFIG_ARC_ENABLE_NAME "config_arc_enable"
+#define WIL_CONFIG_ARC_MONITORING_PERIOD_NAME "config_arc_monitoring_period"
+#define WIL_CONFIG_ARC_RATE_LIMIT_FRAC_NAME "config_arc_rate_frac"
+
 static int wil_board_file_handler(struct wil6210_priv *wil, const char *buf,
 				  size_t count);
 static int wil_snr_thresh_handler(struct wil6210_priv *wil, const char *buf,
@@ -313,6 +318,28 @@ static struct wil_config_entry config_table[] = {
 						 ps_profile),
 			     WIL_CONFIG_PS_PROFILE_MIN,
 			     WIL_CONFIG_PS_PROFILE_MAX),
+	WIL_CONFIG_INI_PARAM(WIL_CONFIG_ARC_ENABLE_NAME,
+			     wil_ini_param_type_unsigned, NULL,
+			     WIL_CONFIG_VAR_OFFSET(struct wil6210_priv,
+						   config_arc_enable),
+			     WIL_CONFIG_BOOL_SIZE,
+			     WIL_CONFIG_BOOL_MIN,
+			     WIL_CONFIG_BOOL_MAX),
+	WIL_CONFIG_INI_PARAM(WIL_CONFIG_ARC_MONITORING_PERIOD_NAME,
+			     wil_ini_param_type_unsigned, NULL,
+			     WIL_CONFIG_VAR_OFFSET(struct wil6210_priv,
+						   config_arc_monitoring_period),
+			     WIL_CONFIG_VAR_SIZE(struct wil6210_priv,
+						 config_arc_monitoring_period),
+			     0, U16_MAX),
+	WIL_CONFIG_INI_PARAM(WIL_CONFIG_ARC_RATE_LIMIT_FRAC_NAME,
+			     wil_ini_param_type_unsigned, NULL,
+			     WIL_CONFIG_VAR_OFFSET(struct wil6210_priv,
+						   config_arc_rate_limit_frac),
+			     WIL_CONFIG_VAR_SIZE(struct wil6210_priv,
+						 config_arc_rate_limit_frac),
+			     0, U16_MAX),
+
 };
 
 /**

@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/moduleparam.h>
@@ -1944,6 +1945,23 @@ wmi_evt_link_monitor(struct wil6210_vif *vif, int id, void *d, int len)
 	cfg80211_cqm_rssi_notify(ndev, event_type, evt->rssi_level, GFP_KERNEL);
 }
 
+static void
+wmi_evt_arc_update(struct wil6210_vif *vif, int id, void *d, int len)
+{
+	struct wil6210_priv *wil = vif_to_wil(vif);
+	struct wmi_arc_update_event *evt = d;
+
+	if (len < sizeof(*evt)) {
+		wil_err(wil, "arc event too short %d\n", len);
+		return;
+	}
+
+	if (id != WMI_ARC_UPDATE_EVENTID)
+		return;
+
+	wil_nl_60g_fw_arc_update(wil, evt);
+}
+
 /* Some events are ignored for purpose; and need not be interpreted as
  * "unhandled events"
  */
@@ -1984,6 +2002,7 @@ static const struct {
 	{WMI_FT_AUTH_STATUS_EVENTID,		wmi_evt_auth_status},
 	{WMI_FT_REASSOC_STATUS_EVENTID,		wmi_evt_reassoc_status},
 	{WMI_LINK_MONITOR_EVENTID,		wmi_evt_link_monitor},
+	{WMI_ARC_UPDATE_EVENTID,		wmi_evt_arc_update},
 };
 
 /*
@@ -4564,6 +4583,42 @@ int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
 
 	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
 		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wmi_set_arc_config(struct wil6210_priv *wil, bool config_arc_enable,
+		       u16 config_arc_monitoring_period,
+		       u16 config_arc_rate_limit_frac)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	int rc;
+	struct wmi_arc_cfg_cmd cmd = {
+		.enable = config_arc_enable,
+		.arc_monitoring_period = config_arc_monitoring_period,
+		.arc_rate_limit_frac = config_arc_rate_limit_frac,
+	};
+	struct {
+		struct wmi_cmd_hdr hdr;
+		struct wmi_arc_cfg_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+
+	rc = wmi_call(wil, WMI_ARC_CFG_CMDID, vif->mid, &cmd,
+		      sizeof(cmd), WMI_ARC_CFG_EVENTID,
+		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil, "WMI_ARC_CFG_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "WMI_ARC_CFG_CMDID failed, status %d\n",
 			reply.evt.status);
 		return -EINVAL;
 	}

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/hwspinlock.h>
 #include <linux/string.h>
+#include <linux/slab.h>
 
 #include "synx_debugfs_v2.h"
 #include "synx_global_v2.h"
@@ -779,16 +780,21 @@ fail:
 
 int synx_global_recover(enum synx_core_id core_id)
 {
-	int rc;
+	int rc = SYNX_SUCCESS;
 	u32 idx = 0;
 	const u32 size = SYNX_GLOBAL_MAX_OBJS;
 	unsigned long flags;
 	struct synx_global_coredata *synx_g_obj;
-	bool clear_idx[SYNX_GLOBAL_MAX_OBJS] = {false};
+	int *clear_idx = NULL;
 	bool update;
 
 	dprintk(SYNX_WARN, "Subsystem restart for core_id: %d\n", core_id);
-	if (!synx_gmem.table)
+	if (IS_ERR_OR_NULL(synx_gmem.table))
+		return -SYNX_NOMEM;
+
+	clear_idx = kzalloc(sizeof(int)*SYNX_GLOBAL_MAX_OBJS, GFP_KERNEL);
+
+	if (IS_ERR_OR_NULL(clear_idx))
 		return -SYNX_NOMEM;
 
 	ipclite_recover(synx_global_map_core_id(core_id));
@@ -805,7 +811,7 @@ int synx_global_recover(enum synx_core_id core_id)
 		update = false;
 		rc = synx_gmem_lock(idx, &flags);
 		if (rc)
-			return rc;
+			goto free;
 		synx_g_obj = &synx_gmem.table[idx];
 		if (synx_g_obj->refcount &&
 			 synx_g_obj->subscribers & (1UL << core_id)) {
@@ -813,7 +819,7 @@ int synx_global_recover(enum synx_core_id core_id)
 			synx_g_obj->refcount--;
 			if (synx_g_obj->refcount == 0) {
 				memset(synx_g_obj, 0, sizeof(*synx_g_obj));
-				clear_idx[idx] = true;
+				clear_idx[idx] = 1;
 			} else if (synx_g_obj->status == SYNX_STATE_ACTIVE) {
 				update = true;
 			}
@@ -834,7 +840,9 @@ int synx_global_recover(enum synx_core_id core_id)
 		}
 	}
 
-	return SYNX_SUCCESS;
+free:
+	kfree(clear_idx);
+	return rc;
 }
 
 int synx_global_mem_init(void)

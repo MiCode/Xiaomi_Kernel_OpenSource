@@ -34,6 +34,7 @@
   android_debug_for_each_module
   android_debug_per_cpu_symbol
   android_debug_symbol
+  android_gki_sysctl_vals
   android_rvh_probe_register
   anon_inode_getfile
   arc4_crypt
@@ -3043,6 +3044,7 @@
   wait_for_completion_interruptible_timeout
   wait_for_completion_killable
   wait_for_completion_timeout
+  wait_for_device_probe
   wait_on_page_bit
   __wait_rcu_gp
   wait_woken
