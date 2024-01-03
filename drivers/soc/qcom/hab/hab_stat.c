@@ -219,6 +219,34 @@ int hab_stat_show_expimp(struct hab_driver *driver,
 	return ret;
 }
 
+int hab_stat_show_reclaim(struct hab_driver *driver, char *buf, int size)
+{
+	struct export_desc *exp = NULL;
+	struct compressed_pfns *pfn_table = NULL;
+	int exim_size = 0;
+	size_t total_size = 0, total_num = 0;
+
+	(void)strscpy(buf, "", size);
+	(void)hab_stat_buffer_print(buf, size, "export[expid:vcid:size:pchan]:\n");
+
+	spin_lock(&hab_driver.reclaim_lock);
+	list_for_each_entry(exp, &hab_driver.reclaim_list, node) {
+		pfn_table = (struct compressed_pfns *)exp->payload;
+		exim_size = get_pft_tbl_total_size(pfn_table);
+		total_size += exim_size;
+		total_num++;
+		(void)hab_stat_buffer_print(buf, size, "[%d:%x:%d:%s] ",
+			exp->export_id,
+			exp->vcid_local,
+			exim_size,
+			exp->pchan->name);
+		(void)hab_stat_buffer_print(buf, size, "\n");
+	}
+	spin_unlock(&hab_driver.reclaim_lock);
+
+	return hab_stat_buffer_print(buf, size, "total: %u, size %u\n", total_num, total_size);
+}
+
 #define HAB_PIPE_DUMP_FILE_NAME "/sdcard/habpipe-"
 #define HAB_PIPE_DUMP_FILE_EXT ".dat"
 
