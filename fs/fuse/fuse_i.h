@@ -77,15 +77,11 @@ struct fuse_dentry {
 		struct rcu_head rcu;
 	};
 
-#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
 #ifdef CONFIG_FUSE_BPF
 	struct path backing_path;
 
 	/* bpf program *only* set for negative dentries */
 	struct bpf_prog *bpf;
-#endif
-#else
-	struct path backing_path;
 #endif
 };
 
@@ -1674,11 +1670,10 @@ int fuse_file_write_iter_backing(struct fuse_bpf_args *fa,
 void *fuse_file_write_iter_finalize(struct fuse_bpf_args *fa,
 		struct kiocb *iocb, struct iov_iter *from);
 
-#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
 long fuse_backing_ioctl(struct file *file, unsigned int command, unsigned long arg, int flags);
 
 int fuse_file_flock_backing(struct file *file, int cmd, struct file_lock *fl);
-#endif
+
 ssize_t fuse_backing_mmap(struct file *file, struct vm_area_struct *vma);
 
 int fuse_file_fallocate_initialize(struct fuse_bpf_args *fa,

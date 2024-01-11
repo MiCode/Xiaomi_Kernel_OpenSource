@@ -6,6 +6,7 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf:common_kernels.bzl", "define_common_kernels")
 load(
     "//build/kernel/kleaf:kernel.bzl",
+    "checkpatch",
     "ddk_headers",
     "kernel_abi",
     "kernel_build",
@@ -40,6 +41,11 @@ _GKI_X86_64_MAKE_GOALS = [
     "modules",
 ]
 
+checkpatch(
+    name = "checkpatch",
+    checkpatch_pl = "scripts/checkpatch.pl",
+)
+
 write_file(
     name = "gki_system_dlkm_modules",
     out = "android/gki_system_dlkm_modules",
@@ -55,6 +61,7 @@ filegroup(
         # keep sorted
         "android/abi_gki_aarch64_db845c",
         "android/abi_gki_aarch64_exynos",
+        "android/abi_gki_aarch64_exynosauto",
         "android/abi_gki_aarch64_galaxy",
         "android/abi_gki_aarch64_honor",
         "android/abi_gki_aarch64_imx",
@@ -75,6 +82,7 @@ define_common_kernels(target_configs = {
         "kmi_symbol_list_strict_mode": True,
         "module_implicit_outs": COMMON_GKI_MODULES_LIST,
         "kmi_symbol_list": "android/abi_gki_aarch64",
+        "kmi_symbol_list_add_only": True,
         "additional_kmi_symbol_lists": [":aarch64_additional_kmi_symbol_lists"],
         "protected_exports_list": "android/abi_gki_protected_exports_aarch64",
         "protected_modules_list": "android/gki_aarch64_protected_modules",
@@ -89,6 +97,7 @@ define_common_kernels(target_configs = {
         "kmi_symbol_list_strict_mode": False,
         "module_implicit_outs": COMMON_GKI_MODULES_LIST,
         "kmi_symbol_list": "android/abi_gki_aarch64",
+        "kmi_symbol_list_add_only": True,
         "additional_kmi_symbol_lists": [":aarch64_additional_kmi_symbol_lists"],
         "protected_exports_list": "android/abi_gki_protected_exports_aarch64",
         "protected_modules_list": "android/gki_aarch64_protected_modules",
@@ -567,6 +576,7 @@ kernel_build(
     # Hack to actually check the build.
     # Otherwise, Bazel thinks that there are no output files, and skip building.
     outs = [".config"],
+    arch = "x86_64",
     build_config = "build.config.allmodconfig.x86_64",
     visibility = ["//visibility:private"],
 )
@@ -577,6 +587,7 @@ kernel_build(
     # Hack to actually check the build.
     # Otherwise, Bazel thinks that there are no output files, and skip building.
     outs = [".config"],
+    arch = "arm",
     build_config = "build.config.allmodconfig.arm",
     visibility = ["//visibility:private"],
 )

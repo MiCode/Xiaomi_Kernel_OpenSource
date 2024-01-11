@@ -189,6 +189,40 @@
   io_cgrp_subsys_on_dfl_key
   ioc_lookup_icq
   bdi_dev_name
+  blk_mq_run_hw_queues
+  blkcg_policy_register
+  elv_register
+  blkcg_policy_unregister
+  elv_rb_former_request
+  elv_rb_latter_request
+  elevator_alloc
+  blk_stat_enable_accounting
+  blkcg_deactivate_policy
+  blk_stat_disable_accounting
+  sbitmap_queue_min_shallow_depth
+  blk_mq_sched_try_merge
+  elv_bio_merge_ok
+  elv_rb_find
+  elv_rb_del
+  elv_rb_add
+  elv_rqhash_del
+  ioc_find_get_icq
+  put_io_context
+  blk_mq_sched_try_insert_merge
+  elv_unregister
+  __tracepoint_block_rq_insert
+  elv_rqhash_add
+  __traceiter_block_rq_insert
+  kmem_cache_alloc_node
+  bio_associate_blkg_from_css
+  kernfs_path_from_node
+  blkcg_activate_policy
+
+#required by mq-deadline module
+  blk_mq_debugfs_rq_show
+  seq_list_start
+  seq_list_next
+  __blk_mq_debugfs_rq_show
 
 #required by metis.ko module
   __traceiter_android_vh_rwsem_read_wait_start
@@ -208,6 +242,7 @@
   __tracepoint_android_rvh_set_cpus_allowed_comm
   __tracepoint_android_rvh_dequeue_task
   cpuset_cpus_allowed
+  cpufreq_update_policy
 
 #required by millet.ko
   __traceiter_android_vh_binder_wait_for_work
@@ -272,3 +307,33 @@
 #required by debug_ext.ko
   of_find_all_nodes
 
+# required by mi_mem_center.ko
+  __traceiter_android_vh_rmqueue_smallest_bypass
+  __tracepoint_android_vh_rmqueue_smallest_bypass
+  __traceiter_android_vh_free_one_page_bypass
+  __tracepoint_android_vh_free_one_page_bypass
+
+# required by SAGT module
+  __traceiter_android_rvh_before_do_sched_yield
+  __tracepoint_android_rvh_before_do_sched_yield
+
+#required by minetwork.ko
+  sock_wake_async
+  bpf_map_put
+  bpf_map_inc
+  __dev_direct_xmit
+  napi_busy_loop
+  int_active_memcg
+  bpf_redirect_info
+  dma_need_sync
+  page_pool_put_page_bulk
+  build_skb_around
+
+#required by xm_ispv4_pcie.ko
+  pci_ioremap_bar
+  pci_disable_pcie_error_reporting
+
+#required by lock_optimization module
+  __traceiter_android_vh_record_pcpu_rwsem_time_early
+  __tracepoint_android_vh_record_pcpu_rwsem_time_early
+  cgroup_threadgroup_rwsem

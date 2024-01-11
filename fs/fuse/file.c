@@ -2695,26 +2695,17 @@ static int fuse_file_flock(struct file *file, int cmd, struct file_lock *fl)
 {
 	struct inode *inode = file_inode(file);
 	struct fuse_conn *fc = get_fuse_conn(inode);
-#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
 	struct fuse_file *ff = file->private_data;
-#endif
 	int err;
 
-#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
 #ifdef CONFIG_FUSE_BPF
 	/* TODO - this is simply passthrough, not a proper BPF filter */
 	if (ff->backing_file)
 		return fuse_file_flock_backing(file, cmd, fl);
 #endif
-#endif
-
 	if (fc->no_flock) {
 		err = locks_lock_file_wait(file, fl);
 	} else {
-#if !IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
-		struct fuse_file *ff = file->private_data;
-#endif
-
 		/* emulate flock with POSIX locks */
 		ff->flock = true;
 		err = fuse_setlk(file, fl, 1);

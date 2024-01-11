@@ -1233,6 +1233,10 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep)
 		max_urbs = min((unsigned) MAX_URBS,
 				MAX_QUEUE * packs_per_ms / urb_packs);
 		ep->nurbs = min(max_urbs, urbs_per_period * ep->cur_buffer_periods);
+
+		pr_err("test tx packs_per_ms = %d, urb_packs = %d", packs_per_ms , urb_packs);
+		pr_err("test tx max_urbs = %d, urbs_per_period = %d", max_urbs , urbs_per_period);
+		ep->nurbs = MAX_URBS;
 	}
 
 	/* allocate and initialize data urbs */
