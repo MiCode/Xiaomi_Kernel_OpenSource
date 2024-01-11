@@ -1,7 +1,9 @@
 build.config.msm.kalama
+build.config.msm.vermeer
 build.config.msm.kalama.le
 build.config.msm.cinder
 build.config.msm.kalama.vm
+build.config.msm.vermeer.vm
 build.config.msm.gen3auto
 build.config.msm.autogvm
 build.config.msm.gen3auto.lxc

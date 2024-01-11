@@ -1643,6 +1643,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 
 	uadev[pcm_card_num].ctrl_intf = chip->ctrl_intf;
 
+	atomic_inc(&chip->usage_count);
 	if (req_msg->enable) {
 		ret = enable_audio_stream(subs,
 				map_pcm_format(req_msg->audio_format),
@@ -1677,6 +1678,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 
 		disable_audio_stream(subs);
 	}
+	atomic_dec(&chip->usage_count);
 
 response:
 	if (!req_msg->enable && ret != -EINVAL && ret != -ENODEV) {

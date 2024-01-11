@@ -274,6 +274,7 @@ struct mhi_config {
 #define TRB_MAX_DATA_SIZE		8192
 #define MHI_CTRL_STATE			100
 #define MHI_MAX_NUM_INSTANCES		17 /* 1PF and 16 VFs */
+#define MHI_DEFAULT_ERROR_LOG_ID	255
 
 /* maximum transfer completion events buffer */
 #define NUM_TR_EVENTS_DEFAULT			128
@@ -712,24 +713,35 @@ extern uint32_t bhi_imgtxdb;
 extern enum mhi_msg_level mhi_msg_lvl;
 extern enum mhi_msg_level mhi_ipc_msg_lvl;
 extern enum mhi_msg_level mhi_ipc_err_msg_lvl;
-extern void *mhi_ipc_log;
 extern void *mhi_ipc_err_log;
+extern void *mhi_ipc_vf_log[MHI_MAX_NUM_INSTANCES];
+extern void *mhi_ipc_default_err_log;
 
-#define mhi_log(_msg_lvl, _msg, ...) do { \
+#define mhi_log(vf_id, _msg_lvl, _msg, ...) do { \
 	if (_msg_lvl >= mhi_msg_lvl) { \
 		pr_err("[0x%x %s] "_msg, bhi_imgtxdb, \
 				__func__, ##__VA_ARGS__); \
 	} \
-	if (mhi_ipc_log && (_msg_lvl >= mhi_ipc_msg_lvl)) { \
-		ipc_log_string(mhi_ipc_log,                     \
+	if (mhi_ipc_vf_log[vf_id] && (_msg_lvl >= mhi_ipc_msg_lvl)) { \
+		ipc_log_string(mhi_ipc_vf_log[vf_id],                     \
 		"[0x%x %s] " _msg, bhi_imgtxdb, __func__, ##__VA_ARGS__); \
 	} \
-	if (mhi_ipc_err_log && (_msg_lvl >= mhi_ipc_err_msg_lvl)) { \
-		ipc_log_string(mhi_ipc_err_log,                     \
+	if (vf_id == MHI_DEFAULT_ERROR_LOG_ID && mhi_ipc_default_err_log &&       \
+			(_msg_lvl >= mhi_ipc_err_msg_lvl)) { \
+		ipc_log_string(mhi_ipc_default_err_log,                     \
 		"[0x%x %s] " _msg, bhi_imgtxdb, __func__, ##__VA_ARGS__); \
+	} \
+	else if (mhi_ipc_err_log && (_msg_lvl >= mhi_ipc_err_msg_lvl)) { \
+		if (vf_id == 0) {				\
+			ipc_log_string(mhi_ipc_err_log,			\
+			"[0x%x %s] PF = %x  " _msg, bhi_imgtxdb, __func__, vf_id, ##__VA_ARGS__); \
+		} \
+		if (vf_id != 0) { \
+			ipc_log_string(mhi_ipc_err_log,                 \
+			"[0x%x %s] VF = %x  " _msg, bhi_imgtxdb, __func__, vf_id, ##__VA_ARGS__); \
+		} \
 	} \
 } while (0)
-
 
 /* Use ID 0 for legacy /dev/mhi_ctrl. Channel 0 used for internal only */
 #define MHI_DEV_UEVENT_CTRL	0

@@ -126,6 +126,7 @@ struct walt_rq {
 	u64			util;
 	struct list_head	mvp_tasks;
 	int                     num_mvp_tasks;
+	struct list_head	runnable_tasks;
 	u64			latest_clock;
 	u32			enqueue_counter;
 };
@@ -225,6 +226,7 @@ extern unsigned int sysctl_sched_long_running_rt_task_ms;
 extern unsigned int sysctl_ed_boost_pct;
 extern unsigned int sysctl_em_inflate_pct;
 extern unsigned int sysctl_em_inflate_thres;
+extern unsigned int sysctl_disable_mvp_thres;
 
 extern int cpufreq_walt_set_adaptive_freq(unsigned int cpu, unsigned int adaptive_low_freq,
 					  unsigned int adaptive_high_freq);
@@ -331,7 +333,6 @@ extern unsigned int sched_lib_mask_force;
 #define CPUFREQ_REASON_SUH		0x200
 #define CPUFREQ_REASON_ADAPTIVE_LOW	0x400
 #define CPUFREQ_REASON_ADAPTIVE_HIGH	0x800
-
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2
@@ -973,6 +974,9 @@ void walt_cfs_enqueue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_tick(struct rq *rq);
 void walt_lb_tick(struct rq *rq);
+void mi_cfs_enqueue_runnable_task(struct rq *rq, struct task_struct *p);
+void mi_cfs_dequeue_runnable_task(struct task_struct *p);
+void mi_cfs_reenqueue_runnable_task(struct rq *rq, struct task_struct *p);
 
 extern __read_mostly unsigned int walt_scale_demand_divisor;
 

@@ -607,6 +607,7 @@ struct ufs_qcom_host {
 	struct list_head regs_list_head;
 	bool ber_th_exceeded;
 	u32 valid_evt_cnt[UFS_EVT_CNT];
+	bool irq_affinity_support;
 };
 
 static inline u32

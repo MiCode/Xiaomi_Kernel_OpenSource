@@ -261,6 +261,7 @@ static int entry_trace_dwc3_event(struct kretprobe_instance *ri,
 	return 0;
 }
 
+
 #define ENTRY_EXIT(name) {\
 	.handler = exit_##name,\
 	.entry_handler = entry_##name,\

@@ -493,4 +493,15 @@ config KHADAS_MCU_FAN_THERMAL
 	  If you say yes here you get support for the FAN controlled
 	  by the Microcontroller found on the Khadas VIM boards.
 
+config HAVE_MULTI_SCREEN
+	bool "Have multi screen"
+	default n
+	help
+	  Enable register two screen in driver
+
+config  HAVE_CHARGE_TEMP
+	tristate "enable have charge temp node in thermal interface"
+	help
+		Enable display charge temp node in kernel, add one node in thermal_message
+
 endif

@@ -19,8 +19,8 @@ static int __maybe_unused two = 2;
 static int __maybe_unused four = 4;
 static int one_hundred = 100;
 static int one_thousand = 1000;
+static int three_thousand = 3000;
 static int one_thousand_twenty_four = 1024;
-static int two_thousand = 2000;
 
 /*
  * CFS task prio range is [100 ... 139]
@@ -80,6 +80,7 @@ unsigned int sysctl_sched_cluster_util_thres_pct;
 unsigned int sysctl_ed_boost_pct;
 unsigned int sysctl_em_inflate_pct = 100;
 unsigned int sysctl_em_inflate_thres = 1024;
+unsigned int sysctl_disable_mvp_thres = 60000;
 
 /* range is [1 .. INT_MAX] */
 static int sysctl_task_read_pid = 1;
@@ -1003,7 +1004,7 @@ struct ctl_table walt_table[] = {
 		.mode		= 0644,
 		.proc_handler	= sched_long_running_rt_task_ms_handler,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= &two_thousand,
+		.extra2		= &three_thousand,
 	},
 	{
 		.procname	= "sched_ed_boost",
@@ -1031,6 +1032,15 @@ struct ctl_table walt_table[] = {
 		.proc_handler	= proc_douintvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &one_thousand_twenty_four,
+	},
+	{
+		.procname	= "sched_disable_mvp_thres",
+		.data		= &sysctl_disable_mvp_thres,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
 	},
 	{ }
 };
@@ -1088,4 +1098,5 @@ void walt_tunables(void)
 
 	for (i = 0; i < 8; i++)
 		sysctl_input_boost_freq[i] = 0;
+
 }

@@ -20,10 +20,11 @@
 #include <uapi/linux/sched/types.h>
 
 #include "qrtr.h"
+
 #if IS_ENABLED(CONFIG_QRTR_BPF_FILTER)
 #include "bpf_service.h"
 #endif
-#define QRTR_LOG_PAGE_CNT 4
+#define QRTR_LOG_PAGE_CNT 100
 #define QRTR_INFO(ctx, x, ...)				\
 	ipc_log_string(ctx, x, ##__VA_ARGS__)
 

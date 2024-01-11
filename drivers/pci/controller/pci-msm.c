@@ -681,8 +681,8 @@ struct msm_pcie_drv_info {
 
 #define AER_ERROR_SOURCES_MAX (128)
 
-#define AER_MAX_TYPEOF_COR_ERRS 32 /* as per PCI_ERR_COR_STATUS */
-#define AER_MAX_TYPEOF_UNCOR_ERRS 32 /* as per PCI_ERR_UNCOR_STATUS*/
+#define AER_MAX_TYPEOF_COR_ERRS 16 /* as per PCI_ERR_COR_STATUS */
+#define AER_MAX_TYPEOF_UNCOR_ERRS 27 /* as per PCI_ERR_UNCOR_STATUS*/
 #define	PCI_EXP_AER_FLAGS (PCI_EXP_DEVCTL_CERE | PCI_EXP_DEVCTL_NFERE | \
 			   PCI_EXP_DEVCTL_FERE | PCI_EXP_DEVCTL_URRE)
 
@@ -2533,7 +2533,7 @@ static const struct attribute_group msm_pcie_debug_attr_group = {
 									\
 	stats = pcie_dev->aer_stats->stats_array;			\
 									\
-	for (i = 0; i < ARRAY_SIZE(strings_array); i++) {		\
+	for (i = 0; i < ARRAY_SIZE(pcie_dev->aer_stats->stats_array); i++) {		\
 		if (strings_array[i])					\
 			len += sysfs_emit_at(buf, len, "%s %llu\n",	\
 					     strings_array[i],		\
@@ -8330,7 +8330,7 @@ static int __init pcie_init(void)
 				rc_name, i);
 		scnprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d-dump", i);
 		msm_pcie_dev[i].ipc_log_dump =
-			ipc_log_context_create(PCIE_LOG_PAGES, rc_name, 0);
+			ipc_log_context_create(2*PCIE_LOG_PAGES, rc_name, 0);
 		if (msm_pcie_dev[i].ipc_log_dump == NULL)
 			pr_err("%s: unable to create IPC log context for %s\n",
 				__func__, rc_name);

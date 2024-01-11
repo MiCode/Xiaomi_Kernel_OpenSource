@@ -714,6 +714,7 @@ static void calculate_sampling_stats(void)
 	ktime_t now = ktime_get();
 	s64 delta_us, update_us;
 
+
 	update_us = ktime_us_delta(now, memlat_data->last_update_ts);
 	memlat_data->last_update_ts = now;
 
@@ -745,7 +746,6 @@ static void calculate_sampling_stats(void)
 			delta->common_ctrs[i] = stats->curr.common_ctrs[i] -
 						stats->prev.common_ctrs[i];
 		}
-
 		for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 			memlat_grp = memlat_data->groups[grp];
 			if (!memlat_grp)
@@ -758,7 +758,6 @@ static void calculate_sampling_stats(void)
 					    stats->prev.grp_ctrs[grp][i];
 			}
 		}
-
 		stats->freq_mhz = delta->common_ctrs[CYC_IDX] / delta_us;
 		if (!memlat_data->common_ev_ids[FE_STALL_IDX])
 			stats->fe_stall_pct = 100;
@@ -799,7 +798,6 @@ static void calculate_sampling_stats(void)
 					stats->freq_mhz, stats->be_stall_pct,
 					stats->wb_pct[grp], stats->ipm[grp],
 					stats->fe_stall_pct);
-
 		}
 		memcpy(&stats->prev, &stats->curr, sizeof(stats->curr));
 	}
@@ -959,8 +957,6 @@ static void memlat_update_work(struct work_struct *work)
 	struct dcvs_freq new_freq;
 	u32 max_freqs[MAX_MEMLAT_GRPS] = { 0 };
 
-	calculate_sampling_stats();
-
 	/* aggregate mons to calculate max freq per memlat_group */
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		memlat_grp = memlat_data->groups[grp];
@@ -1001,6 +997,7 @@ static void memlat_update_work(struct work_struct *work)
 
 static enum hrtimer_restart memlat_hrtimer_handler(struct hrtimer *timer)
 {
+	calculate_sampling_stats();
 	queue_work(memlat_data->memlat_wq, &memlat_data->work);
 
 	return HRTIMER_NORESTART;
@@ -1097,6 +1094,7 @@ static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
 	delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
+
 	if (delta_ns < ms_to_ktime(memlat_data->sample_ms))
 		goto out;
 	stats->sample_ts = now;
@@ -1758,7 +1756,8 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	if (get_mask_and_mpidr_from_pdev(pdev, &mon->cpus, &mon->cpus_mpidr)) {
 		dev_err(dev, "Mon missing cpulist\n");
 		ret = -ENODEV;
-		goto unlock_out;
+		memlat_grp->num_mons--;
+		goto unlock_out_init;
 	}
 
 	num_cpus = cpumask_weight(&mon->cpus);
@@ -1829,6 +1828,7 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	}
 
 	mon->index = memlat_grp->num_inited_mons++;
+unlock_out_init:
 	if (memlat_grps_and_mons_inited())
 		memlat_data->inited = true;
 

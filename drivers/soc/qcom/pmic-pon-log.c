@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
-/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #include <linux/err.h>
 #include <linux/ipc_logging.h>
 #include <linux/kernel.h>
+#include <linux/kobject.h>
 #include <linux/module.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/string.h>
+#include <linux/sysfs.h>
+#include <linux/sizes.h>
 
 /* SDAM NVMEM register offsets: */
 #define REG_SDAM_COUNT		0x45
@@ -174,10 +177,22 @@ static const struct pmic_pon_trigger_mapping pmic_pon_pon_trigger_map[] = {
 	{0x0085, "HARD_RESET"},
 	{0x0086, "RESIN_N"},
 	{0x0087, "KPDPWR_N"},
+	/* PM5100 USB PON trigger */
+	{0x0202, "USB_CHARGER"},
 	{0x0621, "RTC_ALARM"},
 	{0x0640, "SMPL"},
+	/* PMX75 USB PON trigger */
+	{0x18A0, "USB_CHARGER"},
 	{0x18C0, "PMIC_SID1_GPIO5"},
+	/* PMI632 USB PON trigger */
+	{0x2763, "USB_CHARGER"},
+	/* PM8350B USB PON trigger */
 	{0x31C2, "USB_CHARGER"},
+	/* PM8550B USB PON trigger */
+	/* PM7550BA USB PON trigger */
+	{0x71C2, "USB_CHARGER"},
+	/* PM7250B USB PON trigger */
+	{0x8732, "USB_CHARGER"},
 };
 
 static const struct pmic_pon_trigger_mapping pmic_pon_reset_trigger_map[] = {
@@ -219,6 +234,12 @@ static const enum pmic_pon_event pmic_pon_important_events[] = {
 	PMIC_PON_EVENT_PMIC_SID13_FAULT,
 	PMIC_PON_EVENT_PMIC_VREG_READY_CHECK,
 };
+
+/* BSP-Kernel@Xiaomi add for export pmic pon log to userspace */
+static struct kobject *kobj;
+
+static char pon_log_full_buf[SZ_4K];
+/* End */
 
 static bool pmic_pon_entry_is_important(const struct pmic_pon_log_entry *entry)
 {
@@ -476,6 +497,23 @@ static int pmic_pon_log_parse_entry(const struct pmic_pon_log_entry *entry,
 		ipc_log_string(ipc_log, "State=Unknown (0x%02X); %s\n",
 				entry->state, buf);
 
+	/* BSP-Kernel@Xiaomi add for export pmic pon log to userspace */
+	if (strnlen(buf, BUF_SIZE) + 2 < BUF_SIZE) {
+		strncat(buf, "\n", 1);
+		if (!strncmp(buf, "PON Successful", strlen("PON Successful"))) {
+			strncat(buf, "\n", 1);
+		}
+	} else {
+		pr_warn("[pmic-pon-log] original log buf is not enough to append the \n! dropped!");
+	}
+
+	if (strnlen(pon_log_full_buf, SZ_4K) + strnlen(buf, BUF_SIZE) < SZ_4K) {
+		strncat(pon_log_full_buf, buf, strnlen(buf, BUF_SIZE));
+	} else {
+		pr_warn("[pmic-pon-log] pon_log_full_buf is not enough to append the new log! dropped!");
+	}
+	/* End */
+
 	return 0;
 }
 
@@ -633,6 +671,24 @@ static void pmic_pon_log_fault_panic(struct pmic_pon_log_dev *pon_dev)
 	}
 }
 
+/* BSP-Kernel@Xiaomi add for export pmic pon log to userspace */
+static ssize_t pon_log_full_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, strnlen(pon_log_full_buf, SZ_4K) + 1, "%s\n", pon_log_full_buf);
+}
+
+static struct kobj_attribute pon_log_full = __ATTR_RO(pon_log_full);
+
+static struct attribute *attrs[] = {
+	&pon_log_full.attr,
+	NULL,
+};
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+/* End */
+
 static int pmic_pon_log_probe(struct platform_device *pdev)
 {
 	struct pmic_pon_log_dev *pon_dev;
@@ -705,6 +761,16 @@ static int pmic_pon_log_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "PMIC PON log parsing failed, ret=%d\n",
 			ret);
 
+	/* BSP-Kernel@Xiaomi add for export pmic pon log to userspace */
+	kobj = kobject_create_and_add("pmic_pon_log", kernel_kobj);
+	if (!kobj)
+		pr_warn("[%s] failed to create a sysfs kobject\n", __func__);
+
+	if (sysfs_create_group(kobj, &attr_group)) {
+		pr_warn("[%s] failed to create a sysfs group\n", __func__);
+	}
+	/* End */
+
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,pmic-fault-panic"))
 		pmic_pon_log_fault_panic(pon_dev);
 
@@ -716,6 +782,13 @@ static int pmic_pon_log_remove(struct platform_device *pdev)
 	struct pmic_pon_log_dev *pon_dev = platform_get_drvdata(pdev);
 
 	ipc_log_context_destroy(pon_dev->ipc_log);
+
+	/* BSP-Kernel@Xiaomi add for export pmic pon log to userspace */
+	if (kobj) {
+		sysfs_remove_group(kobj, &attr_group);
+		kobject_put(kobj);
+	}
+	/* End */
 
 	return 0;
 }

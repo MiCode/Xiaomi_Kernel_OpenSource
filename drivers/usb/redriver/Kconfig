@@ -21,4 +21,11 @@ config USB_REDRIVER_NB7VPQ904M
 	  it have i2c program interface.
 	  Say Y/M here if you want to support it.
 
+ config USB_REDRIVER_PS5169
+ 	tristate "USB 3.1 Gen1/Gen2 10Gbps driver for PS5169 redriver"
+	select REGMAP_I2C
+	help
+	   If you're using  ps5169 file
+	   platform, please say 'Y' or 'M' here.
+
 endif

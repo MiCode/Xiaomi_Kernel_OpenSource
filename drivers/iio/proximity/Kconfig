@@ -21,6 +21,8 @@ endmenu
 
 menu "Proximity and distance sensors"
 
+source "drivers/iio/proximity/inv_ch101/Kconfig"
+
 config CROS_EC_MKBP_PROXIMITY
 	tristate "ChromeOS EC MKBP Proximity sensor"
 	depends on CROS_EC

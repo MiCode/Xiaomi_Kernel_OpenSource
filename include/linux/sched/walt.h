@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _LINUX_SCHED_WALT_H
@@ -129,6 +129,8 @@ struct walt_task_struct {
 	int				prev_on_rq;
 	int				prev_on_rq_cpu;
 	struct list_head		mvp_list;
+	struct list_head		runnable_list;
+	u64				runnable_start;
 	u64				sum_exec_snapshot_for_slice;
 	u64				sum_exec_snapshot_for_total;
 	u64				total_exec;
@@ -228,11 +230,11 @@ static inline void core_ctl_notifier_unregister(struct notifier_block *n)
 {
 }
 
-inline int walt_pause_cpus(struct cpumask *cpus, enum pause_reason reason)
+static inline int walt_pause_cpus(struct cpumask *cpus, enum pause_reason reason)
 {
 	return 0;
 }
-inline int walt_resume_cpus(struct cpumask *cpus, enum pause_reason reason)
+static inline int walt_resume_cpus(struct cpumask *cpus, enum pause_reason reason)
 {
 	return 0;
 }

@@ -69,7 +69,7 @@ extern unsigned int uvc_gadget_trace_param;
 #define UVC_MAX_REQUEST_SIZE			64
 #define UVC_MAX_EVENTS				4
 
-#define UVCG_REQUEST_HEADER_LEN			2
+#define UVCG_REQUEST_HEADER_LEN			12
 
 /* ------------------------------------------------------------------------
  * Structures
@@ -88,6 +88,7 @@ struct uvc_video {
 	struct usb_ep *ep;
 
 	struct work_struct pump;
+	struct workqueue_struct *async_wq;
 
 	/* Frame parameters */
 	u8 bpp;
@@ -132,6 +133,8 @@ struct uvc_device {
 	struct uvc_video video;
 	bool func_connected;
 	wait_queue_head_t func_connected_queue;
+
+	struct uvcg_streaming_header *header;
 
 	/* Descriptors */
 	struct {

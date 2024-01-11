@@ -1718,15 +1718,16 @@ static void msm_geni_uart_gsi_rx_cb(void *ptr)
 	unsigned int rx_bytes = rx_cb->length;
 	int ret;
 
-	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
+	UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
 		     "%s: Start\n", __func__);
 	ret = tty_insert_flip_string(tport,
 				     (unsigned char *)
 				     (msm_port->rx_gsi_buf[msm_port->count]),
 				      rx_bytes);
 	if (ret != rx_bytes)
-		dev_err(uport->dev, "%s: ret %d rx_bytes %d\n", __func__,
-			ret, rx_bytes);
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
+			     "%s: ret %d rx_bytes %d\n", __func__,
+			     ret, rx_bytes);
 
 	uport->icount.rx += ret;
 	tty_flip_buffer_push(tport);
@@ -1735,7 +1736,7 @@ static void msm_geni_uart_gsi_rx_cb(void *ptr)
 
 	msm_geni_uart_rx_queue_dma_tre(msm_port->count, uport);
 	msm_port->count = (msm_port->count + 1) % 4;
-	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
+	UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
 		     "%s: End\n", __func__);
 }
 
@@ -2926,8 +2927,9 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	ret = tty_insert_flip_string(tport, (unsigned char *)(msm_port->rx_buf),
 				     rx_bytes);
 	if (ret != rx_bytes) {
-		dev_err(uport->dev, "%s: ret %d rx_bytes %d\n", __func__,
-								ret, rx_bytes);
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
+			     "%s: ret %d rx_bytes %d\n",
+			     __func__, ret, rx_bytes);
 		msm_geni_update_uart_error_code(msm_port, UART_ERROR_RX_TTY_INSERT_FAIL);
 		WARN_ON_ONCE(1);
 	}
@@ -3405,7 +3407,6 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			 */
 			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 					"%s: Stop Rx Engine\n", __func__);
-			dmaengine_terminate_all(msm_port->gsi->rx_c);
 			timeout = wait_for_completion_timeout
 				(&msm_port->xfer,
 				msecs_to_jiffies(POLL_WAIT_TIMEOUT_MSEC));
@@ -4639,10 +4640,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 				line = 0;
 		} else {
 			line = of_alias_get_id(pdev->dev.of_node, "hsuart");
-			/* for non alias hsuart use uart_line_id in get_port_from_line */
 			if (line < 0)
-				dev_dbg(&pdev->dev, "%s: non alias hsuart\n", __func__);
-			line = uart_line_id;
+				line = uart_line_id++;
+			else
+				uart_line_id++;
 		}
 	} else {
 		line = pdev->id;
@@ -4655,13 +4656,14 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
+	dev_port->is_console = is_console;
 	if (IS_ERR_OR_NULL(dev_port)) {
 		ret = PTR_ERR(dev_port);
-		dev_err(&pdev->dev, "Invalid line ret:%d\n", ret);
+		dev_err(&pdev->dev, "Invalid line %d(%d)\n",
+					line, ret);
 		goto exit_geni_serial_probe;
 	}
 
-	dev_port->is_console = is_console;
 	if (drv->cons && !con_enabled) {
 		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
 		ret = pinctrl_pm_select_sleep_state(&pdev->dev);
@@ -4685,9 +4687,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	ret = msm_geni_serial_read_dtsi(pdev, dev_port);
 	if (ret)
 		goto exit_geni_serial_probe;
-
-	if (!drv->cons)
-		uart_line_id++;
 
 	dev_port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	dev_port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;

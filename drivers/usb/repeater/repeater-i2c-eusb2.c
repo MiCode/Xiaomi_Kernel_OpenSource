@@ -241,7 +241,7 @@ err_vdd18:
 	return ret;
 }
 
-static int eusb2_repeater_init(struct usb_repeater *ur)
+static int eusb2_repeater_init(struct usb_repeater *ur,  unsigned int flags)
 {
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);

@@ -60,7 +60,7 @@ struct usb_redriver {
 	int (*gadget_pullup_exit)(struct usb_redriver *ur, int is_on);
 	int (*host_powercycle)(struct usb_redriver *ur);
 	void (*unbind)(struct usb_redriver *ur);
-
+	bool usb_mode;
 	bool has_orientation;
 	bool bounded;
 };

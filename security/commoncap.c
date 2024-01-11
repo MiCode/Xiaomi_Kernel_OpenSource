@@ -75,8 +75,11 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 	for (;;) {
 		/* Do we have the necessary capabilities? */
 		if (ns == cred->user_ns)
+#ifdef CONFIG_FACTORY_BUILD
+			return 0;
+#else
 			return cap_raised(cred->cap_effective, cap) ? 0 : -EPERM;
-
+#endif
 		/*
 		 * If we're already at a lower level than we're looking for,
 		 * we're done searching.
@@ -401,8 +404,10 @@ int cap_inode_getsecurity(struct user_namespace *mnt_userns,
 				      &tmpbuf, size, GFP_NOFS);
 	dput(dentry);
 
-	if (ret < 0 || !tmpbuf)
-		return ret;
+	if (ret < 0 || !tmpbuf) {
+		size = ret;
+		goto out_free;
+	}
 
 	fs_ns = inode->i_sb->s_user_ns;
 	cap = (struct vfs_cap_data *) tmpbuf;

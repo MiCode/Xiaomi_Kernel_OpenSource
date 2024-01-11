@@ -1087,6 +1087,7 @@ drivers/irqchip/irq-sun6i-r.c
 drivers/irqchip/irq-sunxi-nmi.c
 drivers/leds/led-class.c
 drivers/leds/led-class-flash.c
+drivers/leds/led-class-multicolor.c
 drivers/leds/led-core.c
 drivers/leds/leds.h
 drivers/leds/led-triggers.c
@@ -1097,6 +1098,7 @@ drivers/mailbox/hi6220-mailbox.c
 drivers/mailbox/mailbox.c
 drivers/mailbox/mailbox.h
 drivers/mailbox/sun6i-msgbox.c
+drivers/md/dm-bow.c
 drivers/md/dm-bufio.c
 drivers/md/dm-builtin.c
 drivers/md/dm.c
@@ -2013,9 +2015,6 @@ fs/iomap/seek.c
 fs/iomap/swapfile.c
 fs/iomap/trace.c
 fs/iomap/trace.h
-fs/io_uring.c
-fs/io-wq.c
-fs/io-wq.h
 fs/jbd2/checkpoint.c
 fs/jbd2/commit.c
 fs/jbd2/journal.c
@@ -2982,6 +2981,7 @@ include/linux/l2tp.h
 include/linux/latencytop.h
 include/linux/lcm.h
 include/linux/led-class-flash.h
+include/linux/led-class-multicolor.h
 include/linux/leds.h
 include/linux/libfdt_env.h
 include/linux/libfdt.h
@@ -3663,6 +3663,7 @@ include/media/v4l2-mc.h
 include/media/v4l2-mediabus.h
 include/media/v4l2-mem2mem.h
 include/media/v4l2-subdev.h
+include/media/v4l2-uvc.h
 include/media/videobuf2-core.h
 include/media/videobuf2-dma-contig.h
 include/media/videobuf2-dma-sg.h
@@ -4063,7 +4064,9 @@ include/trace/hooks/cpuidle.h
 include/trace/hooks/cpuidle_psci.h
 include/trace/hooks/creds.h
 include/trace/hooks/debug.h
+include/trace/hooks/direct_io.h
 include/trace/hooks/dmabuf.h
+include/trace/hooks/dm.h
 include/trace/hooks/drm_atomic.h
 include/trace/hooks/drm_framebuffer.h
 include/trace/hooks/dtask.h
@@ -4079,6 +4082,7 @@ include/trace/hooks/gic_v3.h
 include/trace/hooks/hung_task.h
 include/trace/hooks/iommu.h
 include/trace/hooks/logbuf.h
+include/trace/hooks/loop.h
 include/trace/hooks/memory.h
 include/trace/hooks/mmc.h
 include/trace/hooks/mm.h
@@ -4618,6 +4622,9 @@ init/initramfs.c
 init/init_task.c
 init/main.c
 init/version.c
+io_uring/io_uring.c
+io_uring/io-wq.c
+io_uring/io-wq.h
 kernel/async.c
 kernel/audit.c
 kernel/auditfilter.c
@@ -4917,6 +4924,7 @@ kernel/trace/trace_output.h
 kernel/trace/trace_printk.c
 kernel/trace/trace_probe.c
 kernel/trace/trace_probe.h
+kernel/trace/trace_probe_kernel.h
 kernel/trace/trace_probe_tmpl.h
 kernel/trace/trace_sched_switch.c
 kernel/trace/trace_seq.c

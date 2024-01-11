@@ -1011,8 +1011,9 @@ static int adsp_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (desc->minidump_id)
-		ops = &adsp_minidump_ops;
+	//delete it for ssr minidump by xiaomi
+	//if (desc->minidump_id)
+	//	ops = &adsp_minidump_ops;
 
 	rproc = rproc_alloc(&pdev->dev, pdev->name, ops, fw_name, sizeof(*adsp));
 
@@ -1180,6 +1181,8 @@ static const struct adsp_data sm8150_adsp_resource = {
 		.crash_reason_smem = 423,
 		.firmware_name = "adsp.mdt",
 		.pas_id = 1,
+		.minidump_id = 5,
+		.uses_elf64 = true,
 		.has_aggre2_clk = false,
 		.auto_boot = true,
 		.ssr_name = "lpass",

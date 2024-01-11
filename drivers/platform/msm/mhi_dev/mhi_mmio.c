@@ -104,7 +104,7 @@ static int mhi_dev_mmio_mask_set_chdb_int_a7(struct mhi_dev *dev,
 	chid_idx = chdb_id/32;
 
 	if (chid_idx >= MHI_MASK_ROWS_CH_EV_DB) {
-		mhi_log(MHI_MSG_ERROR, "Invalid ch_id:%d\n", chid_idx);
+		mhi_log(dev->vf_id, MHI_MSG_ERROR, "Invalid ch_id:%d\n", chid_idx);
 		return -EINVAL;
 	}
 
@@ -201,7 +201,7 @@ int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
 	else
 		*mhi_reset = 0;
 
-	mhi_log(MHI_MSG_VERBOSE, "MHICTRL is 0x%x, reset:%d\n",
+	mhi_log(dev->vf_id, MHI_MSG_VERBOSE, "MHICTRL is 0x%x, reset:%d\n",
 			reg_value, *mhi_reset);
 
 	return 0;
@@ -629,14 +629,14 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 	for (i = 0; i < MHI_MASK_ROWS_CH_EV_DB; i++) {
 		/* Enable channel interrupt whose mask is enabled */
 		if (dev->chdb[i].mask) {
-			mhi_log(MHI_MSG_VERBOSE,
+			mhi_log(dev->vf_id, MHI_MSG_VERBOSE,
 				"Enabling id: %d, chdb mask  0x%x\n",
 							i, dev->chdb[i].mask);
 
 			rc = mhi_dev_mmio_write(dev, MHI_CHDB_INT_MASK_A7_n(i),
 							dev->chdb[i].mask);
 			if (rc) {
-				mhi_log(MHI_MSG_ERROR,
+				mhi_log(dev->vf_id, MHI_MSG_ERROR,
 					"Error writing enable for A7\n");
 				return rc;
 			}
@@ -779,7 +779,7 @@ int mhi_dev_dump_mmio(struct mhi_dev *dev)
 
 		mhi_dev_mmio_read(dev, offset+0xC, &r4);
 
-		mhi_log(MHI_MSG_ERROR, "0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		mhi_log(dev->vf_id, MHI_MSG_ERROR, "0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 				offset, r1, r2, r3, r4);
 		offset += 0x10;
 	}

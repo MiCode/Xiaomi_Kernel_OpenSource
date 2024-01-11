@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"core_ctl: " fmt
@@ -835,12 +835,18 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 static unsigned int apply_limits(const struct cluster_data *cluster,
 				 unsigned int need_cpus)
 {
+	if (!cluster->enable)
+		return cluster->num_cpus;
+
 	return min(max(cluster->min_cpus, need_cpus), cluster->max_cpus);
 }
 
 static unsigned int apply_limits_32bit(const struct cluster_data *cluster,
 				       unsigned int need_cpus)
 {
+	if (!cluster->enable)
+		return cluster->num_32bit_cpus;
+
 	return min(need_cpus, cluster->num_32bit_cpus);
 }
 
@@ -981,7 +987,7 @@ static bool eval_need_32bit(struct cluster_data *cluster)
 
 	now = ktime_to_ms(ktime_get());
 
-	if (need_cpus > cluster->active_32bit_cpus) {
+	if (new_need > cluster->active_32bit_cpus) {
 		adj_now = true;
 	} else {
 		/*

@@ -619,6 +619,12 @@ config TASK_DELAY_ACCT
 
 	  Say N if unsure.
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 config TASK_XACCT
 	bool "Enable extended accounting over taskstats"
 	depends on TASKSTATS
@@ -2420,6 +2426,11 @@ config ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
 config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
 	bool
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
 # It may be useful for an architecture to override the definitions of the
 # SYSCALL_DEFINE() and __SYSCALL_DEFINEx() macros in <linux/syscalls.h>
 # and the COMPAT_ variants in <linux/compat.h>, in particular to use a

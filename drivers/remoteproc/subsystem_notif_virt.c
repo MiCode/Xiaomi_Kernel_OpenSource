@@ -53,7 +53,7 @@ static void subsystem_notif_wq_func(struct work_struct *work)
 	int state, ret;
 
 	state = readl_relaxed(base_reg + subsystem->offset);
-	subsystem_handle = qcom_ssr_add_subsys(subsystem->name);
+	subsystem_handle = qcom_ssr_get_subsys(subsystem->name);
 	ret = qcom_notify_ssr_clients(subsystem_handle, state, NULL);
 	writel_relaxed(ret, base_reg + subsystem->offset + CLIENT_STATE_OFFSET);
 }

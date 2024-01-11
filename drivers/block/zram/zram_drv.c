@@ -599,10 +599,10 @@ static int read_from_bdev_async(struct zram *zram, struct bio_vec *bvec,
 	}
 
 	if (!parent) {
-		bio->bi_opf = REQ_OP_READ;
+		bio->bi_opf = REQ_OP_READ | REQ_PRIO;
 		bio->bi_end_io = zram_page_end_io;
 	} else {
-		bio->bi_opf = parent->bi_opf;
+		bio->bi_opf = parent->bi_opf | REQ_PRIO;
 		bio_chain(bio, parent);
 	}
 

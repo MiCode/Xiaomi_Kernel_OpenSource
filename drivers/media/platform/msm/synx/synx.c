@@ -225,6 +225,7 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 	u32 idx = 0;
 	s32 sync_id;
 	u32 type;
+	int num_bound_synxs;
 	struct synx_external_data *data = NULL;
 	struct synx_bind_desc bind_descs[SYNX_MAX_NUM_BINDINGS];
 	struct bind_operations *bind_ops = NULL;
@@ -242,7 +243,9 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 	if (synx_obj->num_bound_synxs > 0) {
 		memset(bind_descs, 0,
 			sizeof(struct synx_bind_desc) * SYNX_MAX_NUM_BINDINGS);
-		for (i = 0; i < synx_obj->num_bound_synxs; i++) {
+		num_bound_synxs = synx_obj->num_bound_synxs;
+		synx_obj->num_bound_synxs = 0;
+		for (i = 0; i < num_bound_synxs; i++) {
 			/* signal invoked by external sync obj */
 			if (cb_signal &&
 				(ext_sync_id ==
@@ -271,7 +274,6 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 			memset(&synx_obj->bound_synxs[i], 0,
 				sizeof(struct synx_bind_desc));
 		}
-		synx_obj->num_bound_synxs = 0;
 	}
 
 	for (i = 0; i < idx; i++) {
@@ -965,6 +967,7 @@ int synx_bind(struct synx_session session_id,
 	memcpy(&synx_obj->bound_synxs[bound_idx],
 		   &external_sync, sizeof(struct synx_external_desc));
 	synx_obj->bound_synxs[bound_idx].external_data = data;
+	synx_util_get_object(synx_obj);
 	synx_obj->num_bound_synxs++;
 	mutex_unlock(&synx_obj->obj_lock);
 
@@ -991,14 +994,17 @@ int synx_bind(struct synx_session session_id,
 		}
 	}
 
+	mutex_lock(&synx_obj->obj_lock);
 	if (rc) {
-		mutex_lock(&synx_obj->obj_lock);
 		memset(&synx_obj->bound_synxs[bound_idx], 0,
 			sizeof(struct synx_external_desc));
 		if (synx_obj->num_bound_synxs)
 			synx_obj->num_bound_synxs--;
+		synx_util_put_object(synx_obj);
 		goto free;
 	}
+	synx_util_put_object(synx_obj);
+	mutex_unlock(&synx_obj->obj_lock);
 
 	synx_util_release_handle(synx_data);
 	synx_put_client(client);

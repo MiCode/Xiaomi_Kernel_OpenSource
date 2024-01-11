@@ -1703,11 +1703,14 @@ static void qnoc_sync_state(struct device *dev)
 				else
 					ret = clk_set_rate(qp->bus_clks[i].clk,
 						qp->bus_clk_cur_rate[i]);
-
-				if (ret)
-					pr_err("%s clk_set_rate error: %d\n",
-						qp->bus_clks[i].id, ret);
+			} else {
+				ret = clk_set_rate(qp->bus_clks[i].clk,
+						qp->bus_clk_cur_rate[i]);
 			}
+
+			if (ret)
+				pr_err("%s clk_set_rate error: %d\n",
+						qp->bus_clks[i].id, ret);
 		}
 	}
 
@@ -1731,12 +1734,6 @@ static int __init qnoc_driver_init(void)
 	return platform_driver_register(&qnoc_driver);
 }
 core_initcall(qnoc_driver_init);
-
-static void __exit qnoc_driver_exit(void)
-{
-	platform_driver_unregister(&qnoc_driver);
-}
-module_exit(qnoc_driver_exit);
 
 MODULE_DESCRIPTION("Monaco NoC driver");
 MODULE_LICENSE("GPL v2");

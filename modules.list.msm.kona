@@ -59,3 +59,7 @@ qpnp-power-on.ko
 msm-poweroff.ko
 qcom_llcc_pmu.ko
 qcom-pmu-lib.ko
+cqhci-crypto-qti.ko
+crypto-qti-tz.ko
+crypto-qti-common.ko
+ufshcd-crypto-qti.ko

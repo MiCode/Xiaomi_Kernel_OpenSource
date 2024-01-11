@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Qualcomm Technologies, Inc. SPSS Peripheral Image Loader
  *
  */
@@ -613,13 +613,13 @@ static int qcom_spss_probe(struct platform_device *pdev)
 		goto deinit_wakeup_source;
 
 	qcom_add_glink_spss_subdev(rproc, &spss->glink_subdev, "spss");
-	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
 	spss->sysmon_subdev = qcom_add_sysmon_subdev(rproc, desc->ssr_name, -EINVAL);
 	if (IS_ERR(spss->sysmon_subdev)) {
 		dev_err(spss->dev, "failed to add sysmon subdevice\n");
 		goto deinit_wakeup_source;
 	}
 
+	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
 	mask_scsr_irqs(spss);
 	spss->generic_irq = platform_get_irq(pdev, 0);
 	ret = devm_request_threaded_irq(&pdev->dev, spss->generic_irq, NULL, spss_generic_handler,

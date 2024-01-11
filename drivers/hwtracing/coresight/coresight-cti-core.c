@@ -109,7 +109,6 @@ static int cti_enable_hw(struct cti_drvdata *drvdata)
 	struct device *dev = &drvdata->csdev->dev;
 	unsigned long flags;
 	int rc = 0;
-
 	rc = pm_runtime_get_sync(dev->parent);
 	if (rc < 0) {
 		pm_runtime_put_noidle(dev->parent);

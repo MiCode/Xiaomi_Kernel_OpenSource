@@ -13809,7 +13809,7 @@ static int nl80211_set_rekey_data(struct sk_buff *skb, struct genl_info *info)
 		return -ERANGE;
 	if (nla_len(tb[NL80211_REKEY_DATA_KCK]) != NL80211_KCK_LEN &&
 	    !(rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_EXT_KEK_KCK &&
-	      nla_len(tb[NL80211_REKEY_DATA_KEK]) == NL80211_KCK_EXT_LEN))
+	      nla_len(tb[NL80211_REKEY_DATA_KCK]) == NL80211_KCK_EXT_LEN))
 		return -ERANGE;
 
 	rekey_data.kek = nla_data(tb[NL80211_REKEY_DATA_KEK]);
@@ -19713,6 +19713,15 @@ int cfg80211_external_auth_request(struct net_device *dev,
 	    nla_put(msg, NL80211_ATTR_SSID, params->ssid.ssid_len,
 		    params->ssid.ssid))
 		goto nla_put_failure;
+
+	if (!is_zero_ether_addr(params->tx_addr)) {
+		if (!wiphy_ext_feature_isset(&rdev->wiphy,
+			    NL80211_EXT_FEATURE_AUTH_TX_RANDOM_TA))
+			return -EINVAL;
+
+		if (nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, params->tx_addr))
+			goto nla_put_failure;
+	}
 
 	genlmsg_end(msg, hdr);
 	genlmsg_unicast(wiphy_net(&rdev->wiphy), msg,

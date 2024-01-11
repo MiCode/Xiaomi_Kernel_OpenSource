@@ -21,6 +21,8 @@
 #define DEVFREQ_CDEV_NAME "gpu"
 #define DEVFREQ_CDEV "qcom-devfreq-cdev"
 
+struct devfreq *perfmgr_devfreq = NULL;
+
 struct devfreq_cdev_device {
 	struct device_node *np;
 	struct devfreq *devfreq;
@@ -84,6 +86,13 @@ static struct thermal_cooling_device_ops devfreq_cdev_ops = {
 	.get_max_state = devfreq_cdev_get_max_state,
 };
 
+//perfmgr invoke gpu devfreq pointer
+struct devfreq *get_perfmgr_devfreq(void)
+{
+	return perfmgr_devfreq;
+}
+EXPORT_SYMBOL(get_perfmgr_devfreq);
+
 static void devfreq_cdev_work(struct work_struct *work)
 {
 	struct devfreq *df = NULL;
@@ -104,6 +113,14 @@ static void devfreq_cdev_work(struct work_struct *work)
 					&cdev_data->register_work,
 					RETRY_DELAY);
 		return;
+	}
+
+	if (perfmgr_devfreq == NULL) {
+		pr_debug("%s node name is %s : full name is %s", __func__,
+			 cdev_data->np->name, cdev_data->np->full_name);
+		perfmgr_devfreq = df;
+	} else {
+		pr_debug("perfmgr_devfreq exist");
 	}
 
 	cdev_data->dev = df->dev.parent;

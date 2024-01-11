@@ -27,6 +27,7 @@
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/compat.h>
+#include <linux/qseecom_kernel.h>
 #include <linux/soc/qcom/slatecom_interface.h>
 
 #include <uapi/linux/slatecom_interface.h>
@@ -51,6 +52,7 @@
 
 #define SLATECOM_INTF_N_FILES 2
 #define BUF_SIZE 10
+#define SECURE_APP		"slateapp"
 
 static char btss_state[BUF_SIZE] = "offline";
 static char dspss_state[BUF_SIZE] = "offline";
@@ -60,20 +62,22 @@ static unsigned int pmic_gpio15 = -1;
 
 /* tzapp command list.*/
 enum slate_tz_commands {
-	SLATEPIL_RAMDUMP,
-	SLATEPIL_IMAGE_LOAD,
-	SLATEPIL_AUTH_MDT,
-	SLATEPIL_DLOAD_CONT,
-	SLATEPIL_GET_SLATE_VERSION,
-	SLATEPIL_TWM_DATA,
+	SLATE_RPROC_RAMDUMP,
+	SLATE_RPROC_IMAGE_LOAD,
+	SLATE_RPROC_AUTH_MDT,
+	SLATE_RPROC_DLOAD_CONT,
+	SLATE_RPROC_GET_SLATE_VERSION,
+	SLATE_RPROC_SHUTDOWN,
+	SLATE_RPROC_DUMPINFO,
+	SLATE_RPROC_UP_INFO,
+	SLATE_RPROC_RESET,
 };
 
 /* tzapp slate request.*/
 struct tzapp_slate_req {
+	uint64_t address_fw;
+	uint32_t size_fw;
 	uint8_t tzapp_slate_cmd;
-	uint8_t padding[3];
-	phys_addr_t address_fw;
-	size_t size_fw;
 } __packed;
 
 /* tzapp slate response.*/
@@ -113,9 +117,11 @@ struct slatedaemon_priv {
 	struct work_struct slatecom_down_work;
 	struct mutex glink_mutex;
 	struct mutex slatecom_state_mutex;
+	struct mutex cmdsync_lock;
 	enum slatecom_state slatecom_current_state;
 	struct workqueue_struct *slatecom_wq;
 	struct wakeup_source slatecom_ws;
+	struct qseecom_handle *qseecom_handle;
 };
 
 static void *slatecom_intf_drv;
@@ -133,7 +139,6 @@ struct service_info {
 };
 
 static struct slatedaemon_priv *dev;
-static unsigned int slatereset_gpio;
 static  DEFINE_MUTEX(slate_char_mutex);
 static  struct cdev              slate_cdev;
 static  struct class             *slate_class;
@@ -440,6 +445,7 @@ static int slatecom_fw_load(struct slatedaemon_priv *priv)
 	if (ret) {
 		pr_err("%s: rproc boot failed, err: %d\n",
 			__func__, ret);
+		priv->pil_h = NULL;
 		goto fail;
 	}
 
@@ -466,26 +472,122 @@ static void slatecom_fw_unload(struct slatedaemon_priv *priv)
 
 }
 
+/**
+ * load_slate_tzapp() - Called to load TZ app.
+ * @pbd: struct containing private SLATE data.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+
+static int load_slate_tzapp(struct slatedaemon_priv *pbd)
+{
+	int rc;
+
+	/* return success if already loaded */
+	if (pbd->qseecom_handle && !pbd->app_status)
+		return 0;
+	/* Load the APP */
+	rc = qseecom_start_app(&pbd->qseecom_handle, SECURE_APP, SZ_4K);
+	if (rc < 0) {
+		dev_err(pbd->platform_dev, "SLATE TZ app load failure\n");
+		pbd->app_status = RESULT_FAILURE;
+		return -EIO;
+	}
+	pbd->app_status = RESULT_SUCCESS;
+	return 0;
+}
+
+/**
+ * get_cmd_rsp_buffers() - Function sets cmd & rsp buffer pointers and
+ *                         aligns buffer lengths
+ * @hdl:	index of qseecom_handle
+ * @cmd:	req buffer - set to qseecom_handle.sbuf
+ * @cmd_len:	ptr to req buffer len
+ * @rsp:	rsp buffer - set to qseecom_handle.sbuf + offset
+ * @rsp_len:	ptr to rsp buffer len
+ *
+ * Return: Success always .
+ */
+static int get_cmd_rsp_buffers(struct qseecom_handle *handle, void **cmd,
+			uint32_t *cmd_len, void **rsp, uint32_t *rsp_len)
+{
+	*cmd = handle->sbuf;
+	if (*cmd_len & QSEECOM_ALIGN_MASK)
+		*cmd_len = QSEECOM_ALIGN(*cmd_len);
+	*rsp = handle->sbuf + *cmd_len;
+	if (*rsp_len & QSEECOM_ALIGN_MASK)
+		*rsp_len = QSEECOM_ALIGN(*rsp_len);
+	return 0;
+}
+
+/**
+ * slate_tzapp_comm() - Function called to communicate with TZ APP.
+ * @pbd: struct containing private SLATE data.
+ * @req: struct containing command and parameters.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+
+static long slate_tzapp_comm(struct slatedaemon_priv *pbd,
+				struct tzapp_slate_req *req)
+{
+	struct tzapp_slate_req *slate_tz_req;
+	struct tzapp_slate_rsp *slate_tz_rsp;
+	int rc, req_len, rsp_len;
+
+	/* Fill command structure */
+	req_len = sizeof(struct tzapp_slate_req);
+	rsp_len = sizeof(struct tzapp_slate_rsp);
+
+	mutex_lock(&pbd->cmdsync_lock);
+	rc = get_cmd_rsp_buffers(pbd->qseecom_handle,
+		(void **)&slate_tz_req, &req_len,
+		(void **)&slate_tz_rsp, &rsp_len);
+	if (rc)
+		goto end;
+
+	slate_tz_req->tzapp_slate_cmd = req->tzapp_slate_cmd;
+	slate_tz_req->address_fw = req->address_fw;
+	slate_tz_req->size_fw = req->size_fw;
+	rc = qseecom_send_command(pbd->qseecom_handle,
+		(void *)slate_tz_req, req_len, (void *)slate_tz_rsp, rsp_len);
+
+	mutex_unlock(&pbd->cmdsync_lock);
+	pr_debug("SLATE PIL qseecom returned with value 0x%x and status 0x%x\n",
+		rc, slate_tz_rsp->status);
+	if (rc || slate_tz_rsp->status)
+		pbd->cmd_status = slate_tz_rsp->status;
+	else
+		pbd->cmd_status = 0;
+	return rc;
+end:
+	mutex_unlock(&pbd->cmdsync_lock);
+	return rc;
+}
+
+
 int slate_soft_reset(void)
 {
-	pr_debug("do SLATE reset using gpio %d\n", slatereset_gpio);
-	if (!gpio_is_valid(slatereset_gpio)) {
-		pr_err("gpio %d is not valid\n", slatereset_gpio);
-		return -ENXIO;
+	struct tzapp_slate_req slate_tz_req;
+	struct slatedaemon_priv *tzapp = container_of(slatecom_intf_drv,
+					struct slatedaemon_priv,
+					lhndl);
+	int ret;
+
+	ret = load_slate_tzapp(tzapp);
+	if (ret) {
+		dev_err(&slate_pdev->dev, "%s: SLATE TZ app load failure\n", __func__);
+			return ret;
 	}
-	if (gpio_direction_output(slatereset_gpio, 1))
-		pr_err("gpio %d direction not set\n", slatereset_gpio);
-
-	/* Sleep for 50ms for hardware to detect signal as high */
-	msleep(50);
-
-	gpio_set_value(slatereset_gpio, 0);
-
-	/* Sleep for 50ms for hardware to detect signal as high */
-	msleep(50);
-	gpio_set_value(slatereset_gpio, 1);
-
-	return 0;
+	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_RESET;
+	slate_tz_req.address_fw = 0;
+	slate_tz_req.size_fw = 0;
+	ret = slate_tzapp_comm(tzapp, &slate_tz_req);
+	if (ret || tzapp->cmd_status)
+		dev_err(&slate_pdev->dev,
+			"%s: Failed to send reset signal to tzapp\n",
+			__func__);
+	return ret;
 }
 EXPORT_SYMBOL(slate_soft_reset);
 
@@ -649,7 +751,7 @@ static long slate_com_ioctl(struct file *filp,
 		ret = slatecom_set_spi_state(SLATECOM_SPI_BUSY);
 		break;
 	case SLATECOM_SOFT_RESET:
-		ret = slate_soft_reset();
+		slate_soft_reset();
 		break;
 	case SLATECOM_MODEM_DOWN2_SLATE:
 		ret = modem_down2_slate();

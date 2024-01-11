@@ -1413,11 +1413,12 @@ static struct irq_handler_info handlers[] = {
 #define DEBUG_BATT_ID_HIGH	9000
 static bool is_debug_batt_id(struct smb23x_chip *chip)
 {
+	pr_info("DEBUG_BATT: DEBUG BATT ID value is %d\n", chip->batt_id_ohm);
+
 	if (is_between(DEBUG_BATT_ID_LOW, DEBUG_BATT_ID_HIGH,
 						chip->batt_id_ohm))
 		return true;
 
-	pr_info("DEBUG_BATT: DEBUG BATT ID value is %d\n", chip->batt_id_ohm);
 
 	return false;
 
@@ -2355,8 +2356,6 @@ static int smb23x_probe(struct i2c_client *client,
 
 	smb23x_init_usb_psy(chip);
 
-	if (is_debug_batt_id(chip))
-		chip->debug_batt = true;
 
 	rc = smb23x_determine_initial_status(chip);
 	if (rc < 0) {
@@ -2364,6 +2363,8 @@ static int smb23x_probe(struct i2c_client *client,
 		goto destroy_mutex;
 	}
 
+	if (is_debug_batt_id(chip))
+		chip->debug_batt = true;
 	/*
 	 * Disable charging if device tree (USER) requested:
 	 * set USB_SUSPEND to cutoff USB power completely

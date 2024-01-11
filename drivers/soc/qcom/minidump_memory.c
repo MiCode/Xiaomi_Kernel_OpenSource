@@ -26,7 +26,7 @@
 #include "../../../mm/slab.h"
 #include "../mm/internal.h"
 
-#define DMA_BUF_HASH_SIZE (1 << 20)
+#define DMA_BUF_HASH_SIZE (1 << 13)
 #define DMA_BUF_HASH_SEED 0x9747b28c
 static bool dma_buf_hash[DMA_BUF_HASH_SIZE];
 

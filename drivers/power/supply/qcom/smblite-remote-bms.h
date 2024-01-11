@@ -100,6 +100,7 @@ struct smblite_remote_bms {
 	int				charge_type;
 	int				charger_present;
 	bool				is_seb_up;
+	bool				received_first_data;
 	int (*iio_read)(struct device *dev, int iio_chan, int *val);
 	int (*iio_write)(struct device *dev, int iio_chan, int val);
 };

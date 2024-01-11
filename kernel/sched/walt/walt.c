@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/syscore_ops.h>
@@ -84,6 +84,7 @@ u64 walt_sched_clock(void)
 		return sched_clock_last;
 	return sched_clock();
 }
+EXPORT_SYMBOL(walt_sched_clock);
 
 static void walt_resume(void)
 {
@@ -505,7 +506,6 @@ static bool is_ed_task_present(struct rq *rq, u64 wallclock, struct task_struct 
 
 	return false;
 }
-
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
 /*
@@ -1015,6 +1015,7 @@ static inline bool is_new_task(struct task_struct *p)
 
 	return wts->active_time < NEW_TASK_ACTIVE_TIME;
 }
+
 static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *rq);
 
 static void migrate_busy_time_subtraction(struct task_struct *p, int new_cpu)
@@ -1516,6 +1517,7 @@ static void rollover_task_window(struct task_struct *p, bool full_window)
 	if (is_new_task(p))
 		wts->active_time += wrq->prev_window_size;
 }
+
 
 static inline int cpu_is_waiting_on_io(struct rq *rq)
 {
@@ -2267,7 +2269,6 @@ static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *r
 {
 	u64 result;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
-
 	if (old_window_start == wrq->window_start)
 		return;
 
@@ -2280,6 +2281,7 @@ static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *r
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
+
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
@@ -2308,7 +2310,6 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	update_task_pred_demand(rq, p, event);
 	if (event == PUT_PREV_TASK && READ_ONCE(p->__state))
 		wts->iowaited = p->in_iowait;
-
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				&wrq->grp_time, wrq, wts, atomic64_read(&walt_irq_work_lastq_ws));
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
@@ -2386,6 +2387,8 @@ static void init_new_task_load(struct task_struct *p)
 	wts->unfilter = sysctl_sched_task_unfilter_period;
 
 	INIT_LIST_HEAD(&wts->mvp_list);
+	INIT_LIST_HEAD(&wts->runnable_list);
+	wts->runnable_start = 0;
 	wts->sum_exec_snapshot_for_slice = 0;
 	wts->sum_exec_snapshot_for_total = 0;
 	wts->total_exec = 0;
@@ -3661,7 +3664,6 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 							&asym_cap_sibling_cpus)) {
 				wflag |= WALT_CPUFREQ_IC_MIGRATION;
 			}
-
 			if (i == num_cpus)
 				waltgov_run_callback(cpu_rq(cpu), wflag);
 			else
@@ -3979,6 +3981,7 @@ static void walt_sched_init_rq(struct rq *rq)
 
 	wrq->num_mvp_tasks = 0;
 	INIT_LIST_HEAD(&wrq->mvp_tasks);
+	INIT_LIST_HEAD(&wrq->runnable_tasks);
 }
 
 void sched_window_nr_ticks_change(void)
@@ -4228,13 +4231,14 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 		if (!double_enqueue)
 			inc_rq_walt_stats(rq, p);
 		walt_cfs_enqueue_task(rq, p);
+		mi_cfs_enqueue_runnable_task(rq, p);
 	}
 
 	if (!double_enqueue)
 		walt_inc_cumulative_runnable_avg(rq, p);
-
 	if ((flags & ENQUEUE_WAKEUP) && do_pl_notif(rq))
 		waltgov_run_callback(rq, WALT_CPUFREQ_PL);
+
 
 	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
 }
@@ -4281,6 +4285,7 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq, struct task_st
 		if (!double_dequeue)
 			dec_rq_walt_stats(rq, p);
 		walt_cfs_dequeue_task(rq, p);
+		mi_cfs_dequeue_runnable_task(p);
 	}
 
 	if (!double_dequeue)
@@ -4416,6 +4421,8 @@ static void android_rvh_schedule(void *unused, struct task_struct *prev,
 			wts->last_sleep_ts = wallclock;
 		walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+		if (walt_fair_task(prev))
+			mi_cfs_reenqueue_runnable_task(rq, prev);
 	} else {
 		walt_update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 	}

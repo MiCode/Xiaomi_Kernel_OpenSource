@@ -85,6 +85,7 @@
 
 #define QCOM_SLIM_NGD_AUTOSUSPEND	(MSEC_PER_SEC / 10)
 #define SLIM_RX_MSGQ_TIMEOUT_VAL	0x10000
+#define SLIM_QMI_TIMEOUT_MS		1000
 
 #define SLIM_LA_MGR	0xFF
 #define SLIM_ROOT_FREQ	24576000
@@ -1664,7 +1665,7 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 			SLIM_WARN(ctrl, "HW wakeup attempt during SSR\n");
 
 		SLIM_WARN(ctrl, "%s Power up request failed, try resume again\n",
-			  __func__);
+			__func__);
 		qcom_slim_ngd_disable_irq(ctrl);
 		ret = -EAGAIN;
 	} else {
@@ -1801,7 +1802,11 @@ static void qcom_slim_ngd_up_worker(struct work_struct *work)
 	ctrl = container_of(work, struct qcom_slim_ngd_ctrl, ngd_up_work);
 
 	/* Make sure qmi service is up before continuing */
-	wait_for_completion_interruptible(&ctrl->qmi_up);
+	if (!wait_for_completion_interruptible_timeout(&ctrl->qmi_up,
+		msecs_to_jiffies(SLIM_QMI_TIMEOUT_MS))) {
+		SLIM_INFO(ctrl, "QMI wait timeout\n");
+		return;
+	}
 
 	mutex_lock(&ctrl->ssr_lock);
 	qcom_slim_ngd_enable(ctrl, true);
@@ -2133,30 +2138,31 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 	if (IS_ERR(ctrl->pdr)) {
 		ret = PTR_ERR(ctrl->pdr);
 		dev_err(dev, "Failed to init PDR handle: %d\n", ret);
-		goto err_out;
+		goto err_pdr_alloc;
 	}
 
 	pds = pdr_add_lookup(ctrl->pdr, "avs/audio", "msm/adsp/audio_pd");
 	if (IS_ERR(pds) && PTR_ERR(pds) != -EALREADY) {
 		ret = PTR_ERR(pds);
 		dev_err(dev, "pdr add lookup failed: %d\n", ret);
-		goto pdr_release;
+		goto err_pdr_lookup;
 	}
 
 	ret = of_qcom_slim_ngd_register(dev, ctrl);
 	if (ret) {
 		SLIM_ERR(ctrl, "qcom_slim_ngd_register failed ret:%d\n", ret);
-		goto pdr_release;
+		goto err_pdr_lookup;
 	}
 
 	platform_driver_register(&qcom_slim_ngd_driver);
 	SLIM_INFO(ctrl, "NGD SB controller is up!\n");
 	return 0;
 
-pdr_release:
-	pdr_handle_release(ctrl->pdr);
-err_out:
-	qcom_unregister_ssr_notifier(ctrl->notifier, &ctrl->nb);
+err_pdr_lookup:
+        pdr_handle_release(ctrl->pdr);
+
+err_pdr_alloc:
+        qcom_unregister_ssr_notifier(ctrl->notifier, &ctrl->nb);
 
 remove_ipc_sysfs:
 	if (ctrl->ipc_slimbus_log)

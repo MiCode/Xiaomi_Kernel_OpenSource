@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -1215,7 +1215,7 @@ static struct qcom_icc_bcm bcm_qp0 = {
 static struct qcom_icc_bcm bcm_qup0 = {
 	.name = "QUP0",
 	.voter_idx = 0,
-	.keepalive_early = true,
+	.keepalive = true,
 	.vote_scale = 1,
 	.num_nodes = 1,
 	.nodes = { &qup0_core_slave },
@@ -1546,12 +1546,6 @@ static int __init qnoc_driver_init(void)
 	return platform_driver_register(&qnoc_driver);
 }
 core_initcall(qnoc_driver_init);
-
-static void __exit qnoc_driver_exit(void)
-{
-	platform_driver_unregister(&qnoc_driver);
-}
-module_exit(qnoc_driver_exit);
 
 MODULE_DESCRIPTION("SDXPINN NoC driver");
 MODULE_LICENSE("GPL v2");

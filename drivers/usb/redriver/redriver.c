@@ -36,7 +36,7 @@ int usb_add_redriver(struct usb_redriver *redriver)
 		}
 	}
 
-	pr_debug("add redriver %s\n", of_node_full_name(redriver->of_node));
+	pr_err("add redriver %s\n", of_node_full_name(redriver->of_node));
 	list_add_tail(&redriver->list, &usb_redriver_list);
 	spin_unlock(&usb_rediver_lock);
 
@@ -80,6 +80,7 @@ EXPORT_SYMBOL(usb_remove_redriver);
  * if redriver is not registered, return -EPROBE_DEFER.
  * if redriver registered, return it.
  */
+static int retry_redriver_count = 0;
 struct usb_redriver *usb_get_redriver_by_phandle(const struct device_node *np,
 		const char *phandle_name, int index)
 {
@@ -104,7 +105,15 @@ struct usb_redriver *usb_get_redriver_by_phandle(const struct device_node *np,
 	if (!found) {
 		of_node_put(node);
 		spin_unlock(&usb_rediver_lock);
-		return ERR_PTR(-EPROBE_DEFER);
+		if (retry_redriver_count < 5) {
+			pr_err("get redriver err, retry %d.\n", retry_redriver_count);
+			retry_redriver_count++;
+			return ERR_PTR(-EPROBE_DEFER);
+		} else {
+			retry_redriver_count = 0;
+			pr_err("get redriver err, end.\n");
+			return NULL;
+		}
 	}
 
 	pr_debug("get redriver %s\n", of_node_full_name(redriver->of_node));

@@ -11,6 +11,7 @@
 
 enum battery_charger_prop {
 	BATTERY_RESISTANCE,
+	HAS_DP_PS5169,
 	BATTERY_CHARGER_PROP_MAX,
 };
 
