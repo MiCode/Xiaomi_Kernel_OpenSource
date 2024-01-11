@@ -318,9 +318,9 @@ static void ps5170_switch_set_work(struct work_struct *data)
 			mdelay(20);
 		}
 		ps5170_init(ps);
-		/* FLIP Side */
+		/* NORMAL Side */
 		i2c_smbus_write_byte_data(ps->i2c, 0x40,
-			ps5170_ORIENTATION_FLIP);
+			ps5170_ORIENTATION_NORMAL);
 		break;
 	case TYPEC_ORIENTATION_REVERSE:
 		/* vote vs to enable */
@@ -331,9 +331,9 @@ static void ps5170_switch_set_work(struct work_struct *data)
 			mdelay(20);
 		}
 		ps5170_init(ps);
-		/* NORMAL Side */
+		/* FLIP Side */
 		i2c_smbus_write_byte_data(ps->i2c, 0x40,
-			ps5170_ORIENTATION_NORMAL);
+			ps5170_ORIENTATION_FLIP);
 		break;
 	default:
 		break;

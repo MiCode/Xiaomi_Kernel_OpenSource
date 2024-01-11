@@ -10,6 +10,7 @@ source "drivers/cxl/Kconfig"
 source "drivers/pcmcia/Kconfig"
 source "drivers/rapidio/Kconfig"
 
+source "drivers/nfc/Kconfig"
 
 source "drivers/base/Kconfig"
 

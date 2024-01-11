@@ -24,7 +24,6 @@
 
 #define MT6370_REG_BMC_CTRL				(0x90)
 #define MT6370_REG_BMCIO_RXDZSEL			(0x93)
-#define MT6370_REG_VCONN_CLIMITEN			(0x95)
 
 #define MT6370_REG_MT_STATUS				(0x97)
 #define MT6370_REG_MT_INT					(0x98)
@@ -104,14 +103,12 @@
  * MT6370_REG_MT_STATUS				(0x97)
  */
 
-#define MT6370_REG_RA_DETACH				(1<<5)
 #define MT6370_REG_VBUS_80				(1<<1)
 
 /*
  * MT6370_REG_MT_INT				(0x98)
  */
 
-#define MT6370_REG_INT_RA_DETACH			(1<<5)
 #define MT6370_REG_INT_WATCHDOG			(1<<2)
 #define MT6370_REG_INT_VBUS_80				(1<<1)
 #define MT6370_REG_INT_WAKEUP				(1<<0)
@@ -120,7 +117,6 @@
  * MT6370_REG_MT_MASK				(0x99)
  */
 
-#define MT6370_REG_M_RA_DETACH				(1<<5)
 #define MT6370_REG_M_WATCHDOG				(1<<2)
 #define MT6370_REG_M_VBUS_80				(1<<1)
 #define MT6370_REG_M_WAKEUP				(1<<0)

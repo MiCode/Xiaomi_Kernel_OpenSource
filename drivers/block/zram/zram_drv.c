@@ -2136,3 +2136,4 @@ MODULE_PARM_DESC(num_devices, "Number of pre-created zram devices");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Nitin Gupta <ngupta@vflare.org>");
 MODULE_DESCRIPTION("Compressed RAM Block Device");
+

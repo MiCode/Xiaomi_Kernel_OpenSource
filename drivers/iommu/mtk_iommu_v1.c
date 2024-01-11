@@ -616,7 +616,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 	ret = mtk_iommu_hw_init(data);
 	if (ret)
-		return ret;
+		goto out_clk_unprepare;
 
 	ret = iommu_device_sysfs_add(&data->iommu, &pdev->dev, NULL,
 				     dev_name(&pdev->dev));
@@ -644,6 +644,8 @@ out_dev_unreg:
 	iommu_device_unregister(&data->iommu);
 out_sysfs_remove:
 	iommu_device_sysfs_remove(&data->iommu);
+out_clk_unprepare:
+	clk_disable_unprepare(data->bclk);
 	return ret;
 }
 

@@ -204,6 +204,8 @@ struct charger_ops {
 	int (*get_property)(struct charger_device *dev,
 			    enum charger_property prop,
 			    union charger_propval *val);
+	int (*set_recharge)(struct charger_device *dev, bool en);
+	int (*set_hvdcp_adapter_voltage_9v)(struct charger_device *dev, bool en);
 };
 
 static inline void *charger_dev_get_drvdata(

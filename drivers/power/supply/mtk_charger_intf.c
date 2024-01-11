@@ -210,8 +210,7 @@ int get_vbus(struct mtk_charger *info)
 		ret = get_pmic_vbus(info, &vchr);
 		if (ret < 0)
 			chr_err("%s: get vbus failed: %d\n", __func__, ret);
-	} else
-		vchr /= 1000;
+	}
 
 	return vchr;
 }
@@ -227,7 +226,7 @@ int get_ibat(struct mtk_charger *info)
 	if (ret < 0)
 		chr_err("%s: get ibat failed: %d\n", __func__, ret);
 
-	return ibat / 1000;
+	return ibat;
 }
 
 int get_ibus(struct mtk_charger *info)
@@ -241,7 +240,7 @@ int get_ibus(struct mtk_charger *info)
 	if (ret < 0)
 		chr_err("%s: get ibus failed: %d\n", __func__, ret);
 
-	return ibus / 1000;
+	return ibus;
 }
 
 bool is_battery_exist(struct mtk_charger *info)
@@ -314,7 +313,7 @@ int get_charger_type(struct mtk_charger *info)
 
 	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
 		chr_err("%s retry to get bc12_psy\n", __func__);
-		bc12_psy = power_supply_get_by_name("primary_chg");
+		bc12_psy = power_supply_get_by_name("primary_chg"); 
 		info->bc12_psy = bc12_psy;
 	}
 

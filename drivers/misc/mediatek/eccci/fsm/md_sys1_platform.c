@@ -54,6 +54,8 @@ static struct ccci_md_regulator md_reg_table[] = {
 	{ NULL, "md-vdigrf", 700000, 700000},
 };
 
+static unsigned int ap_plat_info;
+
 static struct ccci_plat_val md_cd_plat_val_ptr;
 
 static struct ccci_clk_node clk_table[] = {
@@ -598,6 +600,23 @@ static int md1_disable_sequencer_setting(struct ccci_modem *md)
 
 	return 0;
 }
+static void ccci_md_emi_req_mask(unsigned int mask)
+{
+	struct arm_smccc_res res;
+
+	memset(&res, 0, sizeof(res));
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+		MD_SPM_EMI_REQ_MASK, mask, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		if (mask)
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccci md emi req mask fail (0x%lx)\n", res.a0);
+		else
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccci md emi req unmask fail (0x%lx)\n", res.a0);
+	}
+
+}
 
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
@@ -696,6 +715,11 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	CCCI_BOOTUP_LOG(0, TAG,
 		"Call end kicker_pbm_by_md(0,false)\n");
 #endif
+	/* only used for 6835 */
+	if (ap_plat_info == 6835) {
+		CCCI_NORMAL_LOG(0, TAG, "[POWER OFF] ccci_md_emi_req_mask start\n");
+		ccci_md_emi_req_mask(0);
+	}
 
 	return ret;
 }
@@ -1064,7 +1088,11 @@ static int md_cd_power_on(struct ccci_modem *md)
 		if (ret)
 			return ret;
 	}
-
+	/* only used for 6835 */
+	if (ap_plat_info == 6835) {
+		CCCI_NORMAL_LOG(0, TAG, "[POWER ON] ccci_md_emi_req_mask start\n");
+		ccci_md_emi_req_mask(1);
+	}
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	flight_mode_set_by_atf(md, false);
 	CCCI_BOOTUP_LOG(0, TAG,
@@ -1161,6 +1189,12 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		CCCI_ERROR_LOG(0, TAG, "modem is not enabled, exit\n");
 		return -1;
 	}
+	ret = of_property_read_u32(dev_ptr->dev.of_node,
+		"mediatek,ap-plat-info", &ap_plat_info);
+	if (ret < 0)
+		CCCI_ERROR_LOG(0, TAG, "%s: get DTS: ap-plat-info fail\n", __func__);
+	else
+		CCCI_NORMAL_LOG(0, TAG, "ap_plat_info: %u\n", ap_plat_info);
 
 	memset(dev_cfg, 0, sizeof(struct ccci_dev_cfg));
 

@@ -5021,7 +5021,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned int curr_obv = 0U;
 	unsigned long long curr_cb_ts;
-	int new_ts;
+	unsigned long long new_ts;
 	int i, idx;
 	int opp;
 
@@ -5032,7 +5032,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 		return;
 
 	curr_cb_ts = fpsgo_get_time();
-	new_ts = nsec_to_100usec(curr_cb_ts);
+	new_ts = nsec_to_100usec_ull(curr_cb_ts);
 
 	for (opp = (nr_freq_cpu - 1); opp > 0; opp--) {
 		if (cpu_dvfs[cid].power[opp] >= freq)
@@ -5059,7 +5059,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 		lastest_obv[idx] = last_obv;
 		lastest_idx = idx;
 
-		xgf_trace("[%s] idx=%d, prev_cb_ts=%d, lastest_ts=%d, last_obv=%u",
+		xgf_trace("[%s] idx=%d, prev_cb_ts=%llu, lastest_ts=%llu, last_obv=%u",
 			__func__, idx, prev_cb_ts[idx], lastest_ts[idx], lastest_obv[idx]);
 
 		if (lastest_obv_cl[idx] == NULL || lastest_is_cl_isolated[idx] == NULL)

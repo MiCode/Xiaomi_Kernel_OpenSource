@@ -1366,6 +1366,12 @@ config TOUCHSCREEN_ZINITIX
 	  To compile this driver as a module, choose M here: the
 	  module will be called zinitix.
 
+source "drivers/input/touchscreen/ft8057p_spi/Kconfig"
+source "drivers/input/touchscreen/nt36528_spi/Kconfig"
+source "drivers/input/touchscreen/lct_tp/Kconfig"
+source "drivers/input/touchscreen/xiaomi_tp/Kconfig"
+
+
 config TOUCHSCREEN_MTK_TOUCH
        string "Touch IC name for Mediatek package"
        help

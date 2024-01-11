@@ -114,6 +114,7 @@ enum {
 	IPI_IN_SCP_NPU		  = 44,
 	IPI_OUT_SCP_PM_NOTIFY_0	  = 45,
 	IPI_OUT_SCP_PM_NOTIFY_1   = 46,
+	IPI_OUT_TP_PS	 		  = 50,
 	SCP_IPI_COUNT
 };
 

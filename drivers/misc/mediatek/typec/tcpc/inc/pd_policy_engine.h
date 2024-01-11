@@ -196,6 +196,7 @@ enum pd_pe_state {
 #if CONFIG_USB_PD_REV30_PPS_SOURCE
 	PE_SRC_GIVE_PPS_STATUS,
 #endif	/* CONFIG_USB_PD_REV30_PPS_SOURCE */
+	PE_SRC_GET_SINK_CAP_EXT,
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 
@@ -240,6 +241,7 @@ enum pd_pe_state {
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	PE_SNK_GET_PPS_STATUS,
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+	PE_SNK_GIVE_SINK_CAP_EXT,
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SINK */
 
@@ -293,6 +295,8 @@ enum pd_pe_state {
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	PE_DR_SRC_GET_SOURCE_CAP_EXT,
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+	PE_DR_SRC_GIVE_SINK_CAP_EXT,
+	PE_DR_SNK_GET_SINK_CAP_EXT,
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
@@ -401,6 +405,8 @@ enum pd_pe_state {
 	PE_GIVE_COUNTRY_INFO,
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL */
 	PE_VDM_NOT_SUPPORTED,
+	PE_GET_REVISION,
+	PE_GIVE_REVISION,
 #endif /* CONFIG_USB_PD_REV30 */
 
 /******************* Others *******************/
@@ -547,6 +553,10 @@ void pe_src_get_sink_status_exit(
 void pe_src_give_pps_status_entry(
 	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SOURCE */
+void pe_src_get_sink_cap_ext_entry(
+	struct pd_port *pd_port);
+void pe_src_get_sink_cap_ext_exit(
+	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 
@@ -623,6 +633,8 @@ void pe_snk_get_pps_status_entry(
 void pe_snk_get_pps_status_exit(
 	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+void pe_snk_give_sink_cap_ext_entry(
+	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SINK */
 
@@ -718,6 +730,12 @@ void pe_dr_src_get_source_cap_ext_entry(
 void pe_dr_src_get_source_cap_ext_exit(
 	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+void pe_dr_src_give_sink_cap_ext_entry(
+	struct pd_port *pd_port);
+void pe_dr_snk_get_sink_cap_ext_entry(
+	struct pd_port *pd_port);
+void pe_dr_snk_get_sink_cap_ext_exit(
+	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
@@ -911,6 +929,12 @@ void pe_give_country_info_entry(
 	struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL */
 void pe_vdm_not_supported_entry(
+	struct pd_port *pd_port);
+void pe_get_revision_entry(
+	struct pd_port *pd_port);
+void pe_get_revision_exit(
+	struct pd_port *pd_port);
+void pe_give_revision_entry(
 	struct pd_port *pd_port);
 #endif /* CONFIG_USB_PD_REV30 */
 /******************* Others *******************/

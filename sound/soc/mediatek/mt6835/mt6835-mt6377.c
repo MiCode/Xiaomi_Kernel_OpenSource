@@ -20,6 +20,15 @@
 #include "../../codecs/mt6377-accdet.h"
 #endif
 #include "../common/mtk-sp-spk-amp.h"
+
+#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+#include "../../codecs/fs15xx/fs15xx.h" // Need to check
+// extern int fs15xx_ext_amp_set(int enable);
+#endif
+#if IS_ENABLED(CONFIG_LCT_AUDIO_INFO)
+extern int lct_audio_info_create_sysfs(void);
+#endif
+
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -93,9 +102,15 @@ static int mt6835_mt6377_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+		ext_amp_poweron(1);
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+		ext_amp_poweron(0);
+#endif
 		break;
 	default:
 		break;
@@ -1308,7 +1323,9 @@ static int mt6835_mt6377_dev_probe(struct platform_device *pdev)
 #endif
 
 	dev_info(&pdev->dev, "%s()\n", __func__);
-
+#if IS_ENABLED(CONFIG_LCT_AUDIO_INFO)  
+	lct_audio_info_create_sysfs();
+#endif
 	/* update speaker type */
 	ret = mtk_spk_update_info(card, pdev);
 	if (ret) {

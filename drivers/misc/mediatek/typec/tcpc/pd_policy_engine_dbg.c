@@ -13,6 +13,7 @@
 void pe_dbg_ready_entry(struct pd_port *pd_port)
 {
 	uint8_t state;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	if (pd_port->pe_data.pe_ready)
 		return;

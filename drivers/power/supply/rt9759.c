@@ -80,6 +80,7 @@
 #define RT9759_CHGEN_MASK	BIT(7)
 #define RT9759_CHGEN_SHFT	7
 #define RT9759_ADCEN_MASK	BIT(7)
+#define RT9759_ADCEN_SHFT	7
 #define RT9759_WDTEN_MASK	BIT(2)
 #define RT9759_WDTMR_MASK	0x03
 #define RT9759_REGRST_MASK	BIT(7)
@@ -319,7 +320,6 @@ struct rt9759_chip {
 	u32 stat;
 	u32 hm_cnt;
 	enum rt9759_type type;
-	bool wdt_en;
 	bool force_adc_en;
 	bool stop_thread;
 	wait_queue_head_t wq;
@@ -753,19 +753,50 @@ static u8 rt9759_vacovp_toreg(u32 uV)
 static int __rt9759_update_status(struct rt9759_chip *chip);
 static int __rt9759_init_chip(struct rt9759_chip *chip);
 
-/* Must be called while holding a lock */
 static int rt9759_enable_wdt(struct rt9759_chip *chip, bool en)
 {
 	int ret;
 
-	if (chip->wdt_en == en)
-		return 0;
 	ret = (en ? rt9759_clr_bits : rt9759_set_bits)
 		(chip, RT9759_REG_CHGCTRL0, RT9759_WDTEN_MASK);
+	return ret < 0 ? ret : 0;
+}
+
+static int rt9759_adc_en(struct rt9759_chip *chip)
+{
+	int ret = 0;
+	bool adc_en = false;
+
+	if (!chip->desc->wdt_dis) {
+		ret = rt9759_enable_wdt(chip, true);
+		if (ret < 0)
+			goto out;
+	}
+	ret = rt9759_i2c_test_bit(chip, RT9759_REG_ADCCTRL,
+				  RT9759_ADCEN_SHFT, &adc_en);
 	if (ret < 0)
-		return ret;
-	chip->wdt_en = en;
-	return 0;
+		goto out;
+	if (!adc_en)
+		ret = rt9759_set_bits(chip, RT9759_REG_ADCCTRL,
+				      RT9759_ADCEN_MASK);
+	if (ret < 0)
+		goto out;
+	if (!adc_en)
+		usleep_range(12000, 15000);
+out:
+	return ret;
+}
+
+static int rt9759_adc_dis(struct rt9759_chip *chip)
+{
+	int ret = 0;
+
+	ret = rt9759_clr_bits(chip, RT9759_REG_ADCCTRL, RT9759_ADCEN_MASK);
+	if (ret < 0)
+		goto out;
+	ret = rt9759_enable_wdt(chip, false);
+out:
+	return ret;
 }
 
 static int __rt9759_get_adc(struct rt9759_chip *chip,
@@ -774,13 +805,12 @@ static int __rt9759_get_adc(struct rt9759_chip *chip,
 	int ret;
 	u8 data[2];
 
-	ret = rt9759_set_bits(chip, RT9759_REG_ADCCTRL, RT9759_ADCEN_MASK);
+	ret = rt9759_adc_en(chip);
 	if (ret < 0)
 		goto out;
-	usleep_range(12000, 15000);
 	ret = rt9759_i2c_read_block(chip, rt9759_adc_reg[chan], 2, data);
 	if (ret < 0)
-		goto out_dis;
+		goto out;
 	switch (chan) {
 	case RT9759_ADC_IBUS:
 	case RT9759_ADC_VBUS:
@@ -807,11 +837,9 @@ static int __rt9759_get_adc(struct rt9759_chip *chip,
 	else
 		dev_info(chip->dev, "%s %s %d\n", __func__,
 			 rt9759_adc_name[chan], *val);
-out_dis:
-	if (!chip->force_adc_en)
-		ret = rt9759_clr_bits(chip, RT9759_REG_ADCCTRL,
-				      RT9759_ADCEN_MASK);
 out:
+	if (!chip->force_adc_en)
+		rt9759_adc_dis(chip);
 	return ret;
 }
 
@@ -822,7 +850,6 @@ static int rt9759_enable_chg(struct charger_device *chg_dev, bool en)
 	u32 err_check = BIT(RT9759_IRQIDX_VBUSOVP) |
 			BIT(RT9759_IRQIDX_VACOVP) |
 			BIT(RT9759_IRQIDX_VDROVP) |
-			BIT(RT9759_IRQIDX_VBUSOVP) |
 			BIT(RT9759_IRQIDX_TDIEOTP) |
 			BIT(RT9759_IRQIDX_VBUSLERR) |
 			BIT(RT9759_IRQIDX_VBUSHERR) |
@@ -833,26 +860,22 @@ static int rt9759_enable_chg(struct charger_device *chg_dev, bool en)
 			 BIT(RT9759_IRQIDX_VOUTINSERT);
 
 	dev_info(chip->dev, "%s %d\n", __func__, en);
-	mutex_lock(&chip->adc_lock);
-	chip->force_adc_en = en;
 	if (!en) {
 		ret = rt9759_clr_bits(chip, RT9759_REG_CHGCTRL1,
 				      RT9759_CHGEN_MASK);
 		if (ret < 0)
-			goto out_unlock;
-		ret = rt9759_clr_bits(chip, RT9759_REG_ADCCTRL,
-				      RT9759_ADCEN_MASK);
-		if (ret < 0)
-			goto out_unlock;
-		ret = rt9759_enable_wdt(chip, false);
-		goto out_unlock;
+			goto out;
+		goto out_dis;
 	}
+
+	mutex_lock(&chip->adc_lock);
 	/* Enable ADC to check status before enable charging */
-	ret = rt9759_set_bits(chip, RT9759_REG_ADCCTRL, RT9759_ADCEN_MASK);
-	if (ret < 0)
-		goto out_unlock;
+	ret = rt9759_adc_en(chip);
+	if (ret >= 0)
+		chip->force_adc_en = true;
 	mutex_unlock(&chip->adc_lock);
-	usleep_range(12000, 15000);
+	if (ret < 0)
+		goto out;
 
 	mutex_lock(&chip->stat_lock);
 	__rt9759_update_status(chip);
@@ -861,18 +884,17 @@ static int rt9759_enable_chg(struct charger_device *chg_dev, bool en)
 		dev_info(chip->dev, "%s error(0x%08X,0x%08X,0x%08X)\n", __func__,
 			chip->stat, err_check, stat_check);
 		ret = -EINVAL;
-		mutex_unlock(&chip->stat_lock);
-		goto out;
 	}
 	mutex_unlock(&chip->stat_lock);
-	if (!chip->desc->wdt_dis) {
-		ret = rt9759_enable_wdt(chip, true);
-		if (ret < 0)
-			goto out;
-	}
+	if (ret < 0)
+		goto out_dis;
 	ret = rt9759_set_bits(chip, RT9759_REG_CHGCTRL1, RT9759_CHGEN_MASK);
-	goto out;
-out_unlock:
+	if (ret >= 0)
+		goto out;
+out_dis:
+	mutex_lock(&chip->adc_lock);
+	chip->force_adc_en = false;
+	rt9759_adc_dis(chip);
 	mutex_unlock(&chip->adc_lock);
 out:
 	return ret;
@@ -1021,20 +1043,18 @@ static int rt9759_is_vbuslowerr(struct charger_device *chg_dev, bool *err)
 	struct rt9759_chip *chip = charger_get_data(chg_dev);
 
 	mutex_lock(&chip->adc_lock);
-	ret = rt9759_set_bits(chip, RT9759_REG_ADCCTRL, RT9759_ADCEN_MASK);
+	ret = rt9759_adc_en(chip);
 	if (ret < 0)
 		goto out;
-	usleep_range(12000, 15000);
 	ret = rt9759_i2c_test_bit(chip, RT9759_REG_OTHER1,
 				  RT9759_VBUSLOWERR_FLAG_SHFT, err);
 	if (ret < 0 || *err)
-		goto out_dis;
+		goto out;
 	ret = rt9759_i2c_test_bit(chip, RT9759_REG_CONVSTAT,
 				  RT9759_VBUSLOWERR_STAT_SHFT, err);
-out_dis:
-	if (!chip->force_adc_en)
-		rt9759_clr_bits(chip, RT9759_REG_ADCCTRL, RT9759_ADCEN_MASK);
 out:
+	if (!chip->force_adc_en)
+		rt9759_adc_dis(chip);
 	mutex_unlock(&chip->adc_lock);
 	return ret;
 }
@@ -1413,8 +1433,11 @@ static int __rt9759_update_status(struct rt9759_chip *chip)
 	u8 sf[RT9759_SF_MAX] = {0};
 	const struct irq_map_desc *desc;
 
-	for (i = 0; i < RT9759_SF_MAX; i++)
+	for (i = 0; i < RT9759_SF_MAX; i++) {
 		rt9759_i2c_read8(chip, rt9759_reg_sf[i], &sf[i]);
+		dev_info(chip->dev, "%s reg0x%02X = 0x%02X\n", __func__,
+				    rt9759_reg_sf[i], sf[i]);
+	}
 
 	for (i = 0; i < ARRAY_SIZE(rt9759_irq_map_tbl); i++) {
 		desc = &rt9759_irq_map_tbl[i];
@@ -1746,8 +1769,7 @@ static int __rt9759_init_chip(struct rt9759_chip *chip)
 			      ARRAY_SIZE(rt9759_dtprops_bool));
 	if (ret < 0)
 		return ret;
-	chip->wdt_en = !chip->desc->wdt_dis;
-	return chip->wdt_en ? rt9759_enable_wdt(chip, false) : 0;
+	return rt9759_enable_wdt(chip, false);
 }
 
 static int rt9759_check_devinfo(struct i2c_client *client, u8 *chip_rev,

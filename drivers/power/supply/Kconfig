@@ -851,6 +851,14 @@ config CHARGER_MT6375
 	  The device is compliant with the USB Battery Charging Specification
 	  Revision 1.2.
 
+config CHARGER_SC8989X
+	tristate "SC8989X charger driver" 
+	help
+	  This is to enable MediaTek supports to SC8989X.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if SC8989X is used.
+
 config GAUGE_MT6375
 	tristate "MT6375 fuel gauge driver"
 	depends on MFD_MT6375

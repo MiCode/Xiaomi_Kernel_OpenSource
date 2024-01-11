@@ -31,6 +31,7 @@
 #include <linux/swapops.h>
 #include <linux/shmem_fs.h>
 #include <linux/mmu_notifier.h>
+#include <trace/hooks/mm.h>
 
 #include <asm/tlb.h>
 
@@ -39,6 +40,7 @@
 struct madvise_walk_private {
 	struct mmu_gather *tlb;
 	bool pageout;
+	bool can_pageout_file;
 };
 
 /*
@@ -318,16 +320,19 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 	struct madvise_walk_private *private = walk->private;
 	struct mmu_gather *tlb = private->tlb;
 	bool pageout = private->pageout;
+	bool pageout_anon_only = pageout && !private->can_pageout_file;
 	struct mm_struct *mm = tlb->mm;
 	struct vm_area_struct *vma = walk->vma;
 	pte_t *orig_pte, *pte, ptent;
 	spinlock_t *ptl;
 	struct page *page = NULL;
 	LIST_HEAD(page_list);
+	bool allow_shared = false;
 
 	if (fatal_signal_pending(current))
 		return -EINTR;
 
+	trace_android_vh_madvise_cold_or_pageout(vma, &allow_shared);
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	if (pmd_trans_huge(*pmd)) {
 		pmd_t orig_pmd;
@@ -352,6 +357,9 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 
 		/* Do not interfere with other mappings of this page */
 		if (page_mapcount(page) != 1)
+			goto huge_unlock;
+
+		if (pageout_anon_only && !PageAnon(page))
 			goto huge_unlock;
 
 		if (next - addr != HPAGE_PMD_SIZE) {
@@ -422,6 +430,8 @@ regular_page:
 		if (PageTransCompound(page)) {
 			if (page_mapcount(page) != 1)
 				break;
+			if (pageout_anon_only && !PageAnon(page))
+				break;
 			get_page(page);
 			if (!trylock_page(page)) {
 				put_page(page);
@@ -442,8 +452,14 @@ regular_page:
 			continue;
 		}
 
-		/* Do not interfere with other mappings of this page */
-		if (page_mapcount(page) != 1)
+		/*
+		 * Do not interfere with other mappings of this page and
+		 * non-LRU page.
+		 */
+		if (!allow_shared && (!PageLRU(page) || page_mapcount(page) != 1))
+			continue;
+
+		if (pageout_anon_only && !PageAnon(page))
 			continue;
 
 		VM_BUG_ON_PAGE(PageTransCompound(page), page);
@@ -523,11 +539,13 @@ static long madvise_cold(struct vm_area_struct *vma,
 
 static void madvise_pageout_page_range(struct mmu_gather *tlb,
 			     struct vm_area_struct *vma,
-			     unsigned long addr, unsigned long end)
+			     unsigned long addr, unsigned long end,
+			     bool can_pageout_file)
 {
 	struct madvise_walk_private walk_private = {
 		.pageout = true,
 		.tlb = tlb,
+		.can_pageout_file = can_pageout_file,
 	};
 
 	tlb_start_vma(tlb, vma);
@@ -535,10 +553,8 @@ static void madvise_pageout_page_range(struct mmu_gather *tlb,
 	tlb_end_vma(tlb, vma);
 }
 
-static inline bool can_do_pageout(struct vm_area_struct *vma)
+static inline bool can_do_file_pageout(struct vm_area_struct *vma)
 {
-	if (vma_is_anonymous(vma))
-		return true;
 	if (!vma->vm_file)
 		return false;
 	/*
@@ -558,17 +574,23 @@ static long madvise_pageout(struct vm_area_struct *vma,
 {
 	struct mm_struct *mm = vma->vm_mm;
 	struct mmu_gather tlb;
+	bool can_pageout_file;
 
 	*prev = vma;
 	if (!can_madv_lru_vma(vma))
 		return -EINVAL;
 
-	if (!can_do_pageout(vma))
-		return 0;
+	/*
+	 * If the VMA belongs to a private file mapping, there can be private
+	 * dirty pages which can be paged out if even this process is neither
+	 * owner nor write capable of the file. Cache the file access check
+	 * here and use it later during page walk.
+	 */
+	can_pageout_file = can_do_file_pageout(vma);
 
 	lru_add_drain();
 	tlb_gather_mmu(&tlb, mm);
-	madvise_pageout_page_range(&tlb, vma, start_addr, end_addr);
+	madvise_pageout_page_range(&tlb, vma, start_addr, end_addr, can_pageout_file);
 	tlb_finish_mmu(&tlb);
 
 	return 0;
@@ -1067,6 +1089,8 @@ static int madvise_inject_error(int behavior,
 			pr_info("Injecting memory failure for pfn %#lx at process virtual address %#lx\n",
 				 pfn, start);
 			ret = memory_failure(pfn, MF_COUNT_INCREASED);
+			if (ret == -EOPNOTSUPP)
+				ret = 0;
 		}
 
 		if (ret)

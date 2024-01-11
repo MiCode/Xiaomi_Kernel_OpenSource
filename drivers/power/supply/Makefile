@@ -109,6 +109,7 @@ obj-$(CONFIG_RN5T618_POWER)	+= rn5t618_power.o
 obj-$(CONFIG_CHARGER_MT6360)	+= mt6360_pmu_chg.o
 obj-$(CONFIG_CHARGER_MT6362)	+= mt6362-chg.o
 obj-$(CONFIG_CHARGER_MT6375)	+= mt6375-charger.o
+obj-$(CONFIG_CHARGER_SC8989X)	+= sc8989x_charger.o
 obj-$(CONFIG_CHARGER_RT9759)	+= rt9759.o
 obj-$(CONFIG_CHARGER_RT9490)	+= rt9490-charger.o
 obj-$(CONFIG_CHARGER_RT9758)	+= rt9758-charger.o

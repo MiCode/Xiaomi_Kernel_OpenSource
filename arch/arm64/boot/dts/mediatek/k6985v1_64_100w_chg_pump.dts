@@ -1,0 +1,516 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6985-pinfunc.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/iio/adc/richtek,rt9490-adc.h>
+#include <dt-bindings/mfd/richtek,rt9490.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&chosen {
+bootargs_ext = "console=tty0 root=/dev/ram vmalloc=400M \
+loglevel=8 \
+androidboot.hardware=mt6985 \
+8250.nr_uarts=4 \
+initcall_debug=1";
+};
+
+&mtk_leds {
+	compatible = "mediatek,i2c-leds";
+
+	backlight {
+		led_mode = <6>;
+		gate_enable = <1>;
+		pwm_config = <0 1 0 0 0>;
+	};
+};
+
+&connfem {
+	/* Support Wifi & BT ePA/eLNA FEM on customer load */
+	epa_elna {
+		parts = <&qm42639 &qm45639>;
+
+		common {
+			flags-0 {
+				rx-mode = [81];
+				fe-ant-cnt = [82];
+				fe-main-bt-share-lp2g = [81];
+				fe-conn-spdt = [8F];
+				fe-reserved = [82];
+			};
+		};
+
+		wifi {
+			flags-0 {
+				/* open-loop; */
+			};
+		};
+
+		bt {
+			flags-0 {
+				/* choose one of: epa_elna/epa/elna/bypass */
+				epa_elna;
+			};
+		};
+	};
+};
+
+&pio {
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO68__FUNC_GPIO68>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO68__FUNC_GPIO68>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_led_en1_gpio", "lcm_led_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_led_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_led_en0>;
+
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names = "mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "jdi,nt36672e,vdo,120hz";
+		reg = <0>;
+		pm-enable-gpios = <&pio 68 0>;
+		reset-gpios = <&pio 86 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "truly,td4330,cmd";
+		reg = <1>;
+		pm-enable-gpios = <&pio 68 0>;
+		reset-gpios = <&pio 86 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel3@0 {
+		compatible = "tianma,nt36672e,vdo,120hz";
+		reg = <2>;
+		pm-enable-gpios = <&pio 68 0>;
+		reset-gpios = <&pio 86 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in3: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+/* GPS GPIO standardization start */
+&pio {
+	gps_pins_default: gps_default {
+	};
+	gps_l1_lna_pins_ol: gps-l1-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
+			output-low;
+		};
+	};
+	gps_l1_lna_pins_dsp_ctrl: gps-l1-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO16__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps-l1-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
+			output-high;
+		};
+	};
+	gps_l5_lna_pins_ol: gps-l5-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO17__FUNC_GPIO17>;
+			output-low;
+		};
+	};
+	gps_l5_lna_pins_dsp_ctrl: gps-l5-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO17__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+	gps_l5_lna_pins_oh: gps-l5-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO17__FUNC_GPIO17>;
+			output-high;
+		};
+	};
+};
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable",
+		"gps_l5_lna_disable",
+		"gps_l5_lna_dsp_ctrl",
+		"gps_l5_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	pinctrl-4 = <&gps_l5_lna_pins_ol>;
+	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
+	pinctrl-6 = <&gps_l5_lna_pins_oh>;
+	status = "okay";
+};
+/* GPS GPIO standardization end */
+
+/* PCIe pinmux start */
+&pcie0 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pcie0_pins_default>;
+	pinctrl-1 = <&pcie0_pins_sleep>;
+	status = "okay";
+};
+
+&pcie1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie1_pins_default>;
+	status = "disabled";
+};
+
+&pio {
+	pcie0_pins_default: pcie0-default {
+		pins_cmd_dat {
+			/* PINMUX_GPIO231__FUNC_PCIE_WAKEN for Falcon */
+			pinmux = <PINMUX_GPIO230__FUNC_PCIE_PERSTN>,
+				 <PINMUX_GPIO232__FUNC_PCIE_CLKREQN>;
+			bias-pull-up;
+		};
+	};
+
+	pcie0_pins_sleep: pcie0-sleep {
+		pins_cmd_dat {
+			/* PINMUX_GPIO231__FUNC_GPIO231 for Falcon */
+			pinmux = <PINMUX_GPIO230__FUNC_GPIO230>,
+				 <PINMUX_GPIO232__FUNC_GPIO232>;
+			bias-pull-down;
+			input-enable;
+		};
+	};
+
+	pcie1_pins_default: pcie1-default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_PCIE_PERSTN_P1>,
+				 <PINMUX_GPIO1__FUNC_PCIE_WAKEN_P1>,
+				 <PINMUX_GPIO2__FUNC_PCIE_CLKREQN_P1>;
+			bias-pull-up;
+		};
+	};
+};
+/* PCIe pinmux end */
+
+/* usb typec mux start */
+&pio {
+
+	ps_enable: ps_enable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_GPIO204>;
+			output-high;
+		};
+	};
+
+	ps_disable: ps_disable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_GPIO204>;
+			output-low;
+		};
+	};
+
+};
+
+&mt6375_typec {
+	port {
+		tcpc_typec_usb: endpoint@0 {
+			remote-endpoint = <&ssusb_mux>;
+		};
+	};
+};
+
+&typec_mux_switch {
+	orientation-switch;
+	mode-switch;
+	accessory;
+	port {
+		ssusb_mux: endpoint@0 {
+			remote-endpoint = <&tcpc_typec_usb>;
+		};
+	};
+};
+
+&ps5170 {
+	pinctrl-names = "enable", "disable";
+	pinctrl-0 = <&ps_enable>;
+	pinctrl-1 = <&ps_disable>;
+	status = "okay";
+};
+
+&usb_dp_selector {
+	status = "okay";
+};
+/* usb typec mux end */
+
+#include "mediatek/cust_mt6985_touch_1080x2400.dtsi"
+
+&i2c6 {
+	spk1: speaker_amp@5c {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5c>;
+		status = "okay";
+		sound-name-prefix = "Left";
+	};
+
+	spk2: speaker_amp@5d {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5d>;
+		status = "okay";
+		sound-name-prefix = "Right";
+	};
+};
+
+&sound {
+	mediatek,spk-i2s = <3 9>;
+	mediatek,speaker-codec {
+		sound-dai = <&spk1>, <&spk2>;
+	};
+};
+
+&pio {
+	pinctrl-0 = <&gpio31>;
+	pinctrl-names = "default";
+	gpio31: gpio31_eint {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};
+
+&charger {
+	charger = <&rt9490_chg>;
+	charger_configuration= <6>;
+	vbus_sw_ovp_voltage = <21000000>;
+	battery_cv = <8900000>;
+	enable_vbat_mon = <0>;
+	bc12_psy = <&rt9490_chg>;
+	alg_new_arbitration;
+};
+
+&pdc {
+	pd_stop_battery_soc = <95>;
+	pd_vbus_low_bound = <10000000>;
+	pd_vbus_upper_bound = <12000000>;
+};
+
+&mt6375_chg {
+	chg_name = "primary_sw_chg";
+};
+
+&mtk_gauge {
+	charger = <&rt9490_chg>;
+};
+
+&extcon_usb {
+	charger = <&rt9490_chg>;
+};
+
+&mtk_ctd {
+	bc12_psy_port0 = <&rt9490_chg>;
+};
+
+&mt6375_typec {
+	charger = <&rt9490_chg>;
+};
+
+&i2c10 {
+	clock-frequency = <1000000>;
+
+	rt9758_master: rt9758_master@50 {
+		compatible = "richtek,rt9758";
+		reg = <0x50>;
+		richtek,dv2-sync-mode = <1>;
+		chg_name = "hvdiv2_chg1";
+		enable-gpio = <&pio 12 GPIO_ACTIVE_LOW>;
+	};
+
+	rt9758_slave: rt9758_slave@51 {
+		compatible = "richtek,rt9758";
+		reg = <0x51>;
+		richtek,dv2-sync-mode = <3>;
+		chg_name = "hvdiv2_chg2";
+		enable-gpio = <&pio 13 GPIO_ACTIVE_LOW>;
+	};
+
+	rt9490: rt9490@53 {
+		compatible = "richtek,rt9490";
+		reg = <0x53>;
+		interrupt-parent = <&pio>;
+		interrupts = <31 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		chgadc: adc {
+			compatible = "richtek,rt9490-adc";
+			#io-channel-cells = <1>;
+		};
+
+		lk_rt9490: lk-rt9490 {
+			compatible = "richtek,lk-rt9490-chg";
+			ceb-gpio = <30>;
+		};
+
+		rt9490_chg: chg {
+			compatible = "richtek,rt9490-chg";
+			interrupts = <RT9490_IRQ_VAC1PG>, <RT9490_IRQ_WDT>,
+				     <RT9490_IRQ_AICC>, <RT9490_IRQ_BC12DN>;
+			interrupt-names = "vbus-rdy", "wdt", "aicc",
+					  "bc12-done";
+			richtek,cv-microvolt = <8900000>;
+			ceb-gpio = <&pio 30 GPIO_ACTIVE_LOW>;
+			io-channels = <&chgadc RT9490_CHAN_TDIE>,
+				      <&chgadc RT9490_CHAN_TS>,
+				      <&chgadc RT9490_CHAN_VSYS>,
+				      <&chgadc RT9490_CHAN_VBAT>,
+				      <&chgadc RT9490_CHAN_VBUS>,
+				      <&chgadc RT9490_CHAN_IBAT>,
+				      <&chgadc RT9490_CHAN_IBUS>,
+				      <&chgadc RT9490_CHAN_VAC1>,
+				      <&chgadc RT9490_CHAN_VAC2>,
+				      <&chgadc RT9490_CHAN_DM>,
+				      <&chgadc RT9490_CHAN_DP>;
+			io-channel-names = "TDIE", "TS", "VSYS", "VBAT", "VBUS",
+					   "IBAT", "IBUS", "VAC1", "VAC2", "DM",
+					   "DP";
+			/* chg_name = "buck_boost_chg"; */
+			chg_name = "primary_chg";
+			bc12_sel = <&mtk_ctd>;
+			boot_mode = <&chosen>;
+			phys = <&u2port0 PHY_TYPE_USB2>;
+			phy-names = "usb2-phy";
+			usb = <&ssusb>;
+			otg_vbus {
+				regulator-name = "rt9490-otg-vbus";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <22000000>;
+			};
+		};
+	};
+};
+
+#include "mediatek/cust_k6985_connfem.dtsi"
+#include "mediatek/cust_mt6985_camera_v4l2.dtsi"
+#include <k6985v1_64_100w_chg_pump/cust.dtsi>
+/*End of this file, DO NOT ADD ANYTHING HERE*/
+

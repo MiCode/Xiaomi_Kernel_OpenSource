@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/syscore_ops.h>
 
 #include <asm/cpuidle.h>
 #include <trace/hooks/cpuidle_psci.h>
@@ -68,10 +69,12 @@ static int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
 	if (ret)
 		return -1;
 
-	trace_android_vh_cpuidle_psci_enter(dev, s2idle);
 
 	/* Do runtime PM to manage a hierarchical CPU toplogy. */
 	rcu_irq_enter_irqson();
+
+	trace_android_vh_cpuidle_psci_enter(dev, s2idle);
+
 	if (s2idle)
 		dev_pm_genpd_suspend(pd_dev);
 	else
@@ -89,9 +92,10 @@ static int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
 		dev_pm_genpd_resume(pd_dev);
 	else
 		pm_runtime_get_sync(pd_dev);
-	rcu_irq_exit_irqson();
 
 	trace_android_vh_cpuidle_psci_exit(dev, s2idle);
+
+	rcu_irq_exit_irqson();
 
 	cpu_pm_exit();
 
@@ -136,12 +140,57 @@ static int psci_idle_cpuhp_down(unsigned int cpu)
 	return 0;
 }
 
+static void psci_idle_syscore_switch(bool suspend)
+{
+	bool cleared = false;
+	struct device *dev;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		dev = per_cpu_ptr(&psci_cpuidle_data, cpu)->dev;
+
+		if (dev && suspend) {
+			dev_pm_genpd_suspend(dev);
+		} else if (dev) {
+			dev_pm_genpd_resume(dev);
+
+			/* Account for userspace having offlined a CPU. */
+			if (pm_runtime_status_suspended(dev))
+				pm_runtime_set_active(dev);
+
+			/* Clear domain state to re-start fresh. */
+			if (!cleared) {
+				psci_set_domain_state(0);
+				cleared = true;
+			}
+		}
+	}
+}
+
+static int psci_idle_syscore_suspend(void)
+{
+	psci_idle_syscore_switch(true);
+	return 0;
+}
+
+static void psci_idle_syscore_resume(void)
+{
+	psci_idle_syscore_switch(false);
+}
+
+static struct syscore_ops psci_idle_syscore_ops = {
+	.suspend = psci_idle_syscore_suspend,
+	.resume = psci_idle_syscore_resume,
+};
+
 static void psci_idle_init_cpuhp(void)
 {
 	int err;
 
 	if (!psci_cpuidle_use_cpuhp)
 		return;
+
+	register_syscore_ops(&psci_idle_syscore_ops);
 
 	err = cpuhp_setup_state_nocalls(CPUHP_AP_CPU_PM_STARTING,
 					"cpuidle/psci:online",

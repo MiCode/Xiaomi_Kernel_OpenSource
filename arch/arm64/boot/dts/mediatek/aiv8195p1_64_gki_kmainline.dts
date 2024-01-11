@@ -15,6 +15,7 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/mt8195-pinfunc.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/power/mtk-charger.h>
 #include <dt-bindings/spmi/spmi.h>
 #include "mediatek/mt6359.dtsi"
 #define ROOT_NODE &odm
@@ -105,8 +106,10 @@ ROOT_NODE {
 
 	mtk_ctd: mtk_ctd {
 		compatible = "mediatek,mtk_ctd";
-		bc12 = <&mt6360_chg>;
-		bc12_sel = <0>;
+		nr_port = <1>;
+		chg_name_port0 = "primary_chg";
+		bc12_sel_port0 = <MTK_CTD_BY_SUBPMIC>;
+		bc12_psy_port0 = <&mt6360_chg>;
 	};
 
 	pmic_temp: pmic_temp {
@@ -622,7 +625,6 @@ ROOT_NODE {
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
 		charger = <&mt6360_chg>;
-		switch = <&typec_mux_switch>;
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x6360>;
@@ -633,6 +635,12 @@ ROOT_NODE {
 						      0x00 0x00 0x00 0x00
 						      0x00 0x00 0x01 0x07
 						      0x00>;
+			pd,sink-cap-ext = /bits/ 8 <0xcf 0x29 0x60 0x63
+						    0x00 0x00 0x00 0x00
+						    0x00 0x00 0x01 0x00
+						    0x00 0x00 0x00 0x00
+						    0x01 0x0b 0x01 0x0a
+						    0x0a 0x00 0x00 0x00>;
 			pd,mfrs = "RichtekTCPC";
 
 			/*
@@ -679,12 +687,12 @@ ROOT_NODE {
 			// local_high_cap;
 			// local_give_back;
 			local_no_suspend;
-			local_vconn_supply;
 
-			// attemp_discover_cable_dfp;
-			attemp_enter_dp_mode;
-			attemp_discover_cable;
-			attemp_discover_id;
+			// attempt_discover_cable_dfp;
+			attempt_enter_dp_mode;
+			attempt_discover_cable;
+			// attempt_discover_id;
+			// attempt_discover_svid;
 
 			/* 0: disable, 1: prefer_snk, 2: prefer_src */
 			pr_check = <0>;
@@ -707,19 +715,14 @@ ROOT_NODE {
 			//usbr20_not_used;
 			typec,receptacle;
 			ufp_d {
-				//pin_assignment,mode_a;
-				//pin_assignment,mode_b;
 				//pin_assignment,mode_c;
 				//pin_assignment,mode_d;
 				//pin_assignment,mode_e;
 			};
 			dfp_d {
-				//pin_assignment,mode_a;
-				//pin_assignment,mode_b;
 				pin_assignment,mode_c;
 				pin_assignment,mode_d;
 				pin_assignment,mode_e;
-				//pin_assignment,mode_f;
 			};
 		};
 	};

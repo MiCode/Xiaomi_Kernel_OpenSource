@@ -629,6 +629,22 @@
 #define SENSOR_DRVNAME_OV13B10_MIPI_RAW         "ov13b10_mipi_raw"
 #define SENSOR_DRVNAME_OV02B10_MIPI_RAW         "ov02b10_mipi_raw"
 
+#define OV50D40_TRULY_MAIN_I_SENSOR_ID                 0x565044
+#define SENSOR_DRVNAME_OV50D40_TRULY_MAIN_I_MIPI_RAW   "ov50d40_truly_main_i_mipi_raw"
+
+#define S5KJNS_SUNNY_MAIN_II_SENSOR_ID                       0x38ef
+#define SENSOR_DRVNAME_S5KJNS_SUNNY_MAIN_II_MIPI_RAW         "s5kjns_sunny_main_ii_mipi_raw"
+
+#define S5KJNS_SUNNY_MAIN_III_SENSOR_ID                       0x38f0
+#define SENSOR_DRVNAME_S5KJNS_SUNNY_MAIN_III_MIPI_RAW         "s5kjns_sunny_main_iii_mipi_raw"
+
+#define SC520_TRULY_FRONT_I_SENSOR_ID                       0xee4b
+#define SENSOR_DRVNAME_SC520_TRULY_FRONT_I_MIPI_RAW         "sc520_truly_front_i_mipi_raw"
+
+#define GC05A2_QTECH_FRONT_II_SENSOR_ID                       0x05a2
+#define SENSOR_DRVNAME_GC05A2_QTECH_FRONT_II_MIPI_RAW         "gc05a2_qtech_front_ii_mipi_raw"
+
+
 /******************************************************************************
  *
  ******************************************************************************/

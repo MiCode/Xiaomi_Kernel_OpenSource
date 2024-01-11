@@ -6,7 +6,7 @@
 #ifndef PD_DPM_PDO_SELECT_H
 #define PD_DPM_PDO_SELECT_H
 
-#include "inc/tcpci.h"
+#include "tcpci.h"
 
 struct dpm_pdo_info_t {
 	uint8_t type;

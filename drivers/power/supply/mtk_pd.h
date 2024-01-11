@@ -31,9 +31,13 @@
 #define SLAVE_MIVR_DIFF 100000
 
 #define VSYS_WATT 5000000
-#define IBUS_ERR 14
+#define IBUS_ERR 50
 
 #define DISABLE_VBAT_THRESHOLD -1
+
+//cc current
+#define cc_input_current_limit		1200000		//uA
+#define cc_charging_current_limit	1200000		//uA
 
 #define PD_ERROR_LEVEL	1
 #define PD_INFO_LEVEL	2

@@ -34,3 +34,5 @@ subdir-ccflags-y += \
 	-I$(MTK_CUSTOM_PATH)/power_throttling
 subdir-ccflags-y += \
     -I$(MTK_CUSTOM_PATH)/pbm
+
+flashlight-y += flashlights-ocp8132.o

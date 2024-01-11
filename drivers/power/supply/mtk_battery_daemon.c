@@ -391,7 +391,7 @@ void fg_custom_data_check(struct mtk_battery *gm)
 
 	p = &gm->fg_cust_data;
 	fg_table_cust_data = &gm->fg_table_cust_data;
-	fgauge_get_profile_id();
+	gm->battery_id = fgauge_get_profile_id(gm);
 
 	bm_err("FGLOG MultiGauge0[%d] BATID[%d] pmic_min_vol[%d,%d,%d,%d,%d]\n",
 		p->multi_temp_gauge0, gm->battery_id,
@@ -2770,7 +2770,8 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		/* todo */
 		int is_charger_exist = 0;
 
-		if (gm->bs_data.bat_status == POWER_SUPPLY_STATUS_CHARGING)
+		if (gm->bs_data.bat_status == POWER_SUPPLY_STATUS_CHARGING
+			|| gm->bs_data.bat_status == POWER_SUPPLY_STATUS_FULL)
 			is_charger_exist = true;
 		else
 			is_charger_exist = false;

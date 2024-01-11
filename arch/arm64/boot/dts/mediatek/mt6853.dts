@@ -11,6 +11,7 @@
 #include "mediatek/bat_setting/mt6853_battery_prop.dtsi"
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/mfd/mt6362.h>
+#include <dt-bindings/power/mtk-charger.h>
 
 / {
 	tboard_thermistor1: thermal-ntc1 {
@@ -891,16 +892,27 @@
 		};
 	};
 
+	rt-pd-manager {
+		compatible = "mediatek,rt-pd-manager";
+		nr_port = <1>;
+		// en_wd0_port0;
+	};
+
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
+		nr_port = <1>;
+		force_cv;
 		adapter_name = "pd_adapter";
 	};
 
 	mtk_ctd: mtk_ctd {
 		compatible = "mediatek,mtk_ctd";
-		bc12 = <&mt6362_chg>;
-		bc12_sel = <0>;
+		nr_port = <1>;
+		chg_name_port0 = "primary_chg";
+		bc12_sel_port0 = <MTK_CTD_BY_SUBPMIC>;
+		bc12_psy_port0 = <&mt6362_chg>;
 	};
+
 	typec_mux_switch: typec_mux_switch {
 		compatible = "mediatek,typec_mux_switch";
 		status = "okay";
@@ -1315,12 +1327,12 @@
 				// local_high_cap;
 				// local_give_back;
 				local_no_suspend;
-				local_vconn_supply;
 
-				// attemp_discover_cable_dfp;
-				attemp_enter_dp_mode;
-				attemp_discover_cable;
-				attemp_discover_id;
+				// attempt_discover_cable_dfp;
+				attempt_enter_dp_mode;
+				attempt_discover_cable;
+				// attempt_discover_id;
+				// attempt_discover_svid;
 
 				/* 0: disable, 1: prefer_snk, 2: prefer_src */
 				pr_check = <0>;
@@ -1340,23 +1352,17 @@
 				2nd_connection = "dfp_d";
 				signal,dp_v13;
 				//signal,dp_gen2;
-				usbr20_not_used;
+				//usbr20_not_used;
 				typec,receptacle;
 				ufp_d {
-					//pin_assignment,mode_a;
-					//pin_assignment,mode_b;
 					//pin_assignment,mode_c;
 					//pin_assignment,mode_d;
 					//pin_assignment,mode_e;
 				};
 				dfp_d {
-					/* Only support mode C & D */
-					//pin_assignment,mode_a;
-					//pin_assignment,mode_b;
 					pin_assignment,mode_c;
 					pin_assignment,mode_d;
 					pin_assignment,mode_e;
-					pin_assignment,mode_f;
 				};
 			};
 			port {

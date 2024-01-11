@@ -98,7 +98,6 @@ struct pe50_ta_auth_data {
 	int vta_min;
 	int vta_max;
 	int ita_max;
-	int ita_min;
 	bool pwr_lmt;
 	u8 pdp;
 	bool support_meas_cap;
@@ -161,7 +160,6 @@ struct pe50_algo_data {
 	u32 ita_pwr_lmt;
 	u32 cv_lower_bound;
 	u32 err_retry_cnt;
-	u32 vbusovp;
 	u32 zcv;
 	u32 vbat_cv_no_ircmp;
 	u32 vbat_cv;
@@ -178,16 +176,17 @@ struct pe50_algo_data {
 	enum pe50_thermal_level tswchg_level;
 	int input_current_limit;
 	int cv_limit;
+	u32 start_soc_max;		/* algo start soc upper bound */
 };
 
 /* Setting from dtsi */
 struct pe50_algo_desc {
 	u32 polling_interval;		/* polling interval */
-	u32 ta_cv_ss_repeat_tmin;	/* min repeat time of ss for TA CV */
 	u32 vbat_cv;			/* vbat constant voltage */
-	u32 start_soc_min;		/* algo start bat low bound */
-	u32 start_soc_max;		/* algo start bat upper bound */
-	u32 start_vbat_max;		/* algo start bat upper bound */
+	u32 start_soc_min;		/* algo start soc low bound */
+	u32 start_soc_max;		/* algo start soc upper bound */
+	u32 stop_soc_max;		/* algo stop soc upper bound */
+	u32 vbat_max_gap;		/* algo vbat upper bound for eoc */
 	u32 idvchg_term;		/* terminated current */
 	u32 idvchg_step;		/* input current step */
 	u32 ita_level[PE50_RCABLE_MAX];	/* input current */

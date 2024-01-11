@@ -206,7 +206,7 @@ const struct mtk_dsi_driver_data mt6835_dsi_driver_data = {
 	.dsi_buffer = false,
 	.buffer_unit = 18,
 	.sram_unit = 18,
-	.max_vfp = 0x1194,
+	.max_vfp = 0x7ffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate,
 };
 
@@ -1593,6 +1593,7 @@ static int mtk_mipi_tx_pll_prepare_mt6835(struct clk_hw *hw)
 
 	usleep_range(50, 100);
 
+	writel(0x44441184, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
 	/* TODO: should write bit8 to set SW_ANA_CK_EN here */
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 

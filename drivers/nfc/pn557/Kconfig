@@ -1,0 +1,5 @@
+config NXP_NFC_SN1XX
+	bool "Nxp NFC sn1xx Controller"
+	
+config NXP_NFC_PN8XT
+	bool "Nxp NFC pn8xt Controller"

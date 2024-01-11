@@ -24,10 +24,14 @@ struct charger_cooler_info {
 static struct charger_cooler_info charger_cl_data;
 /* < -1 is unlimit, unit is uA. */
 static const int master_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
-	-1, 2600000, 2200000, 1800000, 1400000, 1000000, 700000, 500000, 0
+		-1,3400000,3200000,3000000,2800000,2600000,
+	2400000,2200000,2000000,1800000,1400000,
+	1200000,1000000,800000 ,700000 ,385000
 };
 static const int slave_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
-	-1, 1800000, 1600000, 1400000, 1200000, 1000000, 700000, 500000, 0
+		-1,3400000,3200000,3000000,2800000,2600000,
+	2400000,2200000,2000000,1800000,1400000,
+	1200000,1000000,800000 ,700000 ,385000
 };
 
 /*==================================================
@@ -42,7 +46,7 @@ static int charger_throttle(struct charger_cooling_device *charger_cdev, unsigne
 	charger_cdev->pdata->state_to_charger_limit(charger_cdev);
 	charger_cl_data.cur_state = state;
 	charger_cl_data.cur_current = master_charger_state_to_current_limit[state];
-	dev_info(dev, "%s: set lv = %ld done\n", charger_cdev->name, state);
+	dev_info(dev, "thermal %s: set lv = %ld done\n", charger_cdev->name, state);
 	return 0;
 }
 static int charger_cooling_get_max_state(struct thermal_cooling_device *cdev, unsigned long *state)
@@ -94,18 +98,22 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 	int ret = -1;
 
 	if (chg->chg_psy == NULL || IS_ERR(chg->chg_psy)) {
-		pr_info("Couldn't get chg_psy\n");
+		pr_info("thermal Couldn't get chg_psy\n");
 		return ret;
 	}
+        pr_info("thermal get chg_psy\n");
 	prop_bat_chr.intval = master_charger_state_to_current_limit[chg->target_state];
-
+        
+        pr_info("thermal POWER_SUPPLY_PROP_CURRENT_MAX:%d POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:%d\n",POWER_SUPPLY_PROP_CURRENT_MAX,POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT);
+  
 	ret = power_supply_set_property(chg->chg_psy,
 		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 		&prop_bat_chr);
 	if (ret != 0) {
-		pr_notice("set bat curr fail\n");
+		pr_notice("thermal set bat curr fail ret:%d prop_bat_chr.intval:%d\n",ret,prop_bat_chr.intval);
 		return ret;
 	}
+        pr_notice("thermal set bat curr successret:%d prop_bat_chr.intval:%d\n",ret,prop_bat_chr.intval);
 	if (prop_bat_chr.intval == 0)
 		prop_input.intval = 0;
 	else
@@ -113,10 +121,10 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 	ret = power_supply_set_property(chg->chg_psy,
 		POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &prop_input);
 	if (ret != 0) {
-		pr_notice("set input curr fail\n");
+		pr_notice("thermal set input curr fail\n");
 		return ret;
 	}
-
+        pr_notice("thermal set input curr success\n");
 	/* High Voltage (Vbus) control*/
 	/*Only master charger need to control Vbus*/
 	/*prop.intval = 0, vbus 5V*/
@@ -129,29 +137,31 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 	ret = power_supply_set_property(chg->chg_psy,
 		POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop_vbus);
 	if (ret != 0) {
-		pr_notice("set vbus fail\n");
+		pr_notice("thermal set vbus fail\n");
 		return ret;
 	}
-
-	pr_notice("chr limit state %lu, chr %d, input %d, vbus %d\n",
+     
+	pr_notice("thermal chr limit state %lu, chr %d, input %d, vbus %d\n",
 		chg->target_state, prop_bat_chr.intval, prop_input.intval, prop_vbus.intval);
 
 	power_supply_changed(chg->chg_psy);
 
 	if (chg->type == DUAL_CHARGER) {
 		if (chg->s_chg_psy == NULL || IS_ERR(chg->s_chg_psy)) {
-			pr_info("Couldn't get s_chg_psy\n");
+			pr_info("thermal Couldn't get s_chg_psy\n");
 			return ret;
 		}
+                pr_info("thermal 11 get s_chg_psy\n");
 		prop_s_bat_chr.intval = slave_charger_state_to_current_limit[chg->target_state];
 
 		ret = power_supply_set_property(chg->s_chg_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 			&prop_s_bat_chr);
 		if (ret != 0) {
-			pr_notice("set slave bat curr fail\n");
+			pr_notice("thermal set slave bat curr fail\n");
 			return ret;
 		}
+                pr_notice("thermal set slave bat curr success\n");
 		power_supply_changed(chg->s_chg_psy);
 	}
 
@@ -269,20 +279,21 @@ static int charger_cooling_probe(struct platform_device *pdev)
 	charger_cdev->type = get_charger_type();
 	charger_cdev->chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (charger_cdev->chg_psy == NULL || IS_ERR(charger_cdev->chg_psy)) {
-		pr_info("Couldn't get chg_psy\n");
+		pr_info("thermal  Couldn't get chg_psy\n");
 		return -EINVAL;
 	}
+        pr_info("thermal get chg_psy mtk-master-charger success\n");
 	if (charger_cdev->type == DUAL_CHARGER) {
 		charger_cdev->s_chg_psy = power_supply_get_by_name("mtk-slave-charger");
 		if (charger_cdev->s_chg_psy == NULL || IS_ERR(charger_cdev->s_chg_psy)) {
-			pr_info("Couldn't get s_chg_psy\n");
+			pr_info("thermal  Couldn't get s_chg_psy\n");
 			return -EINVAL;
 		}
 	}
-
+        pr_info("thermal  22 get s_chg_psy\n");
 	ret = sysfs_create_group(kernel_kobj, &charger_cooler_attr_group);
 	if (ret) {
-		dev_info(&pdev->dev, "failed to create charger cooler sysfs, ret=%d!\n", ret);
+		dev_info(&pdev->dev, "thermal  failed to create charger cooler sysfs, ret=%d!\n", ret);
 		return ret;
 	}
 	charger_cl_data.cur_state = 0;
@@ -296,7 +307,7 @@ static int charger_cooling_probe(struct platform_device *pdev)
 	charger_cdev->cdev = cdev;
 
 	platform_set_drvdata(pdev, charger_cdev);
-	dev_info(dev, "register %s done, id=%d\n", charger_cdev->name);
+	dev_info(dev, "thermal  register %s done, id=%d\n", charger_cdev->name);
 
 	return 0;
 }

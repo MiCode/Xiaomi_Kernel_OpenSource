@@ -368,6 +368,16 @@ int charger_dev_enable_hz(struct charger_device *chg_dev, bool en)
 }
 EXPORT_SYMBOL(charger_dev_enable_hz);
 
+int set_hvdcp_adapter_voltage_9v(struct charger_device *chg_dev, bool en)
+{
+        if (chg_dev != NULL && chg_dev->ops != NULL &&
+            chg_dev->ops->set_hvdcp_adapter_voltage_9v)
+                return chg_dev->ops->set_hvdcp_adapter_voltage_9v(chg_dev, en);
+
+        return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(set_hvdcp_adapter_voltage_9v);
+
 int charger_dev_set_vac_ovp(struct charger_device *chg_dev, u32 uV)
 {
 	if (chg_dev != NULL && chg_dev->ops != NULL &&
@@ -846,6 +856,16 @@ int unregister_charger_device_notifier(struct charger_device *chg_dev,
 	return srcu_notifier_chain_unregister(&chg_dev->evt_nh, nb);
 }
 EXPORT_SYMBOL(unregister_charger_device_notifier);
+
+int charger_dev_set_recharge(struct charger_device *chg_dev, bool en)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->set_recharge)
+		return chg_dev->ops->set_recharge(chg_dev, en);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_set_recharge);
 
 /**
  * charger_device_register - create and register a new object of

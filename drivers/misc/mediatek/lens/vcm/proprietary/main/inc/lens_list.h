@@ -230,6 +230,11 @@ extern int GT9764AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int GT9764AF_GetFileName(unsigned char *pFileName);
 
+#ifdef CONFIG_AF_NOISE_ELIMINATION
+#define VIB_ResetPos VIB_ResetPos_Main
+extern void VIB_ResetPos_Main(unsigned long a_u4Position);
+#endif
+
 #define LC898122AF_SetI2Cclient LC898122AF_SetI2Cclient_Main
 #define LC898122AF_Ioctl LC898122AF_Ioctl_Main
 #define LC898122AF_Release LC898122AF_Release_Main

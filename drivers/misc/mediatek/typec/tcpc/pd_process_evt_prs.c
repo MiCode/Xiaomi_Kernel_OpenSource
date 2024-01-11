@@ -91,7 +91,6 @@ static inline bool pd_process_ctrl_msg_good_crc(
 	switch (pd_port->pe_state_curr) {
 	case PE_PRS_SRC_SNK_WAIT_SOURCE_ON:
 		pd_enable_pe_state_timer(pd_port, PD_TIMER_PS_SOURCE_ON);
-		pd_unlock_msg_output(pd_port);	/* for tSRCTransition */
 		return false;
 
 	default:

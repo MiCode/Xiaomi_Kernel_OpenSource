@@ -21,8 +21,6 @@
 #define SVID_DATA_UFP_GET_ACTIVE_MODE(svid_data)\
 	SVID_DATA_LOCAL_MODE(svid_data, svid_data->active_mode-1)
 
-extern int dpm_check_supported_modes(void);
-
 struct svdm_svid_ops {
 	const char *name;
 	uint16_t svid;

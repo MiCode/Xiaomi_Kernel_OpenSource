@@ -11,7 +11,7 @@
 
 /* VDM reactions */
 
-#define VDM_CMD_FLAG_CABLE_CMD			(1<<0)
+#define VDM_CMD_FLAG_CABLE_CMD				(1<<0)
 #define VDM_CMD_FLAG_SEND_BY_UFP			(1<<1)
 #define VDM_CMD_FLAG_SEND_BY_DFP			(1<<2)
 #define VDM_CMD_FLAG_RECV_BY_UFP			(1<<3)
@@ -385,12 +385,12 @@ static inline bool pd_process_ctrl_msg(
 			return true;
 		break;
 #endif	/* CONFIG_USB_PD_DBG_DP_UFP_U_AUTO_ATTENTION */
+#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 	case PE_UFP_VDM_ATTENTION_REQUEST:
 		pd_notify_tcp_vdm_event_2nd_result(
 			pd_port, TCP_DPM_RET_VDM_ACK);
 		break;
-#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 #if CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID
 	case PE_SRC_VDM_IDENTITY_REQUEST:
@@ -483,8 +483,8 @@ static inline bool pd_process_uvdm(
 #if (PE_EVT_INFO_VDM_DIS == 0)
 static const char * const pe_vdm_cmd_name[] = {
 	"DiscoverID",
-	"DiscoverSVID",
-	"DiscoverMode",
+	"DiscoverSVIDs",
+	"DiscoverModes",
 	"EnterMode",
 	"ExitMode",
 	"Attention",

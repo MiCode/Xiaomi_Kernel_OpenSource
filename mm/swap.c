@@ -392,33 +392,30 @@ static void __lru_cache_activate_page(struct page *page)
 #ifdef CONFIG_LRU_GEN
 static void page_inc_refs(struct page *page)
 {
-	unsigned long refs;
-	unsigned long old_flags, new_flags;
+	unsigned long new_flags, old_flags = READ_ONCE(page->flags);
 
 	if (PageUnevictable(page))
 		return;
 
+	if (!PageReferenced(page)) {
+		SetPageReferenced(page);
+		return;
+	}
+
+	if (!PageWorkingset(page)) {
+		SetPageWorkingset(page);
+		return;
+	}
+
 	/* see the comment on MAX_NR_TIERS */
 	do {
-		new_flags = old_flags = READ_ONCE(page->flags);
+		new_flags = old_flags & LRU_REFS_MASK;
+		if (new_flags == LRU_REFS_MASK)
+			break;
 
-		if (!(new_flags & BIT(PG_referenced))) {
-			new_flags |= BIT(PG_referenced);
-			continue;
-		}
-
-		if (!(new_flags & BIT(PG_workingset))) {
-			new_flags |= BIT(PG_workingset);
-			continue;
-		}
-
-		refs = new_flags & LRU_REFS_MASK;
-		refs = min(refs + BIT(LRU_REFS_PGOFF), LRU_REFS_MASK);
-
-		new_flags &= ~LRU_REFS_MASK;
-		new_flags |= refs;
-	} while (new_flags != old_flags &&
-		 cmpxchg(&page->flags, old_flags, new_flags) != old_flags);
+		new_flags += BIT(LRU_REFS_PGOFF);
+		new_flags |= old_flags & ~LRU_REFS_MASK;
+	} while (!try_cmpxchg(&page->flags, &old_flags, new_flags));
 }
 #else
 static void page_inc_refs(struct page *page)
@@ -709,7 +706,8 @@ void deactivate_file_page(struct page *page)
  */
 void deactivate_page(struct page *page)
 {
-	if (PageLRU(page) && !PageUnevictable(page) && (PageActive(page) || lru_gen_enabled())) {
+	if (PageLRU(page) && !PageUnevictable(page) &&
+	    (PageActive(page) || lru_gen_enabled())) {
 		struct pagevec *pvec;
 
 		local_lock(&lru_pvecs.lock);

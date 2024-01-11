@@ -34,7 +34,6 @@ struct adapter_auth_data {
 	int vta_min;
 	int vta_max;
 	int ita_max;
-	int ita_min;
 	bool pwr_lmt;
 	u8 pdp;
 	bool support_meas_cap;
@@ -52,6 +51,7 @@ enum adapter_type {
 enum adapter_event {
 	MTK_PD_CONNECT_NONE,
 	MTK_PD_CONNECT_HARD_RESET,
+	MTK_PD_CONNECT_SOFT_RESET,
 	MTK_PD_CONNECT_PE_READY_SNK,
 	MTK_PD_CONNECT_PE_READY_SNK_PD30,
 	MTK_PD_CONNECT_PE_READY_SNK_APDO,

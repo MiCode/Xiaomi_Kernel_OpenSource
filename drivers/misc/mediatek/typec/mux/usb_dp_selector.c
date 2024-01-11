@@ -74,15 +74,15 @@ static int usb_dp_selector_switch_set(struct typec_switch *sw,
 		/* USB NORMAL TX1, DP TX2 */
 		switch (uds->uds_ver) {
 		case uds_V1:
-			uds_setbits(uds->selector_reg_address, (1 << 11));
+			uds_clrbits(uds->selector_reg_address, (1 << 11));
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-			mtk_dp_aux_swap_enable(false);
+			mtk_dp_aux_swap_enable(true);
 #endif
 			break;
 		case uds_V2:
-			uds_setbits(uds->selector_reg_address, (1 << 18));
+			uds_clrbits(uds->selector_reg_address, (1 << 18));
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-			mtk_dp_aux_swap_enable(false);
+			mtk_dp_aux_swap_enable(true);
 #endif
 			break;
 		default:
@@ -93,15 +93,15 @@ static int usb_dp_selector_switch_set(struct typec_switch *sw,
 		/* USB FLIP TX2, DP TX1 */
 		switch (uds->uds_ver) {
 		case uds_V1:
-			uds_clrbits(uds->selector_reg_address, (1 << 11));
+			uds_setbits(uds->selector_reg_address, (1 << 11));
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-			mtk_dp_aux_swap_enable(true);
+			mtk_dp_aux_swap_enable(false);
 #endif
 			break;
 		case uds_V2:
-			uds_clrbits(uds->selector_reg_address, (1 << 18));
+			uds_setbits(uds->selector_reg_address, (1 << 18));
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-			mtk_dp_aux_swap_enable(true);
+			mtk_dp_aux_swap_enable(false);
 #endif
 			break;
 		default:

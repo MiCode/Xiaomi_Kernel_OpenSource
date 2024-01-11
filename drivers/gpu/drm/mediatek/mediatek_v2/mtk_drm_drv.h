@@ -370,6 +370,9 @@ extern struct platform_driver mtk_disp_postalign_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 extern struct mtk_aod_scp_cb aod_scp_ipi;
 
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+
 /* For overlay bandwidth monitor */
 extern struct layer_compress_ratio_data
 display_compress_ratio_table[MAX_LAYER_RATIO_NUMBER];

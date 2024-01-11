@@ -670,6 +670,7 @@ struct mtk_vcodec_ctx {
 	int fence_idx;
 	struct dma_gen_buf dma_buf_list[MAX_GEN_BUF_CNT];
 	struct dma_meta_buf dma_meta_list[MAX_META_BUF_CNT];
+	struct mutex gen_buf_list_lock;
 	struct mutex meta_buf_lock;
 	/*
 	 * need resched or not

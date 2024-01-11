@@ -43,10 +43,6 @@ DECLARE_HOOK(android_vh_binder_wait_for_work,
 DECLARE_HOOK(android_vh_sync_txn_recvd,
 	TP_PROTO(struct task_struct *tsk, struct task_struct *from),
 	TP_ARGS(tsk, from));
-DECLARE_RESTRICTED_HOOK(android_rvh_binder_transaction,
-	TP_PROTO(struct binder_proc *target_proc, struct binder_proc *proc,
-		struct binder_thread *thread, struct binder_transaction_data *tr),
-	TP_ARGS(target_proc, proc, thread, tr), 1);
 DECLARE_HOOK(android_vh_binder_proc_transaction_entry,
 	TP_PROTO(struct binder_proc *proc, struct binder_transaction *t,
 	struct binder_thread **thread, int node_debug_id, bool pending_async,

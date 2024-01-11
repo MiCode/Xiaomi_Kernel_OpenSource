@@ -45,6 +45,7 @@ struct pe50_hal {
 	struct adapter_device *adapter;
 	const char **support_ta;
 	int support_ta_cnt;
+	struct power_supply *bat_psy;
 };
 
 static inline int to_chgtyp(enum chg_idx idx)
@@ -57,7 +58,7 @@ static inline int to_chgtyp(enum chg_idx idx)
 	case DVCHG2:
 		return MTK_CHGTYP_DVCHG_SLAVE;
 	default:
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 }
 
@@ -83,7 +84,7 @@ static inline int to_chgclass_adc(enum pe50_adc_channel chan)
 	default:
 		break;
 	}
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 
 int pe50_hal_get_ta_output(struct chg_alg_device *alg, int *mV, int *mA)
@@ -200,7 +201,6 @@ int pe50_hal_authenticate_ta(struct chg_alg_device *alg,
 		hal->adapter = hal->adapters[i];
 		data->vta_min = _data.vta_min;
 		data->vta_max = _data.vta_max;
-		data->ita_min = _data.ita_min;
 		data->ita_max = _data.ita_max;
 		data->pwr_lmt = _data.pwr_lmt;
 		data->pdp = _data.pdp;
@@ -283,6 +283,11 @@ int pe50_hal_init_hardware(struct chg_alg_device *alg, const char **support_ta,
 		data->is_dvchg_exist[PE50_DVCHG_SLAVE] = true;
 	chg_alg_dev_set_drv_hal_data(alg, hal);
 	hal->dev = info->dev;
+	hal->bat_psy = devm_power_supply_get_by_phandle(hal->dev, "gauge");
+	if (IS_ERR_OR_NULL(hal->bat_psy)) {
+		ret = IS_ERR(hal->bat_psy) ? PTR_ERR(hal->bat_psy) : -ENODEV;
+		PE50_ERR("get bat_psy fail(%d)\n", ret);
+	}
 	PE50_INFO("successfully\n");
 	return 0;
 err:
@@ -412,21 +417,42 @@ int pe50_hal_reset_vbusovp_alarm(struct chg_alg_device *alg,
 
 static int pe50_get_tbat(struct pe50_hal *hal)
 {
-	int ret = 0;
-	int tmp_ret;
-	union power_supply_propval prop;
-	struct power_supply *bat_psy;
+	int ret = 27;
+	union power_supply_propval val = {0,};
 
-	bat_psy = devm_power_supply_get_by_phandle(hal->dev, "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
-		PE50_ERR("%s Couldn't get bat_psy\n", __func__);
+	if (IS_ERR_OR_NULL(hal->bat_psy))
+		goto out;
+
+	ret = power_supply_get_property(hal->bat_psy, POWER_SUPPLY_PROP_TEMP,
+					&val);
+	if (ret < 0) {
+		PE50_ERR("get tbat fail(%d)\n", ret);
 		ret = 27;
-	} else {
-		tmp_ret = power_supply_get_property(bat_psy, POWER_SUPPLY_PROP_TEMP,
-						&prop);
-		ret = prop.intval / 10;
+		goto out;
 	}
+	ret = val.intval / 10;
+out:
+	PE50_DBG("%d\n", ret);
+	return ret;
+}
 
+static int pe50_get_ibat(struct pe50_hal *hal)
+{
+	int ret = 0;
+	union power_supply_propval val = {0,};
+
+	if (IS_ERR_OR_NULL(hal->bat_psy))
+		goto out;
+
+	ret = power_supply_get_property(hal->bat_psy,
+					POWER_SUPPLY_PROP_CURRENT_NOW, &val);
+	if (ret < 0) {
+		PE50_ERR("get ibat fail(%d)\n", ret);
+		ret = 0;
+		goto out;
+	}
+	ret = val.intval / 1000;
+out:
 	PE50_DBG("%d\n", ret);
 	return ret;
 }
@@ -447,6 +473,9 @@ int pe50_hal_get_adc(struct chg_alg_device *alg, enum chg_idx chgidx,
 	if (_chan == ADC_CHANNEL_TBAT) {
 		*val = pe50_get_tbat(hal);
 		return 0;
+	} else if (_chan == ADC_CHANNEL_IBAT) {
+		*val = pe50_get_ibat(hal);
+		return 0;
 	}
 	ret = charger_dev_get_adc(hal->chgdevs[chgtyp], _chan, val, val);
 	if (ret < 0)
@@ -460,27 +489,23 @@ int pe50_hal_get_adc(struct chg_alg_device *alg, enum chg_idx chgidx,
 
 int pe50_hal_get_soc(struct chg_alg_device *alg, u32 *soc)
 {
-	int ret;
-	int ret_tmp;
-	struct power_supply *bat_psy;
-	union power_supply_propval prop;
+	int ret = -EOPNOTSUPP;
+	union power_supply_propval val = {0,};
 	struct pe50_hal *hal = chg_alg_dev_get_drv_hal_data(alg);
 
-	bat_psy = devm_power_supply_get_by_phandle(hal->dev, "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
-		PE50_ERR("%s Couldn't get bat_psy\n", __func__);
-		ret = 50;
-	} else {
-		ret_tmp = power_supply_get_property(bat_psy,
-						POWER_SUPPLY_PROP_CAPACITY,
-						&prop);
-		ret = prop.intval;
+	if (IS_ERR_OR_NULL(hal->bat_psy))
+		goto out;
+
+	ret = power_supply_get_property(hal->bat_psy,
+					POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (ret < 0) {
+		PE50_ERR("get soc fail(%d)\n", ret);
+		goto out;
 	}
-	if (ret < 0)
-		return ret;
-	*soc = ret;
-	PE50_DBG("%d\n", *soc);
-	return 0;
+	ret = *soc = val.intval;
+out:
+	PE50_DBG("%d\n", ret);
+	return ret;
 }
 
 int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)

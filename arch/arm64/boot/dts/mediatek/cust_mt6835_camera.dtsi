@@ -5,5 +5,112 @@
 
 #include "mediatek/cust_mt6835_camera_common.dtsi"
 &kd_camera_hw1 {
-	cust-sensor = "imx686_mipi_raw ov48b_mipi_raw s5k3p9sp_mipi_raw s5kjd1_mipi_raw";
+	cust-sensor = "ov50d40_truly_main_i_mipi_raw s5kjns_sunny_main_ii_mipi_raw s5kjns_sunny_main_iii_mipi_raw sc520_truly_front_i_mipi_raw gc05a2_qtech_front_ii_mipi_raw";
 };
+
+/* 20230620 longcheer zhangfeng5 add QVGA node. begin */
+&pio{
+        camera_pins_gc6133c_mclk_on: camera_pins_gc6133c_mclk_on {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO89__FUNC_CMMCLK1>;
+                };
+        };
+        camera_pins_gc6133c_mclk_off: camera_pins_gc6133c_mclk_off {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+                };
+        };
+        camera_pins_sc080cs_mclk_on: camera_pins_sc080cs_mclk_on {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO89__FUNC_CMMCLK1>;
+                };
+        };
+        camera_pins_sc080cs_mclk_off: camera_pins_sc080cs_mclk_off {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO89__FUNC_GPIO89>;
+                };
+        };
+};
+&i2c2 {
+        gc6133c@40 {
+                compatible = "gc,gc6133c_yuv";
+                reg = <0x40>;
+                reset-gpio1 = <&pio 26 0x0>;
+                pinctrl-names = "gc6133c_mclk_on",
+                                "gc6133c_mclk_off";
+                pinctrl-0 = <&camera_pins_gc6133c_mclk_on>;
+                pinctrl-1 = <&camera_pins_gc6133c_mclk_off>;
+                vcamio-supply = <&mt6377_vaud18>;
+                status = "okay";
+      };
+        sc080cs@36 {
+                compatible = "sc,sc080cs_yuv";
+                reg = <0x36>;
+                reset-gpio1 = <&pio 26 0x0>;
+                pinctrl-names = "sc080cs_mclk_on",
+                                "sc080cs_mclk_off";
+                pinctrl-0 = <&camera_pins_sc080cs_mclk_on>;
+                pinctrl-1 = <&camera_pins_sc080cs_mclk_off>;
+                vcamio-supply = <&mt6377_vaud18>;
+                status = "okay";
+      };
+};
+/* 20230620 longcheer zhangfeng5 add QVGA node. end */
+
+/* 20230629 longcheer zhangfeng5 add flashlight node. begin */
+&pio {
+	flashlight_pins_default: flashlightdefault {
+	};
+	flashlight_pins_en_output1: flashlightenoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO148__FUNC_GPIO148>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	flashlight_pins_en_output0: flashlightenoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO148__FUNC_GPIO148>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	flashlight_pins_sel_output1: flashlightseloutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO150__FUNC_GPIO150>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	flashlight_pins_sel_output0: flashlightseloutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO150__FUNC_GPIO150>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+&flashlights_ocp8132 {
+	pinctrl-names = "default", "hw_ch0_high",
+		"hw_ch0_low", "hw_ch1_high",
+		"hw_ch1_low";
+	pinctrl-0 = <&flashlight_pins_default>;
+	pinctrl-1 = <&flashlight_pins_en_output1>;
+	pinctrl-2 = <&flashlight_pins_en_output0>;
+	pinctrl-3 = <&flashlight_pins_sel_output1>;
+	pinctrl-4 = <&flashlight_pins_sel_output0>;
+	status = "okay";
+	decouple = <1>;
+	channel@1 {
+		type = <0>;
+		ct = <0>;
+		part = <0>;
+	};
+	channel@2 {
+		type = <0>;
+		ct = <1>;
+		part = <0>;
+	};
+};
+/* 20230629 longcheer zhangfeng5 add flashlight node. end */
+

@@ -14,7 +14,7 @@
  */
 
 /* customize */
-#define DIFFERENCE_FULLOCV_ITH	200	/* mA */
+#define DIFFERENCE_FULLOCV_ITH	350	/* mA */
 #define MTK_CHR_EXIST			1
 #define KEEP_100_PERCENT		1
 
@@ -288,7 +288,7 @@
 #define Q_MAX_H_CURRENT		10000
 
 /* multiple battery profile compile options */
-/*#define MTK_GET_BATTERY_ID_BY_AUXADC*/
+#define MTK_GET_BATTERY_ID_BY_AUXADC
 
 
 /* if ACTIVE_TABLE == 0 && MULTI_BATTERY == 0
@@ -329,11 +329,11 @@
 /* Qmax for battery  */
 int g_Q_MAX[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{ 2946, 2712, 2490, 1965},/*T0*/
-	{ 2796, 2851, 2468, 1984},/*T1*/
-	{ 2718, 2432, 2310, 1946},/*T2*/
-	{ 2535, 1991, 1858, 1873},/*T3*/
-	{ 2523, 1960, 1843, 1851},/*T4*/
+	{ 4811, 4887, 4988, 1965},/*T0*/
+	{ 4907, 4947, 5002, 1984},/*T1*/
+	{ 4887, 4918, 4899, 1946},/*T2*/
+	{ 4870, 4895, 4687, 1873},/*T3*/
+	{ 4876, 4985, 4387, 1851},/*T4*/
 	{ 2211, 1652, 1533, 1541},/*T5*/
 	{ 2201, 1642, 1523, 1531},/*T6*/
 	{ 2191, 1632, 1513, 1521},/*T7*/
@@ -357,10 +357,10 @@ int g_Q_MAX_H_CURRENT[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 
 int g_Q_MAX_SYS_VOLTAGE[TOTAL_BATTERY_NUMBER] = { 3400, 3400, 3400, 3400};
 
-/* 0~0.5V for battery 0, 0.5~1V for battery 1*/
-/* 1~1.5V for battery 2, -1 for the last one (battery 3) */
+/* 0~0.8V for battery 0, 0.8~1.2V for battery 1*/
+/* 1.2~1.6V for battery 2, -1 for the last one (battery 3) */
 int g_battery_id_voltage[TOTAL_BATTERY_NUMBER] = {
-	500000, 1000000, 1500000, -1};
+	800000, 1200000, 1600000, -1};
 
 int g_FG_PSEUDO1[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
@@ -378,11 +378,11 @@ int g_FG_PSEUDO1[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 
 int g_FG_PSEUDO100[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{ 100, 100, 100, 100},/*T0*/
-	{ 100, 100, 100, 100},/*T1*/
-	{ 100, 100, 100, 100},/*T2*/
-	{ 100, 100, 100, 100},/*T3*/
-	{ 100, 100, 100, 100},/*T4*/
+	{ 97, 97, 97, 100},/*T0*/
+	{ 97, 97, 97, 100},/*T1*/
+	{ 97, 97, 97, 100},/*T2*/
+	{ 97, 97, 97, 100},/*T3*/
+	{ 97, 97, 97, 100},/*T4*/
 	{ 100, 100, 100, 100},/*T5*/
 	{ 100, 100, 100, 100},/*T6*/
 	{ 100, 100, 100, 100},/*T7*/
@@ -471,8 +471,12 @@ int g_temperature[MAX_TABLE] = {
 };
 
 
-#define BAT_NTC_10 1
+#define BAT_NTC_10 0
 #define BAT_NTC_47 0
+#define BAT_NTC_100 1
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R       100000
+#endif
 
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
@@ -485,6 +489,32 @@ int g_temperature[MAX_TABLE] = {
 #define RBAT_PULL_UP_VOLT          1840
 
 #define BIF_NTC_R 16000
+
+#if (BAT_NTC_100 == 1)
+struct fg_temp fg_temp_table[21] = {
+		{-40, 4251000},
+		{-35, 3005000},
+		{-30, 2149000},
+		{-25, 1554000},
+		{-20, 1135000},
+		{-15, 837800},
+		{-10, 624100},
+		{-5, 469100},
+		{0, 355600},
+		{5, 271800},
+		{10, 209400},
+		{15, 162500},
+		{20, 127000},
+		{25, 100000},
+		{30, 79230},
+		{35, 63180},
+		{40, 50680},
+		{45, 40900},
+		{50, 33190},
+		{55, 27090},
+		{60, 22220}
+};
+#endif
 
 #if (BAT_NTC_10 == 1)
 struct fg_temp fg_temp_table[21] = {

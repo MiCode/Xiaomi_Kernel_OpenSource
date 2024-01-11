@@ -156,6 +156,10 @@ source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
 source "drivers/misc/mediatek/gate_ic/Kconfig"
 source "drivers/misc/mediatek/usb/Kconfig"
+# BSP.System - 2023.7.1- add simtray status
+source "drivers/misc/mediatek/simtray/Kconfig"
+#cpumaxfreq support
+source "drivers/misc/mediatek/cpumaxfreq/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"

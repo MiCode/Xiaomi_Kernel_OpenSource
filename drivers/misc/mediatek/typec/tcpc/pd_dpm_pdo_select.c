@@ -108,41 +108,6 @@ static bool dpm_select_pdo_from_vsafe5v(
 }
 
 /*
- * Select PDO from Direct Charge
- */
-
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-static bool dpm_select_pdo_from_direct_charge(
-	struct dpm_select_info_t *select_info,
-	struct dpm_pdo_info_t *sink, struct dpm_pdo_info_t *source)
-{
-	int uw;
-
-	if (sink->type != DPM_PDO_TYPE_VAR ||
-	    source->type != DPM_PDO_TYPE_VAR)
-		return false;
-
-	if (source->vmin >= TCPC_VBUS_SINK_5V)
-		return false;
-
-	if (sink->vmin > source->vmin)
-		return false;
-
-	if (sink->vmax < source->vmax)
-		return false;
-
-	uw = dpm_calc_src_cap_power_uw(source, sink);
-	if (uw > select_info->max_uw) {
-		select_info->max_uw = uw;
-		select_info->cur_mv = source->vmax;
-		return true;
-	}
-
-	return false;
-}
-#endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
-
-/*
  * Select PDO from Custom
  */
 
@@ -179,12 +144,6 @@ static bool dpm_select_pdo_from_max_power(
 {
 	bool overload;
 	int uw;
-
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-	/* Variable for direct charge only */
-	if ((sink->type == DPM_PDO_TYPE_VAR) && (sink->vmin < 5000))
-		return false;
-#endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
 	if (sink->type == DPM_PDO_TYPE_APDO ||
 	    source->type == DPM_PDO_TYPE_APDO)
@@ -295,12 +254,6 @@ bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
 	case DPM_CHARGING_POLICY_CUSTOM:
 		select_pdo_fun = dpm_select_pdo_from_custom;
 		break;
-
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-	case DPM_CHARGING_POLICY_DIRECT_CHARGE:
-		select_pdo_fun = dpm_select_pdo_from_direct_charge;
-		break;
-#endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	case DPM_CHARGING_POLICY_PPS:

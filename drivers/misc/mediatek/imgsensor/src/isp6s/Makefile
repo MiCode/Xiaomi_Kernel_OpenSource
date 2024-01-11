@@ -10,7 +10,9 @@ IMGSENSOR_DRIVER_PATH := $(srctree)/drivers/misc/mediatek/imgsensor/src
 COMMON_VERSION := v1_1
 subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
 	-I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/seninf/ \
-	-I$(srctree)/drivers/i2c/busses/
+	-I$(srctree)/drivers/i2c/busses/ \
+	-I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/gc_gc6133c_i \
+	-I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/sc_sc080sc_ii
 
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor_isp6s.o
 imgsensor_isp6s-objs :=
@@ -23,6 +25,8 @@ imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/imgsensor_pwr_seq.o
 imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/imgsensor_sensor_list.o
 imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/seninf_clk.o
 imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/seninf.o
+imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/gc_gc6133c_i/gc_gc6133c_i.o
+imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/sc_sc080sc_ii/sc_sc080cs_ii.o
 
 IMG_COMMON_CODE_PATH := ../common/$(COMMON_VERSION)
 include $(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/n3d_fsync/Makefile

@@ -15,14 +15,13 @@
 #include <linux/delay.h>
 
 #include "tcpci_core.h"
-
-#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 #include "pd_dbg_info.h"
-#endif /* CONFIG_PD_DBG_INFO */
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "pd_core.h"
 #endif /* CONFIG_USB_POWER_DELIVERY */
+
+#define SC2150A_DID			0x0000
 
 #define PE_STATE_FULL_NAME	0
 
@@ -52,6 +51,9 @@ extern int tcpci_alert(struct tcpc_device *tcpc);
 
 extern void tcpci_vbus_level_init(
 		struct tcpc_device *tcpc, uint16_t power_status);
+#if CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
+int tcpci_alert_wakeup(struct tcpc_device *tcpc);
+#endif /* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
 
 static inline int tcpci_check_vbus_valid(struct tcpc_device *tcpc)
 {
@@ -60,6 +62,7 @@ static inline int tcpci_check_vbus_valid(struct tcpc_device *tcpc)
 
 int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc);
 bool tcpci_check_vsafe0v(struct tcpc_device *tcpc);
+int tcpci_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id);
 int tcpci_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask);
 int tcpci_fault_status_clear(struct tcpc_device *tcpc, uint8_t status);
 int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask);
@@ -71,6 +74,7 @@ int tcpci_init(struct tcpc_device *tcpc, bool sw_reset);
 int tcpci_init_alert_mask(struct tcpc_device *tcpc);
 
 int tcpci_get_cc(struct tcpc_device *tcpc);
+int tcpci_is_plugged_in(struct tcpc_device *tcpc);
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull);
 int tcpci_set_otp_fwen(struct tcpc_device *tcpc, bool en);
 static inline int __tcpci_set_cc(struct tcpc_device *tcpc, int pull)
@@ -91,7 +95,7 @@ int tcpci_set_low_rp_duty(struct tcpc_device *tcpc, bool low_rp);
 int tcpci_set_vconn(struct tcpc_device *tcpc, int enable);
 
 int tcpci_is_low_power_mode(struct tcpc_device *tcpc);
-int tcpci_set_low_power_mode(struct tcpc_device *tcpc, bool en, int pull);
+int tcpci_set_low_power_mode(struct tcpc_device *tcpc, bool en);
 int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en);
 int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc);
 int tcpci_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en);
@@ -99,9 +103,7 @@ int tcpci_get_vbus_voltage(struct tcpc_device *tcpc, u32 *vbus);
 int tcpci_is_vsafe0v(struct tcpc_device *tcpc);
 
 #if CONFIG_WATER_DETECTION
-int tcpci_is_water_detected(struct tcpc_device *tcpc);
 int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en);
-int tcpci_set_usbid_polling(struct tcpc_device *tcpc, bool en);
 int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
 #endif /* CONFIG_WATER_DETECTION */
 
@@ -130,6 +132,8 @@ int tcpci_protocol_reset(struct tcpc_device *tcpc);
 
 int tcpci_get_message(struct tcpc_device *tcpc,
 	uint32_t *payload, uint16_t *head, enum tcpm_transmit_type *type);
+
+void tcpc_tx_pending_work_func(struct work_struct *work);
 
 int tcpci_transmit(struct tcpc_device *tcpc,
 	enum tcpm_transmit_type type, uint16_t header, const uint32_t *data);
@@ -184,10 +188,6 @@ int tcpci_dp_notify_config_done(struct tcpc_device *tcpc,
 #if CONFIG_USB_PD_CUSTOM_VDM
 int tcpci_notify_uvdm(struct tcpc_device *tcpc, bool ack);
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
-
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-int tcpci_dc_notify_en_unlock(struct tcpc_device *tcpc);
-#endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
 #if CONFIG_USB_PD_REV30
 

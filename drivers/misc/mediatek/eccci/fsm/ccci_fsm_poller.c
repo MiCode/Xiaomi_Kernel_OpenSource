@@ -6,7 +6,7 @@
 #include "ccci_fsm_internal.h"
 #include "modem_sys.h"
 
-#define POLLING_INTERVAL_TIME 15000
+#define POLLING_INTERVAL_TIME 75000
 #define POLLING_TIMEOUT 15
 #define FORCE_ASSERT_TIMEOUT 15000
 

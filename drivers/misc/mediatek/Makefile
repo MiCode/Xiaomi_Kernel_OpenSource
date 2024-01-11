@@ -98,3 +98,7 @@ obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_USB) += usb/
 obj-$(CONFIG_MTK_WIDEVINE_DRM) += widevine_drm/
 obj-$(CONFIG_MTK_MT6382_BDG) += spi_slave_drv/
+# BSP.System - 2023.7.1 - add simtray status
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/
+#add cpumaxfreq
+obj-$(CONFIG_CPUMAXFREQ_SUPPORT) += cpumaxfreq/

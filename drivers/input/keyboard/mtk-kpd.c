@@ -294,6 +294,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 		pr_notice("irq %d enable irq wake fail\n", keypad->irqnr);
 
 	platform_set_drvdata(pdev, keypad);
+	enable_kpd(keypad->base, 1);
 
 	return 0;
 
@@ -323,19 +324,13 @@ static int kpd_pdrv_remove(struct platform_device *pdev)
 
 static int kpd_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
-
-	enable_kpd(keypad->base, 0);
-
+	pr_notice("[kpd-dbg][%s] Enter", __func__);
 	return 0;
 }
 
 static int kpd_pdrv_resume(struct platform_device *pdev)
 {
-	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
-
-	enable_kpd(keypad->base, 1);
-
+	pr_notice("[kpd-dbg][%s] Enter", __func__);
 	return 0;
 }
 

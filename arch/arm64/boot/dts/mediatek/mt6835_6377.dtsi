@@ -220,11 +220,11 @@
 };
 
 &mmc1 {
-	vmmc-supply = <&mt6377_vmch_eint_high>;
+	vmmc-supply = <&mt6377_vmch_eint_low>;
 	vqmmc-supply = <&mt6377_vmc>;
 };
 
-/delete-node/ &mt6377_vmch_eint_low;
+/*/delete-node/ &mt6377_vmch_eint_low;*/
 /delete-node/ &mt6377_vmch;
 
 &mt6377_vbuck1 {

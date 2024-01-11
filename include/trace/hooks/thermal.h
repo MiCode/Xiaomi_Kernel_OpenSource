@@ -38,6 +38,10 @@ DECLARE_HOOK(android_vh_enable_thermal_power_throttle,
 	TP_PROTO(bool *enable, bool *override),
 	TP_ARGS(enable, override));
 
+DECLARE_HOOK(android_vh_modify_thermal_throttle_update,
+	TP_PROTO(struct thermal_zone_device *tz, bool *update),
+	TP_ARGS(tz, update));
+
 DECLARE_HOOK(android_vh_thermal_power_cap,
 	TP_PROTO(u32 *power_range),
 	TP_ARGS(power_range));

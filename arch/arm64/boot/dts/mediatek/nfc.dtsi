@@ -1,0 +1,14 @@
+&i2c3 {
+	status = "okay";
+        clock-frequency = <400000>;
+        pn557: pn557@28 {
+		compatible = "nxp,pn557";
+		reg = <0x28>;
+		nxp,pn557-ven = <&pio 42 0>;
+		nxp,pn557-fw-dwnld = <&pio 40 0>;
+		nxp,pn557-irq = <&pio 41 0>;
+		interrupt-parent = <&pio>;
+		interrupts = <41 IRQ_TYPE_LEVEL_LOW>;
+		status = "okay";
+        };
+};

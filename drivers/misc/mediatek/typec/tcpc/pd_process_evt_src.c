@@ -75,15 +75,15 @@ static inline bool pd_process_ctrl_msg_good_crc(
 	}
 }
 
-static inline bool pd_process_ctrl_msg_get_sink_cap(
-	struct pd_port *pd_port, struct pd_event *pd_event)
+static bool pd_process_ctrl_msg_get_sink_cap(
+		struct pd_port *pd_port, uint8_t next)
 {
 	if (pd_port->pe_state_curr != PE_SRC_READY)
 		return false;
 
 #if CONFIG_USB_PD_PR_SWAP
 	if (pd_port->dpm_caps & DPM_CAP_LOCAL_DR_POWER) {
-		PE_TRANSIT_STATE(pd_port, PE_DR_SRC_GIVE_SINK_CAP);
+		PE_TRANSIT_STATE(pd_port, next);
 		return true;
 	}
 #endif	/* CONFIG_USB_PD_PR_SWAP */
@@ -134,7 +134,8 @@ static inline bool pd_process_ctrl_msg(
 		break;
 
 	case PD_CTRL_GET_SINK_CAP:
-		if (pd_process_ctrl_msg_get_sink_cap(pd_port, pd_event))
+		if (pd_process_ctrl_msg_get_sink_cap(
+			pd_port, PE_DR_SRC_GIVE_SINK_CAP))
 			return true;
 		break;
 
@@ -168,6 +169,12 @@ static inline bool pd_process_ctrl_msg(
 			return true;
 		break;
 #endif	/* CONFIG_USB_PD_REV30_PPS_SOURCE */
+
+	case PD_CTRL_GET_SINK_CAP_EXT:
+		if (pd_process_ctrl_msg_get_sink_cap(
+			pd_port, PE_DR_SRC_GIVE_SINK_CAP_EXT))
+			return true;
+		break;
 #endif	/* CONFIG_USB_PD_REV30 */
 
 	default:
@@ -242,13 +249,19 @@ static inline bool pd_process_ext_msg(
 		break;
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
 
-#if CONFIG_USB_PD_REV30_STATUS_LOCAL
+#if CONFIG_USB_PD_REV30_STATUS_REMOTE
 	case PD_EXT_STATUS:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SRC_GET_SINK_STATUS, PE_SRC_READY))
 			return true;
 		break;
-#endif	/* CONFIG_USB_PD_REV30_STATUS_LOCAL */
+#endif	/* CONFIG_USB_PD_REV30_STATUS_REMOTE */
+
+	case PD_EXT_SINK_CAP_EXT:
+		if (PE_MAKE_STATE_TRANSIT_SINGLE(
+			PE_SRC_GET_SINK_CAP_EXT, PE_SRC_READY))
+			return true;
+		break;
 
 	default:
 		pd_port->curr_unsupported_msg = true;
@@ -481,6 +494,8 @@ static inline bool pd_process_timer_msg(
 		if (pd_port->pe_data.pd_traffic_control == PD_SOURCE_TX_START)
 			pd_port->pe_data.pd_traffic_control = PD_SINK_TX_OK;
 #endif	/* CONFIG_USB_PD_REV30_SRC_FLOW_DELAY_STARTUP */
+
+		dpm_reaction_set_ready_once(pd_port);
 
 		break;
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */

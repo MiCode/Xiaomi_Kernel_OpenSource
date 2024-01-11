@@ -17,4 +17,8 @@ unsigned int Common_write_region(struct i2c_client *client,
 				 unsigned char *data,
 				 unsigned int size);
 
+unsigned int GC05A2_read_region(struct i2c_client *client,
+				unsigned int addr,
+				unsigned char *data,
+				unsigned int size);
 #endif				/* __CAM_CAL_LIST_H */

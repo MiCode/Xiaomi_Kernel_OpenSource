@@ -562,6 +562,7 @@ enum mtk_ddp_io_cmd {
 	PMQOS_UPDATE_BW,
 	OVL_REPLACE_BOOTUP_MVA,
 	BACKUP_INFO_CMP,
+	LC_ESD_RESTORE_BACKLIGHT,
 	LCM_RESET,
 	LCM_CUST_FUNC,
 	DSI_SEND_DDIC_CMD_PACK,
@@ -780,6 +781,7 @@ struct mtk_ddp_comp {
 	u32 fbdc_bw;
 	u32 hrt_bw;
 	bool in_scaling_path;
+	struct mutex panel_lock;
 };
 
 static inline void mtk_ddp_comp_config_overhead(struct mtk_ddp_comp *comp,
@@ -872,9 +874,9 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 	if (comp && comp->funcs && comp->funcs->layer_config &&
 			!comp->blank_mode) {
 		DDPDBG("[DRM]func:%s, line:%d ==>\n",
-			__func__, __LINE__);
+				__func__, __LINE__);
 		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
-			comp->funcs, comp->funcs->layer_config);
+				comp->funcs, comp->funcs->layer_config);
 
 		comp->funcs->layer_config(comp, idx, state, handle);
 	}

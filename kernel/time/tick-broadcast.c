@@ -1037,11 +1037,12 @@ static void tick_broadcast_setup_oneshot(struct clock_event_device *bc)
 		 */
 		cpumask_copy(tmpmask, tick_broadcast_mask);
 		cpumask_clear_cpu(cpu, tmpmask);
-		cpumask_or(tick_broadcast_oneshot_mask,
-			   tick_broadcast_oneshot_mask, tmpmask);
 
 		if (was_periodic && !cpumask_empty(tmpmask)) {
 			ktime_t nextevt = tick_get_next_period();
+
+			cpumask_or(tick_broadcast_oneshot_mask,
+					tick_broadcast_oneshot_mask, tmpmask);
 
 			clockevents_switch_state(bc, CLOCK_EVT_STATE_ONESHOT);
 			tick_broadcast_init_next_event(tmpmask, nextevt);

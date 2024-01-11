@@ -21,8 +21,7 @@
 #include <linux/log2.h>
 
 #include "hf_manager.h"
-
-
+extern void set_lct_tp_proximity_switch_status(bool en);//TP调用虚拟距感统一接口
 static int major;
 static struct class *hf_manager_class;
 static struct task_struct *task;
@@ -1064,6 +1063,15 @@ static int hf_manager_drive_device(struct hf_client *client,
 	switch (cmd->action) {
 	case HF_MANAGER_SENSOR_ENABLE:
 	case HF_MANAGER_SENSOR_DISABLE:
+		if(cmd->action == HF_MANAGER_SENSOR_ENABLE && sensor_type == 8){
+			set_lct_tp_proximity_switch_status(1);//打开TP模拟距感功能
+			pr_err("longcheer enable proxmity");
+		}
+		else if(cmd->action == HF_MANAGER_SENSOR_DISABLE && sensor_type == 8){
+			set_lct_tp_proximity_switch_status(0);//关闭TP模拟距感功能
+			pr_err("longcheer disable proxmity");
+		}
+
 		hf_manager_save_update_enable(client, cmd, &old);
 		err = hf_manager_device_enable(device, sensor_type);
 		if (err < 0)

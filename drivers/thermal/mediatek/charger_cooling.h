@@ -13,7 +13,7 @@
  *===========================================================
  */
 #define CHARGER_COOLING_UNLIMITED_STATE	(0)
-#define CHARGER_STATE_NUM 9
+#define CHARGER_STATE_NUM 16
 #define MAX_CHARGER_COOLER_NAME_LEN		(20)
 
 /*==================================================

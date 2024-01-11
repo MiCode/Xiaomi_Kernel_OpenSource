@@ -3,7 +3,7 @@
  * Copyright (c) 2022 MediaTek Inc.
  */
 
-&i2c7 {
+&i2c4 {
 	rt1711_typec: rt1711h@4e {
 		compatible = "richtek,rt1711h";
 		reg = <0x4e>;
@@ -16,7 +16,7 @@
 					     /* 2: EMarkOnly, 3: StartOnly */
 		rt1711pd,intr_gpio = <&pio 41 0x0>;
 		rt1711pd,intr_gpio_num = <41>;
-		charger = <&mt6375_chg>;
+		/* charger = <&mt6375_chg>; */
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x1711>;
@@ -27,6 +27,12 @@
 						      0x00 0x00 0x00 0x00
 						      0x00 0x00 0x01 0x02
 						      0x00>;
+			pd,sink-cap-ext = /bits/ 8 <0xcf 0x29 0x11 0x17
+						    0x00 0x00 0x00 0x00
+						    0x00 0x00 0x01 0x00
+						    0x00 0x00 0x00 0x00
+						    0x01 0x0b 0x01 0x0a
+						    0x0a 0x00 0x00 0x00>;
 			pd,mfrs = "RichtekTCPC";
 
 			/*
@@ -107,12 +113,12 @@
 			//local_high_cap;
 			//local_give_back;
 			local_no_suspend;
-			local_vconn_supply;
 
-			//attempt_discover_cable_dfp;
+			// attempt_discover_cable_dfp;
 			attempt_enter_dp_mode;
 			attempt_discover_cable;
-			attempt_discover_id;
+			// attempt_discover_id;
+			// attempt_discover_svid;
 
 			/* 0: disable, 1: prefer_snk, 2: prefer_src */
 			pr_check = <0>;
@@ -135,19 +141,14 @@
 			//usbr20_not_used;
 			typec,receptacle;
 			ufp_d {
-				//pin_assignment,mode_a;
-				//pin_assignment,mode_b;
 				//pin_assignment,mode_c;
 				//pin_assignment,mode_d;
 				//pin_assignment,mode_e;
 			};
 			dfp_d {
-				//pin_assignment,mode_a;
-				//pin_assignment,mode_b;
 				pin_assignment,mode_c;
 				pin_assignment,mode_d;
 				pin_assignment,mode_e;
-				//pin_assignment,mode_f;
 			};
 		};
 	};

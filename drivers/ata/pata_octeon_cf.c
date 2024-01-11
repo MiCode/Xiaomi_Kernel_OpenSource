@@ -386,7 +386,7 @@ static void octeon_cf_tf_read16(struct ata_port *ap, struct ata_taskfile *tf)
 	void __iomem *base = ap->ioaddr.data_addr;
 
 	blob = __raw_readw(base + 0xc);
-	tf->feature = blob >> 8;
+	tf->error = blob >> 8;
 
 	blob = __raw_readw(base + 2);
 	tf->nsect = blob & 0xff;
@@ -398,7 +398,7 @@ static void octeon_cf_tf_read16(struct ata_port *ap, struct ata_taskfile *tf)
 
 	blob = __raw_readw(base + 6);
 	tf->device = blob & 0xff;
-	tf->command = blob >> 8;
+	tf->status = blob >> 8;
 
 	if (tf->flags & ATA_TFLAG_LBA48) {
 		if (likely(ap->ioaddr.ctl_addr)) {
@@ -888,12 +888,14 @@ static int octeon_cf_probe(struct platform_device *pdev)
 				int i;
 				res_dma = platform_get_resource(dma_dev, IORESOURCE_MEM, 0);
 				if (!res_dma) {
+					put_device(&dma_dev->dev);
 					of_node_put(dma_node);
 					return -EINVAL;
 				}
 				cf_port->dma_base = (u64)devm_ioremap(&pdev->dev, res_dma->start,
 									 resource_size(res_dma));
 				if (!cf_port->dma_base) {
+					put_device(&dma_dev->dev);
 					of_node_put(dma_node);
 					return -EINVAL;
 				}
@@ -903,6 +905,7 @@ static int octeon_cf_probe(struct platform_device *pdev)
 					irq = i;
 					irq_handler = octeon_cf_interrupt;
 				}
+				put_device(&dma_dev->dev);
 			}
 			of_node_put(dma_node);
 		}

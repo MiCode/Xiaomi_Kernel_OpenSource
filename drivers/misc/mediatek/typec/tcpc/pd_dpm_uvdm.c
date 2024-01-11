@@ -11,7 +11,6 @@
 
 #if CONFIG_USB_PD_RICHTEK_UVDM
 
-#define NEVER 0
 bool richtek_dfp_notify_pe_startup(
 		struct pd_port *pd_port, struct svdm_svid_data *svid_data)
 {
@@ -31,17 +30,6 @@ int richtek_dfp_notify_pe_ready(
 
 	pd_port->richtek_init_done = true;
 	UVDM_INFO("UVDM: %s\n", __func__);
-
-#if NEVER
-	pd_port->uvdm_cnt = 3;
-	pd_port->uvdm_wait_resp = true;
-
-	pd_port->uvdm_data[0] = PD_UVDM_HDR(USB_VID_RICHTEK, 0x4321);
-	pd_port->uvdm_data[1] = 0x11223344;
-	pd_port->uvdm_data[2] = 0x44332211;
-
-	pd_put_tcp_vdm_event(pd_port, TCP_DPM_EVT_UVDM);
-#endif /* NEVER */
 
 	return 1;
 }

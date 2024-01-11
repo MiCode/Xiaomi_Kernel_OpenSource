@@ -103,6 +103,11 @@ obj-$(CONFIG_DRM_PANEL_NT37801_CMD_120HZ) += panel-nt37801-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_L12A_42_02_0A_DSC_CMD) += panel-l12a-42-02-0a-dsc-cmd.o
 obj-$(CONFIG_DRM_PANEL_NT37801_CMD_FHD) += panel-nt37801-cmd-fhd.o
 obj-$(CONFIG_DRM_PANEL_NT37801_CMD_SPR) += panel-nt37801-cmd-spr.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3V_43_02_0A_HD_VDO) += dsi_panel_c3v_43_02_0a_hd_vdo.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3V_35_03_0B_HD_VDO) += dsi_panel_c3v_35_03_0b_hd_vdo.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3V_NULL_HD_VDO) += dsi_panel_c3v_null_hd_vdo.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3V_43_02_0C_HD_VDO) += dsi_panel_c3v_43_02_0c_hd_vdo.o
+
 ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64),)
 obj-$(CONFIG_DRM_TD2204_WQHD_AMB678ZY01_S6E3HC3_CMD) += k6985v1_64/td2204-wqhd-amb678zy01-s6e3hc3-cmd.o
 endif

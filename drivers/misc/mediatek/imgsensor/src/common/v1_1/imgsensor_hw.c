@@ -32,7 +32,8 @@ char * const imgsensor_hw_pin_names[] = {
 char * const imgsensor_hw_id_names[] = {
 	"mclk",
 	"regulator",
-	"gpio"
+	"gpio",
+	"smartldo"
 };
 
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)

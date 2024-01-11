@@ -25,6 +25,7 @@
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/power/mt6375-gauge.h>
+#include <dt-bindings/power/mtk-charger.h>
 #include <dt-bindings/clock/mmdvfs-clk.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 
@@ -13434,17 +13435,15 @@
 
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
-		/* wd0_enable : use it for enable wd0 function */
-		//wd0_enable;
+		nr_port = <1>;
+		// en_wd0_port0;
 	};
 
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
-		boot_mode = <&chosen>;
-		adapter_name = "pd_adapter";
+		nr_port = <1>;
 		force_cv;
-		phys = <&u2port0 PHY_TYPE_USB2>;
-		phy-names = "usb2-phy";
+		adapter_name = "pd_adapter";
 	};
 
 	flashlight_core: flashlight-core {
@@ -13461,8 +13460,10 @@
 
 	mtk_ctd: mtk_ctd {
 		compatible = "mediatek,mtk_ctd";
-		bc12 = <&mt6375_chg>;
-		bc12_sel = <0>;
+		nr_port = <1>;
+		chg_name_port0 = "primary_chg";
+		bc12_sel_port0 = <MTK_CTD_BY_SUBPMIC>;
+		bc12_psy_port0 = <&mt6375_chg>;
 	};
 
 	low_battery_throttling {
@@ -13654,11 +13655,11 @@
 		compatible = "mediatek,charger,pe5";
 		gauge = <&mtk_gauge>;
 		polling_interval = <10000>;
-		ta_cv_ss_repeat_tmin = <25>;
 		vbat_cv = <4350>;
 		start_soc_min = <0>;
 		start_soc_max = <80>;
-		start_vbat_max = <4300>;
+		stop_soc_max = <99>;
+		vbat_max_gap = <50>;
 		idvchg_term = <500>;
 		idvchg_step = <50>;
 		ita_level = <3000 2500 2000 1500>;
@@ -13671,7 +13672,7 @@
 		idvchg_ss_step2 = <50>;
 		idvchg_ss_step1_vbat = <4000>;
 		idvchg_ss_step2_vbat = <4200>;
-		ta_blanking = <400>;
+		ta_blanking = <285>;
 		swchg_aicr = <0>;
 		swchg_ichg = <1200>;
 		swchg_aicr_ss_init = <400>;
@@ -15580,7 +15581,9 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 			chg_tmr = <10>;
 			chg_tmr_en;
 			dcdt_sel = <600>;
-			bc12_sel = <&mtk_ctd>;
+			spec_ta_en;
+			nr_port = <1>;
+			bc12_sel = <MTK_CTD_BY_SUBPMIC>;
 			boot_mode = <&chosen>;
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			phy-names = "usb2-phy";
@@ -15612,8 +15615,7 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 				      <&mt6375_adc MT6375_ADC_SBU2>;
 			charger = <&mt6375_chg>;
 			tcpc,en_wd;
-			tcpc,en_wd_sbu_polling;
-			tcpc,en_wd_polling_only;
+			//tcpc,en_wd_dual_port;
 			tcpc,en_ctd;
 			tcpc,en_fod;
 			tcpc,en_typec_otp;
@@ -15643,6 +15645,12 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 							      0x00 0x00 0x00 0x00
 							      0x00 0x00 0x01 0x07
 							      0x00>;
+				pd,sink-cap-ext = /bits/ 8 <0xcf 0x29 0x75 0x63
+							    0x00 0x00 0x00 0x00
+							    0x00 0x00 0x01 0x00
+							    0x00 0x00 0x00 0x00
+							    0x01 0x0b 0x01 0x0a
+							    0x0a 0x00 0x00 0x00>;
 				pd,mfrs = "RichtekTCPC";
 
 				/*
@@ -15689,12 +15697,12 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 				// local_high_cap;
 				// local_give_back;
 				local_no_suspend;
-				local_vconn_supply;
 
 				// attempt_discover_cable_dfp;
 				attempt_enter_dp_mode;
 				attempt_discover_cable;
-				attempt_discover_id;
+				// attempt_discover_id;
+				// attempt_discover_svid;
 
 				/* 0: disable, 1: prefer_snk, 2: prefer_src */
 				pr_check = <0>;
@@ -15717,19 +15725,14 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 				//usbr20_not_used;
 				typec,receptacle;
 				ufp_d {
-					//pin_assignment,mode_a;
-					//pin_assignment,mode_b;
 					//pin_assignment,mode_c;
 					//pin_assignment,mode_d;
 					//pin_assignment,mode_e;
 				};
 				dfp_d {
-					//pin_assignment,mode_a;
-					//pin_assignment,mode_b;
 					pin_assignment,mode_c;
 					pin_assignment,mode_d;
 					pin_assignment,mode_e;
-					//pin_assignment,mode_f;
 				};
 			};
 		};

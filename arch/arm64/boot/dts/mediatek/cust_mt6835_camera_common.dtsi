@@ -166,7 +166,6 @@
 			"cam2_mclk_2mA", "cam2_mclk_4mA",
 			"cam2_mclk_6mA", "cam2_mclk_8mA",
 			"cam0_avdd1_gpio_0",  "cam0_avdd1_gpio_1";
-
 	pinctrl-0 = <&camera_pins_default>;
 	pinctrl-1 = <&camera_pins_cam0_rst_0>;
 	pinctrl-2 = <&camera_pins_cam0_rst_1>;
@@ -193,46 +192,43 @@
 	pinctrl-23 = <&camera_pins_cam0_avdd1_gpio_1>;
 
 	/* main (wide)*/
-	cam0_vcama-supply = <&rt5133_ldo4>;
-	cam0_vcamio-supply = <&rt5133_ldo1>;
-	cam0_vcamd-supply = <&rt5133_ldo8>;
-	cam0_vcama1-supply = <&rt5133_ldo5>;
-	cam0_vcamaf-supply = <&rt5133_ldo3>;
+	cam0_vcamio-supply = <&mt6377_vaud18>;
+	cam0_vcamaf-supply = <&mt6377_vio28>;
 
 	/* front*/
-	cam1_vcama-supply = <&rt5133_ldo6>;
-	cam1_vcamio-supply = <&rt5133_ldo1>;
-	cam1_vcamd-supply = <&rt5133_ldo7>;
-	cam1_vcama1-supply = <&rt5133_ldo5>;
+	cam1_vcamio-supply = <&mt6377_vaud18>;
 
 	/* main2 (Ultra Wide)*/
-	cam2_vcama-supply = <&rt5133_gpio2>;
-	cam2_vcamio-supply = <&rt5133_ldo1>;
-	cam2_vcamd-supply = <&rt5133_ldo7>;
-	cam2_vcama1-supply = <&rt5133_ldo5>;
-	cam2_vcamaf-supply = <&rt5133_gpio1>;
+	cam2_vcamio-supply = <&mt6377_vaud18>;
 
 	cam0_pin_mclk = "mclk";
 	cam0_pin_rst = "gpio";
-	cam0_pin_vcama = "regulator";
+	cam0_pin_vcama = "smartldo";
 	cam0_pin_vcamio = "regulator";
-	cam0_pin_vcamd = "regulator";
+	cam0_pin_vcamd = "smartldo";
 	cam0_pin_vcama1 = "regulator";
 	cam0_pin_vcama1_gpio = "gpio";
 	cam0_pin_vcamaf = "regulator";
 	cam1_pin_mclk = "mclk";
 	cam1_pin_rst = "gpio";
-	cam1_pin_vcama = "regulator";
+	cam1_pin_vcama = "smartldo";
 	cam1_pin_vcamio = "regulator";
-	cam1_pin_vcamd = "regulator";
+	cam1_pin_vcamd = "smartldo";
 	cam1_pin_vcama1 = "regulator";
 	cam2_pin_mclk = "mclk";
 	cam2_pin_rst = "gpio";
-	cam2_pin_vcama = "regulator";
+	cam2_pin_vcama = "smartldo";
 	cam2_pin_vcamio = "regulator";
-	cam2_pin_vcamd = "regulator";
+	cam2_pin_vcamd = "smartldo";
 	cam2_pin_vcama1 = "regulator";
 	cam2_pin_vcamaf = "regulator";
+	cam3_pin_mclk = "mclk";
+	cam3_pin_rst = "gpio";
+	cam3_pin_vcama = "smartldo";
+	cam3_pin_vcamd = "smartldo";
+	cam3_pin_vcamio = "regulator";
+	cam0_enable_sensor = "ov50d40_truly_main_i_mipi_raw s5kjns_sunny_main_ii_mipi_raw s5kjns_sunny_main_iii_mipi_raw";
+	cam1_enable_sensor = "sc520_truly_front_i_mipi_raw gc05a2_qtech_front_ii_mipi_raw";
 	status = "okay";
 };
 /* CAMERA GPIO end */
@@ -280,15 +276,15 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	mtk_camera_eeprom0:camera_eeprom0@50 {
+	mtk_camera_eeprom0:camera_eeprom0@51 {
 		compatible = "mediatek,camera_eeprom";
-		reg = <0x50>;
+		reg = <0x51>;
 		status = "okay";
 	};
-	camera_main_mtk:camera_main@1a {
+	camera_main_mtk:camera_main@10 {
 		compatible = "mediatek,camera_main";
 		#thermal-sensor-cells = <0>;
-		reg = <0x1a>;
+		reg = <0x10>;
 		status = "okay";
 	};
 };
@@ -296,9 +292,9 @@
 
 /* CAMERA AF */
 &i2c8 {
-	camera_main_af_mtk:camera_main_af@72 {
+	camera_main_af_mtk:camera_main_af@18 {
 		compatible = "mediatek,camera_main_af";
-		reg = <0x72>;
+		reg = <0x18>;
 		status = "okay";
 	};
 };
@@ -318,9 +314,8 @@
 };
 
 &camera_af_hw_node {
-	camaf_m1_pmic-supply = <&rt5133_ldo3>;
-	camaf_m2_pmic-supply = <&rt5133_gpio1>;
-	camaf_m3_pmic-supply = <&rt5133_gpio1>;
+	camaf_m1_pmic-supply = <&mt6377_vaud18>;
+	camio_m1_pmic-supply = <&mt6377_vio28>;
 	status = "okay";
 };
 /* CAMERA AF end */
@@ -344,3 +339,13 @@
 	};
 };
 /* CAMERA TZ config end */
+
+/* CAMERA SMART LDO */
+&i2c6 {
+    smart_ldo:smart_ldo@28 {
+        compatible = "mediatek,camera_smart_ldo";
+		reg = <0x28>;
+		status = "okay";
+	};
+};
+/* CAMERA SMART LDO  end */

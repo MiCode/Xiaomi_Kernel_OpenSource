@@ -27,7 +27,6 @@ void pe_prs_src_snk_accept_pr_swap_entry(struct pd_port *pd_port)
 
 void pe_prs_src_snk_transition_to_off_entry(struct pd_port *pd_port)
 {
-	pd_lock_msg_output(pd_port);	/* for tSRCTransition */
 	pd_notify_pe_execute_pr_swap(pd_port, true);
 
 	pd_enable_timer(pd_port, PD_TIMER_SOURCE_TRANSITION);

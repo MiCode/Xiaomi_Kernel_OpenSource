@@ -1025,7 +1025,7 @@ static void release_general_buffer_info(struct dma_gen_buf *gen_buf_info)
 	struct dma_buf *dmabuf;
 
 	if (gen_buf_info == NULL) {
-		mtk_v4l2_err("gen_buf_info NULL !!");
+		mtk_v4l2_debug(1, "gen_buf_info NULL, may be already released");
 		return;
 	}
 
@@ -1044,10 +1044,20 @@ static void release_general_buffer_info(struct dma_gen_buf *gen_buf_info)
 	memset((void *)gen_buf_info, 0, sizeof(struct dma_gen_buf));
 }
 
-static void release_general_buffer_info_by_dmabuf(struct mtk_vcodec_ctx *ctx,
-	struct dma_buf *dmabuf)
+static void set_general_buffer(struct mtk_vcodec_ctx *ctx, struct vdec_fb *frame_buffer, int fd)
 {
-	release_general_buffer_info(get_general_buffer_info(ctx, dmabuf));
+	struct dma_gen_buf *gen_buf_info;
+
+	mutex_lock(&ctx->gen_buf_list_lock);
+	gen_buf_info = create_general_buffer_info(ctx, fd);
+	if (gen_buf_info != NULL) {
+		frame_buffer->dma_general_buf  = gen_buf_info->dmabuf;
+		frame_buffer->dma_general_addr = gen_buf_info->dma_general_addr;
+	} else {
+		frame_buffer->dma_general_buf = 0;
+		frame_buffer->dma_general_addr = 0;
+	}
+	mutex_unlock(&ctx->gen_buf_list_lock);
 }
 
 #if ENABLE_META_BUF
@@ -1056,13 +1066,35 @@ static void *get_general_buffer_va(struct mtk_vcodec_ctx *ctx, struct dma_buf *d
 	struct dma_gen_buf *gen_buf_info;
 	void *va = NULL;
 
+	mutex_lock(&ctx->gen_buf_list_lock);
 	gen_buf_info = get_general_buffer_info(ctx, dmabuf);
 	if (gen_buf_info != NULL)
 		va = gen_buf_info->va;
+	mutex_lock(&ctx->gen_buf_list_lock);
 
 	return va;
 }
 #endif
+
+static void release_general_buffer_info_by_dmabuf(struct mtk_vcodec_ctx *ctx,
+	struct dma_buf *dmabuf)
+{
+	mutex_lock(&ctx->gen_buf_list_lock);
+	release_general_buffer_info(get_general_buffer_info(ctx, dmabuf));
+	mutex_unlock(&ctx->gen_buf_list_lock);
+}
+
+static void release_all_general_buffer_info(struct mtk_vcodec_ctx *ctx)
+{
+	int i;
+
+	mutex_lock(&ctx->gen_buf_list_lock);
+	for (i = 0; i < MAX_GEN_BUF_CNT; i++) {
+		if (ctx->dma_buf_list[i].dmabuf)
+			release_general_buffer_info(&ctx->dma_buf_list[i]);
+	}
+	mutex_unlock(&ctx->gen_buf_list_lock);
+}
 
 int mtk_vdec_defer_put_fb_job(struct mtk_vcodec_ctx *ctx, int type)
 {
@@ -1256,10 +1288,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
 		wake_up(&ctx->fm_wq);
 
-	for (i = 0; i < MAX_GEN_BUF_CNT; i++) {
-		if (ctx->dma_buf_list[i].dmabuf)
-			release_general_buffer_info(&ctx->dma_buf_list[i]);
-	}
+	release_all_general_buffer_info(ctx);
 
 #if ENABLE_META_BUF
 	for (i = 0; i < MAX_META_BUF_CNT; i++) {
@@ -2010,16 +2039,15 @@ void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
 {
+#if ENABLE_META_BUF
 	int i;
+#endif
 
 	mtk_vdec_deinit_set_frame_wq(ctx);
 	vdec_if_deinit(ctx);
 	vdec_check_release_lock(ctx);
 
-	for (i = 0; i < MAX_GEN_BUF_CNT; i++) {
-		if (ctx->dma_buf_list[i].dmabuf)
-			release_general_buffer_info(&ctx->dma_buf_list[i]);
-	}
+	release_all_general_buffer_info(ctx);
 
 #if ENABLE_META_BUF
 	for (i = 0; i < MAX_META_BUF_CNT; i++) {
@@ -3188,19 +3216,9 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (mtkbuf->general_user_fd > -1) {
-			struct dma_gen_buf *gen_buf_info;
-
-			gen_buf_info = create_general_buffer_info(ctx, mtkbuf->general_user_fd);
-			if (gen_buf_info != NULL) {
-				mtkbuf->frame_buffer.dma_general_buf = gen_buf_info->dmabuf;
-				mtkbuf->frame_buffer.dma_general_addr =
-					gen_buf_info->dma_general_addr;
-			} else {
-				mtkbuf->frame_buffer.dma_general_buf = 0;
-				mtkbuf->frame_buffer.dma_general_addr = 0;
-			}
-		} else
+		if (mtkbuf->general_user_fd > -1)
+			set_general_buffer(ctx, &mtkbuf->frame_buffer, mtkbuf->general_user_fd);
+		else
 			mtkbuf->frame_buffer.dma_general_buf = 0;
 
 		mtk_v4l2_debug(4,

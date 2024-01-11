@@ -11,6 +11,8 @@
 #include <linux/debugfs.h>
 #include <mt-plat/mrdump.h>
 #endif
+#include <linux/panic_notifier.h>
+#include <linux/kdebug.h>
 
 #if IS_ENABLED(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
@@ -43,6 +45,7 @@
 #include "mtk_drm_graphics_base.h"
 #include "mtk_dsi.h"
 #include "mtk_disp_bdg.h"
+//#include "mi_disp/mi_dsi_panel.h"
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -934,7 +937,7 @@ static void mtk_ddic_send_cb(struct cmdq_cb_data data)
 }
 
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking)
+			bool blocking,bool queueing)
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
@@ -1333,7 +1336,7 @@ void ddic_dsi_send_cmd_test(unsigned int case_num)
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true,false);
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -1402,7 +1405,7 @@ void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true ,false);
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -2457,6 +2460,43 @@ static bool is_disp_reg(uint32_t addr, char *comp_name, uint32_t comp_name_len)
 	return false;
 }
 #endif
+
+static void ipanic_lcm_reset(void)
+{
+	struct mtk_ddp_comp *comp;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *priv;
+	int enable;
+
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return;
+	}
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (IS_ERR_OR_NULL(crtc)) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	priv = crtc->dev->dev_private;
+	if (priv && priv->data && priv->data->mmsys_id != MMSYS_MT6835)
+		return;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
+		DDPINFO("cannot find output component\n");
+		return;
+	}
+
+	enable = 0;
+	comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+	mdelay(10);
+	enable = 1;
+	comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+}
 
 static void process_dbg_opt(const char *opt)
 {
@@ -4716,6 +4756,30 @@ out:
 	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
 }
 
+static int disp_ipanic(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	ipanic_lcm_reset();
+
+	return 0;
+}
+
+static int disp_ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
+{
+	ipanic_lcm_reset();
+
+	return 0;
+}
+
+static struct notifier_block panic_blk = {
+	.notifier_call = disp_ipanic,
+	.priority = 1,
+};
+
+static struct notifier_block die_blk = {
+	.notifier_call = disp_ipanic_die,
+	.priority = 1,
+};
+
 static const struct proc_ops hrt_lp_proc_fops = {
 	.proc_read = hrt_lp_proc_get,
 	.proc_write = hrt_lp_proc_set,
@@ -4822,6 +4886,8 @@ void disp_dbg_probe(void)
 #endif
 
 	mtk_dp_debugfs_init();
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+	register_die_notifier(&die_blk);
 
 out:
 	return;

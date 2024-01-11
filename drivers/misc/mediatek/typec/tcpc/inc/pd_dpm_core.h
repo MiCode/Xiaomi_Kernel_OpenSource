@@ -24,7 +24,7 @@ void pd_dpm_dynamic_disable_vconn(struct pd_port *pd_port);
 /* ---- SNK ---- */
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
-void pd_dpm_start_pps_request_thread(struct pd_port *pd_port, bool en);
+void pd_dpm_start_pps_request(struct pd_port *pd_port, bool en);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
 int pd_dpm_update_tcp_request(struct pd_port *pd_port,
@@ -190,7 +190,13 @@ void pd_dpm_inform_status(struct pd_port *pd_port);
 void pd_dpm_inform_pps_status(struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
+void pd_dpm_inform_sink_cap_ext(struct pd_port *pd_port);
+int pd_dpm_send_sink_cap_ext(struct pd_port *pd_port);
+
 void pd_dpm_inform_not_support(struct pd_port *pd_port);
+
+void pd_dpm_inform_revision(struct pd_port *pd_port);
+int pd_dpm_send_revision(struct pd_port *pd_port);
 
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -282,41 +288,6 @@ extern bool richtek_ufp_notify_uvdm(struct pd_port *pd_port,
 #endif	/* CONFIG_USB_PD_RICHTEK_UVDM */
 
 
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-extern bool dc_dfp_notify_discover_id(struct pd_port *pd_port,
-		struct svdm_svid_data *svid_data, bool ack);
-
-extern bool dc_dfp_notify_discover_svid(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, bool ack);
-
-extern bool dc_dfp_notify_discover_modes(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, bool ack);
-
-extern bool dc_dfp_notify_enter_mode(struct pd_port *pd_port,
-		struct svdm_svid_data *svid_data, uint8_t ops, bool ack);
-
-extern bool dc_dfp_notify_exit_mode(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, uint8_t ops);
-
-extern bool dc_dfp_notify_pe_startup(
-		struct pd_port *pd_port, struct svdm_svid_data *svid_data);
-
-extern int dc_dfp_notify_pe_ready(struct pd_port *pd_port,
-		struct svdm_svid_data *svid_data);
-
-extern bool dc_dfp_notify_uvdm(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, bool ack);
-extern bool dc_ufp_notify_uvdm(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data);
-
-extern bool dc_reset_state(struct pd_port *pd_port,
-	struct svdm_svid_data *svid_data);
-
-extern bool dc_parse_svid_data(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data);
-#endif /* CONFIG_USB_PD_ALT_MODE_RTDC */
-
-
 /**
  * pd_dpm_get_ready_reaction
  *
@@ -374,7 +345,11 @@ static inline void dpm_reaction_clear(struct pd_port *pd_port, uint32_t mask)
 
 static inline void dpm_reaction_set(struct pd_port *pd_port, uint32_t mask)
 {
+	struct tcpc_device *tcpc = pd_port->tcpc;
+
 	pd_port->pe_data.dpm_ready_reactions |= mask;
+	atomic_inc(&tcpc->pending_event);
+	wake_up(&tcpc->event_wait_que);
 }
 
 static inline void dpm_reaction_set_ready_once(struct pd_port *pd_port)

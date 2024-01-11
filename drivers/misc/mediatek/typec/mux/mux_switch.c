@@ -80,6 +80,7 @@ struct typec_mux *mtk_typec_mux_register(struct device *dev,
 		mux = ERR_PTR(-EINVAL);
 		goto out;
 	}
+	typec_mux->dev = dev;
 	typec_mux->mux = mux;
 	list_add_tail(&typec_mux->list, &mux_list);
 out:
@@ -122,9 +123,7 @@ static int mtk_typec_mux_set(struct typec_mux *mux, struct typec_mux_state *stat
 			typec_mux->mux->set(typec_mux->mux, state);
 	}
 
-	mux_sw->state.alt = state->alt;
-	mux_sw->state.mode = state->mode;
-	mux_sw->state.data = state->data;
+	mux_sw->state = *state;
 
 	mutex_unlock(&mux_lock);
 
@@ -207,6 +206,7 @@ struct typec_switch *mtk_typec_switch_register(struct device *dev,
 		sw = ERR_PTR(-EINVAL);
 		goto out;
 	}
+	typec_sw->dev = dev;
 	typec_sw->sw = sw;
 	list_add_tail(&typec_sw->list, &switch_list);
 out:

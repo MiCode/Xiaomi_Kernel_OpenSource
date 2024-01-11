@@ -1,0 +1,3 @@
+#include "mediatek/xiaomi-mt6835-common.dtsi"
+#include "mediatek/fingerprints.dtsi"
+#include "mediatek/nfc.dtsi"

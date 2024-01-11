@@ -462,6 +462,24 @@ struct mtk_tphy {
 	struct proc_dir_entry *root;
 };
 
+#define PHY_PARAM_SELECT "dsi_panel_c3v_null_hd_vdo"
+static bool is_lcmconnected = true;
+
+static void get_panel_info(void)
+{
+	struct device_node *of_chosen;
+	unsigned long size = 0;
+	char *bootargs;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(of_chosen,
+			"lcd_name", (int *)&size);
+		if (bootargs && strstr(bootargs, PHY_PARAM_SELECT))
+			is_lcmconnected = false;
+	}
+}
+
 static ssize_t proc_sib_write(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
@@ -1954,12 +1972,26 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 		return;
 
 	instance->bc12_en = device_property_read_bool(dev, "mediatek,bc12");
+	if(is_lcmconnected)
+	{
+		device_property_read_u32(dev, "mediatek,eye-vrt",
+				 &instance->eye_vrt);
+		device_property_read_u32(dev, "mediatek,eye-term",
+				 &instance->eye_term);
+		device_property_read_u32(dev, "mediatek,rev6",
+				 &instance->rev6);
+	}
+	else
+	{
+		device_property_read_u32(dev, "mediatek,eye-vrt-no-panel",
+				 &instance->eye_vrt);
+		device_property_read_u32(dev, "mediatek,eye-term-no-panel",
+				 &instance->eye_term);
+		device_property_read_u32(dev, "mediatek,rev6-no-panel",
+				 &instance->rev6);
+	}
 	device_property_read_u32(dev, "mediatek,eye-src",
 				 &instance->eye_src);
-	device_property_read_u32(dev, "mediatek,eye-vrt",
-				 &instance->eye_vrt);
-	device_property_read_u32(dev, "mediatek,eye-term",
-				 &instance->eye_term);
 	device_property_read_u32(dev, "mediatek,intr",
 				 &instance->intr);
 	device_property_read_u32(dev, "mediatek,discth",
@@ -1968,8 +2000,6 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 				 &instance->rx_sqth);
 	device_property_read_u32(dev, "mediatek,rev4",
 				 &instance->rev4);
-	device_property_read_u32(dev, "mediatek,rev6",
-				 &instance->rev6);
 	device_property_read_u32(dev, "mediatek,pll-bw",
 				&instance->pll_bw);
 	device_property_read_u32(dev, "mediatek,bgr-div",
@@ -2105,7 +2135,7 @@ static int phy_type_syscon_get(struct mtk_phy_instance *instance,
 static int phy_type_set(struct mtk_phy_instance *instance)
 {
 	int type;
-	u32 mask;
+	u32 offset;
 
 	if (!instance->type_sw)
 		return 0;
@@ -2128,8 +2158,9 @@ static int phy_type_set(struct mtk_phy_instance *instance)
 		return 0;
 	}
 
-	mask = RG_PHY_SW_TYPE << (instance->type_sw_index * BITS_PER_BYTE);
-	regmap_update_bits(instance->type_sw, instance->type_sw_reg, mask, type);
+	offset = instance->type_sw_index * BITS_PER_BYTE;
+	regmap_update_bits(instance->type_sw, instance->type_sw_reg,
+			   RG_PHY_SW_TYPE << offset, type << offset);
 
 	return 0;
 }
@@ -2306,6 +2337,7 @@ static int mtk_phy_power_on(struct phy *phy)
 	if (instance->type == PHY_TYPE_USB2) {
 		u2_phy_instance_power_on(tphy, instance);
 		hs_slew_rate_calibrate(tphy, instance);
+		u2_phy_props_set(tphy, instance);
 	} else if (instance->type == PHY_TYPE_USB3) {
 		u3_phy_instance_power_on(tphy, instance);
 	} else if (instance->type == PHY_TYPE_PCIE) {
@@ -2750,6 +2782,8 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 			phy->ops = &mtk_phy_jtag_ops;
 	}
 	mtk_phy_procfs_init(tphy);
+
+	get_panel_info();  /* parse panel info */
 
 	provider = devm_of_phy_provider_register(dev, mtk_phy_xlate);
 

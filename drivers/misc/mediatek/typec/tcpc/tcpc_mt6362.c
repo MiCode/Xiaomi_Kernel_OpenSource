@@ -3,6 +3,7 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -12,6 +13,7 @@
 #include <linux/cpu.h>
 #include <linux/iio/consumer.h>
 #include <dt-bindings/mfd/mt6362.h>
+#include <linux/sched/clock.h>
 
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
@@ -285,11 +287,6 @@ static const u8 mt6362_wd_rpull_reg[MT6362_WD_CHAN_NUM] = {
 	MT6362_REG_WD2MISCSET
 };
 
-static const u8 __maybe_unused mt6362_wd_ipull_reg[MT6362_WD_CHAN_NUM] = {
-	MT6362_REG_WD1MISCSET,
-	MT6362_REG_WD2MISCSET
-};
-
 static const u8 mt6362_wd_volcmp_reg[MT6362_WD_CHAN_NUM] = {
 	MT6362_REG_WD1VOLCMP,
 	MT6362_REG_WD2VOLCMP,
@@ -324,11 +321,9 @@ struct mt6362_tcpc_data {
 
 #if CONFIG_WATER_DETECTION
 	atomic_t wd_protect_rty;
+	bool wd_polling;
+	struct delayed_work wd12_strise_irq_dwork;
 #endif /* CONFIG_WATER_DETECTION */
-
-#if CONFIG_WD_POLLING_ONLY
-	struct delayed_work wd_poll_dwork;
-#endif /* CONFIG_WD_POLLING_ONLY */
 
 #if CONFIG_CABLE_TYPE_DETECTION
 	bool handle_init_ctd;
@@ -478,12 +473,11 @@ static int mt6362_init_vend_mask(struct mt6362_tcpc_data *tdata)
 
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION)
 		mask[MT6362_VEND_INT3] |= MT6362_MSK_CTD;
-
+#if CONFIG_WATER_DETECTION
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION)
-		mask[MT6362_VEND_INT7] |= MT6362_MSK_WD12_STFALL |
-					  MT6362_MSK_WD12_STRISE |
+		mask[MT6362_VEND_INT7] |= MT6362_MSK_WD12_STRISE |
 					  MT6362_MSK_WD12_DONE;
-
+#endif /* CONFIG_WATER_DETECTION */
 	return mt6362_bulk_write(tdata, MT6362_REG_MTMASK1, mask,
 				 MT6362_VEND_INT_NUM);
 }
@@ -605,22 +599,6 @@ static int mt6362_set_wd_ldo(struct mt6362_tcpc_data *tdata,
 	return mt6362_update_bits(tdata, MT6362_REG_WDSET, MT6362_MSK_WDLDO_SEL,
 				  ldo << MT6362_SFT_WDLDO_SEL);
 }
-#endif /* CONFIG_WATER_DETECTION */
-
-#if CONFIG_WATER_DETECTION
-static int mt6362_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2);
-static int mt6362_is_cc_toggling(struct mt6362_tcpc_data *tdata, bool *toggling)
-{
-	int ret;
-	int cc1 = 0, cc2 = 0;
-
-	ret = mt6362_get_cc(tdata->tcpc, &cc1, &cc2);
-	if (ret < 0)
-		return ret;
-	*toggling = (cc1 == TYPEC_CC_DRP_TOGGLING &&
-		     cc2 == TYPEC_CC_DRP_TOGGLING);
-	return 0;
-}
 
 static int mt6362_init_wd(struct mt6362_tcpc_data *tdata)
 {
@@ -659,15 +637,6 @@ static int mt6362_set_wd_rpull(struct mt6362_tcpc_data *tdata,
 	return mt6362_update_bits_rt2(tdata, mt6362_wd_rpull_reg[chan],
 				      MT6362_MSK_WDRPULL_SEL,
 				      rpull << MT6362_SFT_WDRPULL_SEL);
-}
-
-static int  __maybe_unused mt6362_set_wd_ipull(struct mt6362_tcpc_data *tdata,
-					       enum mt6362_wd_chan chan,
-					       enum mt6362_wd_ipull ipull)
-{
-	return mt6362_update_bits_rt2(tdata, mt6362_wd_ipull_reg[chan],
-				      MT6362_MSK_WDIPULL_SEL,
-				      ipull << MT6362_SFT_WDIPULL_SEL);
 }
 
 static int mt6362_set_wd_path(struct mt6362_tcpc_data *tdata,
@@ -855,8 +824,8 @@ not_auddev:
 	return false;
 }
 
-static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
-				      enum mt6362_wd_chan chan, bool *wd)
+static int mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
+				    enum mt6362_wd_chan chan, bool *wd)
 {
 	int ret, wd_adc, i;
 	struct tcpc_desc *desc = tdata->desc;
@@ -867,7 +836,6 @@ static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
 	u8 ctd_evt;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-	pm_stay_awake(tdata->dev);
 	/* Check WD1/2 pulled low */
 	for (i = 0; i < CONFIG_WD_SBU_PL_RETRY; i++) {
 		ret = mt6362_enable_wd_dischg(tdata, chan, true);
@@ -947,7 +915,6 @@ out:
 	MT6362_DBGINFO("water %s\n", *wd ? "detected" : "not detected");
 	mt6362_write8(tdata, mt6362_wd_miscctrl_reg[chan],
 		      MT6362_MSK_WDRPULL_EN | MT6362_MSK_WDDISCHG_EN);
-	pm_relax(tdata->dev);
 	return ret;
 }
 
@@ -975,8 +942,11 @@ static int mt6362_enable_wd_polling(struct mt6362_tcpc_data *tdata, bool en)
 				return ret;
 		}
 	}
-	return mt6362_write8(tdata, MT6362_REG_WD12MODECTRL,
-			     en ? MT6362_MSK_WD12MODE_EN : 0);
+	ret = mt6362_write8(tdata, MT6362_REG_WD12MODECTRL,
+			    en ? MT6362_MSK_WD12MODE_EN : 0);
+	if (ret >= 0)
+		tdata->wd_polling = en;
+	return ret;
 }
 
 static int mt6362_enable_wd_protection(struct mt6362_tcpc_data *tdata, bool en)
@@ -1012,23 +982,21 @@ static int mt6362_enable_wd_protection(struct mt6362_tcpc_data *tdata, bool en)
 static int mt6362_wd_polling_evt_process(struct mt6362_tcpc_data *tdata)
 {
 	int i, ret;
-	bool toggling, polling = true, error = false;
+	bool polling = true, error = false;
+	struct tcpc_device *tcpcs[] = {tdata->tcpc};
 
-	/* Only handle this event if CCs are still toggling */
-	ret = mt6362_is_cc_toggling(tdata, &toggling);
-	if (ret < 0)
-		return ret;
-	if (!toggling)
+	if (!tdata->wd_polling)
 		return 0;
-
 	mt6362_enable_wd_polling(tdata, false);
+	if (tcpci_is_plugged_in(tdata->tcpc))
+		return 0;
 	for (i = 0; i < MT6362_WD_CHAN_NUM; i++) {
 		if (!mt6362_wd_chan_en[i])
 			continue;
 		ret = mt6362_check_wd_status(tdata, i, &error);
 		if (ret < 0 || !error)
 			continue;
-		ret = __mt6362_is_water_detected(tdata, i, &error);
+		ret = mt6362_is_water_detected(tdata, i, &error);
 		if (ret < 0 || !error)
 			continue;
 		polling = false;
@@ -1037,7 +1005,7 @@ static int mt6362_wd_polling_evt_process(struct mt6362_tcpc_data *tdata)
 	if (polling)
 		mt6362_enable_wd_polling(tdata, true);
 	else
-		tcpc_typec_handle_wd(tdata->tcpc, true);
+		tcpc_typec_handle_wd(tcpcs, ARRAY_SIZE(tcpcs), true);
 	return 0;
 }
 
@@ -1045,6 +1013,7 @@ static int mt6362_wd_protection_evt_process(struct mt6362_tcpc_data *tdata)
 {
 	int i, ret;
 	bool error[2] = {false, false}, protection = false;
+	struct tcpc_device *tcpcs[] = {tdata->tcpc};
 
 	for (i = 0; i < MT6362_WD_CHAN_NUM; i++) {
 		if (!mt6362_wd_chan_en[i])
@@ -1052,7 +1021,7 @@ static int mt6362_wd_protection_evt_process(struct mt6362_tcpc_data *tdata)
 		ret = mt6362_check_wd_status(tdata, i, &error[0]);
 		if (ret < 0)
 			goto out;
-		ret = __mt6362_is_water_detected(tdata, i, &error[1]);
+		ret = mt6362_is_water_detected(tdata, i, &error[1]);
 		if (ret < 0)
 			goto out;
 		MT6362_DBGINFO("%s: err1:%d, err2:%d\n",
@@ -1065,44 +1034,22 @@ out:
 	}
 	MT6362_DBGINFO("%s: retry cnt = %d\n", __func__, tdata->wd_protect_rty);
 	if (!protection && atomic_dec_and_test(&tdata->wd_protect_rty)) {
-		tcpc_typec_handle_wd(tdata->tcpc, false);
+		tcpc_typec_handle_wd(tcpcs, ARRAY_SIZE(tcpcs), false);
 		atomic_set(&tdata->wd_protect_rty,
 			   CONFIG_WD_PROTECT_RETRY_COUNT);
 	} else
 		mt6362_enable_wd_protection(tdata, true);
 	return 0;
 }
-
-#if CONFIG_WD_POLLING_ONLY
-static void mt6362_wd_poll_dwork_handler(struct work_struct *work)
-{
-	int ret;
-	bool toggling;
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct mt6362_tcpc_data *tdata = container_of(dwork,
-						     struct mt6362_tcpc_data,
-						     wd_poll_dwork);
-
-	ret = mt6362_is_cc_toggling(tdata, &toggling);
-	if (ret < 0)
-		return;
-	if (!toggling)
-		return;
-	mt6362_enable_wd_polling(tdata, true);
-}
-#endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
 
-static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
+static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int rp_lvl)
 {
-	int ret, rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
+	int ret;
 	u8 data = TCPC_V10_REG_ROLE_CTRL_RES_SET(1, rp_lvl, TYPEC_CC_RD,
 						 TYPEC_CC_RD);
 
 	ret = mt6362_write8(tdata, TCPC_V10_REG_ROLE_CTRL, data);
-	if (ret < 0)
-		return ret;
-	ret = mt6362_enable_vsafe0v_detect(tdata, false);
 	if (ret < 0)
 		return ret;
 	/* Set LDO to 2V */
@@ -1110,22 +1057,15 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	if (ret < 0)
 		return ret;
 #if CONFIG_TCPC_LOW_POWER_MODE
-	tcpci_set_low_power_mode(tdata->tcpc, true, pull);
-#endif /* CONFIG_TCPC_LOW_POWER_MODE */
-	udelay(30);
-	ret = mt6362_write8(tdata, TCPC_V10_REG_COMMAND,
-			    TCPM_CMD_LOOK_CONNECTION);
+	tcpci_set_low_power_mode(tdata->tcpc, true);
+#else
+	ret = mt6362_enable_vsafe0v_detect(tdata, false);
 	if (ret < 0)
 		return ret;
-#if CONFIG_WD_SBU_POLLING
-#if CONFIG_WD_POLLING_ONLY
-	schedule_delayed_work(&tdata->wd_poll_dwork,
-			msecs_to_jiffies(500));
-#else
-	mt6362_enable_wd_polling(tdata, true);
-#endif /* CONFIG_WD_POLLING_ONLY */
-#endif /* CONFIG_WD_SBU_POLLING */
-	return 0;
+#endif /* CONFIG_TCPC_LOW_POWER_MODE */
+	udelay(30);
+	return mt6362_write8(tdata, TCPC_V10_REG_COMMAND,
+			    TCPM_CMD_LOOK_CONNECTION);
 }
 
 /*
@@ -1198,10 +1138,6 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	mt6362_set_bits(tdata, TCPC_V10_REG_TCPC_CTRL,
 			TCPC_V10_REG_TCPC_CTRL_EN_LOOK4CONNECTION_ALERT);
 
-#if CONFIG_WATER_DETECTION
-	mt6362_init_wd(tdata);
-#endif /* CONFIG_WATER_DETECTION */
-
 	tcpci_init_alert_mask(tcpc);
 
 	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN) {
@@ -1216,6 +1152,15 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	/* SHIPPING off, AUTOIDLE on */
 	mt6362_set_bits(tdata, MT6362_REG_SYSCTRL1,
 			MT6362_MSK_SHIPPING_OFF | MT6362_MSK_AUTOIDLE_EN);
+	mdelay(1);
+
+#if CONFIG_WATER_DETECTION
+	if (tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION) {
+		mt6362_init_wd(tdata);
+		mt6362_enable_wd_polling(tdata, true);
+	}
+#endif /* CONFIG_WATER_DETECTION */
+
 	return 0;
 }
 
@@ -1385,15 +1330,10 @@ static int mt6362_set_cc(struct tcpc_device *tcpc, int pull)
 
 	MT6362_INFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
-	if (pull == TYPEC_CC_DRP) {
-		ret = mt6362_set_cc_toggling(tdata, pull);
-	} else {
-#if CONFIG_WD_POLLING_ONLY
-		cancel_delayed_work_sync(&tdata->wd_poll_dwork);
-		mt6362_enable_wd_polling(tdata, false);
-#endif /* CONFIG_WD_POLLING_ONLY */
+	if (pull == TYPEC_CC_DRP)
+		ret = mt6362_set_cc_toggling(tdata, rp_lvl);
+	else
 		ret = __mt6362_set_cc(tdata, rp_lvl, pull);
-	}
 	return ret;
 }
 
@@ -1443,7 +1383,6 @@ static int mt6362_set_vconn(struct tcpc_device *tcpc, int en)
 static int mt6362_tcpc_deinit(struct tcpc_device *tcpc)
 {
 #if CONFIG_TCPC_SHUTDOWN_CC_DETACH
-	mt6362_set_cc(tcpc, TYPEC_CC_DRP);
 	mt6362_set_cc(tcpc, TYPEC_CC_OPEN);
 #else
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
@@ -1489,9 +1428,20 @@ static int mt6362_is_low_power_mode(struct tcpc_device *tcpc)
 static int mt6362_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 				     int pull)
 {
+	int ret = 0;
 	u8 data;
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
+#if CONFIG_WATER_DETECTION
+	if (tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION) {
+		ret = mt6362_enable_wd_polling(tdata, en);
+		if (ret < 0)
+			return ret;
+	}
+#endif /* CONFIG_WATER_DETECTION */
+	ret = mt6362_enable_vsafe0v_detect(tdata, !en);
+	if (ret < 0)
+		return ret;
 	if (en) {
 		data = MT6362_MSK_LPWR_EN;
 #if CONFIG_TYPEC_CAP_NORP_SRC
@@ -1499,7 +1449,6 @@ static int mt6362_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 	} else {
 		data = MT6362_MSK_VBUSDET_EN | MT6362_MSK_BMCIOOSC_EN;
-		mt6362_enable_vsafe0v_detect(tdata, true);
 	}
 	return mt6362_write8(tdata, MT6362_REG_SYSCTRL2, data);
 }
@@ -1617,43 +1566,11 @@ static int mt6362_retransmit(struct tcpc_device *tcpc)
 #endif /* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
 #if CONFIG_WATER_DETECTION
-static int mt6362_is_water_detected(struct tcpc_device *tcpc)
-{
-	int ret, i;
-	bool error, wd = false;
-	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
-
-	ret = mt6362_set_wd_ldo(tdata, MT6362_WD_LDO_1_8V);
-	if (ret < 0)
-		return ret;
-	for (i = 0; i < MT6362_WD_CHAN_NUM; i++) {
-		if (!mt6362_wd_chan_en[i])
-			continue;
-		ret = __mt6362_is_water_detected(tdata, i, &error);
-		if (ret < 0 || !error)
-			continue;
-		wd = true;
-		break;
-	}
-	return wd ? 1 : 0;
-}
-
 static int mt6362_set_water_protection(struct tcpc_device *tcpc, bool en)
 {
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
 	return mt6362_enable_wd_protection(tdata, en);
-}
-
-static int mt6362_set_wd_polling(struct tcpc_device *tcpc, bool en)
-{
-	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
-
-#if CONFIG_WD_POLLING_ONLY
-	if (!en)
-		cancel_delayed_work_sync(&tdata->wd_poll_dwork);
-#endif /* CONFIG_WD_POLLING_ONLY */
-	return mt6362_enable_wd_polling(tdata, en);
 }
 #endif /* CONFIG_WATER_DETECTION */
 
@@ -1675,16 +1592,36 @@ static int mt6362_vsafe0v_irq_handler(struct mt6362_tcpc_data *tdata)
 }
 
 #if CONFIG_WATER_DETECTION
+static void mt6362_wd12_strise_irq_dwork_handler(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct mt6362_tcpc_data *tdata = container_of(dwork,
+						      struct mt6362_tcpc_data,
+						      wd12_strise_irq_dwork);
+
+	MT6362_DBGINFO("%s ++\n", __func__);
+	tcpci_lock_typec(tdata->tcpc);
+	mt6362_wd_polling_evt_process(tdata);
+	/* unmask */
+	mt6362_set_bits(tdata, MT6362_REG_MTMASK7, MT6362_MSK_WD12_STRISE);
+	tcpci_unlock_typec(tdata->tcpc);
+}
+
 static int mt6362_wd12_strise_irq_handler(struct mt6362_tcpc_data *tdata)
 {
 	/* Pull or discharge status from 0 to 1 in normal polling mode */
-	return mt6362_wd_polling_evt_process(tdata);
+	MT6362_DBGINFO("%s ++\n", __func__);
+	/* mask */
+	mt6362_clr_bits(tdata, MT6362_REG_MTMASK7, MT6362_MSK_WD12_STRISE);
+	queue_delayed_work(system_freezable_wq, &tdata->wd12_strise_irq_dwork,
+			   msecs_to_jiffies(100));
+	return 0;
 }
 
 static int mt6362_wd12_done_irq_handler(struct mt6362_tcpc_data *tdata)
 {
 	/* Oneshot or protect mode done */
-	MT6362_DBGINFO("%s\n", __func__);
+	MT6362_DBGINFO("%s ++\n", __func__);
 	return mt6362_wd_protection_evt_process(tdata);
 }
 #endif /* CONFIG_WATER_DETECTION */
@@ -1729,7 +1666,8 @@ static struct irq_mapping_tbl mt6362_vend_irq_mapping_tbl[] = {
 
 static int mt6362_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 {
-	int ret, i, irqnum, irqbit;
+	int ret, i;
+	u8 irqnum, irqbit;
 	u8 alert[MT6362_VEND_INT_NUM];
 	u8 mask[MT6362_VEND_INT_NUM];
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
@@ -1806,9 +1744,7 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
 #if CONFIG_WATER_DETECTION
-	.is_water_detected = mt6362_is_water_detected,
 	.set_water_protection = mt6362_set_water_protection,
-	.set_usbid_polling = mt6362_set_wd_polling,
 #endif /* CONFIG_WATER_DETECTION */
 };
 
@@ -1864,6 +1800,7 @@ static int mt6362_init_irq(struct mt6362_tcpc_data *tdata,
 			tdata->irq);
 		return -EINVAL;
 	}
+	device_init_wakeup(tdata->dev, true);
 	ret = devm_request_threaded_irq(tdata->dev, tdata->irq, NULL,
 					mt6362_irq_handler, IRQF_TRIGGER_NONE,
 					NULL, tdata);
@@ -1872,7 +1809,7 @@ static int mt6362_init_irq(struct mt6362_tcpc_data *tdata,
 			tdata->irq, ret);
 		return -EINVAL;
 	}
-	device_init_wakeup(tdata->dev, true);
+	enable_irq_wake(tdata->irq);
 	return 0;
 }
 
@@ -1893,9 +1830,6 @@ static int mt6362_register_tcpcdev(struct mt6362_tcpc_data *tdata)
 #if CONFIG_CABLE_TYPE_DETECTION
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_CABLE_TYPE_DETECTION;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
-#if CONFIG_WD_POLLING_ONLY
-	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WD_POLLING_ONLY;
-#endif
 #if CONFIG_WATER_DETECTION
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #endif /* CONFIG_WATER_DETECTION */
@@ -1912,7 +1846,6 @@ static int mt6362_register_tcpcdev(struct mt6362_tcpc_data *tdata)
 		dev_info(tdata->dev, "%s PD REV30\n", __func__);
 	else
 		dev_info(tdata->dev, "%s PD REV20\n", __func__);
-	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_DISABLE_LEGACY;
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_WATCHDOG_EN;
 	return 0;
 }
@@ -1947,6 +1880,7 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 			desc->rp_lvl = val;
 			break;
 		default:
+			desc->rp_lvl = TYPEC_RP_DFT;
 			break;
 		}
 	}
@@ -2122,9 +2056,8 @@ static int mt6362_tcpc_probe(struct platform_device *pdev)
 
 #if CONFIG_WATER_DETECTION
 	atomic_set(&tdata->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
-#if CONFIG_WD_POLLING_ONLY
-	INIT_DELAYED_WORK(&tdata->wd_poll_dwork, mt6362_wd_poll_dwork_handler);
-#endif /* CONFIG_WD_POLLING_ONLY */
+	INIT_DELAYED_WORK(&tdata->wd12_strise_irq_dwork,
+			  mt6362_wd12_strise_irq_dwork_handler);
 #endif /* CONFIG_WATER_DETECTION */
 
 	ret = mt6362_parse_dt(tdata);
@@ -2180,9 +2113,6 @@ static int mt6362_tcpc_remove(struct platform_device *pdev)
 
 	if (!tdata)
 		return 0;
-#if CONFIG_WD_POLLING_ONLY
-	cancel_delayed_work_sync(&tdata->wd_poll_dwork);
-#endif /* CONFIG_WD_POLLING_ONLY */
 	if (tdata->tcpc)
 		tcpc_device_unregister(tdata->dev, tdata->tcpc);
 	return 0;

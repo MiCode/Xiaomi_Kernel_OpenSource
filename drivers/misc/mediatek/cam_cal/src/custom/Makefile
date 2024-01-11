@@ -27,6 +27,7 @@ subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
 obj-$(CONFIG_MTK_CAM_CAL) += camera_eeprom.o
 camera_eeprom-objs := ../common/$(COMMON_VERSION)/eeprom_driver.o
 camera_eeprom-objs += ../common/$(COMMON_VERSION)/eeprom_i2c_common_driver.o
+camera_eeprom-objs += ../common/$(COMMON_VERSION)/eeprom_i2c_gc05a2_driver.o
 camera_eeprom-objs += ../common/$(COMMON_VERSION)/eeprom_utils.o
 
 # Platform code

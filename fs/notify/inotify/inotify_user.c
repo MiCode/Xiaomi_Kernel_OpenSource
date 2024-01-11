@@ -102,7 +102,7 @@ static inline __u32 inotify_arg_to_mask(struct inode *inode, u32 arg)
 		mask |= FS_EVENT_ON_CHILD;
 
 	/* mask off the flags used to open the fd */
-	mask |= (arg & (IN_ALL_EVENTS | IN_ONESHOT | IN_EXCL_UNLINK));
+	mask |= (arg & INOTIFY_USER_MASK);
 
 	return mask;
 }
@@ -712,7 +712,7 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 	struct fsnotify_group *group;
 	struct inode *inode;
 	struct path path;
-	struct path alteredpath;
+	struct path alteredpath = {};
 	struct path *canonical_path = &path;
 	struct fd f;
 	int ret;
@@ -765,6 +765,11 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 		if (path.dentry->d_op->d_canonical_path) {
 			path.dentry->d_op->d_canonical_path(&path,
 							    &alteredpath);
+			if (IS_ERR(alteredpath.dentry)) {
+				ret = PTR_ERR(alteredpath.dentry);
+				goto path_put_and_out;
+			}
+
 			canonical_path = &alteredpath;
 			path_put(&path);
 		}
@@ -776,6 +781,7 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 
 	/* create/update an inode mark */
 	ret = inotify_update_watch(group, inode, mask);
+path_put_and_out:
 	path_put(canonical_path);
 fput_and_out:
 	fdput(f);

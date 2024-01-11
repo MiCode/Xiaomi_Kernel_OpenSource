@@ -67,9 +67,7 @@ struct mtk_video_dec_buf {
 	int     flags;
 	int     general_user_fd;
 	void     *general_dma_va;
-	struct  dma_buf *dma_general_buf;
 	int     meta_user_fd;
-	struct  dma_buf *dma_meta_buf;
 	int vpeek;
 	struct hdr10plus_info hdr10plus_buf;
 };

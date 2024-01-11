@@ -6,22 +6,22 @@
  */
 
 &mtk_gauge {
-	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	DIFFERENCE_FULLOCV_ITH = <(350)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(60)>;
 	/* If ui_soc shows 1% more than X minites, system will shutdown */
 	KEEP_100_PERCENT = <(1)>;
 	CURR_MEASURE_20A = <(0)>;
 	UNIT_MULTIPLE = <(1)>;
-	R_FG_VALUE = <(2)>;
+	R_FG_VALUE = <(5)>;
 	/* R_sense resistance */
-	EMBEDDED_SEL = <(0)>;
+	EMBEDDED_SEL = <(1)>;
 	/* Configures whether using embedded battery or not */
 	PMIC_SHUTDOWN_CURRENT = <(20)>;
 	/* System shutdown current */
 	FG_METER_RESISTANCE = <(70)>;
 	/* The resistance of PCB */
-	CAR_TUNE_VALUE = <(100)>;
+	CAR_TUNE_VALUE = <(98)>;
 	/* Tune value for current measurement */
 	PMIC_MIN_VOL = <(33500)>;
 	/* vboot voltage for gauge 0%*/
@@ -37,19 +37,19 @@
 	/* Battery temperature T2 */
 	TEMPERATURE_T3 = <(0)>;
 	/* Battery temperature T3 */
-	TEMPERATURE_T4 = <(-6)>;
+	TEMPERATURE_T4 = <(-10)>;
 	/* Battery temperature T4 */
-	TEMPERATURE_T5 = <(-10)>;
+	/*TEMPERATURE_T5 = <(-10)>;*/
 	/* Battery temperature T5 */
 	g_FG_PSEUDO100_T0 = <(100)>;
 	/* Pseudo 100% percentage at T0 */
-	g_FG_PSEUDO100_T1 = <(100)>;
+	g_FG_PSEUDO100_T1 = <(95)>;
 	/* Pseudo 100% percentage at T1 */
-	g_FG_PSEUDO100_T2 = <(100)>;
+	g_FG_PSEUDO100_T2 = <(95)>;
 	/* Pseudo 100% percentage at T2 */
-	g_FG_PSEUDO100_T3 = <(100)>;
+	g_FG_PSEUDO100_T3 = <(95)>;
 	/* Pseudo 100% percentage at T3 */
-	g_FG_PSEUDO100_T4 = <(100)>;
+	g_FG_PSEUDO100_T4 = <(95)>;
 	/* Pseudo 100% percentage at T4 */
 	Q_MAX_SYS_VOLTAGE_BAT0 = <(3350)>;
 	/* Pseudo1 for hide percentage */
@@ -65,7 +65,7 @@
 	/* compensate R_sense resistance */
 	enable_tmp_intr_suspend = <(0)>;
 	/* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+	ACTIVE_TABLE = <(5)>;
 	/* Table numbers per battery */
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */

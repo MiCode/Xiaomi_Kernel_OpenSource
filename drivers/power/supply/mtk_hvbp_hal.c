@@ -225,7 +225,6 @@ int hvbp_hal_authenticate_ta(struct chg_alg_device *alg,
 		hal->adapter = hal->adapters[i];
 		data->vta_min = _data.vta_min;
 		data->vta_max = _data.vta_max;
-		data->ita_min = _data.ita_min;
 		data->ita_max = _data.ita_max;
 		data->pwr_lmt = _data.pwr_lmt;
 		data->pdp = _data.pdp;

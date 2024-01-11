@@ -285,3 +285,9 @@ config MTK_LENS_WV511AAF_SUPPORT
 	  This config is used to enable the corresponding
 	  lens driver for the camera sensor module
 	  Set as y if the driver is used in this project
+
+config AF_NOISE_ELIMINATION
+	bool "For elimination AF resonance noise"
+	default n
+	help
+	  Enable it only for product that suffering AF resonance noise

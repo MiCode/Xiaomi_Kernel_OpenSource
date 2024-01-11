@@ -12,6 +12,7 @@
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/power/mt6375-gauge.h>
+#include <dt-bindings/power/mtk-charger.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -57,6 +58,17 @@
 		dither0 = &disp_dither0;
 		postmask0 = &disp_postmask0;
 		mtksmmu0 = &disp_iommu;
+	};
+
+	nfc:nfc {
+		compatible = "mediatek,nfc-gpio-v2";
+		gpio-rst = <42>;
+		gpio-rst-std = <&pio 42 0x0>;
+		gpio-irq = <41>;
+		gpio-irq-std = <&pio 41 0x0>;
+	};
+	irq_nfc: irq_nfc {
+		compatible = "mediatek,irq_nfc-eint";
 	};
 
 	/* chosen */
@@ -1007,6 +1019,528 @@
 			125000   2787>;
 	};
 
+	N77PA_thermistor1: thermal-ntc5 {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+		io-channels = <&auxadc 1>;
+		io-channel-names = "sensor-channel";
+		temperature-lookup-table = <
+			(-40000) 1908
+			(-39000) 1898
+			(-38000) 1887
+			(-37000) 1875
+			(-36000) 1862
+			(-35000) 1849
+			(-34000) 1835
+			(-33000) 1821
+			(-32000) 1806
+			(-31000) 1790
+			(-30000) 1773
+			(-29000) 1755
+			(-28000) 1737
+			(-27000) 1718
+			(-26000) 1698
+			(-25000) 1678
+			(-24000) 1656
+			(-23000) 1634
+			(-22000) 1612
+			(-21000) 1588
+			(-20000) 1564
+			(-19000) 1539 
+			(-18000) 1514 
+			(-17000) 1488 
+			(-16000) 1461 
+			(-15000) 1434 
+			(-14000) 1406 
+			(-13000) 1378  
+			(-12000) 1350 
+			(-11000) 1321 
+			(-10000) 1292 
+			(-9000) 1262  
+			(-8000) 1233  
+			(-7000) 1203  
+			(-6000) 1173  
+			(-5000) 1143  
+			(-4000) 1113  
+			(-3000) 1084  
+			(-2000) 1054  
+			(-1000) 1024  
+			0 995        
+			1000 966     
+			2000 937     
+			3000 909     
+			4000 881     
+			5000 854     
+			6000 826     
+			7000 800     
+			8000 774     
+			9000 748     
+			10000 723    
+			11000 698    
+			12000 675    
+			13000 651    
+			14000 628    
+			15000 606    
+			16000 585    
+			17000 564    
+			18000 543    
+			19000 524    
+			20000 505    
+			21000 486    
+			22000 468    
+			23000 451    
+			24000 434    
+			25000 418    
+			26000 402    
+			27000 387    
+			28000 373    
+			29000 359    
+			30000 345    
+			31000 332    
+			32000 320    
+			33000 307    
+			34000 296    
+			35000 285    
+			36000 274    
+			37000 264    
+			38000 254    
+			39000 244    
+			40000 235    
+			41000 226    
+			42000 218    
+			43000 209    
+			44000 202    
+			45000 194    
+			46000 187    
+			47000 180    
+			48000 173    
+			49000 167    
+			50000 161    
+			51000 155    
+			52000 149    
+			53000 144    
+			54000 138    
+			55000 133    
+			56000 129    
+			57000 124    
+			58000 119    
+			59000 115    
+			60000 111    
+			61000 107    
+			62000 103    
+			63000 100    
+			64000 96    
+			65000 93    
+			66000 90    
+			67000 87    
+			68000 84    
+			69000 81    
+			70000 78    
+			71000 75    
+			72000 73    
+			73000 70    
+			74000 68     
+			75000 66     
+			76000 63     
+			77000 61     
+			78000 59     
+			79000 57     
+			80000 55     
+			81000 54     
+			82000 52     
+			83000 50     
+			84000 49     
+			85000 47     
+			86000 46     
+			87000 44     
+			88000 43     
+			89000 41     
+			90000 40     
+			91000 39     
+			92000 38     
+			93000 37     
+			94000 35     
+			95000 34     
+			96000 33     
+			97000 32     
+			98000 31     
+			99000 30     
+			100000 29    
+			101000 29    
+			102000 28    
+			103000 27    
+			104000 26    
+			105000 25    
+			106000 25    
+			107000 24    
+			108000 23    
+			109000 23    
+			110000 22    
+			111000 21    
+			112000 21    
+			113000 20    
+			114000 20    
+			115000 19    
+			116000 19    
+			117000 18    
+			118000 18    
+			119000 17    
+			120000 17    
+			121000 16    
+			122000 16    
+			123000 15    
+			124000 15    
+			125000 15>;  
+	};
+
+Charger_thermistor1: thermal-ntc6 {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+		io-channels = <&auxadc 4>;
+		io-channel-names = "sensor-channel";
+		temperature-lookup-table = <
+			(-40000) 1908
+			(-39000) 1898
+			(-38000) 1887
+			(-37000) 1875
+			(-36000) 1862
+			(-35000) 1849
+			(-34000) 1835
+			(-33000) 1821
+			(-32000) 1806
+			(-31000) 1790
+			(-30000) 1773
+			(-29000) 1755
+			(-28000) 1737
+			(-27000) 1718
+			(-26000) 1698
+			(-25000) 1678
+			(-24000) 1656
+			(-23000) 1634
+			(-22000) 1612
+			(-21000) 1588
+			(-20000) 1564
+			(-19000) 1539 
+			(-18000) 1514 
+			(-17000) 1488 
+			(-16000) 1461 
+			(-15000) 1434 
+			(-14000) 1406 
+			(-13000) 1378  
+			(-12000) 1350 
+			(-11000) 1321 
+			(-10000) 1292 
+			(-9000) 1262  
+			(-8000) 1233  
+			(-7000) 1203  
+			(-6000) 1173  
+			(-5000) 1143  
+			(-4000) 1113  
+			(-3000) 1084  
+			(-2000) 1054  
+			(-1000) 1024  
+			0 995        
+			1000 966     
+			2000 937     
+			3000 909     
+			4000 881     
+			5000 854     
+			6000 826     
+			7000 800     
+			8000 774     
+			9000 748     
+			10000 723    
+			11000 698    
+			12000 675    
+			13000 651    
+			14000 628    
+			15000 606    
+			16000 585    
+			17000 564    
+			18000 543    
+			19000 524    
+			20000 505    
+			21000 486    
+			22000 468    
+			23000 451    
+			24000 434    
+			25000 418    
+			26000 402    
+			27000 387    
+			28000 373    
+			29000 359    
+			30000 345    
+			31000 332    
+			32000 320    
+			33000 307    
+			34000 296    
+			35000 285    
+			36000 274    
+			37000 264    
+			38000 254    
+			39000 244    
+			40000 235    
+			41000 226    
+			42000 218    
+			43000 209    
+			44000 202    
+			45000 194    
+			46000 187    
+			47000 180    
+			48000 173    
+			49000 167    
+			50000 161    
+			51000 155    
+			52000 149    
+			53000 144    
+			54000 138    
+			55000 133    
+			56000 129    
+			57000 124    
+			58000 119    
+			59000 115    
+			60000 111    
+			61000 107    
+			62000 103    
+			63000 100    
+			64000 96    
+			65000 93    
+			66000 90    
+			67000 87    
+			68000 84    
+			69000 81    
+			70000 78    
+			71000 75    
+			72000 73    
+			73000 70    
+			74000 68     
+			75000 66     
+			76000 63     
+			77000 61     
+			78000 59     
+			79000 57     
+			80000 55     
+			81000 54     
+			82000 52     
+			83000 50     
+			84000 49     
+			85000 47     
+			86000 46     
+			87000 44     
+			88000 43     
+			89000 41     
+			90000 40     
+			91000 39     
+			92000 38     
+			93000 37     
+			94000 35     
+			95000 34     
+			96000 33     
+			97000 32     
+			98000 31     
+			99000 30     
+			100000 29    
+			101000 29    
+			102000 28    
+			103000 27    
+			104000 26    
+			105000 25    
+			106000 25    
+			107000 24    
+			108000 23    
+			109000 23    
+			110000 22    
+			111000 21    
+			112000 21    
+			113000 20    
+			114000 20    
+			115000 19    
+			116000 19    
+			117000 18    
+			118000 18    
+			119000 17    
+			120000 17    
+			121000 16    
+			122000 16    
+			123000 15    
+			124000 15    
+			125000 15>;  
+	};
+
+Lcm_thermistor1: thermal-ntc7 {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+		io-channels = <&auxadc 5>;
+		io-channel-names = "sensor-channel";
+		temperature-lookup-table = <
+			(-40000) 1908
+			(-39000) 1898
+			(-38000) 1887
+			(-37000) 1875
+			(-36000) 1862
+			(-35000) 1849
+			(-34000) 1835
+			(-33000) 1821
+			(-32000) 1806
+			(-31000) 1790
+			(-30000) 1773
+			(-29000) 1755
+			(-28000) 1737
+			(-27000) 1718
+			(-26000) 1698
+			(-25000) 1678
+			(-24000) 1656
+			(-23000) 1634
+			(-22000) 1612
+			(-21000) 1588
+			(-20000) 1564
+			(-19000) 1539 
+			(-18000) 1514 
+			(-17000) 1488 
+			(-16000) 1461 
+			(-15000) 1434 
+			(-14000) 1406 
+			(-13000) 1378  
+			(-12000) 1350 
+			(-11000) 1321 
+			(-10000) 1292 
+			(-9000) 1262  
+			(-8000) 1233  
+			(-7000) 1203  
+			(-6000) 1173  
+			(-5000) 1143  
+			(-4000) 1113  
+			(-3000) 1084  
+			(-2000) 1054  
+			(-1000) 1024  
+			0 995        
+			1000 966     
+			2000 937     
+			3000 909     
+			4000 881     
+			5000 854     
+			6000 826     
+			7000 800     
+			8000 774     
+			9000 748     
+			10000 723    
+			11000 698    
+			12000 675    
+			13000 651    
+			14000 628    
+			15000 606    
+			16000 585    
+			17000 564    
+			18000 543    
+			19000 524    
+			20000 505    
+			21000 486    
+			22000 468    
+			23000 451    
+			24000 434    
+			25000 418    
+			26000 402    
+			27000 387    
+			28000 373    
+			29000 359    
+			30000 345    
+			31000 332    
+			32000 320    
+			33000 307    
+			34000 296    
+			35000 285    
+			36000 274    
+			37000 264    
+			38000 254    
+			39000 244    
+			40000 235    
+			41000 226    
+			42000 218    
+			43000 209    
+			44000 202    
+			45000 194    
+			46000 187    
+			47000 180    
+			48000 173    
+			49000 167    
+			50000 161    
+			51000 155    
+			52000 149    
+			53000 144    
+			54000 138    
+			55000 133    
+			56000 129    
+			57000 124    
+			58000 119    
+			59000 115    
+			60000 111    
+			61000 107    
+			62000 103    
+			63000 100    
+			64000 96    
+			65000 93    
+			66000 90    
+			67000 87    
+			68000 84    
+			69000 81    
+			70000 78    
+			71000 75    
+			72000 73    
+			73000 70    
+			74000 68     
+			75000 66     
+			76000 63     
+			77000 61     
+			78000 59     
+			79000 57     
+			80000 55     
+			81000 54     
+			82000 52     
+			83000 50     
+			84000 49     
+			85000 47     
+			86000 46     
+			87000 44     
+			88000 43     
+			89000 41     
+			90000 40     
+			91000 39     
+			92000 38     
+			93000 37     
+			94000 35     
+			95000 34     
+			96000 33     
+			97000 32     
+			98000 31     
+			99000 30     
+			100000 29    
+			101000 29    
+			102000 28    
+			103000 27    
+			104000 26    
+			105000 25    
+			106000 25    
+			107000 24    
+			108000 23    
+			109000 23    
+			110000 22    
+			111000 21    
+			112000 21    
+			113000 20    
+			114000 20    
+			115000 19    
+			116000 19    
+			117000 18    
+			118000 18    
+			119000 17    
+			120000 17    
+			121000 16    
+			122000 16    
+			123000 15    
+			124000 15    
+			125000 15>;  
+	};
+
 	mt6363_temp: mt6363-temp {
 		compatible = "mediatek,mt6363-pmic-temp";
 	};
@@ -1072,7 +1606,7 @@
 					hysteresis = <2000>;
 					type = "critical";
 				};
-			};
+			}; 
 		};
 		cpu_big1 {
 			polling-delay = <0>; /* milliseconds */
@@ -1183,6 +1717,23 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&consys>;
 		};
+		n77pa_therm {
+			polling-delay = <1000>; /* milliseconds */
+			polling-delay-passive = <1000>; /* milliseconds */
+			thermal-sensors = <&N77PA_thermistor1>;
+		};
+		Charger {
+			polling-delay = <1000>; /* milliseconds */
+			polling-delay-passive = <1000>; /* milliseconds */
+			thermal-sensors = <&Charger_thermistor1>;
+		};
+
+		backlight_therm {
+			polling-delay = <1000>; /* milliseconds */
+			polling-delay-passive = <1000>; /* milliseconds */
+			thermal-sensors = <&Lcm_thermistor1>;
+		};		
+
 	};
 
 	lastbus: lastbus {
@@ -1296,14 +1847,23 @@
 		};
 	};
 
+	simtray: simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&pio 48 0>;
+	};
+	
+	thermal_message: thermal-message {
+			board-sensor = "VIRTUAL-SENSOR";
+	};
+
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
 		svp-region-based-size = <0 0x18000000>;
 		svp-page-based-size = <0 0>;
-		tui-size = <0 0x4000000>;
-		wfd-region-based-size = <0 0x4000000>;
+		tui-size = <0 0x0>;
+		wfd-region-based-size = <0 0x0>;
 		wfd-page-based-size = <0 0>;
-		prot-region-based-size = <0 0x10000000>;
+		prot-region-based-size = <0 0x0>;
 		prot-page-based-size = <0 0>;
 	};
 
@@ -1328,6 +1888,12 @@
 
 	touch: touch {
 		compatible = "mediatek,touch";
+	};
+       
+       xiaomi_touch: xiaomi_touch {
+		status = "ok";
+		compatible = "xiaomi-touch";
+		touch,name = "xiaomi-touch";
 	};
 
 	qos:qos@11bb00 {
@@ -2751,6 +3317,20 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		fpsensor_fp_eint:fpsensor_fp_eint{
+			compatible = "mediatek,fpsensor_fp_eint";
+			int-gpios = <&pio 15 0x0>;
+		};
+
+		fpsensor_finger:fpsensor_finger{
+			compatible = "mediatek,fingerprint","mediatek,goodix_fp";
+			fpc,enable-wakeup;
+		};
+
+		silead_fp: silead_fp {
+			compatible = "sil,silead_fp";
+		};
+
 		goodix_fp: fingerprint {
 			compatible = "mediatek,goodix-fp";
 		};
@@ -3549,7 +4129,8 @@
 
 		md_auxadc:md-auxadc {
 			compatible = "mediatek,md_auxadc";
-			io-channels = <&auxadc 6>;
+			/*modify by longcheer DRDI:ADC3+GPIO171*/
+			io-channels = <&auxadc 3>;
 			io-channel-names = "md-channel";
 		};
 
@@ -5618,8 +6199,12 @@
 				reg = <0 0x11e40000 0 0x700>;
 				#phy-cells = <1>;
 				usb2jtag = <&vlpcfg_bus 2>;
-				mediatek,eye-vrt = <5>;
-				mediatek,eye-term = <5>;
+				mediatek,eye-vrt = <6>;
+				mediatek,eye-term = <6>;
+				mediatek,rev6 = <3>;
+				mediatek,eye-vrt-no-panel = <6>;
+				mediatek,eye-term-no-panel = <5>;
+				mediatek,rev6-no-panel = <2>;
 				mediatek,rev4 = <1>;
 				mediatek,discth = <9>;
 				mediatek,rx-sqth = <5>;
@@ -6001,22 +6586,31 @@
 		/* enable_pe_plus; */
 		enable_pd20_reset;
 		power_path_support;
+		boot_battery_voltage = <3465000>;
+
 		max_charger_voltage = <6500000>;
 		fast_charge_voltage = <3000000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+		ac_charger_input_current = <2050000>;
+		non_std_ac_charger_current = <1500000>;
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
 		pd_charger_current = <500000>;
 
 		/* battery temperature protection */
-		temp_t4_threshold = <50>;
+		temp_t0_threshold = <0>;
+		temp_t1_threshold = <10>;
+		temp_t2_threshold = <15>;
 		temp_t3_threshold = <45>;
-		temp_t1_threshold = <0>;
+		temp_t4_threshold = <58>;
+
+		temp_t0_t1_cur = <490>;
+		temp_t1_t2_cur = <980>;
+		temp_t2_t3_cur = <2050>;
+		temp_t3_t4_cur = <500>;
 
 		/* enable check vsys voltage */
 		enable_check_vsys;
@@ -6072,15 +6666,15 @@
 
 		min_charger_voltage = <4600000>;
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <5000000>;
+		pd_vbus_upper_bound = <9000000>;
 		vsys_watt = <5000000>;
-		ibus_err = <14>;
+		ibus_err = <50>;
 
-		pd_stop_battery_soc = <80>;
+		pd_stop_battery_soc = <90>;
 
 		/* single charger */
-		sc_input_current = <3200000>;
-		sc_charger_current = <3000000>;
+		sc_input_current = <2000000>;
+		sc_charger_current = <3500000>;
 
 		/* dual charger in series*/
 		dcs_input_current = <3200000>;
@@ -6127,11 +6721,11 @@
 	pe5: pe5 {
 		compatible = "mediatek,charger,pe5";
 		polling_interval = <10000>;
-		ta_cv_ss_repeat_tmin = <25>;
 		vbat_cv = <4350>;
 		start_soc_min = <0>;
 		start_soc_max = <80>;
-		start_vbat_max = <4300>;
+		stop_soc_max = <99>;
+		vbat_max_gap = <50>;
 		idvchg_term = <500>;
 		idvchg_step = <50>;
 		ita_level = <3000 2500 2000 1500>;
@@ -6144,7 +6738,7 @@
 		idvchg_ss_step2 = <50>;
 		idvchg_ss_step1_vbat = <4000>;
 		idvchg_ss_step2_vbat = <4200>;
-		ta_blanking = <400>;
+		ta_blanking = <285>;
 		swchg_aicr = <0>;
 		swchg_ichg = <1200>;
 		swchg_aicr_ss_init = <400>;
@@ -6178,59 +6772,79 @@
 
 	charger: charger {
 		compatible = "mediatek,charger";
-		charger = <&mt6375_chg>;
+		charger = <&sc8989x_chg>;
 		bootmode = <&chosen>;
 
 		algorithm_name = "Basic";
 		charger_configuration= <0>;
 
 		/* common */
-		battery_cv = <4350000>;
-		max_charger_voltage = <6500000>;
+		battery_cv = <4450000>;
+		max_charger_voltage = <10500000>;
 		min_charger_voltage = <4600000>;
 
 		/* sw jeita */
 		enable-vbat-mon = <0>;
-		/* enable_sw_jeita; */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
-		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
-		temp_t2_thres = <10>;
-		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
+		enable_sw_jeita;
+		jeita_temp_above_t5_cv = <4100000>;
+		jeita_temp_t4_to_t5_cv = <4100000>;
+		jeita_temp_t3_to_t4_cv = <4450000>;
+		jeita_temp_t2_to_t3_cv = <4450000>;
+		jeita_temp_t1_to_t2_cv = <4450000>;
+		jeita_temp_t0_to_t1_cv = <4450000>;
+		jeita_temp_below_t0_cv = <4450000>;
+		temp_t5_thres = <55>;
+		temp_t5_thres_minus_x_degree = <52>;
+		temp_t4_thres = <45>;
+		temp_t4_thres_minus_x_degree = <43>;
+		temp_t3_thres = <20>;
+		temp_t3_thres_minus_x_degree = <22>;
+		temp_t2_thres = <15>;
+		temp_t2_thres_plus_x_degree = <17>;
+		temp_t1_thres = <10>;
+		temp_t1_thres_plus_x_degree = <12>;
 		temp_t0_thres = <0>;
-		temp_t0_thres_plus_x_degree = <0>;
+		temp_t0_thres_plus_x_degree = <2>;
 		temp_neg_10_thres = <0>;
+
+		temp_t4_to_t5_fcc = <2460000>;
+		temp_t3_to_t4_fcc = <3500000>;
+ 		temp_t2_to_t3_fcc = <2460000>;
+		temp_t1_to_t2_fcc = <1476000>;
+ 		temp_t0_to_t1_fcc = <492000>;
 
 		/* battery temperature protection */
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
-		min_charge_temp_plus_x_degree = <6>;
-		max_charge_temp = <50>;
-		max_charge_temp_minus_x_degree = <47>;
+		min_charge_temp_plus_x_degree = <2>;
+		max_charge_temp = <60>;
+		max_charge_temp_minus_x_degree = <58>;
 
 		/* charging current */
-		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+		usb_charger_current = <550000>;
+		ac_charger_current = <2000000>;
+		ac_charger_input_current = <2000000>;
 		charging_host_charger_current = <1500000>;
 
 		/* dynamic mivr */
-		enable_dynamic_mivr;
+		/* enable_dynamic_mivr; */
 		min_charger_voltage_1 = <4400000>;
 		min_charger_voltage_2 = <4200000>;
 		max_dmivr_charger_current = <1800000>;
 
 		/* fast charging algo support indicator */
 		enable_fast_charging_indicator;
+
+		/* add cycle count */
+		enable_sw_ffc;
+		ffc_cv_1 = <4450000>;
+		ffc_cv_2 = <4434000>;
+		ffc_cv_3 = <4418000>;
+		ffc_cv_4 = <4402000>;
+		chg_cycle_count_level1 = <1>;
+		chg_cycle_count_level2 = <100>;
+		chg_cycle_count_level3 = <200>;
+		chg_cycle_count_level4 = <300>;
 	};
 
 	logstore: logstore {
@@ -6365,8 +6979,10 @@
 			<15 0  2>,/* IPI_OUT_C_SLEEP_1 */
 			<16 0  1>,/* IPI_OUT_TEST_1 */
 			//<24 0  6>,/* IPI_OUT_SCP_MPOOL_1 */
+			<50 1  1>,/* IPI_OUT_TP_PS */
 			<17 1  6>,/* IPI_OUT_LOGGER_CTRL */
 			<18 1  2>,/* IPI_OUT_SCPCTL_1 */
+            //<50 1  1>,/* IPI_OUT_TP_PS */
 			< 4 2  1>,/* IPI_OUT_DVFS_SET_FREQ_0 */
 			< 5 2  2>,/* IPI_OUT_C_SLEEP_0 */
 			< 6 2  1>,/* IPI_OUT_TEST_0 */
@@ -7358,12 +7974,12 @@
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		vbus-supply = <&mt6375_otg_vbus>;
+		/*vbus-supply = <&mt6375_otg_vbus>;
 		vbus-voltage = <5000000>;
-		vbus-current = <1800000>;
-		charger = <&mt6375_chg>;
+		vbus-current = <1800000>;*/
+		charger = <&sc8989x_chg>;
 		tcpc = "type_c_port0";
-		mediatek,bypss-typec-sink = <1>;
+		mediatek,bypss-typec-sink = <0>;
 		port {
 			usb_role: endpoint@0 {
 				remote-endpoint = <&mtu3_drd_switch>;
@@ -7373,6 +7989,8 @@
 
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
+		nr_port = <1>;
+		// en_wd0_port0;
 	};
 
 	typec_mux_switch: typec_mux_switch {
@@ -7388,19 +8006,17 @@
 
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
-		boot_mode = <&chosen>;
-		adapter_name = "pd_adapter";
+		nr_port = <1>;
 		force_cv;
-		phys = <&u2port0 PHY_TYPE_USB2>;
-		phy-names = "usb2-phy";
+		adapter_name = "pd_adapter";
 	};
 
 	flashlight_core: flashlight_core {
 		compatible = "mediatek,flashlight_core";
 	};
 
-	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
-		compatible = "mediatek,mtk_composite_v4l2_1";
+	flashlights_ocp8132: flashlights_ocp8132 {
+		compatible = "mediatek,flashlights_ocp8132";
 	};
 
 	camera_af_hw_node: camera_af_hw_node {
@@ -7409,8 +8025,10 @@
 
 	mtk_ctd: mtk_ctd {
 		compatible = "mediatek,mtk_ctd";
-		bc12 = <&mt6375_chg>;
-		bc12_sel = <0>;
+		nr_port = <1>;
+		chg_name_port0 = "primary_chg";
+		bc12_sel_port0 = <MTK_CTD_BY_SUBPMIC>;
+		bc12_psy_port0 = <&sc8989x_chg>;
 	};
 
 	subpmic_pmu_eint: subpmic_pmu_eint {
@@ -7914,8 +8532,45 @@
 	status = "okay";
 };
 
+&auxadc {
+	status = "okay";
+};
+
 &i2c5 {
-	clock-frequency = <1000000>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sc8989x_chg: chg@6A{
+        compatible = "southchip,sc89890h";
+        reg = <0x6A>;
+        eint_name = "chr_stat";
+        sc,intr-gpio = <&pio 3 IRQ_TYPE_EDGE_FALLING>;
+        charger_name = "primary_chg";
+        sc,sc8989x,ico-en = <0>;
+        sc,sc8989x,hvdcp-en = <1>;
+        sc,sc8989x,auto-dpdm-en = <0>;
+        sc,sc8989x,vsys-min = <5>; /*3500mV*/
+        sc,sc8989x,vbatmin-sel = <0>; /*0:2.9V 1:2.5V*/
+        sc,sc8989x,itrick = <3>; /*60 + val *60*/
+        sc,sc8989x,iterm = <4>; /*30 + val * 60*/
+        sc,sc8989x,vbat-cv = <38>; /*3840 + val * 16*/
+        sc,sc8989x,vbat-low = <1>; /*0:2.8V 1:3V*/
+        sc,sc8989x,vrechg = <0>; /*0:100mV 1:200mV*/
+        sc,sc8989x,en-term = <1>;
+        sc,sc8989x,stat-dis = <0>;
+        sc,sc8989x,wd-time = <0>; /*0:Dis 1:40s 2:80s 3:160s*/
+        sc,sc8989x,en-timer = <1>;
+        sc,sc8989x,charge-timer = <2>; /*0:5h 1:8h 2:12h 3:20h*/
+        sc,sc8989x,bat-comp = <0>; /*val * 20*/
+        sc,sc8989x,vclamp = <0>; /*val *32*/
+        sc,sc8989x,votg = <12>; /*3900 + val * 100*/
+        sc,sc8989x,iboost = <3>; /*0:0.5A 3:1.4A 5:1.875A 7:2.45A*/
+        sc,sc8989x,force_vindpm = <0>; 
+        sc,sc8989x,vindpm = <20>; /*2600 + val * 100*/
+    	phys = <&u2port0 PHY_TYPE_USB2>;
+        phy-names = "usb2-phy";
+	};
+
 	mt6375: mt6375@34 {
 		compatible = "mediatek,mt6375";
 		reg = <0x34>;
@@ -7969,7 +8624,9 @@
 			chg_tmr = <10>;
 			chg_tmr_en;
 			dcdt_sel = <600>;
-			bc12_sel = <&mtk_ctd>;
+			spec_ta_en;
+			nr_port = <1>;
+			bc12_sel = <MTK_CTD_BY_SUBPMIC>;
 			boot_mode = <&chosen>;
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			phy-names = "usb2-phy";
@@ -7993,18 +8650,14 @@
 			/* 0: Unknown, 1: SNK, 2: SRC, 3: DRP, 4: Try.SRC, 5: Try.SNK */
 			tcpc,role_def = <5>;
 			/* 0: Default, 1: 1.5, 2: 3.0 */
-			tcpc,rp_level = <0>;
+			tcpc,rp_level = <1>;
 			/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
-			tcpc,vconn_supply  = <1>;
-			/* the number of notifier supply */
-			tcpc,notifier_supply_num = <3>;
+			tcpc,vconn_supply = <1>;
 			io-channels = <&mt6375_adc MT6375_ADC_SBU1>,
 				      <&mt6375_adc MT6375_ADC_SBU2>;
 			charger = <&mt6375_chg>;
-			boot_mode = <&chosen>;
 			tcpc,en_wd;
-			tcpc,en_wd_sbu_polling;
-			tcpc,en_wd_polling_only;
+			//tcpc,en_wd_dual_port;
 			tcpc,en_ctd;
 			tcpc,en_fod;
 			tcpc,en_typec_otp;
@@ -8024,58 +8677,52 @@
 			/* 0:400us, 1:1ms, 2:2ms, 3:4ms, 4:10ms, 5:40ms, 6:100ms, 7:400ms */
 			wd,wd0_tdet = <3>;
 			/* example wd0_tsleep = 512x, wd0_tdet = 4ms, wd0 polling time = 512*4ms */
-
 			pd-data {
 				pd,vid = <0x29cf>;
 				pd,pid = <0x6375>;
-				pd,source-cap-ext = <0x637529cf 0x00000000 0x00000000
-						     0x00000000 0x00000000 0x07010000 >;
+				pd,source-cap-ext = /bits/ 8 <0xcf 0x29 0x75 0x63
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x01 0x07
+							      0x00>;
+				pd,sink-cap-ext = /bits/ 8 <0xcf 0x29 0x75 0x63
+							    0x00 0x00 0x00 0x00
+							    0x00 0x00 0x01 0x00
+							    0x00 0x00 0x00 0x00
+							    0x01 0x0b 0x01 0x0a
+							    0x0a 0x00 0x00 0x00>;
 				pd,mfrs = "RichtekTCPC";
-				/*
-				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
-				 * MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
-				 * MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
-				 */
-				pd,charging_policy= <0x21>;
 
 				/*
-				 * Fixed 5V, 500 mA <0x00019032>
-				 * Fixed 5V, 1A <0x00019064>
-				 * Fixed 5V, 2A <0x000190c8>
-				 * Fixed 5V, 3A <0x0001912c>
-				 * Fixed 9V, 500 mA <0x0002d032>
-				 * Fixed 9V, 1A <0x0002d064>
-				 * Fixed 5V, 1.5A <0x00019096>
-				 * Fixed 9V, 2A <0x0002d0c8>
-				 * Fixed 9V, 3A <0x0002d12c>
-				 * Variable 5-9V, 1A <0x8642d064>
-				 * Variable 5-9V, 2A <0x8642d0c8>
-				 * Variable 5-9V, 3A <0x8642d12c>
-				 * PPS 3V~5.9V, 3A <0xc0761e3c>
+				 *	VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
+				 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
+				 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 				 */
+				pd,charging_policy = <0x31>;
 
 				pd,source-pdo-size = <1>;
-				pd,source-pdo-data = <0x00019032>;
-				/* 5V, 500 mA */
-				pd,sink-pdo-size = <2>;
-				pd,sink-pdo-data = <0x000190c8 0x000190c8> ;
-				/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
+				pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
+				pd,sink-pdo-size = <1>;
+				pd,sink-pdo-data = <0x000190c8>;
 
 				/*
 				 * No DP, host + device
-				 *	pd,id-vdo-size = <3>;
-				 *	pd,id-vdo-data =
-						<0xd00029cf 0x0 0x00010000>;
+				 *	pd,id-vdo-size = <6>;
+				 *	pd,id-vdo-data = <0xd14029cf 0x0 0x63750000
+							  0x61000000 0x0 0x41000000>;
 				 * With DP
-				 *	pd,id-vdo-size = <4>;
-				 *	pd,id-vdo-data =
-				 *	<0xec0029cf 0x0 0x00010000 0x11000001>;
+				 *	pd,id-vdo-size = <6>;
+				 *	pd,id-vdo-data = <0xd54029cf 0x0 0x63750000
+							  0x61000000 0x0 0x41000000>;
 				 */
-				pd,id-vdo-size = <4>;
-				pd,id-vdo-data = <0xec0029cf 0x0 0x00010000 0x11000001>;
-				bat,nr = <1>;
-				pd,country_nr = <0>;
 
+				pd,id-vdo-size = <6>;
+				pd,id-vdo-data = <0xd54029cf 0x0 0x63750000
+						  0x61000000 0x0 0x41000000>;
+
+				bat,nr = <1>;
 				bat-info0 {
 					bat,vid = <0x29cf>;
 					bat,pid = <0x6375>;
@@ -8083,7 +8730,6 @@
 					bat,design_cap = <3000>;
 				};
 			};
-
 			dpm_caps {
 				local_dr_power;
 				local_dr_data;
@@ -8093,12 +8739,12 @@
 				// local_high_cap;
 				// local_give_back;
 				local_no_suspend;
-				local_vconn_supply;
 
 				// attempt_discover_cable_dfp;
 				attempt_enter_dp_mode;
 				attempt_discover_cable;
-				attempt_discover_id;
+				// attempt_discover_id;
+				// attempt_discover_svid;
 
 				/* 0: disable, 1: prefer_snk, 2: prefer_src */
 				pr_check = <0>;
@@ -8118,23 +8764,17 @@
 				2nd_connection = "dfp_d";
 				signal,dp_v13;
 				//signal,dp_gen2;
-				usbr20_not_used;
+				//usbr20_not_used;
 				typec,receptacle;
 				ufp_d {
-					//pin_assignment,mode_a;
-					//pin_assignment,mode_b;
 					//pin_assignment,mode_c;
 					//pin_assignment,mode_d;
 					//pin_assignment,mode_e;
 				};
 				dfp_d {
-					/* Only support mode C & D */
-					//pin_assignment,mode_a;
-					//pin_assignment,mode_b;
 					pin_assignment,mode_c;
 					pin_assignment,mode_d;
 					pin_assignment,mode_e;
-					pin_assignment,mode_f;
 				};
 			};
 		};
@@ -8145,14 +8785,14 @@
 };
 
 &i2c6 {
-	ps5169: ps5169@28 {
+	ps5169: ps5169@29 {
 		compatible = "parade,ps5169";
-		reg = <0x28>;
+		reg = <0x29>;
 		status = "okay";
 	};
 	gate_ic: gate_ic@11 {
 	compatible = "mediatek,gate-ic-i2c";
-	gate-power-gpios = <&pio 150 0>;
+	/* gate-power-gpios = <&pio 150 0>;   20230704 longcheer zhangfeng5 delete. gpio150 used for camera-flashlight. */
 	reg = <0x11>;
 	id = <6>;
 	status = "okay";
@@ -8312,4 +8952,5 @@
 		};
 	};
 };
+#include "mediatek/tcpc_config.dtsi"
 /* AUDIO GPIO standardization end */

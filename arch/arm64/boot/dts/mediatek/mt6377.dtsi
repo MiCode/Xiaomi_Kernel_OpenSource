@@ -152,12 +152,14 @@
 					<&pmic_adc AUXADC_BATADC>,
 					<&pmic_adc AUXADC_VBIF>,
 					<&pmic_adc AUXADC_IMP>,
-					<&pmic_adc AUXADC_IMIX_R>;
+					<&pmic_adc AUXADC_IMIX_R>,
+					<&auxadc 2>;
 			io-channel-names = "pmic_battery_temp",
 					"pmic_battery_voltage",
 					"pmic_bif_voltage",
 					"pmic_ptim_voltage",
-					"pmic_ptim_r";
+					"pmic_ptim_r",
+					"batteryID-channel";
 
 			nvmem-cells = <&fg_init>, <&fg_soc>;
 			nvmem-cell-names = "initialization", "state-of-charge";
@@ -285,6 +287,7 @@
 				regulator-max-microvolt = <1900000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
+				/* regulator-always-on;					20230703 longcheer zhangfeng5 removed. */
 				regulator-allow-set-load;
 			};
 			mt6377_vaud28: vaud28 {
@@ -489,7 +492,7 @@
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
-				regulator-always-on;
+				/* regulator-always-on;				20230703 longcheer zhangfeng5 removed. */
 				regulator-allow-set-load;
 			};
 			mt6377_vfp: vfp {
@@ -576,7 +579,7 @@
 };
 
 &mtk_gauge {
-	charger = <&mt6375_chg>;
+	charger = <&sc8989x_chg>;
 };
 
 #include "mediatek/bat_setting/mt6835_6377_battery_prop.dtsi"

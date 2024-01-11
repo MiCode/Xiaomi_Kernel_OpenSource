@@ -33,8 +33,6 @@ static void pe_idle_reset_data(struct pd_port *pd_port)
 #endif	/* CONFIG_USB_PD_TRANSMIT_BIST2 */
 
 	pd_enable_timer(pd_port, PD_TIMER_PE_IDLE_TOUT);
-
-	pd_unlock_msg_output(pd_port);
 }
 
 void pe_idle1_entry(struct pd_port *pd_port)
@@ -399,5 +397,23 @@ void pe_vdm_not_supported_entry(struct pd_port *pd_port)
 	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_NOT_SUPPORTED);
 }
 
+void pe_get_revision_entry(struct pd_port *pd_port)
+{
+	PE_STATE_WAIT_MSG_OR_TX_FAILED(pd_port);
+
+	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_GET_REVISION);
+}
+
+void pe_get_revision_exit(struct pd_port *pd_port)
+{
+	pd_dpm_inform_revision(pd_port);
+}
+
+void pe_give_revision_entry(struct pd_port *pd_port)
+{
+	PE_STATE_WAIT_TX_SUCCESS_OR_FAILED(pd_port);
+
+	pd_dpm_send_revision(pd_port);
+}
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif /* CONFIG_USB_POWER_DELIVERY */

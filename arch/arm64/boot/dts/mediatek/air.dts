@@ -1,0 +1,15 @@
+#include "mediatek/air-mt6835.dtsi"
+#include <air/cust.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+#include "mediatek/foursemi-fs15xx.dtsi"
+#include "mediatek/touchscreen.dtsi"
+
+&mtee_svp {
+	mtee: MTEE {
+		compatible = "mediatek,mtk_svp_on_mtee_support";
+	};
+
+	svp: SecureVideoPath {
+		compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};

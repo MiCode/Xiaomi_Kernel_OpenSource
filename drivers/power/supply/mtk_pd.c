@@ -66,6 +66,50 @@ static int pd_dbg_level = PD_DEBUG_LEVEL;
 static bool algo_waiver_test;
 module_param(algo_waiver_test, bool, 0644);
 
+#if 0
+int is_need_cc_current_set(struct mtk_pd *pd)
+{
+	struct power_supply *charger_psy = NULL;
+	union power_supply_propval propval = {0,};
+	int rc = 0;
+	int cap_num = 1;
+
+	if (IS_ERR_OR_NULL(pd))
+	{
+		return false;
+	}
+
+	charger_psy = power_supply_get_by_name("primary_chg");
+	if (charger_psy) {
+		rc = power_supply_get_property(charger_psy, POWER_SUPPLY_PROP_USB_TYPE, &propval);
+		if (rc < 0) {
+			pd_err("%s : get usb type fail\n", __func__);
+			return false;
+		}
+	}
+
+	if ((propval.intval == POWER_SUPPLY_USB_TYPE_SDP) && (pd->cap.nr == cap_num)) {
+		if (pd->input_current_limit1 > cc_input_current_limit) {
+			pd->input_current_limit1 = cc_input_current_limit;
+		}
+
+		if (pd->charging_current_limit1 > cc_charging_current_limit) {
+			pd->charging_current_limit1 = cc_charging_current_limit;
+		}
+		pd_info("%s: input_current_limit1: %d, charging_current_limit1: %d\n",
+			__func__,
+			pd->input_current_limit1,
+			pd->charging_current_limit1);
+
+		return true;
+	} else {
+		pd_info("%s: needn't to set cc current\n");
+
+		return false;
+	}
+}
+#endif
+
 int pd_get_debug_level(void)
 {
 	return pd_dbg_level;
@@ -157,7 +201,12 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 		goto skip;
 	}
 
-	pd_dbg("%s %d\n", __func__, pd->state);
+	if (pd->state == PD_TA_NOT_SUPPORT) {
+		pd_info("%s PD_TA_NOT_SUPPORT, state recheck\n", __func__);
+		pd->state = PD_HW_READY;
+	}
+
+	pd_info("%s %d\n", __func__, pd->state);
 	switch (pd->state) {
 	case PD_HW_UNINIT:
 	case PD_HW_FAIL:
@@ -167,13 +216,12 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 		ret_value = pd_hal_is_pd_adapter_ready(alg);
 		if (ret_value == ALG_READY) {
 			uisoc = pd_hal_get_uisoc(alg);
-			if (pd->input_current_limit1 != -1 ||
-				pd->charging_current_limit1 != -1 ||
-				pd->input_current_limit2 != -1 ||
-				pd->charging_current_limit2 != -1)
+			if (pd->input_current_limit1 == 0 ||
+				pd->charging_current_limit1 == 0 ||
+				pd->input_current_limit2 == 0 ||
+				pd->charging_current_limit2 == 0)
 				ret_value = ALG_NOT_READY;
-			else if (uisoc >= pd->pd_stop_battery_soc ||
-				(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
+			else if (uisoc == -1 && pd->ref_vbat > pd->vbat_threshold)
 				ret_value = ALG_WAIVER;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
 			pd->state = PD_TA_NOT_SUPPORT;
@@ -203,6 +251,7 @@ skip:
 void __mtk_pdc_init_table(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
+	static int old_cap_nr = 0;
 
 	pd->cap.nr = 0;
 	pd->cap.selected_cap_idx = -1;
@@ -211,6 +260,11 @@ void __mtk_pdc_init_table(struct chg_alg_device *alg)
 		pd_hal_get_adapter_cap(alg, &pd->cap);
 	else
 		pd_err("mtk_is_pdc_ready is fail\n");
+	if (pd->cap.nr != old_cap_nr) {
+		old_cap_nr = pd->cap.nr;
+		pd->pd_idx = -1;
+		pd_info("pd cap updated\n");
+	}
 
 	pd_dbg("[%s] nr:%d default:%d\n", __func__, pd->cap.nr,
 	pd->cap.selected_cap_idx);
@@ -478,7 +532,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 			&pd->pd_boost_idx, &pd->pd_buck_idx);
 	}
 
-	pd_dbg("[%s]idx:%d:%d:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
+	pd_info("[%s]idx:%d:%d:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
 		pd->pd_idx, idx, pd->pd_boost_idx, pd->pd_buck_idx,
 		pd->cap.max_mv[idx], pd->cap.ma[idx], ret);
 
@@ -500,7 +554,6 @@ void mtk_pdc_reset(struct chg_alg_device *alg)
 	pd->old_cv = 0;
 }
 
-
 int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 			int *newidx)
 {
@@ -517,6 +570,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	bool chg1_mivr = false;
 	bool chg2_mivr = false;
 	int chg_cnt, i, is_chip_enabled;
+	int ibus_retry = 0;
 
 
 	__mtk_pdc_init_table(alg);
@@ -525,13 +579,26 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 
 	cap = &pd->cap;
 
-	if (cap->nr == 0)
+	if (cap->nr == 0) {
+		pd->state = PD_HW_READY;
 		return -1;
+	}
 
 	ret = pd_hal_get_ibus(alg, &ibus);
 	if (ret < 0) {
 		pd_err("[%s] get ibus fail, keep default voltage\n", __func__);
 		return -1;
+	}
+
+	while (ibus <= 0 && ibus_retry <= 10)
+	{
+		msleep(100);
+		ibus_retry++;
+		ret = pd_hal_get_ibus(alg, &ibus);
+		if (ret < 0) {
+			pd_err("[%s] get ibus fail, keep default voltage\n", __func__);
+			return -1;
+		}
 	}
 
 #ifdef FIXME
@@ -574,7 +641,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	}
 
 	vbus = pd_hal_get_vbus(alg);
-	ibus = ibus / 1000;
+	//ibus = ibus / 1000;
 	if (ibus == 0)
 		ibus = 1000;
 
@@ -588,7 +655,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	if (idx < 0 || idx >= PD_CAP_MAX_NR)
 		idx = selected_idx = 0;
 
-	pd_dbg("idx:%d %d %d %d %d %d\n", idx,
+	pd_info("idx:%d %d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		cap->ma[idx],
 		cap->maxwatt[idx],
@@ -598,15 +665,14 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	pd_max_watt = cap->max_mv[idx] * (cap->ma[idx]
 			/ 100 * (100 - pd->ibus_err) - 100);
 
-	pd_dbg("pd_max_watt:%d %d %d %d %d\n", idx,
+	pd_info("pd_max_watt:%d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		cap->ma[idx],
 		pd->ibus_err,
 		pd_max_watt);
 
-
 	now_max_watt = cap->max_mv[idx] * ibus + chg2_watt;
-	pd_dbg("now_max_watt:%d %d %d %d %d\n", idx,
+	pd_info("now_max_watt:%d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		ibus,
 		chg2_watt,
@@ -616,7 +682,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 			/ 100 * (100 - pd->ibus_err)
 			- pd->vsys_watt;
 
-	pd_dbg("pd_min_watt:%d %d %d %d %d\n", pd->pd_buck_idx,
+	pd_info("pd_min_watt:%d %d %d %d %d\n", pd->pd_buck_idx,
 		cap->max_mv[pd->pd_buck_idx],
 		cap->ma[pd->pd_buck_idx],
 		pd->ibus_err,
@@ -625,10 +691,10 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	if (pd_min_watt <= 5000000)
 		pd_min_watt = 5000000;
 
-	if ((now_max_watt >= pd_max_watt) || chg1_mivr || chg2_mivr) {
+	if (((now_max_watt >= pd_max_watt) && cap->max_mv[idx] != 9000) || chg1_mivr || chg2_mivr) {
 		*newidx = pd->pd_boost_idx;
 		boost = true;
-	} else if (now_max_watt <= pd_min_watt) {
+	} else if ((now_max_watt <= pd_min_watt) && (cap->max_mv[idx] != 9000)) {
 		*newidx = pd->pd_buck_idx;
 		buck = true;
 	} else {
@@ -637,16 +703,28 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 		buck = false;
 	}
 
+#if 0
+	if (vbus < 8000 && boost == false && cap->max_mv[idx] < 8000 ) {
+		*newidx = pd->pd_boost_idx;
+		boost = true;
+		buck = false;
+		pd_err("[%s] cap->max_mv:%d vbus:%d is lower than 8v, force boost to next cap!!!\n",
+				__func__,
+				cap->max_mv[idx],
+				vbus);
+	}
+#endif
+
 	*newvbus = cap->max_mv[*newidx];
 	*newcur = cap->ma[*newidx];
 
-	pd_dbg("[%s]watt:%d,%d,%d up:%d,%d vbus:%d ibus:%d, mivr:%d,%d\n",
+	pd_info("[%s]watt:%d,%d,%d up:%d,%d vbus:%d ibus:%d, mivr:%d,%d\n",
 		__func__,
 		pd_max_watt, now_max_watt, pd_min_watt,
 		boost, buck,
 		vbus, ibus, chg1_mivr, chg2_mivr);
 
-	pd_dbg("[%s]vbus:%d:%d:%d current:%d idx:%d default_idx:%d\n",
+	pd_info("[%s]vbus:%d:%d:%d current:%d idx:%d default_idx:%d\n",
 		__func__, pd->vbus_h, pd->vbus_l, *newvbus,
 		*newcur, *newidx, selected_idx);
 
@@ -671,22 +749,28 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 
 	if (pd->input_current_limit1 == 0 ||
 		pd->charging_current_limit1 == 0) {
-		pr_notice("input/charging current is 0, end Pd\n");
+		pr_err("input/charging current is 0, end Pd\n");
 		return -1;
 	}
 
 	mutex_lock(&pd->data_lock);
-	if (pd->charging_current_limit1 != -1) {
-		if (pd->charging_current_limit1 <
-			pd->sc_charger_current)
-			pd->charging_current1 =
-				pd->charging_current_limit1;
+	if (pd->charging_current_limit1 != -1 &&
+		pd->charging_current_limit1 <
+		pd->sc_charger_current) {
+		pd->charging_current1 = pd->charging_current_limit1;
 		ret = pd_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
 		if (ret != -EOPNOTSUPP &&
-			pd->charging_current_limit1 < ichg1_min)
+			pd->charging_current_limit1 < ichg1_min) {
 			pd->charging_current1 = 0;
+			pd_err("%s: get min charging current fail,or %d < %d (%d)\n",
+				__func__,
+				pd->charging_current_limit1,
+				ichg1_min,
+				pd->charging_current1);
+		}
 	} else
 		pd->charging_current1 = pd->sc_charger_current;
+
 
 	if (pd->input_current_limit1 != -1 &&
 		pd->input_current_limit1 <
@@ -694,12 +778,17 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 		pd->input_current1 = pd->input_current_limit1;
 		ret = pd_hal_get_min_input_current(alg, CHG1, &aicr1_min);
 		if (ret != -EOPNOTSUPP &&
-			pd->input_current_limit1 < aicr1_min)
+			pd->input_current_limit1 < aicr1_min) {
 			pd->input_current1 = 0;
+			pd_err("%s: get min input current fail,or %d < %d, set charging_current1:%d\n",
+				__func__,
+				pd->input_current_limit1,
+				aicr1_min,
+				pd->input_current1);
+		}
 	} else
 		pd->input_current1 = pd->sc_input_current;
 	mutex_unlock(&pd->data_lock);
-
 
 	if (pd->input_current1 == 0 ||
 		pd->charging_current1 == 0) {
@@ -728,8 +817,14 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 		}
 	}
 
-	pd_dbg("%s old_cv=%d, new_cv=%d, pd_6pin_en=%d 6pin_re_en=%d\n", __func__,
-		pd->old_cv, pd->cv, pd->pd_6pin_en, pd->stop_6pin_re_en);
+	pd_info("%s input_current1=%d, charging_current1=%d, old_cv=%d, new_cv=%d, pd_6pin_en=%d 6pin_re_en=%d\n",
+		__func__,
+		pd->input_current1,
+		pd->charging_current1,
+		pd->old_cv,
+		pd->cv,
+		pd->pd_6pin_en,
+		pd->stop_6pin_re_en);
 
 	return 0;
 }
@@ -865,8 +960,14 @@ static int __pd_run(struct chg_alg_device *alg)
 
 	if (ret != -1 && idx != -1) {
 		if ((pd->input_current_limit1 != -1 &&
-			pd->input_current_limit1 < cur * 1000) == false)
-			pd->input_current_limit1 = cur * 1000;
+			pd->input_current_limit1 < cur * 1000) == false) {
+#if 0
+				if(!is_need_cc_current_set(pd)) {
+					pd->input_current_limit1 = cur * 1000;
+				}
+#endif
+				pd->input_current_limit1 = cur * 1000;
+			}
 		__mtk_pdc_setup(alg, idx);
 	} else {
 		pd->input_current_limit1 =
@@ -874,6 +975,13 @@ static int __pd_run(struct chg_alg_device *alg)
 		pd->charging_current_limit1 =
 			PD_FAIL_CURRENT;
 	}
+
+	pd_info("%s: %d, %d, %d, %d\n",
+		__func__,
+		pd->input_current_limit1,
+		pd->charging_current_limit1,
+		pd->input_current1,
+		pd->charging_current1);
 
 	if (alg->config == DUAL_CHARGERS_IN_SERIES) {
 		if (pd_dcs_set_charger(alg) != 0) {
@@ -914,34 +1022,40 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 		switch (pd->state) {
 		case PD_HW_UNINIT:
 		case PD_HW_FAIL:
+			pd_info("%s: Enter state:ALG_INIT_FAIL\n", __func__);
 			ret_value = ALG_INIT_FAIL;
 			break;
 		case PD_HW_READY:
 			ret_value = pd_hal_is_pd_adapter_ready(alg);
-			if (ret_value == ALG_TA_NOT_SUPPORT)
+			if (ret_value == ALG_TA_NOT_SUPPORT) {
+				pd_info("%s: Enter state:PD_TA_NOT_SUPPORT\n", __func__);
 				pd->state = PD_TA_NOT_SUPPORT;
-			else if (ret_value == ALG_READY) {
+			} else if (ret_value == ALG_READY) {
 				uisoc = pd_hal_get_uisoc(alg);
-				if (pd->input_current_limit1 != -1 ||
-					pd->charging_current_limit1 != -1 ||
-					pd->input_current_limit2 != -1 ||
-					pd->charging_current_limit2 != -1)
+				if (pd->input_current_limit1 == 0 ||
+					pd->charging_current_limit1 == 0 ||
+					pd->input_current_limit2 == 0 ||
+					pd->charging_current_limit2 == 0) {
+					pd_info("%s: Enter state:ALG_NOT_READY\n", __func__);
 					ret_value = ALG_NOT_READY;
-				else if (uisoc >= pd->pd_stop_battery_soc ||
-					(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
+				} else if (uisoc == -1 && pd->ref_vbat > pd->vbat_threshold) {
+					pd_info("%s: Enter state:ALG_WAIVER\n", __func__);
 					ret_value = ALG_WAIVER;
-				else {
+				}else {
+					pd_info("%s: Enter state:PD_RUN\n", __func__);
 					pd->state = PD_RUN;
 					again = true;
 				}
 			}
 			break;
 		case PD_TA_NOT_SUPPORT:
+			pd_info("%s: Enter state:PD_TA_NOT_SUPPORT\n", __func__);
 			ret_value = ALG_TA_NOT_SUPPORT;
 			break;
 		case PD_RUN:
 		case PD_TUNING:
 		case PD_POSTCC:
+			pd_info("%s: Enter state:__pd_run\n", __func__);
 			ret_value = __pd_run(alg);
 			break;
 		default:
@@ -1078,6 +1192,25 @@ static int pd_full_evt(struct chg_alg_device *alg)
 		} else {
 			if (pd->state == PD_RUN) {
 				pd_err("%s evt full\n",  __func__);
+
+				pd->cap.selected_cap_idx = 0;
+				ret = pd_hal_set_adapter_cap(alg, pd->cap.max_mv[pd->cap.selected_cap_idx],
+						pd->cap.ma[pd->cap.selected_cap_idx]);
+				if(ret != 0) {
+					pd_err("%s set fail: max_mv(%d %d), ma(%d %d)\n",
+							__func__,
+							pd->cap.selected_cap_idx,
+							pd->cap.max_mv[pd->cap.selected_cap_idx],
+							pd->cap.selected_cap_idx,
+							pd->cap.ma[pd->cap.selected_cap_idx]);
+				} else {
+					pd_err("%s set succesful: max_mv(%d %d), ma(%d %d)\n",
+							__func__,
+							pd->cap.selected_cap_idx,
+							pd->cap.max_mv[pd->cap.selected_cap_idx],
+							pd->cap.selected_cap_idx,
+							pd->cap.ma[pd->cap.selected_cap_idx]);
+				}
 				pd->state = PD_HW_READY;
 			}
 		}
@@ -1132,7 +1265,7 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 	int ret_value = 0;
 
 	pd = dev_get_drvdata(&alg->dev);
-	pd_dbg("%s evt:%d state:%s\n", __func__, notify->evt,
+	pd_info("%s evt:%d state:%s\n", __func__, notify->evt,
 		pd_state_to_str(pd->state));
 
 	switch (notify->evt) {
@@ -1293,7 +1426,7 @@ int _pd_set_setting(struct chg_alg_device *alg_dev,
 {
 	struct mtk_pd *pd;
 
-	pd_dbg("%s cv:%d icl:%d,%d cc:%d,%d\n",
+	pd_info("%s cv:%d icl:%d,%d cc:%d,%d\n",
 		__func__,
 		setting->cv,
 		setting->input_current_limit1,

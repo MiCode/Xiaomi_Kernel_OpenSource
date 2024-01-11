@@ -462,6 +462,8 @@ config DRM_PANEL_SAMSUNG_ATNA33XC20
 	depends on OF
 	depends on BACKLIGHT_CLASS_DEVICE
 	depends on PM
+	select DRM_DISPLAY_DP_HELPER
+	select DRM_DISPLAY_HELPER
 	select DRM_DP_AUX_BUS
 	help
 	  DRM panel driver for the Samsung ATNA33XC20 panel. This panel can't
@@ -1058,6 +1060,50 @@ config DRM_PANEL_NT37705_ALPHA_CMD_SPR
 	  fhd cmd aod panel with spr. The panel has a 1260x2800 resolution
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
 	  interface to host.
+
+config DRM_PANEL_DSI_PANEL_C3V_43_02_0A_HD_VDO
+	tristate "dsi panel c3v 43 02 0a hd vdo"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_42_02_0A_DSC_CMD
+	  Plus panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+config DRM_PANEL_DSI_PANEL_C3V_35_03_0B_HD_VDO
+	tristate "dsi panel c3v 35 03 0b hd vdo"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_42_02_0A_DSC_CMD
+	  Plus panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_DSI_PANEL_C3V_NULL_HD_VDO
+	tristate "dsi panel c3v null hd vdo"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_42_02_0A_DSC_CMD
+	  Plus panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_DSI_PANEL_C3V_43_02_0C_HD_VDO
+	tristate "dsi panel c3v 43 02 0c hd vdo"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_42_02_0A_DSC_CMD
+	  Plus panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 
 config DRM_MEDIATEK_PANEL
 	tristate "drm panel common driver"

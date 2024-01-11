@@ -14,6 +14,7 @@ enum {
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	PD_TIMER_DISCOVER_ID = 0,
 	PD_TIMER_BIST_CONT_MODE,
+	PD_TIMER_HARD_RESET_COMPLETE,
 	PD_TIMER_NO_RESPONSE,
 	PD_TIMER_PS_HARD_RESET,
 	PD_TIMER_PS_SOURCE_OFF,
@@ -73,6 +74,9 @@ enum {
 	PD_TIMER_SNK_FLOW_DELAY,
 #endif	/* CONFIG_USB_PD_REV30_SNK_FLOW_DELAY_STARTUP */
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
+#if CONFIG_USB_PD_REV30_PPS_SINK
+	PD_TIMER_PPS_REQUEST,
+#endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 #endif	/* CONFIG_USB_PD_REV30 */
 	PD_TIMER_PE_IDLE_TOUT,
 	PD_PE_TIMER_END_ID,
@@ -89,9 +93,6 @@ enum {
 	TYPEC_RT_TIMER_ROLE_SWAP_START,
 	TYPEC_RT_TIMER_ROLE_SWAP_STOP,
 	TYPEC_RT_TIMER_STATE_CHANGE,
-	TYPEC_RT_TIMER_NOT_LEGACY,
-	TYPEC_RT_TIMER_LEGACY_STABLE,
-	TYPEC_RT_TIMER_LEGACY_RECYCLE,
 	TYPEC_RT_TIMER_DISCHARGE,
 	TYPEC_RT_TIMER_LOW_POWER_MODE,
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
@@ -123,15 +124,14 @@ enum {
 	PD_TIMER_NR,
 };
 
+extern void tcpc_enable_lpm_timer(struct tcpc_device *tcpc, bool en);
+extern bool tcpc_is_timer_active(struct tcpc_device *tcpc, int start, int end);
+extern void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id);
+extern void tcpc_disable_timer(struct tcpc_device *tcpc, uint32_t timer_id);
+extern void tcpc_restart_timer(struct tcpc_device *tcpc, uint32_t timer_id);
+extern void tcpc_reset_pe_timer(struct tcpc_device *tcpc);
+extern void tcpc_reset_typec_debounce_timer(struct tcpc_device *tcpc);
+extern void tcpc_reset_typec_try_timer(struct tcpc_device *tcpc);
 extern int tcpci_timer_init(struct tcpc_device *tcpc);
 extern int tcpci_timer_deinit(struct tcpc_device *tcpc);
-extern void tcpc_restart_timer(struct tcpc_device *tcpc, uint32_t timer_id);
-extern void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id);
-extern void tcpc_enable_wakeup_timer(struct tcpc_device *tcpc, bool en);
-extern void tcpc_disable_timer(
-		struct tcpc_device *tcpc, uint32_t timer_id);
-extern void tcpc_reset_typec_try_timer(struct tcpc_device *tcpc);
-extern void tcpc_reset_typec_debounce_timer(struct tcpc_device *tcpc);
-
-extern void tcpc_reset_pe_timer(struct tcpc_device *tcpc);
 #endif /* TCPC_TIMER_H_INCLUDED */

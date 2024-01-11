@@ -66,6 +66,7 @@ static const char *const pe_state_name[] = {
 #if CONFIG_USB_PD_REV30_PPS_SOURCE
 	"PE_SRC_GIVE_PPS_STATUS",
 #endif	/* CONFIG_USB_PD_REV30_PPS_SOURCE */
+	"PE_SRC_GET_SINK_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 /******************* Sink *******************/
@@ -106,6 +107,7 @@ static const char *const pe_state_name[] = {
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	"PE_SNK_GET_PPS_STATUS",
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+	"PE_SNK_GIVE_SINK_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SINK */
 /******************* DR_SWAP *******************/
@@ -154,6 +156,8 @@ static const char *const pe_state_name[] = {
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	"PE_DR_SRC_GET_SOURCE_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+	"PE_DR_SRC_GIVE_SINK_CAP_EXT",
+	"PE_DR_SNK_GET_SINK_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 /******************* VCONN_SWAP *******************/
@@ -251,6 +255,8 @@ static const char *const pe_state_name[] = {
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL */
 
 	"PE_VDM_NOT_SUPPORTED",
+	"PE_GET_REVISION",
+	"PE_GIVE_REVISION",
 #endif /* CONFIG_USB_PD_REV30 */
 /******************* Others *******************/
 #if CONFIG_USB_PD_CUSTOM_DBGACC
@@ -332,6 +338,7 @@ static const char *const pe_state_name[] = {
 #if CONFIG_USB_PD_REV30_PPS_SOURCE
 	"SRC_GIVE_PPS",
 #endif	/* CONFIG_USB_PD_REV30_PPS_SOURCE */
+	"SRC_GET_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 /******************* Sink *******************/
@@ -362,7 +369,7 @@ static const char *const pe_state_name[] = {
 	"SNK_ALERT",
 #endif	/* CONFIG_USB_PD_REV30_ALERT_LOCAL */
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
-	"SNK_GET_CAP_EX",
+	"SNK_GET_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
 #if CONFIG_USB_PD_REV30_STATUS_REMOTE
 	"SNK_GET_STATUS",
@@ -373,6 +380,7 @@ static const char *const pe_state_name[] = {
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	"SNK_GET_PPS",
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+	"SNK_GIVE_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SINK */
 /******************* DR_SWAP *******************/
@@ -422,6 +430,8 @@ static const char *const pe_state_name[] = {
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	"DR_SRC_GET_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+	"DR_SRC_GIVE_CAP_EXT",
+	"DR_SNK_GET_CAP_EXT",
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 /******************* VCONN_SWAP *******************/
@@ -519,6 +529,8 @@ static const char *const pe_state_name[] = {
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL */
 
 	"VDM_NO_SUPP",
+	"GET_REV",
+	"GIVE_REV",
 #endif /* CONFIG_USB_PD_REV30 */
 /******************* Others *******************/
 #if CONFIG_USB_PD_CUSTOM_DBGACC
@@ -610,6 +622,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 #if CONFIG_USB_PD_REV30_PPS_SOURCE
 	PE_STATE_ACTIONS(pe_src_give_pps_status),
 #endif	/* CONFIG_USB_PD_REV30_PPS_SOURCE */
+	PE_STATE_ACTIONS(pe_src_get_sink_cap_ext),
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 /******************* Sink *******************/
@@ -651,6 +664,7 @@ static const struct pe_state_actions pe_state_actions[] = {
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	PE_STATE_ACTIONS(pe_snk_get_pps_status),
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+	PE_STATE_ACTIONS(pe_snk_give_sink_cap_ext),
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PE_SINK */
 /******************* DR_SWAP *******************/
@@ -700,6 +714,8 @@ static const struct pe_state_actions pe_state_actions[] = {
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE
 	PE_STATE_ACTIONS(pe_dr_src_get_source_cap_ext),
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+	PE_STATE_ACTIONS(pe_dr_src_give_sink_cap_ext),
+	PE_STATE_ACTIONS(pe_dr_snk_get_sink_cap_ext),
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 /******************* VCONN_SWAP *******************/
@@ -796,6 +812,8 @@ static const struct pe_state_actions pe_state_actions[] = {
 	PE_STATE_ACTIONS(pe_give_country_info),
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL */
 	PE_STATE_ACTIONS(pe_vdm_not_supported),
+	PE_STATE_ACTIONS(pe_get_revision),
+	PE_STATE_ACTIONS(pe_give_revision),
 #endif /* CONFIG_USB_PD_REV30 */
 /******************* Others *******************/
 #if CONFIG_USB_PD_CUSTOM_DBGACC
@@ -861,6 +879,10 @@ void (*pe_get_exit_action(uint8_t pe_state))
 		break;
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
 
+	case PE_SRC_GET_SINK_CAP_EXT:
+		retval = pe_src_get_sink_cap_ext_exit;
+		break;
+
 #if CONFIG_USB_PD_REV30_STATUS_REMOTE
 	case PE_SNK_GET_SOURCE_STATUS:
 		retval = pe_snk_get_source_status_exit;
@@ -893,6 +915,10 @@ void (*pe_get_exit_action(uint8_t pe_state))
 		retval = pe_dr_src_get_source_cap_ext_exit;
 		break;
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+
+	case PE_DR_SNK_GET_SINK_CAP_EXT:
+		retval = pe_dr_snk_get_sink_cap_ext_exit;
+		break;
 #endif	/* CONFIG_USB_PD_REV30 */
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
@@ -929,6 +955,9 @@ void (*pe_get_exit_action(uint8_t pe_state))
 		break;
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_REMOTE */
 
+	case PE_GET_REVISION:
+		retval = pe_get_revision_exit;
+		break;
 #endif /* CONFIG_USB_PD_REV30 */
 	case PE_BIST_TEST_DATA:
 		retval = pe_bist_test_data_exit;
@@ -992,7 +1021,7 @@ static inline void pd_pe_state_change(
 		return;
 	}
 
-	if (new_state < PE_IDLE1)
+	if (new_state < PE_IDLE1 && new_state != PE_ERROR_RECOVERY)
 		prev_exit_action = pe_get_exit_action(old_state);
 	else
 		prev_exit_action = NULL;
@@ -1079,8 +1108,17 @@ static inline bool pd_try_get_vdm_event(
 	bool ret = false;
 	struct pd_port *pd_port = &tcpc->pd_port;
 
+        int rv = 0;
+        uint32_t chip_id;
+        rv = tcpci_get_chip_id(tcpc, &chip_id);
+
 	switch (pd_port->pe_pd_state) {
 #if CONFIG_USB_PD_PE_SINK
+       case PE_SNK_TRANSITION_SINK:
+               if (!rv && SC2150A_DID == chip_id)  {
+                       ret = pd_get_vdm_event(tcpc, pd_event);
+               }
+               break;
 	case PE_SNK_READY:
 #endif	/* CONFIG_USB_PD_PE_SINK */
 #if CONFIG_USB_PD_PE_SOURCE

@@ -161,16 +161,20 @@ static uint8_t dpm_reaction_dynamic_vconn(struct pd_port *pd_port)
 static uint8_t dpm_reaction_request_vconn_source(struct pd_port *pd_port)
 {
 	bool return_vconn = true;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	if (!(pd_port->dpm_caps & DPM_CAP_LOCAL_VCONN_SUPPLY))
-		return 0;
-
-	if (pd_port->vconn_role)
+	if (tcpm_inquire_pd_vconn_role(tcpc))
 		return 0;
 
 #if CONFIG_TCPC_VCONN_SUPPLY_MODE
-	if (pd_port->tcpc->tcpc_vconn_supply == TCPC_VCONN_SUPPLY_STARTUP)
+	switch (tcpc->tcpc_vconn_supply) {
+	case TCPC_VCONN_SUPPLY_NEVER:
+		return 0;
+	case TCPC_VCONN_SUPPLY_STARTUP:
 		return_vconn = false;
+	default:
+		break;
+	}
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
 	if (pd_check_rev30(pd_port))
@@ -205,7 +209,7 @@ static uint8_t dpm_reaction_return_vconn_source(struct pd_port *pd_port)
 {
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	if (pd_port->vconn_role) {
+	if (tcpm_inquire_pd_vconn_role(tcpc)) {
 		DPM_DBG("VconnReturn\n");
 		return TCP_DPM_EVT_VCONN_SWAP_OFF;
 	}
@@ -252,14 +256,7 @@ static uint8_t dpm_reaction_mode_operation(struct pd_port *pd_port)
 
 static uint8_t dpm_reaction_send_alert(struct pd_port *pd_port)
 {
-	uint32_t alert_urgent;
 	struct pe_data *pe_data = &pd_port->pe_data;
-
-	alert_urgent = pe_data->local_alert;
-	alert_urgent &= ~ADO_GET_STATUS_ONCE_MASK;
-
-	if ((!pe_data->pe_ready) && (alert_urgent == 0))
-		return 0;
 
 	if (pe_data->local_alert == 0)
 		return 0;
@@ -745,6 +742,7 @@ uint8_t pd_dpm_get_ready_reaction(struct pd_port *pd_port)
 	} while ((evt == 0) && (++reaction < reaction_last));
 
 	if (evt > 0 && dpm_check_clear_reaction(pd_port, reaction)) {
+		pd_port->pe_data.dpm_reaction_retry = 0;
 		clear_reaction |= reaction->bit_mask;
 		DPM_DBG("clear_reaction=%d\n", evt);
 	}

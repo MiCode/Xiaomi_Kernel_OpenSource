@@ -314,7 +314,7 @@
 	 ((custom) & 0x7FFF))
 
 #define VDO_S(svid, ver, cmd_type, cmd, obj)	\
-	VDO(svid, 1, VDO_SVDM_VERS(ver) | \
+	VDO(svid, 1, VDO_SVDM_VERS(ver) | VDO_SVDM_VERS_MIN(ver) | \
 		VDO_CMDT(cmd_type) | VDO_OPOS(obj) | cmd)
 
 #define VDO_REPLY(ver, cmd_type, request_vdo)	\
@@ -324,10 +324,11 @@
 #define SVDM_REV10	0
 #define SVDM_REV20	1
 
-#define VDO_SVDM_TYPE     (1 << 15)
-#define VDO_SVDM_VERS(x)  (x << 13)
-#define VDO_OPOS(x)       (x << 8)
-#define VDO_CMDT(x)       (x << 6)
+#define VDO_SVDM_TYPE		(1 << 15)
+#define VDO_SVDM_VERS(x)	(x << 13)
+#define VDO_SVDM_VERS_MIN(x)	(x << 11)
+#define VDO_OPOS(x)		(x << 8)
+#define VDO_CMDT(x)		(x << 6)
 
 #define CMDT_INIT     0
 #define CMDT_RSP_ACK  1
@@ -537,19 +538,9 @@
 #define PD_DP_PIN_CAPS(x) ((((x) >> 6) & 0x1) ? (((x) >> 16) & 0x3f)	\
 			   : (((x) >> 8) & 0x3f))
 
-#define MODE_DP_PIN_A 0x01
-#define MODE_DP_PIN_B 0x02
 #define MODE_DP_PIN_C 0x04
 #define MODE_DP_PIN_D 0x08
 #define MODE_DP_PIN_E 0x10
-#define MODE_DP_PIN_F 0x20
-
-/* Pin configs B/D/F support multi-function */
-#define MODE_DP_PIN_MF_MASK 0x2a
-/* Pin configs A/B support BR2 signaling levels */
-#define MODE_DP_PIN_BR2_MASK 0x3
-/* Pin configs C/D/E/F support DP signaling levels */
-#define MODE_DP_PIN_DP_MASK 0x3c
 
 #define MODE_DP_V13  0x1
 #define MODE_DP_GEN2 0x2
@@ -607,7 +598,7 @@
 #define DPSTS_DP_ENABLED		(1<<3)
 #define DPSTS_DP_MF_PREF		(1<<4)
 #define DPSTS_DP_USB_CONFIG		(1<<5)
-#define DPSTS_DP_EXIT_ALT_MODE	(1<<6)
+#define DPSTS_DP_EXIT_ALT_MODE		(1<<6)
 
 /* UFP_D only */
 #define DPSTS_DP_HPD_STATUS		(1<<7)
@@ -646,15 +637,13 @@
 #define PD_DP_CFG_UFP_D(x) ((x & 0x3) == DP_CONFIG_UFP_D)
 #define PD_DP_CFG_DPON(x) (PD_DP_CFG_DFP_D(x) | PD_DP_CFG_UFP_D(x))
 
-#define DP_SIG_DPV13	(0x01)
-#define DP_SIG_GEN2	(0x02)
+#define DP_SIG_DPV13			(0x01)
+#define DP_SIG_GEN2			(0x02)
+#define PD_DP_CFG_SIGNAL(x)		(((x) >> 2) & 0xf)
 
-#define DP_PIN_ASSIGN_SUPPORT_A		(1 << 0)
-#define DP_PIN_ASSIGN_SUPPORT_B		(1 << 1)
 #define DP_PIN_ASSIGN_SUPPORT_C		(1 << 2)
 #define DP_PIN_ASSIGN_SUPPORT_D		(1 << 3)
 #define DP_PIN_ASSIGN_SUPPORT_E		(1 << 4)
-#define DP_PIN_ASSIGN_SUPPORT_F		(1 << 5)
 
 /*
  * Get the pin assignment mask
@@ -662,13 +651,13 @@
  * get the former sink pin assignment we used to be in <23:16>.
  */
 
-#define PD_DP_CFG_PIN(x) (((x) >> 8) & 0xff)
+#define PD_DP_CFG_PIN(x)	(((x) >> 8) & 0xff ?\
+				((x) >> 8) & 0xff : ((x) >> 16) & 0xff)
 
 /* USB-IF SVIDs */
 #define USB_SID_PD		0xff00	/* power delivery */
 #define USB_SID_DISPLAYPORT	0xff01	/* display port */
 #define USB_VID_RICHTEK		0x29cf  /* demo uvdm */
-#define USB_VID_DIRECTCHARGE	0x29cf  /* direct charge */
 #define USB_VID_MQP		0x1748
 
 /* PD counter definitions */
@@ -678,6 +667,7 @@
 #define PD_WAIT_RETRY_COUNT		1
 #define PD_DISCOVER_ID_COUNT	3	/* max : 20 */
 #define PD_DISCOVER_ID30_COUNT	2	/* max : 20 */
+#define PD_RESPONSE_ID30_COUNT	3
 
 enum {
 	PD_WAIT_VBUS_DISABLE = 0,
@@ -737,6 +727,9 @@ struct pe_data {		/* reset after detached */
 	bool reset_vdm_state;
 	bool power_cable_present;
 	bool during_swap;	/* pr or dr swap */
+#ifdef CONFIG_SUPPORT_PISEN_ADAPTER
+	int retry_cnt;
+#endif /* CONFIG_SUPPORT_PISEN_ADAPTER */
 
 #if CONFIG_USB_PD_REV30
 	bool cable_rev_discovered;
@@ -811,12 +804,6 @@ struct pe_data {		/* reset after detached */
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
 #endif	/* CONFIG_USB_PD_REV30 */
 
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-#if CONFIG_USB_PD_REV30_PPS_SINK
-	bool dc_pps_mode;
-#endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
-#endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
-
 #if CONFIG_USB_PD_ALT_MODE
 	struct dp_data dp_data;
 #endif	/* CONFIG_USB_PD_ALT_MODE */
@@ -829,6 +816,10 @@ struct pe_data {		/* reset after detached */
 	bool pd_unexpected_event_pending;
 	struct pd_event pd_unexpected_event;
 #endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
+
+	bool request_rejected;
+
+	uint8_t pd_response_id30_cnt;
 };
 
 #if CONFIG_USB_PD_REV30_BAT_INFO
@@ -850,10 +841,11 @@ struct pd_country_authority {
 struct pd_port {
 	struct tcpc_device *tcpc;
 	struct mutex pd_lock;
-
+	struct mutex rxbuf_lock;
+	/* miss msg */
+	bool miss_msg;
+	uint8_t rx_cap;
 	/* PD */
-	bool msg_output_lock;
-
 	uint8_t state_machine;
 	uint8_t pd_connect_state;
 
@@ -873,15 +865,9 @@ struct pd_port {
 	uint8_t error_recovery_once;
 #endif	/* CONFIG_USB_PD_ERROR_RECOVERY_ONCE */
 
-#if CONFIG_USB_PD_REV30
-	struct wakeup_source *pps_request_wake_lock;
-	wait_queue_head_t pps_request_wait_que;
-	atomic_t pps_request;
-	struct task_struct *pps_request_task;
 #if CONFIG_USB_PD_REV30_SYNC_SPEC_REV
 	uint8_t pd_revision[2];
 #endif	/* CONFIG_USB_PD_REV30_SYNC_SPEC_REV */
-#endif	/* CONFIG_USB_PD_REV30 */
 
 #if CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP
 	uint8_t msg_id_pr_swap_last;
@@ -909,7 +895,6 @@ struct pd_port {
 	int request_v_apdo;
 	int request_i_apdo;
 	bool request_apdo;
-	bool request_apdo_new;
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
 	struct pd_port_power_caps local_src_cap;
@@ -941,11 +926,6 @@ struct pd_port {
 	uint16_t uvdm_svid;
 	uint32_t uvdm_data[PD_DATA_OBJ_SIZE];
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
-
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-	uint8_t dc_dfp_state;
-	uint32_t dc_pass_code;
-#endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
 #if CONFIG_USB_PD_CUSTOM_DBGACC
 	bool custom_dbgacc;
@@ -997,6 +977,7 @@ struct pd_port {
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	struct pd_source_cap_ext src_cap_ext;
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
+	struct pd_sink_cap_ext snk_cap_ext;
 
 #if CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL
 	struct pd_manufacturer_info mfrs_info;
@@ -1030,11 +1011,6 @@ struct pd_port {
 	struct work_struct fg_bat_work;
 	struct notifier_block fg_bat_nb;
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
-
-	uint8_t cap_miss_match; /* For src_cap miss match */
-#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
-	struct completion tx_done;
-#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 };
 
 #if CONFIG_USB_PD_ALT_MODE
@@ -1222,9 +1198,6 @@ int pd_reset_local_hw(struct pd_port *pd_port);
 int pd_enable_bist_test_mode(struct pd_port *pd_port, bool en);
 int pd_schedule_wait_request(struct pd_port *pd_port, uint8_t type);
 int pd_cancel_wait_request(struct pd_port *pd_port);
-
-void pd_lock_msg_output(struct pd_port *pd_port);
-void pd_unlock_msg_output(struct pd_port *pd_port);
 
 int pd_update_connect_state(struct pd_port *pd_port, uint8_t state);
 
@@ -1613,6 +1586,9 @@ enum {	/* pd_traffic_control */
 #define PD30_SINK_TX_OK		TYPEC_CC_RP_3_0
 #define PD30_SINK_TX_NG		TYPEC_CC_RP_1_5
 
+void pd_add_miss_msg(struct pd_port *pd_port,struct pd_event *pd_event,
+				uint8_t msg);
+				
 void pd_set_sink_tx(struct pd_port *pd_port, uint8_t cc);
 void pd_sync_sop_spec_revision(struct pd_port *pd_port);
 void pd_sync_sop_prime_spec_revision(struct pd_port *pd_port, uint8_t rev);

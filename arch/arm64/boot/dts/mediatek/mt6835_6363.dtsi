@@ -182,7 +182,7 @@
 	};
 
 	mtk_gauge: mtk_gauge {
-		charger = <&mt6375_chg>;
+		charger = <&sc8989x_chg>;
 	};
 
 	lbat_service {

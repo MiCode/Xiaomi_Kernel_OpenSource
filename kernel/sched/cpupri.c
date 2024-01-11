@@ -366,6 +366,7 @@ bool cpupri_check_rt(void)
 {
 	int cpu = raw_smp_processor_id();
 
-	return cpu_rq(cpu)->rd->cpupri.cpu_to_pri[cpu] > CPUPRI_NORMAL;
+	return (cpu_rq(cpu)->rd->cpupri.cpu_to_pri[cpu] > CPUPRI_NORMAL) &&
+	       (cpu_rq(cpu)->rt.rt_throttled == 0);
 }
 #endif

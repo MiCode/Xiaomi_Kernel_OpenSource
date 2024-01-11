@@ -564,10 +564,10 @@ static inline int pe5p_set_ta_cap_cv(struct pe5p_algo_info *info, u32 vta,
 				 auth_data->vcap_max);
 			goto stop;
 		}
-		if (ita < auth_data->ita_min) {
-			PE5P_INFO("ita(%d) under ita_min(%d)\n", ita,
-				  auth_data->ita_min);
-			ita = auth_data->ita_min;
+		if (ita < auth_data->icap_min) {
+			PE5P_INFO("ita(%d) under capability(%d)\n", ita,
+				  auth_data->icap_min);
+			ita = auth_data->icap_min;
 		}
 		vta_gap = abs(data->vta_setting - vta);
 
@@ -1160,7 +1160,7 @@ static inline void pe5p_init_algo_data(struct pe5p_algo_info *info)
 	data->ita_lmt = min_t(u32, ita_level[PE5P_RCABLE_NORMAL],
 			    auth_data->ita_max);
 	data->idvchg_ss_init = max_t(u32, data->idvchg_ss_init,
-				auth_data->ita_min);
+				auth_data->icap_min);
 	data->idvchg_ss_init = min(data->idvchg_ss_init, data->ita_lmt);
 	data->ita_pwr_lmt = 0;
 	data->idvchg_cc = ita_level[PE5P_RCABLE_NORMAL] - desc->swchg_aicr;
@@ -1331,7 +1331,7 @@ static inline int pe5p_start(struct pe5p_algo_info *info)
 		return -EINVAL;
 	}
 	/* Update idvchg_ss_init */
-	if (ita >= auth_data->ita_min) {
+	if (ita >= auth_data->icap_min) {
 		PE5P_INFO("set idvchg_ss_init(%d)->(%d)\n",
 			  desc->idvchg_ss_init, ita);
 		data->idvchg_ss_init = ita;

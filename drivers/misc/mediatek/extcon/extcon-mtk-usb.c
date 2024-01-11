@@ -103,6 +103,7 @@ static bool usb_is_online(struct mtk_extcon_info *extcon)
 {
 	union power_supply_propval pval;
 	union power_supply_propval tval;
+	union power_supply_propval usb_type_val;
 	int ret;
 
 	ret = power_supply_get_property(extcon->usb_psy,
@@ -119,11 +120,23 @@ static bool usb_is_online(struct mtk_extcon_info *extcon)
 		return false;
 	}
 
+	ret = power_supply_get_property(extcon->usb_psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &usb_type_val);
+	if (ret < 0) {
+		dev_info(extcon->dev, "failed to get psy usb type\n");
+		return false;
+	}
+
 	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
 
 	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
-			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
+			tval.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
+		if (usb_type_val.intval == POWER_SUPPLY_USB_TYPE_DCP) {
+			dev_info(extcon->dev, "psy is not SDP or CDP, ignore\n");
+			return false;
+		}
 		return true;
+	}
 	else
 		return false;
 }
@@ -500,8 +513,12 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 	/* power psy */
 	ret = mtk_usb_extcon_psy_init(extcon);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(dev, "failed to init psy\n");
+	} else {
+		dev_err(dev, " wq_psy retry\n");
+		queue_delayed_work(system_power_efficient_wq, &extcon->wq_psy, 0);
+	}
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
 	/* tcpc */
@@ -512,6 +529,7 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, extcon);
 
+	dev_err(dev, " mtk_usb_extcon_probe successful\n");
 	return 0;
 }
 
