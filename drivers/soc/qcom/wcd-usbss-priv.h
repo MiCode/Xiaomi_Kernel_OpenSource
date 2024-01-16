@@ -45,6 +45,7 @@ struct wcd_usbss_ctxt {
 	bool is_in_standby;
 	struct mutex switch_update_lock;
 	unsigned int version;
+	u32 wcd_equ_bw_settings;
 	int wcd_standby_status;
 	struct nvmem_cell *nvmem_cell;
 	bool defer_writes;

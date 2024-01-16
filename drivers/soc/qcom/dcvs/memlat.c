@@ -860,7 +860,6 @@ static void calculate_sampling_stats(void)
 			delta->common_ctrs[i] = stats->curr.common_ctrs[i] -
 						stats->prev.common_ctrs[i];
 		}
-
 		for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 			memlat_grp = memlat_data->groups[grp];
 			if (!memlat_grp)
@@ -873,7 +872,6 @@ static void calculate_sampling_stats(void)
 					    stats->prev.grp_ctrs[grp][i];
 			}
 		}
-
 		stats->freq_mhz = delta->common_ctrs[CYC_IDX] / delta_us;
 		if (!memlat_data->common_ev_ids[FE_STALL_IDX])
 			stats->fe_stall_pct = 100;
@@ -914,7 +912,6 @@ static void calculate_sampling_stats(void)
 					stats->freq_mhz, stats->be_stall_pct,
 					stats->wb_pct[grp], stats->ipm[grp],
 					stats->fe_stall_pct);
-
 		}
 		memcpy(&stats->prev, &stats->curr, sizeof(stats->curr));
 	}
@@ -1058,7 +1055,7 @@ static void update_memlat_fp_vote(int cpu, u32 *fp_freqs)
 		voted_freqs[grp].hw_type = grp;
 	}
 	ret = qcom_dcvs_update_votes(FP_NAME, voted_freqs, commit_mask,
-							DCVS_FAST_PATH);
+			DCVS_FAST_PATH);
 	if (ret < 0)
 		pr_err("error updating qcom dcvs fp: %d\n", ret);
 	spin_unlock(&memlat_data->fp_commit_lock);
@@ -1129,8 +1126,8 @@ static void memlat_jiffies_update_cb(void *unused, void *extra)
 
 	if (unlikely(!memlat_data->inited))
 		return;
-
 	if (delta_ns > ms_to_ktime(memlat_data->sample_ms)) {
+
 		hrtimer_start(&memlat_data->timer, MEMLAT_UPDATE_DELAY,
 						HRTIMER_MODE_REL_PINNED);
 		memlat_data->last_jiffy_ts = now;
@@ -1210,9 +1207,16 @@ static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 		return;
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
+	// MIUI DEL: Performance_TurboSched
+	// move delta_ns behind dflt logic
+	// delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
+	// END Performance_TurboSched
+
 	delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
+
 	if (delta_ns < ms_to_ktime(memlat_data->sample_ms))
 		goto out;
+
 	stats->sample_ts = now;
 	stats->idle_sample = false;
 	stats->raw_ctrs.num_evs = 0;
@@ -1353,6 +1357,7 @@ static int memlat_sampling_init(void)
 
 	register_trace_android_vh_scheduler_tick(memlat_sched_tick_cb, NULL);
 	register_trace_android_vh_jiffies_update(memlat_jiffies_update_cb, NULL);
+
 	qcom_pmu_idle_register(&memlat_idle_notif);
 
 	return 0;

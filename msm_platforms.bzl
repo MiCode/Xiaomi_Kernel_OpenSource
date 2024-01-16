@@ -10,7 +10,9 @@ load(":pineapple_vms.bzl", "define_pineapple_vms")
 load(":pineapple_allyes.bzl", "define_pineapple_allyes")
 load(":msm_common.bzl", "define_signing_keys")
 load("//build:msm_kernel_extensions.bzl", "define_top_level_rules")
+load(":manet.bzl", "define_manet")
 load(":blair.bzl", "define_blair")
+load(":xiaomi_sm8650_common.bzl", "export_xiaomi_headers")
 load(":pitti.bzl", "define_pitti")
 
 def define_msm_platforms():
@@ -26,5 +28,7 @@ def define_msm_platforms():
     define_pineapple_oemvm()
     define_pineapple_allyes()
     define_pineapple_vms()
+    define_manet()
     define_blair()
     define_pitti()
+    export_xiaomi_headers()

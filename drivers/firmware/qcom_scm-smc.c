@@ -14,8 +14,12 @@
 #include <linux/dma-mapping.h>
 #include <linux/qtee_shmbridge.h>
 #include <linux/qcom_scm_hab.h>
+#include <linux/wait.h>
 
 #include "qcom_scm.h"
+
+DECLARE_WAIT_QUEUE_HEAD(tzdbg_log_wq);
+EXPORT_SYMBOL(tzdbg_log_wq);
 
 static bool hab_calling_convention;
 
@@ -295,7 +299,7 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 	}
 
 	ret = (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
-
+	wake_up_interruptible(&tzdbg_log_wq);
 	return ret;
 }
 

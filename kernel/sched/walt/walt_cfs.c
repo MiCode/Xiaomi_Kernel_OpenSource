@@ -119,6 +119,7 @@ struct find_best_target_env {
  * utilization of the specified task, whenever the task is currently
  * contributing to the CPU utilization.
  */
+
 static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	unsigned int util;
@@ -233,6 +234,9 @@ enum fastpaths {
 	PREV_CPU_FASTPATH,
 	CLUSTER_PACKING_FASTPATH,
 	PIPELINE_FASTPATH,
+#ifdef CONFIG_METIS_WALT
+	METIS_CHOOSE_CPU_FASTPATH,
+#endif
 };
 
 static inline bool is_complex_sibling_idle(int cpu)
@@ -331,7 +335,25 @@ static void walt_find_best_target(struct sched_domain *sd,
 	cpumask_t visit_cpus;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	int packing_cpu;
+#ifdef CONFIG_METIS_WALT
+	int metis_pick_cpu;
+	cpumask_t metis_reserve_cpumask;
+	struct metis_choose_cpu_args metis_args;
+	bool metis_should_skip = false;
+	struct walt_rq *wrq = &per_cpu(walt_rq, fbt_env->start_cpu);
+	struct walt_sched_cluster *walt_cluster = wrq->cluster;
 
+	metis_args.min_task_util = min_task_util;
+	metis_args.skip_cpumask = &metis_reserve_cpumask;
+	metis_args.start_clus_cpumask = &walt_cluster->cpus;
+	if (render_run_cpu > 0) {
+		wrq = &per_cpu(walt_rq, render_run_cpu);
+		walt_cluster = wrq->cluster;
+		metis_args.render_clus_cpumask = &walt_cluster->cpus;
+	} else
+		metis_args.render_clus_cpumask = &walt_cluster->cpus;
+	metis_args.cpu_halt_cpumask = cpu_halt_mask;
+#endif
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
@@ -348,7 +370,17 @@ static void walt_find_best_target(struct sched_domain *sd,
 		stop_index = 0;
 		most_spare_wake_cap = LONG_MIN;
 	}
+#ifdef CONFIG_METIS_WALT
+	cpumask_clear(&metis_reserve_cpumask);
 
+	metis_pick_cpu = metis_choose_cpu_fastpath(start_cpu, p,
+		&metis_args, &metis_should_skip);
+	if (metis_pick_cpu >= 0) {
+		fbt_env->fastpath = METIS_CHOOSE_CPU_FASTPATH;
+		cpumask_set_cpu(metis_pick_cpu, candidates);
+			goto out;
+	}
+#endif
 	/* fast path for packing_cpu */
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(start_cpu, p);
 	if (packing_cpu >= 0) {
@@ -364,6 +396,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 		goto out;
 	}
 
+#ifdef CONFIG_METIS_WALT
+metis_retry:
+#endif
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		int best_idle_cpu_cluster = -1;
 		int target_cpu_cluster = -1;
@@ -373,9 +408,13 @@ static void walt_find_best_target(struct sched_domain *sd,
 		target_max_spare_cap = 0;
 		min_exit_latency = INT_MAX;
 		best_idle_cuml_util = ULONG_MAX;
-
 		cpumask_and(&visit_cpus, p->cpus_ptr,
 				&cpu_array[order_index][cluster]);
+#ifdef CONFIG_METIS_WALT
+		if (metis_should_skip)
+			cpumask_andnot(&visit_cpus, &visit_cpus,
+				&metis_reserve_cpumask);
+#endif
 		for_each_cpu(i, &visit_cpus) {
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_cpu_util, new_cpu_util, new_util_cuml;
@@ -537,6 +576,12 @@ static void walt_find_best_target(struct sched_domain *sd,
 			cpumask_set_cpu(prev_cpu, candidates);
 		else if (least_nr_cpu != -1)
 			cpumask_set_cpu(least_nr_cpu, candidates);
+#ifdef CONFIG_METIS_WALT
+		else if (metis_should_skip) {
+			metis_should_skip =false;
+			goto metis_retry;
+		}
+#endif
 	}
 
 out:
@@ -863,12 +908,23 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 
 	wts = (struct walt_task_struct *) p->android_vendor_data1;
 	pipeline_cpu = wts->pipeline_cpu;
+
+#ifdef CONFIG_METIS_WALT
+	if (((wts->low_latency & WALT_LOW_LATENCY_MASK) &&
+			(pipeline_cpu != -1) &&
+			walt_task_skip_min_cpu(p) &&
+			cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
+			cpu_active(pipeline_cpu) &&
+			!cpu_halted(pipeline_cpu)) && !metis_sched_enable())
+#else
 	if ((wts->low_latency & WALT_LOW_LATENCY_MASK) &&
 			(pipeline_cpu != -1) &&
 			walt_task_skip_min_cpu(p) &&
 			cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
 			cpu_active(pipeline_cpu) &&
-			!cpu_halted(pipeline_cpu)) {
+			!cpu_halted(pipeline_cpu))
+#endif
+	{
 		if (!walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr)) {
 			best_energy_cpu = pipeline_cpu;
 			fbt_env.fastpath = PIPELINE_FASTPATH;
@@ -1445,4 +1501,7 @@ void walt_cfs_init(void)
 
 	register_trace_android_rvh_check_preempt_wakeup(walt_cfs_check_preempt_wakeup, NULL);
 	register_trace_android_rvh_replace_next_task_fair(walt_cfs_replace_next_task_fair, NULL);
+#ifdef CONFIG_METIS_WALT
+	get_cpu_util_without = cpu_util_without;
+#endif
 }

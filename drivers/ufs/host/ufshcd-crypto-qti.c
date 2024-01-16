@@ -9,8 +9,9 @@
 #include <linux/platform_device.h>
 #include <linux/crypto-qti-common.h>
 
-#include <ufs/ufshcd-crypto-qti.h>
 #include "ufs-qcom.h"
+
+#include <ufs/ufshcd-crypto-qti.h>
 
 #define MINIMUM_DUN_SIZE 512
 #define MAXIMUM_DUN_SIZE 65536

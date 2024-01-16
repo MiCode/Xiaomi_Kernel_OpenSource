@@ -29,7 +29,7 @@ struct usb_repeater *devm_usb_get_repeater_by_phandle(struct device *dev,
 struct usb_repeater *devm_usb_get_repeater_by_node(struct device *dev,
 		struct device_node *node);
 struct usb_repeater *usb_get_repeater_by_phandle(struct device *dev,
-			const char *phandle, u8 index);
+		const char *phandle, u8 index);
 struct usb_repeater *usb_get_repeater_by_node(struct device_node *node);
 void usb_put_repeater(struct usb_repeater *r);
 int usb_add_repeater_dev(struct usb_repeater *r);

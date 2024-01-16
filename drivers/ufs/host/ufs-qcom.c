@@ -33,15 +33,17 @@
 #endif
 #include <linux/nvmem-consumer.h>
 
+#include "ufs-qcom.h"
+
 #include <ufs/ufshcd.h>
 #include "ufshcd-pltfrm.h"
+#include <ufs/ufshci.h>
+#include <ufs/ufshcd-crypto-qti.h>
 #include <ufs/unipro.h>
-#include "ufs-qcom.h"
+#include <ufs/ufs_quirks.h>
+#include <trace/hooks/ufshcd.h>
 #define CREATE_TRACE_POINTS
 #include "ufs-qcom-trace.h"
-#include <ufs/ufshci.h>
-#include <ufs/ufs_quirks.h>
-#include <ufs/ufshcd-crypto-qti.h>
 
 #define MCQ_QCFGPTR_MASK	GENMASK(7, 0)
 #define MCQ_QCFGPTR_UNIT	0x200
@@ -74,6 +76,7 @@
 
 /* Max number of log pages */
 #define UFS_QCOM_MAX_LOG_SZ	10
+
 #define ufs_qcom_log_str(host, fmt, ...)	\
 	do {	\
 		if (host->ufs_ipc_log_ctx && host->dbg_en)	\
@@ -1556,6 +1559,46 @@ static void ufs_qcom_set_affinity_hint(struct ufs_hba *hba, bool prime)
 		dev_err(host->hba->dev, "prime=%d, err=%d\n", prime, ret);
 }
 
+static void ufs_qcom_set_esi_affinity_hint(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	cpumask_t *affinity_mask = &host->esi_affinity_mask;
+	const cpumask_t *mask;
+	struct msi_desc *desc;
+	unsigned int set = IRQ_NO_BALANCING;
+	unsigned int clear = 0;
+	unsigned int cpu = 0;
+	int ret, i = 0;
+
+	if (affinity_mask->bits[0] == 0)
+		return;
+
+	ufs_qcom_msi_lock_descs(hba);
+	msi_for_each_desc(desc, hba->dev, MSI_DESC_ALL) {
+		if (i % cpumask_weight(affinity_mask) == 0)
+			cpu = cpumask_first(affinity_mask);
+		else
+			cpu = cpumask_next(cpu, affinity_mask);
+
+	mask = get_cpu_mask(cpu);
+	irq_modify_status(desc->irq, clear, set);
+	ret = irq_set_affinity_hint(desc->irq, mask);
+	if (ret < 0)
+		dev_err(hba->dev, "%s: Failed to set affinity hint for ESI %d, err = %d",
+		__func__, desc->irq, ret);
+		i++;
+	}
+	ufs_qcom_msi_unlock_descs(hba);
+}
+
+static int ufs_qcom_cpu_online(unsigned int cpu)
+{
+	struct ufs_hba *hba = ufs_qcom_hosts[0]->hba;
+	ufs_qcom_set_esi_affinity_hint(hba);
+
+	return 0;
+}
+
 static void ufs_qcom_toggle_pri_affinity(struct ufs_hba *hba, bool on)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -2181,7 +2224,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	struct phy *phy = host->generic_phy;
 struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
-
 	if (!dev_req_params) {
 		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
 		ret = -EINVAL;
@@ -2486,7 +2528,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 				| UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP);
 	}
 
-	if (host->disable_lpm)
+	if (host->disable_lpm || host->broken_ahit_wa)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 
 	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
@@ -2503,7 +2545,6 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-			UFSHCD_CAP_CLK_SCALING |
 			UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 			UFSHCD_CAP_AGGR_POWER_COLLAPSE |
 			UFSHCD_CAP_WB_WITH_CLK_SCALING;
@@ -3498,6 +3539,20 @@ static void ufs_qcom_parse_pbl_rst_workaround_flag(struct ufs_qcom_host *host)
 	host->bypass_pbl_rst_wa = of_property_read_bool(np, str);
 }
 
+/*
+ * ufs_qcom_parse_borken_ahit_workaround_flag - read broken-ahit-wa entry from DT
+ */
+static void ufs_qcom_parse_broken_ahit_workaround_flag(struct ufs_qcom_host *host)
+{
+	struct device_node *np = host->hba->dev->of_node;
+	const char *str  = "qcom,broken-ahit-wa";
+
+	if (!np)
+		return;
+
+	host->broken_ahit_wa = of_property_read_bool(np, str);
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -3637,6 +3692,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	ufs_qcom_parse_wb(host);
 	ufs_qcom_parse_pbl_rst_workaround_flag(host);
+	ufs_qcom_parse_broken_ahit_workaround_flag(host);
 	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
 
@@ -4143,7 +4199,7 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 								  void *data)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
+	//struct phy *phy = host->generic_phy;
 	bool ber_th_exceeded = false;
 
 	switch (evt) {
@@ -4155,11 +4211,12 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 			host->ber_th_exceeded = true;
 			ufs_qcom_save_all_regs(host);
 			ufs_qcom_print_ber_hist(host);
-
+#if 0
 			if (crash_on_ber) {
 				ufs_qcom_phy_dbg_register_dump(phy);
 				BUG_ON(1);
 			}
+#endif
 		}
 
 		if (host->ber_th_exceeded)
@@ -4622,6 +4679,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 {
 	struct device_node *np = host->hba->dev->of_node;
+
 	u32 dev_major = 0, dev_minor = 0;
 	u32 val;
 
@@ -4945,21 +5003,6 @@ static irqreturn_t ufs_qcom_mcq_esi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void ufs_qcom_set_esi_affinity_hint(struct ufs_hba *hba, int irq)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	cpumask_t *affinity_mask = &host->esi_affinity_mask;
-	unsigned int set = IRQ_NO_BALANCING;
-	unsigned int clear = 0;
-	int ret;
-
-	irq_modify_status(irq, clear, set);
-	ret = irq_set_affinity_hint(irq, affinity_mask);
-	if (ret < 0)
-		dev_err(hba->dev, "%s: Failed to set affinity hint for ESI %d, err = %d\n",
-			__func__, irq, ret);
-}
-
 static int ufs_qcom_config_esi(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -4993,10 +5036,6 @@ static int ufs_qcom_config_esi(struct ufs_hba *hba)
 			failed_desc = desc;
 			break;
 		}
-
-		/* dev_cmd queue does not worth esi affinity */
-		if (desc->msi_index)
-			ufs_qcom_set_esi_affinity_hint(hba, desc->irq);
 	}
 	ufs_qcom_msi_unlock_descs(hba);
 
@@ -5021,9 +5060,11 @@ static int ufs_qcom_config_esi(struct ufs_hba *hba)
 	}
 
 out:
-	if (!ret)
+	if (!ret){
+          	ufs_qcom_set_esi_affinity_hint(hba);
+                cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "ufs_qcom:online", ufs_qcom_cpu_online, NULL);
 		host->esi_enabled = true;
-
+        }
 	return ret;
 }
 
@@ -5317,11 +5358,19 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 				       struct ufshcd_lrb *lrbp)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned long flags;
+
+	if (!host->disable_lpm && host->broken_ahit_wa) {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		if ((++host->active_cmds) == 1)
+			/* Stop the auto-hiberate idle timer */
+			ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
 
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = rq ? blk_rq_sectors(rq) : 0;
-
 		ufs_qcom_qos(hba, lrbp->task_tag);
 
 		if (!is_mcq_enabled(hba)) {
@@ -5368,6 +5417,16 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 {
 
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned long flags;
+
+	if (!host->disable_lpm && host->broken_ahit_wa) {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		if ((--host->active_cmds) == 0)
+			/* Activate the auto-hiberate idle timer */
+			ufshcd_writel(hba, hba->ahit,
+				      REG_AUTO_HIBERNATE_IDLE_TIMER);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
 
 	if (lrbp && lrbp->cmd) {
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);

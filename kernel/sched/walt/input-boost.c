@@ -184,6 +184,7 @@ static void inputboost_input_event(struct input_handle *handle,
 		return;
 
 	queue_work(input_boost_wq, &input_boost_work);
+
 	last_input_time = ktime_to_us(ktime_get());
 }
 

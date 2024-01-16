@@ -229,6 +229,8 @@ class BazelBuilder:
             self.process_list.append(build_proc)
             build_proc.wait()
             if build_proc.returncode != 0:
+                cmdline_del = [self.bazel_bin, "clean", "--expunge"]
+                subprocess.Popen(cmdline_del, cwd=self.workspace, shell=True)
                 sys.exit(build_proc.returncode)
         except Exception as e:
             logging.error(e)

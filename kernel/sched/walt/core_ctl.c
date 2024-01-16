@@ -102,7 +102,6 @@ static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
 static unsigned int get_assist_active_cpu_count(const struct cluster_data *cluster);
 static unsigned int active_cpu_count_from_mask(const cpumask_t *cpus);
 static void __ref do_core_ctl(void);
-
 cpumask_t part_haltable_cpus = { CPU_BITS_NONE };
 /* ========================= sysfs interface =========================== */
 
@@ -1227,19 +1226,19 @@ int core_ctl_set_boost(bool boost)
 
 	return ret;
 }
-EXPORT_SYMBOL(core_ctl_set_boost);
+EXPORT_SYMBOL_GPL(core_ctl_set_boost);
 
 void core_ctl_notifier_register(struct notifier_block *n)
 {
 	atomic_notifier_chain_register(&core_ctl_notifier, n);
 }
-EXPORT_SYMBOL(core_ctl_notifier_register);
+EXPORT_SYMBOL_GPL(core_ctl_notifier_register);
 
 void core_ctl_notifier_unregister(struct notifier_block *n)
 {
 	atomic_notifier_chain_unregister(&core_ctl_notifier, n);
 }
-EXPORT_SYMBOL(core_ctl_notifier_unregister);
+EXPORT_SYMBOL_GPL(core_ctl_notifier_unregister);
 
 static void core_ctl_call_notifier(void)
 {

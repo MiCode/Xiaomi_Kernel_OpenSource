@@ -12,6 +12,7 @@
 #include <linux/pm_qos.h>
 #include <linux/notifier.h>
 #include <linux/panic_notifier.h>
+
 #include <ufs/ufshcd.h>
 #include <ufs/unipro.h>
 
@@ -616,6 +617,9 @@ struct ufs_qcom_host {
 	bool bypass_pbl_rst_wa;
 	atomic_t cqhp_update_pending;
 	struct notifier_block ufs_qcom_panic_nb;
+
+	bool broken_ahit_wa;
+	unsigned long active_cmds;
 };
 
 static inline u32

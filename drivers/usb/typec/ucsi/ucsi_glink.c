@@ -614,6 +614,8 @@ static int ucsi_probe(struct platform_device *pdev)
 	struct ucsi_dev *udev;
 	int rc;
 
+	dev_info(dev, "enter %s\n", __func__);
+
 	udev = devm_kzalloc(dev, sizeof(*udev), GFP_KERNEL);
 	if (!udev)
 		return -ENOMEM;

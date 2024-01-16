@@ -1505,6 +1505,14 @@ static long adspsleepmon_device_ioctl(struct file *file,
 			g_adspsleepmon.b_panic_lpi =
 						g_adspsleepmon.b_config_panic_lpi;
 		break;
+
+		case ADSPSLEEPMON_ENABLE_PANIC_LPM:
+			g_adspsleepmon.b_panic_lpm = true;
+		break;
+
+		case ADSPSLEEPMON_ENABLE_PANIC_LPI:
+			g_adspsleepmon.b_panic_lpi = true;
+		break;
 		}
 	}
 	break;
@@ -1829,8 +1837,10 @@ static int adspsleepmon_driver_probe(struct platform_device *pdev)
 		dev_info(dev, "ADSP SSR config enabled\n");
 	}
 
-	g_adspsleepmon.b_panic_lpm = g_adspsleepmon.b_config_panic_lpm;
-	g_adspsleepmon.b_panic_lpi = g_adspsleepmon.b_config_panic_lpi;
+	//g_adspsleepmon.b_panic_lpm = g_adspsleepmon.b_config_panic_lpm;
+	//g_adspsleepmon.b_panic_lpi = g_adspsleepmon.b_config_panic_lpi;
+	g_adspsleepmon.b_panic_lpm = false;
+	g_adspsleepmon.b_panic_lpi = false;	
 
 	if (g_adspsleepmon.b_config_panic_lpm ||
 			g_adspsleepmon.b_config_panic_lpi) {

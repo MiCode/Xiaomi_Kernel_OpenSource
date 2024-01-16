@@ -262,7 +262,6 @@ static int __ref try_drain_rqs(void *data)
 
 void restrict_cpus_and_freq(struct cpumask *cpus)
 {
-	s32 max_freq_val;
 	struct cpumask restrict_cpus;
 	int cpu = 0;
 
@@ -271,14 +270,18 @@ void restrict_cpus_and_freq(struct cpumask *cpus)
 	if (cpumask_intersects(cpus, cpu_partial_halt_mask) &&
 			!cpumask_intersects(cpus, cpu_halt_mask) &&
 			is_state1()) {
-		max_freq_val = (s32)sysctl_max_freq_partial_halt;
-	} else {
-		max_freq_val = FREQ_QOS_MAX_DEFAULT_VALUE;
 		for_each_cpu(cpu, cpus)
+			fmax_cap[PARTIAL_HALT_CAP][cpu_cluster(cpu)->id] =
+				sysctl_max_freq_partial_halt;
+	} else {
+		for_each_cpu(cpu, cpus) {
 			cpumask_or(&restrict_cpus, &restrict_cpus, &(cpu_cluster(cpu)->cpus));
+			fmax_cap[PARTIAL_HALT_CAP][cpu_cluster(cpu)->id] =
+				FREQ_QOS_MAX_DEFAULT_VALUE;
+		}
 	}
 
-	add_freq_qos_request(restrict_cpus, max_freq_val, QOS_PARTIAL_HALT, MAX_REQUEST);
+	update_fmax_cap_capacities(PARTIAL_HALT_CAP);
 }
 
 struct task_struct *walt_drain_thread;
@@ -431,7 +434,7 @@ int walt_pause_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_halt_cpus(cpus, client, HALT);
 }
-EXPORT_SYMBOL(walt_pause_cpus);
+EXPORT_SYMBOL_GPL(walt_pause_cpus);
 
 int walt_partial_pause_cpus(struct cpumask *cpus, enum pause_client client)
 {
@@ -439,7 +442,7 @@ int walt_partial_pause_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_halt_cpus(cpus, client, PARTIAL_HALT);
 }
-EXPORT_SYMBOL(walt_partial_pause_cpus);
+EXPORT_SYMBOL_GPL(walt_partial_pause_cpus);
 
 /* cpus will be modified */
 static int walt_start_cpus(struct cpumask *cpus, enum pause_client client, enum pause_type type)
@@ -475,7 +478,7 @@ int walt_resume_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_start_cpus(cpus, client, HALT);
 }
-EXPORT_SYMBOL(walt_resume_cpus);
+EXPORT_SYMBOL_GPL(walt_resume_cpus);
 
 int walt_partial_resume_cpus(struct cpumask *cpus, enum pause_client client)
 {
@@ -483,19 +486,38 @@ int walt_partial_resume_cpus(struct cpumask *cpus, enum pause_client client)
 		return -EAGAIN;
 	return walt_start_cpus(cpus, client, PARTIAL_HALT);
 }
-EXPORT_SYMBOL(walt_partial_resume_cpus);
+EXPORT_SYMBOL_GPL(walt_partial_resume_cpus);
 
-/* return true if the requested client has fully halted one of the cpus */
+/**
+ * cpus_halted_by_client: determine if client has halted a cpu
+ *   where all cpus in the mask are halted.
+ *
+ * If all cpus in the cluster are halted, and one of them is
+ * halted for this client, then and only then indicate pass.
+ *
+ * Otherwise, if not all cpus are halted, or none of the cpus
+ * are halted by this particular client, then reject.
+ *
+ * return true if conditions are met, false otherwise.
+ */
 bool cpus_halted_by_client(struct cpumask *cpus, enum pause_client client)
 {
 	struct halt_cpu_state *halt_cpu_state;
+	bool cpu_halted_for_client = false;
 	int cpu;
 
 	for_each_cpu(cpu, cpus) {
 		halt_cpu_state = per_cpu_ptr(&halt_state, cpu);
-		if ((bool)(halt_cpu_state->client_vote_mask[HALT] & client))
-			return true;
+
+		if (!halt_cpu_state->client_vote_mask[HALT])
+			return false;
+
+		if (halt_cpu_state->client_vote_mask[HALT] & client)
+			cpu_halted_for_client = true;
 	}
+
+	if (cpu_halted_for_client)
+		return true;
 
 	return false;
 }
