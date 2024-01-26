@@ -202,20 +202,9 @@ static void habmem_export_destroy(struct kref *refcount)
 				refcount,
 				struct export_desc_super,
 				refcount);
-	struct export_desc *exp = NULL;
 
 	if (!exp_super) {
 		pr_err("invalid exp_super\n");
-		return;
-	}
-
-	exp = &exp_super->exp;
-	if (!exp || !exp->pchan) {
-		if (exp)
-			pr_err("invalid info in exp %pK pchan %pK\n",
-			   exp, exp->pchan);
-		else
-			pr_err("invalid exp\n");
 		return;
 	}
 
@@ -265,10 +254,12 @@ static int habmem_export_vchan(struct uhab_context *ctx,
 		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_EXPORT);
 		HAB_HEADER_SET_ID(header, vchan->otherend_id);
 		HAB_HEADER_SET_SESSION_ID(header, vchan->session_id);
-		ret = physical_channel_send(vchan->pchan, &header, exp);
+		ret = physical_channel_send(vchan->pchan, &header, exp,
+				HABMM_SOCKET_SEND_FLAGS_NON_BLOCKING);
 
 		if (ret != 0) {
-			pr_err("failed to export payload to the remote %d\n", ret);
+			pr_err("failed to send imp msg %d, exp_id %d, vcid %x\n",
+				ret, export_id, vchan->id);
 			return ret;
 		}
 
@@ -296,6 +287,48 @@ static int habmem_export_vchan(struct uhab_context *ctx,
 	WRITE_ONCE(exp_super->exp_state, HAB_EXP_SUCCESS);
 
 	return ret;
+}
+
+/*
+ * This function is a revoke function for habmm_hyp_grant_*(),
+ * only call this function when habmm_hyp_grant_*() returns
+ * success but exp hasn't been added to exp_whse.
+ * hab_hyp_grant_*() do 4 things:
+ * 1) add 1 to refcount of dma_buf.
+ * 2) alloc memory for struct export_desc_super.
+ * 3) alloc memory for struct exp_platform_data.
+ * 4) alloc idr.
+ * we revoke these 4 things in this function. we choose to call
+ * idr_remove before habmem_export_put() to unpublish this
+ * export desc as early as possible, however the racing between
+ * habmem_export_put() and other concurrent user is handled by
+ * state machine mechanism.
+ */
+static int habmem_hyp_grant_undo(struct uhab_context *ctx,
+		struct virtual_channel *vchan,
+		uint32_t export_id)
+{
+	struct export_desc *exp = NULL;
+	struct export_desc_super *exp_super = NULL;
+	int irqs_disabled = irqs_disabled();
+
+	exp = idr_find(&vchan->pchan->expid_idr, export_id);
+	if (!exp) {
+		pr_err("export vchan failed: exp_id %d, pchan %s\n",
+				export_id, vchan->pchan->name);
+		return -EINVAL;
+	}
+
+	exp_super = container_of(exp,
+				struct export_desc_super,
+				exp);
+
+	hab_spin_lock(&vchan->pchan->expid_lock, irqs_disabled);
+	idr_remove(&vchan->pchan->expid_idr, exp->export_id);
+	hab_spin_unlock(&vchan->pchan->expid_lock, irqs_disabled);
+
+	exp->ctx = NULL;
+	return habmem_export_put(exp_super);
 }
 
 void habmem_export_get(struct export_desc_super *exp_super)
@@ -361,6 +394,8 @@ int hab_mem_export(struct uhab_context *ctx,
 	ret = habmem_export_vchan(ctx, vchan, payload_size, param->flags, export_id);
 	if (!ret)
 		param->exportid = export_id;
+	else
+		habmem_hyp_grant_undo(ctx, vchan, export_id);
 err:
 	if (vchan)
 		hab_vchan_put(vchan);
@@ -465,9 +500,11 @@ int hab_mem_import(struct uhab_context *ctx,
 		HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_IMPORT);
 		HAB_HEADER_SET_ID(header, vchan->otherend_id);
 		HAB_HEADER_SET_SESSION_ID(header, vchan->session_id);
-		ret = physical_channel_send(vchan->pchan, &header, &imp_data);
+		ret = physical_channel_send(vchan->pchan, &header, &imp_data,
+				HABMM_SOCKET_SEND_FLAGS_NON_BLOCKING);
+
 		if (ret != 0) {
-			pr_err("failed to send import msg to the remote %d, exp_id %d, vcid %x\n",
+			pr_err("failed to send imp msg %d, exp_id %d, vcid %x\n",
 				ret,
 				param->exportid,
 				vchan->id);
@@ -547,7 +584,10 @@ int hab_mem_import(struct uhab_context *ctx,
 
 err_imp:
 	if (vchan) {
-		if (vchan->pchan->mem_proto == 1 && (found == 1) && (ret != 0)) {
+		if ((vchan->pchan != NULL) &&
+			(vchan->pchan->mem_proto == 1) &&
+			(found == 1) &&
+			(ret != 0)) {
 			/* dma_buf create failure, rollback required */
 			hab_send_unimport_msg(vchan, exp->export_id);
 

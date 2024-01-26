@@ -2,7 +2,7 @@
 /*
  * Copyright(C) 2016 Linaro Limited. All rights reserved.
  * Author: Mathieu Poirier <mathieu.poirier@linaro.org>
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -49,7 +49,8 @@ struct etr_perf_buffer {
 };
 
 /* Convert the perf index to an offset within the ETR buffer */
-#define PERF_IDX2OFF(idx, buf)	((idx) % ((buf)->nr_pages << PAGE_SHIFT))
+#define PERF_IDX2OFF(idx, buf)		\
+		((idx) % ((unsigned long)(buf)->nr_pages << PAGE_SHIFT))
 
 /* Lower limit for ETR hardware buffer */
 #define TMC_ETR_PERF_MIN_BUF_SIZE	SZ_1M
@@ -304,6 +305,9 @@ static long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
 long tmc_get_rwp_offset(struct tmc_drvdata *drvdata)
 {
 	struct etr_buf *etr_buf = drvdata->sysfs_buf;
+
+	if (etr_buf == NULL)
+		return -EINVAL;
 
 	if (etr_buf->mode == ETR_MODE_FLAT)
 		return tmc_flat_get_rwp_offset(drvdata);
@@ -1384,7 +1388,7 @@ alloc_etr_buf(struct tmc_drvdata *drvdata, struct perf_event *event,
 	 * than the size requested via sysfs.
 	 */
 	if ((nr_pages << PAGE_SHIFT) > drvdata->size) {
-		etr_buf = tmc_alloc_etr_buf(drvdata, (nr_pages << PAGE_SHIFT),
+		etr_buf = tmc_alloc_etr_buf(drvdata, ((ssize_t)nr_pages << PAGE_SHIFT),
 					    0, node, NULL);
 		if (!IS_ERR(etr_buf))
 			goto done;
@@ -1812,6 +1816,7 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 {
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	u32 previous_mode;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
@@ -1842,6 +1847,8 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 		tmc_usb_disable(drvdata->usb_data);
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
+	/* Presave mode to ensure if it's need to stop byte_cntr. */
+	previous_mode = drvdata->mode;
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
 	drvdata->mode = CS_MODE_DISABLED;
@@ -1849,7 +1856,8 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 	drvdata->perf_buf = NULL;
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-	tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+	if (previous_mode == CS_MODE_SYSFS)
+		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 
 	dev_dbg(&csdev->dev, "TMC-ETR disabled\n");
 	return 0;
@@ -1859,11 +1867,25 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 {
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	int ret;
+	uint32_t mode;
+	unsigned long flags;
 
-	mutex_lock(&drvdata->mem_lock);
-	ret = _tmc_disable_etr_sink(csdev, false);
-	mutex_unlock(&drvdata->mem_lock);
-	return ret;
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	mode = drvdata->mode;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	switch (mode) {
+	/* mem_lock is used to support USB mode for protection */
+	case CS_MODE_SYSFS:
+		mutex_lock(&drvdata->mem_lock);
+		ret = _tmc_disable_etr_sink(csdev, false);
+		mutex_unlock(&drvdata->mem_lock);
+		return ret;
+	case CS_MODE_PERF:
+		return _tmc_disable_etr_sink(csdev, false);
+	}
+	/* We shouldn't be here */
+	return -EINVAL;
 }
 
 int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)

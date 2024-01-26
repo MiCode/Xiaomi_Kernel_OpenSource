@@ -20,6 +20,7 @@ qcom_dma_heaps.ko
 qcom_iommu_util.ko
 iommu-logger.ko
 arm_smmu.ko
+secure_buffer.ko
 clk-dummy.ko
 clk-qcom.ko
 qcom_cpucp.ko
@@ -47,3 +48,7 @@ mdt_loader.ko
 tmecom-intf.ko
 msm_qmp.ko
 qcom_aoss.ko
+glink_pkt.ko
+qcom_glink_smem.ko
+qcom_glink.ko
+qcom_glink_spss.ko

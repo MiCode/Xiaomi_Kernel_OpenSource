@@ -305,6 +305,7 @@ struct hab_device {
 struct uhab_context {
 	struct list_head node; /* managed by the driver */
 	struct kref refcount;
+	struct work_struct destroy_work;
 
 	struct list_head vchannels;
 	int vcnt;
@@ -415,8 +416,8 @@ struct virtual_channel {
 	int closed;
 	int forked; /* if fork is detected and assume only once */
 	/* stats */
-	uint64_t tx_cnt; /* total succeeded tx */
-	uint64_t rx_cnt; /* total succeeded rx */
+	atomic64_t tx_cnt; /* total succeeded tx */
+	atomic64_t rx_cnt; /* total succeeded rx */
 	int rx_inflight; /* rx in progress/blocking */
 };
 
@@ -628,6 +629,9 @@ struct uhab_context *hab_ctx_alloc(int kernel);
 
 void hab_ctx_free(struct kref *ref);
 
+void hab_ctx_free_fn(struct uhab_context *ctx);
+void hab_ctx_free_os(struct kref *ref);
+
 static inline void hab_ctx_get(struct uhab_context *ctx)
 {
 	if (ctx)
@@ -661,7 +665,8 @@ int physical_channel_read(struct physical_channel *pchan,
 
 int physical_channel_send(struct physical_channel *pchan,
 		struct hab_header *header,
-		void *payload);
+		void *payload,
+		unsigned int flags);
 
 void physical_channel_rx_dispatch(unsigned long physical_channel);
 void physical_channel_rx_dispatch_common(unsigned long physical_channel);

@@ -27,6 +27,7 @@ enum {
 	CLK_ALPHA_PLL_TYPE_RIVIAN_OLE = CLK_ALPHA_PLL_TYPE_RIVIAN_EVO,
 	CLK_ALPHA_PLL_TYPE_DEFAULT_EVO,
 	CLK_ALPHA_PLL_TYPE_BRAMMO_EVO,
+	CLK_ALPHA_PLL_TYPE_LUCID_5LPE,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
@@ -80,6 +81,8 @@ struct pll_vco {
  * struct clk_alpha_pll - phase locked loop (PLL)
  * @offset: base address of registers
  * @vco_table: array of VCO settings
+ * @soft_vote: soft voting variable for multiple PLL software instances
+ * @soft_vote_mask: soft voting mask for multiple PLL software instances
  * @regs: alpha pll register map (see @clk_alpha_pll_regs)
  * @vco_data: array of VCO data settings like post div
  * @clkr: regmap clock handle
@@ -90,6 +93,14 @@ struct clk_alpha_pll {
 	struct alpha_pll_config *config;
 	const struct pll_vco *vco_table;
 	size_t num_vco;
+
+	u32 *soft_vote;
+	u32 soft_vote_mask;
+	/* Soft voting values */
+#define PLL_SOFT_VOTE_PRIMARY   BIT(0)
+#define PLL_SOFT_VOTE_CPU       BIT(1)
+#define PLL_SOFT_VOTE_AUX       BIT(2)
+
 	const struct pll_vco_data *vco_data;
 	size_t num_vco_data;
 
@@ -105,6 +116,7 @@ struct clk_alpha_pll {
 #define SUPPORTS_FSM_LEGACY_MODE	BIT(4)
 #define DISABLE_TO_OFF		BIT(5)
 #define SUPPORTS_SLEW           BIT(4)
+#define BYPASS_LATCH		BIT(6)
 #define ENABLE_IN_PREPARE	BIT(6)
 	u8 flags;
 
@@ -253,4 +265,9 @@ int clk_rivian_evo_pll_configure(struct clk_alpha_pll *pll,
 int clk_zonda_evo_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
+
+int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
+				struct regmap *regmap,
+				const struct alpha_pll_config *config);
+
 #endif
