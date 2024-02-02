@@ -1,0 +1,101 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sm8150-qrd.dtsi"
+#include "sm8150-qrd-audio-overlay.dtsi"
+#include "sm8150-camera-sensor-hdk.dtsi"
+
+&tlmm {
+	pmx_ts_rst_active {
+		ts_rst_active: ts_rst_active {
+			mux {
+				pins = "gpio54";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio54";
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_rst_suspend {
+		ts_rst_suspend: ts_rst_suspend {
+			mux {
+				pins = "gpio54";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio54";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};
+
+&soc {
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_rst_active>;
+		pinctrl-1 = <&ts_rst_suspend>;
+		vcc_ana-supply = <&pm8150_l17>;
+		vcc_dig-supply = <&pm8150_s4>;
+		qcom,afe-load = <20000>;
+		qcom,afe-vtg-min = <3000000>;
+		qcom,afe-vtg-max = <3000000>;
+		qcom,dig-load = <40000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+		qcom,fb-resume-delay-us = <1000>;
+		qcom,afe-force-power-on;
+		qcom,afe-power-on-delay-us = <6>;
+		qcom,afe-power-off-delay-us = <6>;
+		qcom,platform-en-gpio = <&tlmm 53 0>;
+	};
+
+	usb1_otg_supply: usb1_otg_supply {
+		compatible = "regulator-fixed";
+		regulator-name = "regulator_fixed";
+		gpio = <&pm8150_gpios 10 GPIO_ACTIVE_HIGH>;
+		status = "ok";
+	};
+};
+
+&usb1 {
+	vbus_dwc3-supply = <&usb1_otg_supply>;
+	status = "ok";
+	dwc3@a800000 {
+		dr_mode = "host";
+	};
+};
+
+&usb2_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x40 0x70
+		 0x28 0x74>;
+};
+
+&qupv3_se17_i2c {
+	status = "disabled";
+};

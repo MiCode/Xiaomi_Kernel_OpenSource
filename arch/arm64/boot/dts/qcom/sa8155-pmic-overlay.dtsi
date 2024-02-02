@@ -1,0 +1,331 @@
+/*
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pm8150.dtsi"
+
+pm8150_1_tz: &pm8150_tz {
+};
+
+pm8150_1_clkdiv: &pm8150_clkdiv {
+	clock-output-names = "pm8150_1_div_clk1", "pm8150_1_div_clk2";
+};
+
+pm8150_1_rtc: &pm8150_rtc {
+};
+
+pm8150_1_gpios: &pm8150_gpios {
+	interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+			<0x0 0xc2 0 IRQ_TYPE_NONE>,
+			<0x0 0xc3 0 IRQ_TYPE_NONE>,
+			<0x0 0xc5 0 IRQ_TYPE_NONE>,
+			<0x0 0xc8 0 IRQ_TYPE_NONE>,
+			<0x0 0xc9 0 IRQ_TYPE_NONE>;
+	interrupt-names = "pm8150_1_gpio1", "pm8150_1_gpio3",
+			"pm8150_1_gpio4", "pm8150_1_gpio6",
+			"pm8150_1_gpio9", "pm8150_1_gpio10";
+	qcom,gpios-disallowed = <2 5 7 8>;
+};
+
+/* PM8150_2: */
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+
+	qcom,pm8150@4 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x4 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8150_2_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x4 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			io-channels = <&pm8150_2_vadc ADC_DIE_TEMP>;
+			io-channel-names = "thermal";
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
+
+		pm8150_2_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x200>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <2>;
+			clock-output-names = "pm8150_2_div_clk1",
+						"pm8150_2_div_clk2";
+			clocks = <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "xo";
+		};
+
+		pm8150_2_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x4 0xc0 0 IRQ_TYPE_NONE>,
+					<0x4 0xc2 0 IRQ_TYPE_NONE>,
+					<0x4 0xc3 0 IRQ_TYPE_NONE>,
+					<0x4 0xc5 0 IRQ_TYPE_NONE>,
+					<0x4 0xc7 0 IRQ_TYPE_NONE>,
+					<0x4 0xc8 0 IRQ_TYPE_NONE>,
+					<0x4 0xc9 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8150_2_gpio1", "pm8150_2_gpio3",
+					"pm8150_2_gpio4", "pm8150_2_gpio6",
+					"pm8150_2_gpio8", "pm8150_2_gpio9",
+					"pm8150_2_gpio10";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <2 5 7>;
+		};
+
+		pm8150_2_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x4 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+		};
+	};
+
+	qcom,pm8150@5 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x5 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+};
+
+/* PMIC GPIO pin control configurations: */
+&pm8150_1_gpios {
+	key_home {
+		key_home_default: key_home_default {
+			pins = "gpio1";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	storage_sd_detect {
+		storage_cd_default: storage_cd_default {
+			pins = "gpio4";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+};
+
+#include <dt-bindings/thermal/thermal.h>
+
+&thermal_zones {
+	pm8150_2_temp_alarm: pm8150_2_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8150_2_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8150_2_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8150_2_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8150_2_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
+			trip1_cpu0 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8150_tz {
+		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
+			trip1_cpu0 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};

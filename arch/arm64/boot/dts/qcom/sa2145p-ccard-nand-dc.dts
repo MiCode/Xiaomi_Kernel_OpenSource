@@ -1,0 +1,113 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sa2145p-ccard.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA2145P CCARD NAND DC";
+	compatible = "qcom,sa2145p-ccard", "qcom,qcs403", "qcom,sa2145p",
+				"qcom,ccard";
+	qcom,board-id = <25 2>, <25 0x102>;
+};
+
+&qnand_1 {
+	status = "okay";
+};
+
+&sdhc_1 {
+	status = "disabled";
+};
+
+&blsp1_uart1_hs {
+	status = "ok";
+};
+
+&blsp1_uart4_hs {
+	status = "disabled";
+};
+
+&wlan_fw_mem {
+	reg = <0x0 0x86400000 0x0 0x100000>;
+};
+
+&qseecom_mem {
+	size = <0 0x400000>;
+};
+
+&soc {
+	/delete-node/ qcom,wlan_dsp@7000000;
+	/delete-node/ qcom,icnss@18800000;
+};
+
+&reserved_mem {
+	/delete-node/ wlan_msa_region@88E0000;
+	/delete-node/ wlan_fw_mem@86400000;
+};
+
+&tlmm {
+	wakeup_gpio_default: wakeup_gpio_default {
+		mux {
+			pins = "gpio77";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio77";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};
+
+&sdx_ext_ipc {
+	qcom,wakeup-gpio-out = <&tlmm 77 0x00>;
+};
+
+&ethqos_hw {
+	rxc-skew-ps = <720>;
+	io-macro-info {
+		rx-prog-swap;
+		rx-dll-bypass;
+	};
+};
+
+&tlmm {
+	/delete-node/ mdss_hdmi_ddc_active;
+	/delete-node/ mdss_hdmi_ddc_suspend;
+	rgmii_level_shifter: rgmii_level_shifter {
+		mux {
+			pins = "gpio16";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio16";
+			drive-strength = <2>;
+			bias-pull-down;
+			output-low;
+		};
+	};
+};
+
+&ethqos_hw {
+	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state",
+		"dev-emac-rgmii_lvl_shift_state";
+	pinctrl-16 = <&rgmii_level_shifter>;
+};

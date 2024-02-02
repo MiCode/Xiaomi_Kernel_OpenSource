@@ -1,0 +1,41 @@
+Qualcomm Technologies Inc. PWM controller
+
+PDM is used for generating density modulated signals that, after passing
+through a filter, become analog signals. It can produce fixed densities
+or alternate between densities to create variations in the analog signal.
+
+PWM has the following use:
+1) Duty cycle control of the backlight.
+
+
+Required properties:
+- compatible: should be "qcom,pdm-pwm"
+
+- reg: physical base address and length of the controller's registers.
+
+- clocks: clocks required for enabling PWM block.
+
+- #pwm-cells: shall contain 2.
+
+- pwm@<num> : defines pwm instances.
+
+- frame-index : each pwm has 10 frames 0-9 and they are designed to stand by
+		themselves independent of the other frame. For this reason,
+		each PWM instance has its own set of configuration registers.
+- frame-offset: offset of each pwm instance from base.
+
+Example:
+
+	pdm_pwm0: pdm_pwm_test@600000 {
+		compatible = "qcom,pdm-pwm";
+		reg = <0x600000 0xc000>;
+		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
+			<&clock_gcc GCC_PWM0_XO512_CLK>;
+		clock-names = "pdm_ahb_clk", "pwm_core_clk";
+		#pwm-cells = <2>;
+
+		pwm@0{
+			frame-index = <0>;
+			frame-offset = <0x1000>;
+		};
+	};

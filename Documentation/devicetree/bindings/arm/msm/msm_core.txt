@@ -1,0 +1,71 @@
+MSM Core Energy Aware driver
+
+The Energy Aware driver provides per core power and temperature
+information to the scheduler for it to make more power efficient
+scheduling decision.
+
+The required properties for the Energy-aware driver are:
+
+- compatible:    "qcom,apss-core-ea"
+- reg:           Physical address mapped to this device
+
+Required nodes:
+- ea@X: Parent node that has the sensor mapping for each cpu.
+                 This node's phandle is provided within cpu node
+                 to invoke/probe energy-aware only for available cpus.
+                 There should be one such node present for each cpu.
+
+Optional properties:
+- qcom,low-hyst-temp: Degrees C below which the power numbers
+                 need to be recomputed for the cores and reset
+                 the threshold. If this is not present, the default
+                 value is 10C.
+- qcom,high-hyst-temp: Degrees C above which the power numbers
+                 need to be recomputed for the cores and reset
+                 the threshold. If this property is not present,
+                 the default value is 5C.
+- qcom,polling-interval: Interval for which the power numbers
+                 need to be recomputed for the cores if there
+                 is no change in threshold. If this property is not
+                 present, the power is recalculated only on
+                 temperature threshold notifications.
+-qcom,throttling-temp: Temperature threshold for cpu frequency mitigation.
+                 The value should be set same as the threshold temperature
+                 in thermal module - 5 C, such that there is a bandwidth to
+                 control the cores before frequency mitigation happens.
+
+[Second level nodes]
+Require properties to define per core characteristics:
+- sensor:  Sensor phandle to map a particular sensor to the core.
+                If this property is not present, then the core is assumed
+                to be at 40C for all the power estimations. No sensor
+                threshold is set. This phandle's compatible property is
+                "qcom,sensor-information". This driver relies on the
+                sensor-type and scaling-factor information provided in this
+                phandle.
+
+Example
+
+qcom,msm-core@0xfc4b0000 {
+	compatible = "qcom,apss-core-ea";
+	reg = <0xfc4b0000 0x1000>;
+	qcom,low-hyst-temp = <10>;
+	qcom,high-hyst-temp = <5>;
+	qcom,polling-interval = <50>;
+
+	ea0: ea0 {
+		sensor = <&sensor_information0>;
+	};
+
+	ea1: ea1 {
+		sensor = <&sensor_information1>;
+	};
+
+};
+
+CPU0: cpu@0 {
+	device_type = "cpu";
+	compatible = "arm,cortex-a53";
+	reg = <0x0>;
+	qcom,ea = <&ea0>;
+};

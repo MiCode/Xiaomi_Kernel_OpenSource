@@ -1,0 +1,44 @@
+
+config AQC_IPA
+	tristate "Aquantia IPA Ethernet Offload Driver"
+	depends on IPA_ETH
+	help
+	  This driver supports offloading to IPA, data that is
+	  tethered over Aquantia ethernet interfaces. The driver
+	  require a compatible Aquantia network driver to be
+	  registered with IPA Offload Sub-System.
+	  If unsure, say N.
+
+choice
+	prompt "Default Rx Interrupt Proxy Method"
+	depends on AQC_IPA
+	default AQC_IPA_PROXY_HOST
+
+config AQC_IPA_PROXY_UC
+	bool "via IPA uC"
+	help
+	  IPA uC acts as a proxy for AQC Rx interrupt, receiving the
+	  MSI and forwarding the indication to an IPA GSI doorbell
+	  either with a monotonically increasing counter or the Rx
+	  ring descriptor address at AQC tail pointer. IPA uC need to
+	  have support for AQC protocol in its firmware.
+
+config AQC_IPA_PROXY_HOST
+	bool "via Host/Linux"
+	help
+	  Host/Linux acts as proxy for AQC Rx interrupt, receiving the
+	  MSI and forwarding the indication to an IPA GSI doorbell  with
+	  the Rx ring descriptor address at AQC tail pointer. A host SPI
+	  need to be available and configured to receive the MSI.
+
+endchoice
+
+config AQC_IPA_DEBUG
+	bool "Aquantia IPA Ethernet Offload Driver Debugging Support"
+	depends on AQC_IPA
+	help
+	  Enable various debug features provided by Aquantia IPA
+	  offload driver. Using this feature may add a lot of
+	  additional log messages and panic on bugs. Enable this
+	  option with caution.
+	  If unsure, say N.

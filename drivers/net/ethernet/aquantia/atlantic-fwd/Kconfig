@@ -1,0 +1,73 @@
+#
+# Aquantia atlantic-forwarding driver config
+#
+
+if AQFWD
+
+config ATLFWD_FWD
+       bool "Enable forwarding-engine API"
+       default n
+       help
+
+         Say Y to enable the forwarding-engine API
+
+config ATLFWD_FWD_RXBUF
+       int
+       prompt "Rx buffer space for forwarding engine's rings" if ATLFWD_FWD
+       range 0 320
+       default 160 if ATLFWD_FWD
+       default 0
+       help
+
+         Amount of Rx buffer to reserve for the forwarding-engine
+         rings. This sets the default value of the fwd_rx_buf_reserve
+         module option.
+
+         Value in kiB, 0 to 320, defaults to 160 if forwarding-engine
+         API enabled, 0 otherwise.
+
+config ATLFWD_FWD_TXBUF
+       int
+       prompt "Tx buffer space for forwarding engine's rings" if ATLFWD_FWD
+       range 0 160
+       default 80 if ATLFWD_FWD
+       default 0
+       help
+
+         Amount of Tx buffer to reserve for the forwarding-engine
+         rings. This sets the default value of the fwd_tx_buf_reserve
+         module option.
+
+         Value in kiB, 0 to 320, defaults to 80 if forwarding-engine
+         API enabled, 0 otherwise.
+
+config ATLFWD_FWD_NETLINK
+        bool "Enable netlink control socket for forwarding engine"
+        default n
+        depends on ATLFWD_FWD
+        help
+
+          Expose forwarding engine APIs over the netlink socket.
+
+endif
+
+config AQFWD_QCOM
+	bool "QTI MSM/MDM target support"
+	depends on AQFWD
+	depends on ARCH_QCOM
+	help
+	  Some older targets using Qualcomm Technologies, Inc. chipsets
+	  require peripheral drivers to explicitly set IOMMU attributes
+	  and perform IOMMU attach. Enable this option if your platform
+	  is affected. Using this feature will also require the user to
+	  provide SMMU configuration via PCI device tree.
+	  If unsure, say N.
+
+config AQFWD_QCOM_IPA
+	bool "QTI IPA offload support"
+	depends on IPA_ETH
+	select AQFWD_QCOM
+	select ATLFWD_FWD
+	help
+	  Enable support for Qualcomm Technologies, Inc. IPA (Internet Protocol Accelerator).
+	  If unsure, say N.

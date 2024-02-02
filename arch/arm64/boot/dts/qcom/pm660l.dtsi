@@ -1,0 +1,391 @@
+/* Copyright (c) 2016-2017, 2019-2020 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/msm/power-on.h>
+
+&spmi_bus {
+	qcom,pm660l@2 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x2 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm660l_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pm660l_pbs: qcom,pbs@7300 {
+			compatible = "qcom,qpnp-pbs";
+			reg = <0x7300 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,secondary-pon-reset;
+			qcom,hard-reset-poweroff-type =
+				<PON_POWER_OFF_SHUTDOWN>;
+		};
+
+		pm660l_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pm660l_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xc00>;
+			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
+			<0x2 0xc1 0 IRQ_TYPE_NONE>,
+			<0x2 0xc2 0 IRQ_TYPE_NONE>,
+			<0x2 0xc3 0 IRQ_TYPE_NONE>,
+			<0x2 0xc4 0 IRQ_TYPE_NONE>,
+			<0x2 0xc5 0 IRQ_TYPE_NONE>,
+			<0x2 0xc6 0 IRQ_TYPE_NONE>,
+			<0x2 0xc7 0 IRQ_TYPE_NONE>,
+			<0x2 0xc8 0 IRQ_TYPE_NONE>,
+			<0x2 0xc9 0 IRQ_TYPE_NONE>,
+			<0x2 0xca 0 IRQ_TYPE_NONE>,
+			<0x2 0xcb 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm660l_gpio1", "pm660l_gpio2",
+					"pm660l_gpio3", "pm660l_gpio4",
+					"pm660l_gpio5", "pm660l_gpio6",
+					"pm660l_gpio7", "pm660l_gpio8",
+					"pm660l_gpio9", "pm660l_gpio10",
+					"pm660l_gpio11", "pm660l_gpio12";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+
+	pm660l_3: qcom,pm660l@3 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x3 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm660l_lpg: qcom,pwms@b100 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb100 0x300>, <0xb000 0x100>;
+			reg-names = "lpg-base", "lut-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <3>;
+			qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
+			90 80 70 60 50 40 30 20 10 0>;
+
+			lpg1 {
+				qcom,lpg-chan-id = <1>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+			lpg2 {
+				qcom,lpg-chan-id = <2>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+
+			lpg3 {
+				qcom,lpg-chan-id = <3>;
+				qcom,ramp-step-ms = <100>;
+				qcom,ramp-pause-hi-count = <2>;
+				qcom,ramp-pause-lo-count = <2>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <20>;
+				qcom,ramp-from-low-to-high;
+				qcom,ramp-pattern-repeat;
+			};
+		};
+
+		pm660l_pwm: qcom,pwms@b400 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb400 0x100>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <1>;
+		};
+
+		pm660l_rgb_led: qcom,leds@d000 {
+			compatible = "qcom,tri-led";
+			reg = <0xd000 0x100>;
+			red {
+				label = "red";
+				pwms = <&pm660l_lpg 2 1000000>;
+				led-sources = <0>;
+				linux,default-trigger = "timer";
+			};
+			green {
+				label = "green";
+				pwms = <&pm660l_lpg 1 1000000>;
+				led-sources = <1>;
+				linux,default-trigger = "timer";
+			};
+			blue {
+				label = "blue";
+				pwms = <&pm660l_lpg 0 1000000>;
+				led-sources = <2>;
+				linux,default-trigger = "timer";
+			};
+		};
+
+		pm660l_wled: qcom,leds@d800 {
+			compatible = "qcom,pm660l-spmi-wled";
+			reg = <0xd800 0x100>,
+				<0xd900 0x100>;
+			reg-names = "wled-ctrl-base",
+					"wled-sink-base";
+			interrupts = <0x3 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "ovp-irq";
+			label = "backlight";
+			qcom,pmic-revid = <&pm660l_revid>;
+			qcom,auto-calibration;
+			qcom,sync-dly = <800>;
+			status = "ok";
+		};
+
+		flash_led: qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led-v2";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			interrupts = <0x3 0xd3 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x3 0xd3 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x3 0xd3 0x4 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "led-fault-irq",
+					"all-ramp-down-done-irq",
+					"all-ramp-up-done-irq";
+			qcom,hdrm-auto-mode;
+			qcom,short-circuit-det;
+			qcom,open-circuit-det;
+			qcom,vph-droop-det;
+			qcom,thermal-derate-en;
+			qcom,thermal-derate-current = <200 500 1000>;
+			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pm660l_revid>;
+
+			pm660l_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm660l_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm660l_flash2: qcom,flash_2 {
+				label = "flash";
+				qcom,led-name = "led:flash_2";
+				qcom,max-current = <750>;
+				qcom,default-led-trigger = "flash2_trigger";
+				qcom,id = <2>;
+				qcom,current-ma = <500>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm660l_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm660l_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm660l_torch2: qcom,torch_2 {
+				label = "torch";
+				qcom,led-name = "led:torch_2";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch2_trigger";
+				qcom,id = <2>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pm660l_switch0: qcom,led_switch_0 {
+				label = "switch";
+				qcom,led-name = "led:switch_0";
+				qcom,led-mask = <3>;
+				qcom,default-led-trigger = "switch0_trigger";
+			};
+
+			pm660l_switch1: qcom,led_switch_1 {
+				label = "switch";
+				qcom,led-name = "led:switch_1";
+				qcom,led-mask = <4>;
+				qcom,default-led-trigger = "switch1_trigger";
+			};
+		};
+
+		pm660l_lcdb: qpnp-lcdb@ec00 {
+			compatible = "qcom,qpnp-lcdb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0xec00 0x100>;
+			interrupts = <0x3 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "sc-irq";
+
+			qcom,pmic-revid = <&pm660l_revid>;
+
+			lcdb_ldo_vreg: ldo {
+				label = "ldo";
+				regulator-name = "lcdb_ldo";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_ncp_vreg: ncp {
+				label = "ncp";
+				regulator-name = "lcdb_ncp";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+		};
+
+		pm660a_oledb: qpnp-oledb@e000 {
+		       compatible = "qcom,qpnp-oledb-regulator";
+		       #address-cells = <1>;
+		       #size-cells = <1>;
+		       qcom,pmic-revid = <&pm660l_revid>;
+		       reg = <0xe000 0x100>;
+		       qcom,pbs-client = <&pm660l_pbs>;
+
+		       label = "oledb";
+		       regulator-name = "regulator-oledb";
+		       regulator-min-microvolt = <5000000>;
+		       regulator-max-microvolt = <8100000>;
+
+		       qcom,swire-control;
+		       qcom,ext-pin-control;
+		       status = "disabled";
+		};
+
+		pm660a_labibb: qpnp-labibb-regulator {
+			compatible = "qcom,qpnp-labibb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,pmic-revid = <&pm660l_revid>;
+			qcom,swire-control;
+			status = "disabled";
+
+			ibb_regulator: qcom,ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_reg";
+				regulator-name = "ibb_reg";
+
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6300000>;
+
+				qcom,qpnp-ibb-min-voltage = <1400000>;
+				qcom,qpnp-ibb-step-size = <100000>;
+				qcom,qpnp-ibb-slew-rate = <2000000>;
+				qcom,qpnp-ibb-init-voltage = <4000000>;
+				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "lab";
+				regulator-name = "lab_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6100000>;
+
+				qcom,qpnp-lab-min-voltage = <4600000>;
+				qcom,qpnp-lab-step-size = <100000>;
+				qcom,qpnp-lab-slew-rate = <5000>;
+				qcom,qpnp-lab-init-voltage = <4600000>;
+				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
+
+				qcom,notify-lab-vreg-ok-sts;
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	pm660l_temp_alarm: pm660l-tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm660l_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm660l_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm660l_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};

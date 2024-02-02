@@ -1,0 +1,146 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/pm.h>
+
+&soc {
+	qcom,spm@b009000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xb009000 0x1000>;
+		qcom,name = "cpu0";
+		qcom,cpu = <&CPU0>;
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x1>;
+		qcom,saw2-spm-dly= <0x3c102800>;
+		qcom,saw2-spm-ctl = <0xe>;
+		qcom,mode0 {
+			qcom,label = "qcom,saw2-spm-cmd-wfi";
+			qcom,sequence = [04 03 04 0f];
+			qcom,spm_en;
+		};
+		qcom,mode1 {
+			qcom,label = "qcom,saw2-spm-cmd-spc";
+			qcom,sequence = [1f 34 04 44 24 54 03
+				54 44 04 24 34 0f];
+			qcom,spm_en;
+			qcom,pc_mode;
+		};
+		qcom,mode2 {
+			qcom,label = "qcom,saw2-spm-cmd-pc";
+			qcom,sequence = [1f 34 04 44 14 24 54 03
+				54 44 14 04 04 24 04 34 0f];
+			qcom,spm_en;
+			qcom,pc_mode;
+			qcom,slp_cmd_mode;
+		};
+	};
+
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			label = "system";
+			qcom,default-level=<0>;
+
+			qcom,pm-cluster-level@0 {
+				reg = <0>;
+				label = "l2-active";
+				qcom,latency-us = <270>;
+				qcom,ss-power = <455>;
+				qcom,energy-overhead = <270621>;
+				qcom,time-overhead = <500>;
+			};
+
+			qcom,pm-cluster-level@1 {
+				reg = <1>;
+				label = "l2-pc";
+				qcom,latency-us = <285>;
+				qcom,ss-power = <442>;
+				qcom,energy-overhead = <306621>;
+				qcom,time-overhead = <540>;
+				qcom,min-child-idx = <2>;
+				qcom,notify-rpm;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
+			};
+
+			qcom,pm-cpu {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,pm-cpu-level@0{
+					reg = <0>;
+					qcom,spm-cpu-mode = "wfi";
+					qcom,latency-us = <1>;
+					qcom,ss-power = <473>;
+					qcom,energy-overhead = <100000>;
+					qcom,time-overhead = <25>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
+					qcom,spm-cpu-mode ="standalone_pc";
+					qcom,latency-us = <240>;
+					qcom,ss-power = <467>;
+					qcom,energy-overhead = <202781>;
+					qcom,time-overhead = <420>;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
+				};
+
+				qcom,pm-cpu-level@2 {
+					reg = <2>;
+					qcom,spm-cpu-mode = "pc";
+					qcom,latency-us = <270>;
+					qcom,ss-power = <455>;
+					qcom,energy-overhead = <270621>;
+					qcom,time-overhead = <500>;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
+				};
+			};
+		};
+	};
+
+	qcom,pm@8600664 {
+		compatible = "qcom,pm";
+		reg = <0x8600664 0x40>;
+		clocks = <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk";
+		qcom,use-sync-timer;
+		qcom,synced-clocks;
+		qcom,tz-flushes-cache;
+	};
+
+	qcom,rpm-stats@29dba0 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x29dba0 0x1000>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x60150 0x2030>;
+		qcom,masters = "APSS", "MPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+};

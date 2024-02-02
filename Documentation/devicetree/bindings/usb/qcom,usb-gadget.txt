@@ -1,0 +1,41 @@
+Qualcomm Technologies, Inc's USB Gadget
+
+Required properties:
+- compatible: Should be "qcom,usb-gadget".
+- qcom,vid: VendorId to be used by composite device.
+
+Required subnode properties:
+- qcom,pid: ProductId to be used by composite device.
+- qcom,composition: List of configurations where each is separated by '|'.
+	And each configuration has comma separated list of functions
+	specified as: <f1_name>.<f1_instance_name>,<f2_name>....
+- qcom,bmAttributes: Config characteritics of composite device.
+	e.g. remote wakeup capability, self or bus powered.
+
+Optional properties:
+- qcom,default-pid: ProductId to be used by composite device.
+- qcom,class: Class of composite device.
+- qcom,subclass: SubClass of composite device.
+- qcom,protocol: Protocol of composite device.
+
+Example:
+	usb_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,vid = <0x05c6>;
+
+		composition1 {
+			qcom,pid = <0x9103>;
+			qcom,composition = "diag.diag,ipc.ipc,gsi.rmnet,gsi.rmnet.v2x,ecm.ecm,gsi.dpl";
+		};
+
+		composition2 {
+			qcom,pid = <0x9105>;
+			qcom,composition = "diag.diag,gsi.dpl";
+		};
+
+		composition3 {
+			qcom,pid = <0x9063>;
+			qcom,composition = "gsi.rndis|gsi.ecm|gsi.mbim";
+			qcom,bmAttributes = <0xa0>;
+		};
+	};

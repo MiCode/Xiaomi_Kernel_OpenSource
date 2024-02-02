@@ -1,0 +1,87 @@
+SPMI Controller Simulator
+
+The SPMI Controller Simulator simulates an SPMI bus with PMIC devices attached
+to it.
+
+See spmi.txt for the generic SPMI controller binding requirements for child
+nodes.
+
+Supported Properties:
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Must be "qcom,spmi-sim".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: List of SPMI address and size pairs.  These addresses are
+		    the ones to be simulated.
+
+- #address-cells
+	Usage:      required
+	Value type: <u32>
+	Definition: Must be 2.
+
+- #size-cells
+	Usage:      required
+	Value type: <u32>
+	Definition: Must be 0.
+
+- interrupt-controller
+	Usage:      required
+	Value type: boolean
+	Definition: Boolean indicating that the SPMI Controller Simulator is an
+		    interrupt controller.
+
+- #interrupt-cells
+	Usage:      required
+	Value type: <u32>
+	Definition: Must be 4.
+		    Interrupts are specified as a 4-tuple:
+			Cell 1: Slave ID for the requested interrupt (0-15)
+			Cell 2: Peripheral ID for requested interrupt (0-255)
+			Cell 3: The requested peripheral interrupt (0-7)
+			Cell 4: Interrupt flags indicating level-sense
+				information, as defined in:
+				dt-bindings/interrupt-controller/irq.h
+
+- qcom,reg-defaults
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: List of SPMI address and value pairs.  These define the
+		    default values read back from the simulated registers.  The
+		    values must be between 0 and 255.
+
+Simulated PMIC Device Supported Properties:
+
+- qcom,spmi-sim
+	Usage:      required
+	Value type: <phandle>
+	Definition: phandle of the spmi-sim bus device that the simulated PMIC
+		    device should be used with.
+
+Example:
+
+spmi_sim: spmi-sim {
+	compatible = "qcom,spmi-sim";
+	reg = <0x00000 0x20000>,
+	      <0x40000 0x20000>;
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,reg-defaults =
+		<0x00104 0x51>,
+		<0x00105 0x14>,
+		<0x40104 0x51>,
+		<0x40105 0x18>;
+};
+
+pm8150-sim {
+	compatible = "qcom,pm8150-sim";
+	qcom,spmi-sim = <&spmi_sim>;
+	qcom,sid-offset = <0>;
+};

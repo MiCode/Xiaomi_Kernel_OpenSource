@@ -1,0 +1,196 @@
+Introduction
+============
+
+Glink packet drivers are companion adaptation driver which use the kernel APIs
+to expose the Glink core logical channels as charecter devices to the
+user-space clients.
+
+The Glink core APIs are detailed in Documentation/arm/msm/glink.txt.
+
+Software description
+====================
+
+Glink packet drivers supports the Glink core APIs to user-space client through
+standard file operations like open, read, write, ioctl, poll and release etc.
+The standard Linux permissions are used for the device node and SELinux does
+further security checks.
+
+
+    Device node [0..n]
+           |
+           |
+  -------------------
+ |  VFS Framework    |
+  -------------------
+    |             |
+    |             |
+  -------     -------
+ | CDEV  |   | CDEV  |
+ | Dev 0 |...| Dev n |
+ ----------------------
+|  Glink packet driver |
+ ----------------------
+           |
+           |
+    -----------------
+   |                 |
+   |   G-Link core   |
+   |                 |
+    -----------------
+           |
+           |
+    To Remote System
+
+
+The file operations map to the G-link client API as follows:
+
+Open():
+----------
+The Open system call is mapped to glink_open() which opens a channel. The
+expected channel configuration has to done through DT files. The full DT schema
+is detailed in Documentation/devicetree/bindings/arm/msm/glinkpkt.txt.
+
+Open on the glink packet character device is a blocking call which blocks until
+the channel is fully open by both local processor and remote processor.
+Clients can configure the blocking time through a device configurable parameter
+defined per device.
+
+The timeout value is specified in seconds with a default timeout of 1 second.
+A negative value indicates an infinite wait.
+
+Example:
+# get open timeout value
+	cat /sys/class/glinkpkt/device_name/open_timeout
+# set to 20 seconds value
+	echo 20 > /sys/class/glinkpkt/device_name/open_timeout
+
+If the channel is not opened by remote processor or any other problem which
+fails the channel to be ready will result in timeout and -ETIMEOUT will return
+to client. Open on success returns the valid file descriptor to client and on
+fail case standard Linux error codes.
+
+The same device can be opened by multiple clients but passing the same file
+descriptor from multiple threads may lead unexpected results.
+
+Write():
+----------
+The Write system call is mapped to glink_tx() which transmits the data over the
+glink channel.
+
+Read():
+----------
+The Read system call consumes any pending data on the channel. Glink signals
+incoming data through the glink_notify_rx() call back and the glink packet
+driver queues the data internally and provides to client through read system
+call. Once the Read is completed, the glink packet driver calls glink_rx_done()
+API to notify the completion of receiving operation to Glink core.
+
+                       +
+       User-Space      |   Kernel-Space
+                       |
+                       |
++---------+            |                +----------+         +------------+
+| Local   |            |                | GlinkPKT |         |            |
+| Client  |            |                | Driver   |         | Glink core |
+|         |            |                |          |         |            |
++---------+            |                +----------+         +------------+
+                       |
+    +                  |                     +                     +
+    |                  |                     |                     |
+    |    open()        |  glink_pkt_open()   |    glink_open()     |
+    | +--------------> | +-----------------> | +-----------------> |
+    |                  |                     |                     |
+    |   File Handle[fd]|    Valid Fd         |    Handle           |
+    | <--------------+ | <-----------------+ | <-----------------+ |
+    |                  |                     |                     |
+    |     Ioctl()      |                     |                     |
+    |  QUEUE_RX_INTENT |  glink_pkt_ioctl()  | glink_queue_rx_intent()
+    | +--------------> | +-----------------> | +-----------------> |
+    |                  |                     |                     |
+    |                  |                     |                     |
+    | <----------------------------------------------------------+ |
+    |                  |                     |                     |
+    |     Read()       |  glink_pkt_read()   |                     |
+    | +--------------> | +-----------------> | +---+               |
+    |                  |                     |     |               |
+    |                  |                 Wait for data             |
+    |                  |                     | <---+               |
+    |                  |                     |  glink_notify_rx()  |
+    |                  |                     | <-----------------+ |
+    |                  |   Wake-up read()    |                     |
+    |                  |   copy_to_user()    |                     |
+    |   read() return  | <-----------------+ |                     |
+    | <--------------+ |                     |                     |
+    +                  |                     +                     +
+                       |
+                       |
+                       +
+
+Clients can also poll on device node for POLLIN mask to get notification for
+any incoming data. Clients have to call the GLINK_PKT_IOCTL_QUEUE_RX_INTENT
+ioctl to queue the RX buffer to glink core in advance.
+
+Release():
+----------
+The Release system call is mapped to glink_close() to close a channel and free
+the resources.
+
+Poll():
+----------
+The Poll system call provides waiting operation like wait for incoming data on
+POLLIN mask and to get the TIOCM signal notification on POLLPRI mask. Clients
+can wait on poll for POLLPRI mask to get any notification regarding TICOM
+signals. In SSR case Poll call will return with POLLHUP mask and in this case
+client has to close and re-open the port.
+
+* POLLPRI - TIOCM bits changed
+* POLLIN - RX data available
+* POLLHUP - link is down due to either remote side closing or an SSR
+
+Ioctl():
+----------
+Multiple ioctls are supported to get the TICOM signal status and to queue the
+Rx intent with Glink core. Supported ioctls are TIOCMSET, TIOCMGET, TIOCMBIS,
+TIOCMBIC and GLINK_PKT_IOCTL_QUEUE_RX_INTENT.
+
+The GLINK_PKT_IOCTL_QUEUE_RX_INTENT ioctl is mapped to glink_queue_rx_intent()
+API which queues an RX intent with Glink core.
+
+Signals:
+==========
+Glink protocol provoide 32-bit control signal field to pass through for the
+clients-specific signaling where as Glink packet driver client which are from
+user space can use the signal filed as mentioned below.
+
+* 31:28 - Reserved for SMD RS-232 signals
+* 27:16 - Pass through for client usage
+* 15:0 - TICOM bits
+
+SSR operation:
+==============
+On remote subsystem restart all open channels on that edge will be closed and
+local clients have to close and re-open the channel to re-start the
+communication. All blocking calls such as open, read and write will be returned
+with -ENETRESET and the poll call will be return with the POLLHUP error codes.
+
+Files:
+==========
+Documentation/devicetree/bindings/arm/msm/glinkpkt.txt
+drivers/soc/qcom/msm_glink_pkt.c
+
+Wakelock:
+==========
+By default, GLINK PKT will acquire a wakelock for 2 seconds. To optimize this
+behavior, use the poll() function:
+	1. Client calls poll() which blocks until data is available to read
+	2. Data comes in, GLINK PKT grabs a wakelock and poll()is unblocked
+	3. Client grabs wakelock to prevent system from suspending
+	4. Client calls GLINK PKT read() to read the data
+	5. GLINK PKT releases its wakelock
+	6. Client Processes the data
+	7. Client releases the wakelock
+
+Logging:
+==========
+	cat /d/ipc_logging/glink_pkt/log_cont
+

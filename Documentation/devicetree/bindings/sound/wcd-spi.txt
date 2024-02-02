@@ -1,0 +1,37 @@
+Qualcomm Technologies, Inc. WCD audio codec SPI driver support
+
+* wcd_spi
+
+The wcd_spi device can be added as child device node to the audio codec device
+node if the audio codec has SPI slave hardware. The codec driver upon probe will
+create spi_device and perform spi_add_device. Note that the SPI framework does
+not parse this DT node and hence the DT properties defined by SPI framework
+cannot be used in wcd_spi device node.
+
+Required properties:
+
+- compatible : "qcom,wcd-spi-v2"
+
+- qcom,master-bus-num : Bus number of the SPI master controller driver. This
+			will be used to get a reference to the SPI master.
+
+- qcom,chip-select : Specifies the chip select number used for spi device
+		     registration.
+
+- qcom,max-frequency : Specifies the max frequency of the SPI interface.
+
+- qcom,mem-base-addr : Defines the memory base address from the SPI
+		       memory map. This will be used as an offset to read
+		       and write memory.
+
+Example:
+
+pahu_codec {
+	wcd_spi_0: wcd_spi {
+		compatible = "qcom,wcd-spi-v2";
+		qcom,master-bus-num = <10>;
+		qcom,chip-select = <0>;
+		qcom,max-frequency = <24000000>;
+		qcom,mem-base-addr = <0x100000>;
+	};
+};

@@ -1,0 +1,42 @@
+* Qualcomm technologies inc, DMA engine driver for BAM (Bus Access Manager).
+
+Required properties:
+- compatible: Should be "qcom,sps-dma".
+- reg: Should contain DMA registers location and length. This should include
+  all of the per-channel registers.
+- interrupts: Should contain the BAM interrupt number.
+- qcom,summing-threshold:  Should contain the BAM event threshold of
+  the sum of descriptors' sizes in bytes.
+
+Optional properties:
+- qcom,managed-locally : Use when BAM global device control is managed locally
+  by the application processor.
+
+Example:
+
+	dma_blsp1: qcom,sps-dma@f9904000 { /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xf9904000 0x19000>;
+		interrupts = <0 238 0>;
+		qcom,summing-threshold = <10>;
+	};
+
+DMA clients connected to the qcom-sps-dma DMA controller must use the format
+described in the dma.txt file, using a five-cell specifier for each channel,
+a phandle plus four integer cells, as shown below:
+
+dmas = <[phandle of the dma controller] [pipe index] [number of descriptors]
+				[sps_connect flags] [sps_register_event flags]>;
+
+Example:
+
+i2c_2: i2c@f9924000 { /* BLSP1 QUP2 */
+	.
+	.
+	.
+	/*     <&phandle pipe-idx n-descs connect-flags event-flags> */
+	dmas = <&dma_blsp1 14 32 0x20000020 0x20>,
+	       <&dma_blsp1 15 64 0x20000020 0x20>;
+	dma-names = "tx", "rx";
+};

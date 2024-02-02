@@ -1,0 +1,38 @@
+#
+# SPMI Simulator driver configuration
+#
+menuconfig SPMI_SIMULATOR
+	tristate "SPMI Controller Simulator"
+	help
+	  The SPMI Controller Simulator provides a means to simulate registers
+	  within the SPMI address space.  Each register can be read and written.
+	  Additionally, callback functions can be defined per register by
+	  other drivers which simulate the behavior of PMIC peripherals.
+
+if SPMI_SIMULATOR
+
+config PM8150_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM8150 PMIC Simulator"
+	help
+	  The PM8150 PMIC Simulator configures the read/write permissions of all
+	  PM8150 SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
+config PM8150B_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM8150B PMIC Simulator"
+	help
+	  The PM8150B PMIC Simulator configures the read/write permissions of all
+	  PM8150B SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
+config PM8150L_PMIC_SIMULATOR
+	tristate "Qualcomm Technologies, Inc. PM8150L PMIC Simulator"
+	help
+	  The PM8150L PMIC Simulator configures the read/write permissions of all
+	  PM8150L SPMI registers and loads default register values.  It is used
+	  in conjunction with the SPMI Controller Simulator to help test PMIC
+	  peripheral drivers before physical PMIC chips are available.
+
+endif

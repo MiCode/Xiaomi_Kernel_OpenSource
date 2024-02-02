@@ -1,0 +1,46 @@
+Limits Management Hardware Driver
+================================
+LMH driver provides API to interact with the LMH hardware. All the calls to
+the LMH hardware are routed via secure space.
+
+The device tree parameters for LMH driver are:
+
+Device/Asic specific properties:
+- reg : Base address of the LMH Lite hardware's interrupt status register
+		and its size in bytes. 'reg' parameter is required if
+		'qcom,lmh-trim-err-offset' is set.
+- qcom,lmh-trim-err-offset : This property defines the bit in the LMH
+		interrupt status register, which shows whether there is a
+		trim error in LMH hardware.
+- vdd-apss-supply : This property should hold the phandle of APSS regulator.
+		When defined, the M4M DPM will be notified for the APSS
+		voltage change.
+- qcom,lmh-odcm-disable-threshold-mA : This property holds the APSS rail
+		current threshold below which the ODCM will be disabled.
+		This property requires the "vdd-apss-supply" property
+		defined.
+
+Required parameters:
+- compatible: Must be either "qcom,lmh" or "qcom,lmh_v1".
+		The driver based on the compatible string will decide
+		the default profile.
+- interrupts: LMH Lite hardware interrupt details.
+
+Example:
+
+qcom,lmh {
+	compatible = "qcom,lmh";
+	interrupts = <0 332 4>;
+	reg = <0xF9117000 0x4>;
+	qcom,lmh-trim-err-offset = <18>;
+	vdd-apss-supply = <&pm8994_s11>;
+	qcom,lmh-odcm-disable-threshold-mA = <850>;
+};
+
+Or for asics that don't have trim err and don't require the voltage change
+update for DPM.
+
+qcom,lmh {
+	compatible = "qcom,lmh_v1";
+	interrupts = <0 332 4>;
+};

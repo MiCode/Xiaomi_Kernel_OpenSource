@@ -1,0 +1,31 @@
+Qualcomm Technologies, Inc. WCD Codec SoundWire controller
+
+Required properties:
+
+- compatible : should be "qcom,swr-wcd"
+- reg : Unique device ID(48 bits) of Soundwire slave device node.
+	In the below example, wsa881x is soundwire slave device for
+	which the swr-devid is <0x0 0x032000> where 0x03 represents
+	device Unique_ID, 0x20 represents Part_Id1 and 0x00
+	represents part_Id2.
+- #address-cells = <2>;
+- #size-cells = <0>;
+
+Optional property:
+
+ Example:
+	swr_master {
+		compatible = "qcom,swr-wcd";
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		wsa881x@32000 {
+			compatible = "qcom,wsa881x";
+			reg = <0x00 0x032000>;
+		};
+
+		wsa881x@42000 {
+			compatible = "qcom,wsa881x";
+			reg = <0x00 0x042000>;
+		};
+	};

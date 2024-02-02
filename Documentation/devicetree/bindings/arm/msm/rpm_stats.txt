@@ -1,0 +1,39 @@
+* RPM Stats
+
+RPM maintains a counter of the number of times the SoC entered a deeper sleep
+mode involving lowering or powering down the backbone rails - Cx and Mx and
+the oscillator clock, XO.
+
+PROPERTIES
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,rpm-stats".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: The address on the RPM RAM from where the stats are read
+	            should be provided as "phys_addr_base". The offset from
+	            which the stats are available should be provided as
+	            "offset_addr".
+
+- reg-names:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Provides labels for the reg property.
+
+- qcom,num-records:
+	Usage: optional
+	Value type: <u32>
+	Definition: Specifies number of records to read from RPM RAM.
+
+EXAMPLE:
+
+	qcom,rpm-stats@c000000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xC000000 0x1000>, <0x3F0000 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+		qcom,num-records = <3>;
+	};

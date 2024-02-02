@@ -1,0 +1,192 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs405.dtsi"
+#include "qcs405-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 SPI IOT";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x010020 0x1>;
+};
+
+&gdsc_mdss {
+	status = "disabled";
+};
+
+&clock_gcc_mdss {
+	status = "disabled";
+};
+
+&mdss_mdp {
+	status = "disabled";
+	/delete-node/ qcom,mdss_fb_primary;
+};
+
+&mdss_dsi {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&soc {
+	qcom,mdss_wb_panel {
+		status = "disabled";
+	};
+};
+
+&mdss_dsi0_pll {
+	status = "disabled";
+};
+
+&mdss_dsi1_pll {
+	status = "disabled";
+};
+
+&soc {
+	mdss_spi_display: qcom,mdss_spi_display {
+		compatible = "qcom,mdss-spi-display";
+		label = "mdss spi display";
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+		};
+	};
+};
+
+#include "spi-panel-st7789v2-qvga-cmd.dtsi"
+
+&soc {
+	mdss_spi_panel: qcom,mdss_spi_panel {
+		compatible = "qcom,mdss-spi-panel";
+		label = "mdss spi panel";
+		qcom,spi-pref-prim-pan = <&spi_st7789v2_qvga_cmd>;
+		qcom,mdss-spi = <&mdss_spi_display>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
+	};
+
+	spi@78b5000 {
+		status = "okay";
+
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+
+	spi@7af5000 {  /* BLSP1 QUP2 */
+		status = "ok";
+		mdss_spi_client: qcom,mdss_spi_client {
+			reg = <0>;
+			compatible = "qcom,mdss-spi-client";
+			label = "MDSS SPI QUP2 CLIENT";
+			spi-max-frequency = <50000000>;
+		};
+	};
+};
+
+&mdss_te_active {
+	mux {
+		pins = "gpio57";
+		function = "gpio";
+	};
+	config {
+		pins = "gpio57";
+		drive-strength = <2>; /* 2 mA */
+		bias-pull-down; /* pull down*/
+	};
+};
+
+&mdss_te_suspend {
+	mux {
+		pins = "gpio57";
+		function = "gpio";
+	};
+	config {
+		pins = "gpio57";
+		drive-strength = <2>; /* 2 mA */
+		bias-pull-down; /* pull down*/
+	};
+};
+
+&pmx_mdss{
+	mdss_spi_panel_active: mdss_spi_panel_active {
+		mux {
+			pins = "gpio39", "gpio42";
+			drive-strength = <8>; /* 8 mA */
+			bias-disable = <0>; /* no pull */
+			output-high;
+		};
+	};
+
+	mdss_spi_panel_suspend: mdss_spi_panel_suspend {
+		mux {
+			pins = "gpio39", "gpio42";
+			drive-strength = <2>; /* 2 mA */
+			bias-pull-down; /* pull down */
+			input-enable;
+		};
+	};
+};
+
+&mdss_spi_panel {
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_te_active &mdss_spi_panel_active>;
+	pinctrl-1 = <&mdss_te_suspend &mdss_spi_panel_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 57 0>;
+	qcom,platform-reset-gpio = <&tlmm 42 0>;
+	qcom,platform-spi-dc-gpio = <&tlmm 39 0>;
+
+	vddio-supply = <&pms405_l6>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <2800000>;
+			qcom,supply-max-voltage = <2800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
+&sdhc_2 {
+	/delete-property/ qcom,nonhotplug;
+
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+			&sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_cd_off>;
+	cd-gpios = <&tlmm 21 GPIO_ACTIVE_LOW>;
+};

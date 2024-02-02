@@ -1,0 +1,501 @@
+Qualcomm Technologies, Inc. GPU
+
+Qualcomm Technologies, Inc. Adreno GPU
+
+Required properties:
+- label:		A string used as a descriptive name for the device.
+- compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
+- reg:			Specifies the register base address and size, the shader memory
+			base address and size (if it exists), base address and size
+			of the CX_DBGC block (if it exists), and the base address and
+			size of the CX_MISC block (if it exists), and the base address and size of
+			QDSS_GFX block (if it exists).
+- reg-names:		Resource names used for the physical address of device registers
+			and shader memory. "kgsl_3d0_reg_memory" gives the physical address
+			and length of device registers while "kgsl_3d0_shader_memory" gives
+			physical address and length of device shader memory.  If
+			specified, "qfprom_memory" gives the range for the efuse
+			registers used for various configuration options. If specified,
+			"kgsl_3d0_cx_dbgc_memory" gives the physical address and length
+			of the CX DBGC block. If specified, "cx_misc" gives
+			the physical address and length of the CX_MISC block. If specified,
+			"qdss_gfx" provides the physical address and length of the
+			QDSS_GFX_DBG block.
+- interrupts:		Interrupt mapping for GPU IRQ.
+- interrupt-names:	String property to describe the name of the interrupt.
+- qcom,id:		An integer used as an identification number for the device.
+- qcom,gpu-bimc-interface-clk-freq:
+			GPU-BIMC interface clock needs to be set to this value for
+			targets where B/W requirements does not meet GPU Turbo use cases.
+- clocks:		List of phandle and clock specifier pairs, one pair
+			for each clock input to the device.
+- clock-names:		List of clock input name strings sorted in the same
+			order as the clocks property.
+				Current values of clock-names are:
+				"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
+				"alt_mem_iface_clk", "rbbmtimer_clk",  "alwayson_clk",
+				"iref_clk", "l3_vote"
+				"core_clk" and "iface_clk" are required and others are optional
+
+- qcom,base-leakage-coefficient: Dynamic leakage coefficient.
+- qcom,lm-limit:	Current limit for GPU limit management.
+- qcom,isense-clk-on-level: below or equal this power level isense clock is at XO rate,
+				above this powerlevel isense clock is at working frequency.
+
+Bus Scaling Data:
+- qcom,msm-bus,name: String property to describe the name of the 3D graphics processor.
+- qcom,msm-bus,num-cases: This is the the number of Bus Scaling use cases defined in the vectors property.
+- qcom,msm-bus,active-only: A boolean flag indicating if it is active only.
+- qcom,msm-bus,num-paths: This represents the number of paths in each Bus Scaling Usecase.
+- qcom,msm-bus,vectors-KBps: A series of 4 cell properties, format of which is:
+						<src dst ab ib>, <src dst ab ib>, // For Bus Scaling Usecase 1
+						<src dst ab ib>, <src dst ab ib>, // For Bus Scaling Usecase 2
+						<..  ..  .. ..>, <..  ..  .. ..>; // For Bus Scaling Usecase n
+						This property is a series of all vectors for all Bus Scaling Usecases.
+						Each set of vectors for each usecase describes bandwidth votes for a combination
+						of src/dst ports.  The driver will set the desired use case based on the selected
+						power level and the desired bandwidth vote will be registered for the port pairs.
+					Current values of src are:
+						0 = MSM_BUS_MASTER_GRAPHICS_3D
+						1 = MSM_BUS_MASTER_GRAPHICS_3D_PORT1
+						2 = MSM_BUS_MASTER_V_OCMEM_GFX3D
+					Current values of dst are:
+						0 = MSM_BUS_SLAVE_EBI_CH0
+						1 = MSM_BUS_SLAVE_OCMEM
+					ab: Represents aggregated bandwidth. This value is 0 for Graphics.
+					ib: Represents instantaneous bandwidth. This value has a range <0 8000 MB/s>
+
+- qcom,ocmem-bus-client: Container for another set of bus scaling properties
+						qcom,msm-bus,name
+						qcom,msm-bus,num-cases
+						qcom,msm-bus,num-paths
+						qcom,msm-bus,vectors-KBps
+			to be used by ocmem msm bus scaling client.
+
+- qcom,cpu-to-ahb-path: Container for another set of bus scaling properties
+                        qcom,msm-bus,name
+                        qcom,msm-bus,num-cases
+                        qcom,msm-bus,num-paths
+                        qcom,msm-bus,vectors-KBps
+			to be used for keeping all clocks ON in CPU to GPU AHB config path.
+
+GDSC Oxili Regulators:
+- regulator-names:		List of regulator name strings sorted in power-on order
+- vddcx-supply:			Phandle for vddcx regulator device node.
+- vdd-supply:			Phandle for vdd regulator device node.
+
+IOMMU Data:
+- iommu:			Phandle for the KGSL IOMMU device node
+
+GPU Power levels:
+- qcom,gpu-pwrlevel-bins:	Container for sets of GPU power levels (see
+				adreno-pwrlevels.txt)
+DCVS Core info
+- qcom,dcvs-core-info		Container for the DCVS core info (see
+				dcvs-core-info.txt)
+
+Optional Properties:
+- qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
+			   and when coming back out of resume
+- qcom,throttle-pwrlevel:  This value indicates which qcom,gpu-pwrlevel LM throttling
+			   may start to occur
+- qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
+- qcom,bus-width:	   Bus width in number of bytes. This enables dynamic AB bus voting based on
+			   bus width and actual bus transactions.
+- qcom,gpubw-dev:	   a phandle to a device representing bus bandwidth requirements
+			   (see devdw.txt)
+- qcom,idle-timeout:	   This property represents the time in milliseconds for idle timeout.
+- qcom,no-nap:		   If it exists software clockgating will be disabled at boot time.
+- qcom,chipid:		   If it exists this property is used to replace
+			   the chip identification read from the GPU hardware.
+			   This is used to override faulty hardware readings.
+- qcom,disable-wake-on-touch:   Boolean. Disables the GPU power up on a touch input event.
+- qcom,disable-busy-time-burst:
+				Boolean. Disables the busy time burst to avoid switching
+				of power level for large frames based on the busy time limit.
+
+- qcom,pm-qos-active-latency:
+				Right after GPU wakes up from sleep, driver votes for
+				acceptable maximum latency to the pm-qos driver. This
+				voting demands that the system can not go into any
+				power save state *if* the latency to bring system back
+				into active state is more than this value.
+				Value is in microseconds.
+- qcom,pm-qos-wakeup-latency:
+				Similar to the above. Driver votes against deep low
+				power modes right before GPU wakes up from sleep.
+- qcom,l2pc-cpu-mask-latency:
+				The CPU mask latency in microseconds to avoid L2PC
+				on masked CPUs.
+
+- qcom,gpu-cx-ipeak:
+				CX Ipeak is a mitigation scheme which throttles cDSP frequency
+				if all the clients are running at their respective threshold
+				frequencies to limit CX peak current.
+				<phandle bit>
+				phandle - phandle of CX Ipeak device node
+				bit     - Every bit corresponds to a client of CX Ipeak
+				driver in the relevant register.
+- qcom, gpu-cx-ipeak-freq:
+				GPU frequency threshold for CX Ipeak voting. GPU votes
+				to CX Ipeak driver when GPU clock crosses this threshold.
+				CX Ipeak can limit peak current based on voting from other clients.
+
+- qcom,force-32bit:
+				Force the GPU to use 32 bit data sizes even if
+				it is capable of doing 64 bit.
+
+- qcom,gpu-speed-bin:      GPU speed bin information in the format
+			   <offset mask shift>
+				offset - offset of the efuse register from the base.
+				mask   - mask for the relevant bits in the efuse register.
+				shift  - number of bits to right shift to get the speed bin
+				value.
+
+- qcom,gpu-gaming-bin:  	GPU gaming bin information in the format
+				<offset mask shift>
+				offset - offset of the efuse register from the base.
+				mask   - mask for the relevant bits in the efuse register.
+				shift  - number of bits to right shift to get the value of
+				relevant bits.
+
+- qcom,gpu-disable-fuse:	GPU disable fuse
+				<offset mask shift>
+				offset - offset of the efuse register from the base.
+				mask   - mask for the relevant bits in the efuse register.
+				shift  - number of bits to right shift to get the disable_gpu
+				fuse bit value.
+
+- qcom,soc-hw-rev-efuse:	SOC hardware revision fuse information in the format
+				<offset bit_position mask>
+				offset - offset of the efuse register from the base.
+				bit_position - hardware revision starting bit in the efuse register.
+				mask - mask for the relevant bits in the efuse register.
+
+- qcom,highest-bank-bit:
+				Specify the bit of the highest DDR bank. This
+				is programmed into protected registers and also
+				passed to the user as a property.
+- qcom,min-access-length:
+				Specify the minimum access length for the chip.
+				Either 32 or 64 bytes.
+				Based on the above options, program the appropriate bit into
+				certain protected registers and also pass to the user as
+				a property.
+- qcom,ubwc-mode:
+				Specify the ubwc mode for this chip.
+				1: UBWC 1.0
+				2: UBWC 2.0
+				3: UBWC 3.0
+				Based on the ubwc mode, program the appropriate bit into
+				certain protected registers and also pass to the user as
+				a property.
+- qcom,macrotiling-channels:
+				Specify the number of macrotiling channels for this chip.
+				This is programmed into certain registers and also pass to
+				the user as a property.
+- qcom,l2pc-cpu-mask:
+				Disables L2PC on masked CPUs when any of Graphics
+				rendering thread is running on masked CPUs.
+				Bit 0 is for CPU-0, bit 1 is for CPU-1...
+
+- qcom,l2pc-update-queue:
+				Disables L2PC on masked CPUs at queue time when it's true.
+
+- qcom,snapshot-size:
+				Specify the size of snapshot in bytes. This will override
+				snapshot size defined in the driver code.
+
+- qcom,enable-ca-jump:
+                                Boolean. Enables use of context aware DCVS
+- qcom,ca-busy-penalty:
+                                This property represents the time in microseconds required to
+                                initiate context aware power level jump.
+- qcom,ca-target-pwrlevel:
+                                This value indicates which qcom,gpu-pwrlevel to jump on in case
+                                of context aware power level jump.
+
+- qcom,gpu-qdss-stm:
+				<baseAddr size>
+				baseAddr - base address of the gpu channels in the qdss stm memory region
+				size     - size of the gpu stm region
+
+- qcom,gpu-qtimer:
+				<baseAddr size>
+				baseAddr - base address of the qtimer memory region
+				size     - size of the qtimer region
+
+- qcom,tsens-name:
+				Specify the name of GPU temperature sensor. This name will be used
+				to get the temperature from the thermal driver API.
+
+- tzone-names:
+				Specify the names of GPU thermal zones. These will be used
+				to get the temperature from the thermal driver API.
+
+- qcom,enable-midframe-timer:
+				Boolean. Enables the use of midframe sampling timer. This timer
+				samples the GPU powerstats if the cmdbatch expiry takes longer than
+				the threshold set by KGSL_GOVERNOR_CALL_INTERVAL. Enable only if
+				target has NAP state enabled.
+
+GPU Quirks:
+- qcom,gpu-quirk-two-pass-use-wfi:
+				Signal the GPU to set Set TWOPASSUSEWFI bit in
+				PC_DBG_ECO_CNTL (5XX and 6XX only)
+- qcom,gpu-quirk-critical-packets:
+				Submit a set of critical PM4 packets when the GPU wakes up
+- qcom,gpu-quirk-fault-detect-mask:
+				Mask out RB1-3 activity signals from HW hang
+				detection logic
+- qcom,gpu-quirk-dp2clockgating-disable:
+				Disable RB sampler data path clock gating optimization
+- qcom,gpu-quirk-lmloadkill-disable:
+				Use register setting to disable local memory(LM) feature
+				to avoid corner case error
+- qcom,gpu-quirk-hfi-use-reg:
+				Use registers to replace DCVS HFI message to avoid GMU failure
+				to access system memory during IFPC
+- qcom,gpu-quirk-limit-uche-gbif-rw:
+				Limit number of read and write transactions from UCHE block to
+				GBIF to avoid possible deadlock between GBIF, SMMU and MEMNOC.
+- qcom,gpu-quirk-mmu-secure-cb-alt:
+				Select alternate secure context bank to generate SID1 for
+				secure playback.
+
+KGSL Memory Pools:
+- qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets
+				(pools) can be defined within qcom,gpu-mempools.
+				Each mempool defines a pool order, reserved pages,
+				allocation allowed.
+Properties:
+- compatible:			Must be qcom,gpu-mempools.
+- qcom,mempool-max-pages:	Max pages for all mempools, If not defined there is no limit.
+- qcom,gpu-mempool:		Defines a set of mempools.
+
+Properties:
+- reg:				Index of the pool (0 = lowest pool order).
+- qcom,mempool-page-size:	Size of page.
+- qcom,mempool-reserved:	Number of pages reserved at init time for a pool.
+- qcom,mempool-allocate:	Allocate memory from the system memory when the
+				reserved pool exhausted.
+
+SOC Hardware revisions:
+- qcom,soc-hw-revisions:
+		Container of sets of SOC hardware revisions specified by
+		qcom,soc-hw-revision.
+Properties:
+- compatible:
+		Must be qcom,soc-hw-revisions.
+
+- qcom,soc-hw-revision:
+		Defines a SOC hardware revision.
+
+Properties:
+-  qcom,soc-hw-revision:
+		Identifier for the hardware revision - must match the value read
+		from the hardware.
+- qcom,chipid:
+		GPU Chip ID to be used for this hardware revision.
+- qcom,gpu-quirk-*:
+		GPU quirks applicable for this hardware revision.
+
+GPU LLC slice info:
+- cache-slice-names:		List of LLC cache slices for GPU transactions
+				and pagetable walk.
+- cache-slices:			phandle to the system LLC driver, cache slice index.
+
+L3 Power levels:
+- qcom,l3-pwrlevels:		Container for sets of L3 power levels, the
+				L3 frequency is adjusted according to the
+				performance hint received from userspace.
+
+Properties:
+- compatible:			Must be qcom,l3-pwrlevels
+- qcom,l3-pwrlevel:		A single L3 powerlevel
+
+Properties:
+- reg:				Index of the L3 powerlevel
+				0 = powerlevel for no L3 vote
+				1 = powerlevel for medium L3 vote
+				2 = powerlevel for maximum L3 vote
+- qcom,l3-freq:			The L3 frequency for the powerlevel (in Hz)
+
+GPU coresight info:
+The following properties are optional as collecting data via coresight might
+not be supported for every chipset. The documentation for coresight
+properties can be found in:
+Documentation/devicetree/bindings/coresight/coresight.txt
+
+- qcom,gpu-coresights:	 Container for sets of GPU coresight sources.
+- coresight-id:          Unique integer identifier for the bus.
+- coresight-name:        Unique descriptive name of the bus.
+- coresight-nr-inports:  Number of input ports on the bus.
+- coresight-outports:    List of output port numbers on the bus.
+- coresight-child-list:  List of phandles pointing to the children of this
+                         component.
+- coresight-child-ports: List of input port numbers of the children.
+- coresight-atid:        The unique ATID value of the coresight device
+
+Example of A330 GPU in MSM8916:
+
+&soc {
+	msm_gpu: qcom,kgsl-3d0@01c00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0x01c00000 0x10000
+		       0x01c20000 0x20000>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x03000600>;
+
+		qcom,initial-pwrlevel = <1>;
+
+		/* Idle Timeout = HZ/12 */
+		qcom,idle-timeout = <8>;
+		qcom,strtstp-sleepwake;
+
+		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
+			<&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_oxili_gmem_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc clk_gcc_bimc_gpu_clk>;
+		clock-names = "core_clk", "iface_clk", "mem_clk",
+				"mem_iface_clk", "alt_mem_iface_clk";
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<26 512 0 0>,
+			<26 512 0 1600000>,
+			<26 512 0 3200000>,
+			<26 512 0 4264000>;
+
+		/* GDSC oxili regulators */
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* IOMMU Data */
+		iommu = <&gfx_iommu>;
+
+		/* Trace bus */
+		coresight-id = <67>;
+		coresight-name = "coresight-gfx";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <5>;
+
+		/* Enable context aware freq. scaling */
+		qcom,enable-ca-jump;
+
+		/* Context aware jump busy penalty in us */
+		qcom,ca-busy-penalty = <12000>;
+
+		/* Context aware jump target power level */
+		qcom,ca-target-pwrlevel = <1>;
+
+		qcom,soc-hw-revisions {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible="qcom,soc-hw-revisions";
+
+			qcom,soc-hw-revision@0 {
+				reg = <0>;
+
+				qcom,chipid = <0x06010500>;
+				qcom,gpu-quirk-hfi-use-reg;
+				qcom,gpu-quirk-limit-uche-gbif-rw;
+			};
+
+			qcom,soc-hw-revision@1 {
+				reg = <1>;
+
+				qcom,chipid = <0x06010501>;
+				qcom,gpu-quirk-hfi-use-reg;
+			};
+		};
+
+		/* GPU Mempools */
+		qcom,gpu-mempools {
+			#address-cells= <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-mempools";
+
+			/* 4K Page Pool configuration */
+			qcom,gpu-mempool@0 {
+				reg = <0>;
+				qcom,mempool-page-size = <4096>;
+				qcom,mempool-reserved = <2048>;
+				qcom,mempool-allocate;
+			};
+			/* 8K Page Pool configuration */
+			qcom,gpu-mempool@1 {
+				reg = <1>;
+				qcom,mempool-page-size  = <8192>;
+				qcom,mempool-reserved = <1024>;
+				qcom,mempool-allocate;
+			};
+			/* 64K Page Pool configuration */
+			qcom,gpu-mempool@2 {
+				reg = <2>;
+				qcom,mempool-page-size  = <65536>;
+				qcom,mempool-reserved = <256>;
+			};
+			/* 1M Page Pool configuration */
+			qcom,gpu-mempool@3 {
+				reg = <3>;
+				qcom,mempool-page-size  = <1048576>;
+				qcom,mempool-reserved = <32>;
+			};
+		};
+
+		/* Power levels */
+		qcom,gpu-pwrlevels-bins {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,gpu-pwrlevels-0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,speed-bin = <0>;
+				qcom,ca-target-pwrlevel = <1>;
+
+				qcom,gpu-pwrlevel@0 {
+					reg = <0>;
+					qcom,gpu-freq = <400000000>;
+					qcom,bus-freq = <3>;
+					qcom,io-fraction = <33>;
+				};
+
+				qcom,gpu-pwrlevel@1 {
+					reg = <1>;
+					qcom,gpu-freq = <310000000>;
+					qcom,bus-freq = <2>;
+					qcom,io-fraction = <66>;
+				};
+
+				qcom,gpu-pwrlevel@2 {
+					reg = <2>;
+					qcom,gpu-freq = <200000000>;
+					qcom,bus-freq = <1>;
+					qcom,io-fraction = <100>;
+				};
+
+				qcom,gpu-pwrlevel@3 {
+					reg = <3>;
+					qcom,gpu-freq = <27000000>;
+					qcom,bus-freq = <0>;
+					qcom,io-fraction = <0>;
+				};
+			};
+		};
+
+	};
+};

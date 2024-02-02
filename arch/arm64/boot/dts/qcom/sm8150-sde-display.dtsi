@@ -1,0 +1,983 @@
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-sim-video.dtsi"
+#include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-sim-dsc375-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi-video.dtsi"
+#include "dsi-panel-sim-dualmipi-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi-dsc375-cmd.dtsi"
+#include "dsi-panel-sim-sec-hd-cmd.dtsi"
+#include "dsi-panel-sharp-dsc-4k-video.dtsi"
+#include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
+#include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-truly-dualmipi-wqxga-cmd.dtsi"
+#include "dsi-panel-nt35597-truly-dsc-wqxga-cmd.dtsi"
+#include "dsi-panel-nt35597-truly-dsc-wqxga-video.dtsi"
+#include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
+#include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
+#include "dsi-panel-sharp-1080p-cmd.dtsi"
+#include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
+#include "dsi-panel-s6e3ha3-amoled-dualmipi-wqhd-cmd.dtsi"
+#include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
+#include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
+#include "dsi-panel-sw43404-amoled-dsc-fhd-plus-cmd.dtsi"
+#include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
+#include "dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi"
+#include <dt-bindings/clock/mdss-10nm-pll-clk.h>
+
+&tlmm {
+	display_panel_avdd_eldo_default: display_panel_avdd_eldo_default {
+		mux {
+			pins = "gpio130";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio130";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-high;
+		};
+	};
+};
+
+&soc {
+	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "lab";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "ibb";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+
+	dsi_panel_pwr_supply_no_labibb: dsi_panel_pwr_supply_no_labibb {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+
+	dsi_panel_pwr_supply_vdd_no_labibb: dsi_panel_pwr_supply_vdd_no_labibb {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <857000>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+	};
+
+	dsi_panel_pwr_supply_vdd_labibb: dsi_panel_pwr_supply_vdd_labibb {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <857000>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+
+		qcom,panel-supply-entry@2 {
+			reg = <1>;
+			qcom,supply-name = "lab";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <5200000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@3 {
+			reg = <2>;
+			qcom,supply-name = "ibb";
+			qcom,supply-min-voltage = <800000>;
+			qcom,supply-max-voltage = <5400000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+
+	display_panel_avdd_eldo: display-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_avdd_eldo";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 130 0>;
+		enable-active-high;
+		regulator-boot-on;
+		pinctrl-names = "default";
+		pintctrl-0 = <&display_panel_avdd_eldo_default>;
+	};
+
+	dsi_sharp_4k_dsc_video_display: qcom,dsi-display@0 {
+		label = "dsi_sharp_4k_dsc_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sharp_4k_dsc_video>;
+	};
+
+	dsi_sharp_4k_dsc_cmd_display: qcom,dsi-display@1 {
+		label = "dsi_sharp_4k_dsc_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sharp_4k_dsc_cmd>;
+	};
+
+	dsi_sharp_1080_cmd_display: qcom,dsi-display@2 {
+		label = "dsi_sharp_1080_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
+	};
+
+	dsi_dual_sharp_1080_120hz_cmd_display: qcom,dsi-display@3 {
+		label = "dsi_dual_sharp_1080_120hz_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_sharp_1080_120hz_cmd>;
+	};
+
+	dsi_dual_nt35597_truly_video_display: qcom,dsi-display@4 {
+		label = "dsi_dual_nt35597_truly_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_nt35597_truly_video>;
+	};
+
+	dsi_dual_nt35597_truly_cmd_display: qcom,dsi-display@5 {
+		label = "dsi_dual_nt35597_truly_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_nt35597_truly_cmd>;
+	};
+
+	dsi_nt35597_truly_dsc_cmd_display: qcom,dsi-display@6 {
+		label = "dsi_nt35597_truly_dsc_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35597_truly_dsc_cmd>;
+	};
+
+	dsi_nt35597_truly_dsc_video_display: qcom,dsi-display@7 {
+		label = "dsi_nt35597_truly_dsc_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35597_truly_dsc_video>;
+	};
+
+	dsi_sim_vid_display: qcom,dsi-display@8 {
+		label = "dsi_sim_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sim_vid>;
+	};
+
+	dsi_dual_sim_vid_display: qcom,dsi-display@9 {
+		label = "dsi_dual_sim_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_sim_vid>;
+	};
+
+	dsi_sim_cmd_display: qcom,dsi-display@10 {
+		label = "dsi_sim_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sim_cmd>;
+	};
+
+	dsi_dual_sim_cmd_display: qcom,dsi-display@11 {
+		label = "dsi_dual_sim_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_sim_cmd>;
+	};
+
+	dsi_sim_dsc_375_cmd_display: qcom,dsi-display@12 {
+		label = "dsi_sim_dsc_375_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sim_dsc_375_cmd>;
+	};
+
+	dsi_dual_sim_dsc_375_cmd_display: qcom,dsi-display@13 {
+		label = "dsi_dual_sim_dsc_375_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_sim_dsc_375_cmd>;
+	};
+
+	dsi_sw43404_amoled_cmd_display: qcom,dsi-display@14 {
+		label = "dsi_sw43404_amoled_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sw43404_amoled_cmd>;
+	};
+
+	dsi_nt35695b_truly_fhd_cmd_display: qcom,dsi-display@15 {
+		label = "dsi_nt35695b_truly_fhd_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
+
+	};
+
+	dsi_nt35695b_truly_fhd_video_display: qcom,dsi-display@16 {
+		label = "dsi_nt35695b_truly_fhd_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_video>;
+	};
+
+	dsi_sw43404_amoled_video_display: qcom,dsi-display@17 {
+		label = "dsi_sw43404_amoled_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sw43404_amoled_video>;
+	};
+
+	dsi_sw43404_amoled_fhd_plus_cmd_display: qcom,dsi-display@18 {
+		label = "dsi_sw43404_amoled_fhd_plus_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sw43404_amoled_fhd_plus_cmd>;
+	};
+
+	dsi_dual_nt36850_truly_cmd_display: qcom,dsi-display@19 {
+		label = "dsi_dual_nt36850_truly_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_dual_nt36850_truly_cmd>;
+	};
+
+	dsi_nt35695b_truly_fhd_cmd_sec_display: qcom,dsi-display@20 {
+		label = "dsi_nt35695b_truly_fhd_cmd_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
+
+	};
+
+	dsi_nt35695b_truly_fhd_video_sec_display: qcom,dsi-display@21 {
+		label = "dsi_nt35695b_truly_fhd_video_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_video>;
+	};
+
+	dsi_sim_sec_hd_cmd_display: qcom,dsi-display@22 {
+
+		label = "dsi_sim_sec_hd_cmd_display";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl-num = <1>;
+		qcom,dsi-phy-num = <1>;
+		qcom,dsi-select-clocks = "mux_byte_clk1", "mux_pixel_clk1";
+
+		qcom,dsi-panel = <&dsi_sim_sec_hd_cmd>;
+	};
+
+	dsi_rm69299_visionox_amoled_vid_display: qcom,dsi-display@23 {
+		label = "dsi_rm69299_visionox_amoled_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_rm69299_visionox_amoled_video>;
+	};
+
+	sde_dsi: qcom,dsi-display-primary {
+		compatible = "qcom,dsi-display";
+		label = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll CPHY_BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi0_pll CPHY_PCLK_SRC_0_CLK>,
+			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll CPHY_BYTECLK_SRC_1_CLK>,
+			 <&mdss_dsi1_pll CPHY_PCLK_SRC_1_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			      "cphy_byte_clk0", "cphy_pixel_clk0",
+			      "mux_byte_clk1", "mux_pixel_clk1",
+			      "cphy_byte_clk1", "cphy_pixel_clk1";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 8 0>;
+		qcom,panel-te-source = <0>;
+
+		vddio-supply = <&pm8150_l14>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		vdd-supply = <&display_panel_avdd_eldo>;
+
+		qcom,dsi-display-list =
+			<&dsi_sharp_4k_dsc_video_display
+			&dsi_sharp_4k_dsc_cmd_display
+			&dsi_sharp_1080_cmd_display
+			&dsi_dual_sharp_1080_120hz_cmd_display
+			&dsi_dual_nt35597_truly_video_display
+			&dsi_dual_nt35597_truly_cmd_display
+			&dsi_nt35597_truly_dsc_cmd_display
+			&dsi_nt35597_truly_dsc_video_display
+			&dsi_sim_vid_display
+			&dsi_dual_sim_vid_display
+			&dsi_sim_cmd_display
+			&dsi_dual_sim_cmd_display
+			&dsi_sim_dsc_375_cmd_display
+			&dsi_dual_sim_dsc_375_cmd_display
+			&dsi_sw43404_amoled_cmd_display
+			&dsi_nt35695b_truly_fhd_cmd_display
+			&dsi_nt35695b_truly_fhd_video_display
+			&dsi_sw43404_amoled_video_display
+			&dsi_sw43404_amoled_fhd_plus_cmd_display
+			&dsi_rm69299_visionox_amoled_vid_display
+			&dsi_dual_nt36850_truly_cmd_display>;
+	};
+
+	sde_dsi1: qcom,dsi-display-secondary {
+		compatible = "qcom,dsi-display";
+		label = "secondary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
+			 <&mdss_dsi0_pll CPHY_BYTECLK_SRC_0_CLK>,
+			 <&mdss_dsi0_pll CPHY_PCLK_SRC_0_CLK>,
+			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>,
+			 <&mdss_dsi1_pll CPHY_BYTECLK_SRC_1_CLK>,
+			 <&mdss_dsi1_pll CPHY_PCLK_SRC_1_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
+			      "cphy_byte_clk0", "cphy_pixel_clk0",
+			      "mux_byte_clk1", "mux_pixel_clk1",
+			      "cphy_byte_clk1", "cphy_pixel_clk1";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi1_active &sde_te1_active>;
+		pinctrl-1 = <&sde_dsi1_suspend &sde_te1_suspend>;
+
+		qcom,platform-te-gpio = <&tlmm 9 0>;
+		qcom,panel-te-source = <1>;
+
+		vddio-supply = <&pm8150_l14>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		vdd-supply = <&display_panel_avdd_eldo>;
+
+		qcom,dsi-display-list =
+			<&dsi_nt35695b_truly_fhd_cmd_sec_display
+			&dsi_nt35695b_truly_fhd_video_sec_display
+			&dsi_sim_sec_hd_cmd_display>;
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+};
+
+&sde_dp {
+	qcom,dp-usbpd-detection = <&pm8150b_pdphy>;
+	qcom,ext-disp = <&ext_disp>;
+	qcom,dp-aux-switch = <&fsa4480>;
+
+	qcom,usbplug-cc-gpio = <&tlmm 38 0>;
+
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&sde_dp_usbplug_cc_active>;
+	pinctrl-1 = <&sde_dp_usbplug_cc_suspend>;
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dp &sde_dsi &sde_dsi1>;
+};
+
+/* PHY TIMINGS REVISION T */
+&dsi_dual_nt35597_truly_video {
+	qcom,dsi-supported-dfps-list = <60 55 53>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_rm69299_visionox_amoled_video {
+	qcom,mdss-dsi-t-clk-post = <0x0E>;
+	qcom,mdss-dsi-t-clk-pre = <0x31>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 20 08 08 24 23 08
+				08 05 02 04 00 18 17];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt35597_truly_dsc_cmd {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 15 05 05 20 1f 05
+				05 03 02 04 00 12 15];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>, /* dsc merge */
+						<2 1 1>; /* 3d mux */
+			qcom,default-topology-index = <1>;
+		};
+	};
+};
+
+&dsi_nt35597_truly_dsc_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 15 05 05 20 1f 05
+				05 03 02 04 00 12 15];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>, /* dsc merge */
+						<2 1 1>; /* 3d mux */
+			qcom,default-topology-index = <1>;
+		};
+	};
+};
+
+&dsi_sharp_4k_dsc_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0c];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x77>;
+	qcom,mdss-dsi-panel-on-check-value = <0x77>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-qsync-min-refresh-rate = <55>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sharp_4k_dsc_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0c];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x77>;
+	qcom,mdss-dsi-panel-on-check-value = <0x77>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt35695b_truly_fhd_video {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
+				08 08 05 02 04 00 19 17];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt35695b_truly_fhd_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
+				08 08 05 02 04 00 19 17];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_sec_hd_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
+				08 08 05 02 04 00 19 17];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+	};
+};
+
+&dsi_dual_sharp_1080_120hz_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
+				09 06 02 04 00];
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sharp_1080_cmd {
+	qcom,ulps-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1E 08 08 24 22 08
+				08 05 02 04 00];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+			qcom,mdss-dsi-panel-clockrate = <900000000>;
+		};
+	};
+};
+
+&dsi_sim_vid {
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <1 0 1>,
+						<2 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_sim_vid {
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>;
+			qcom,default-topology-index = <1>;
+			qcom,panel-roi-alignment = <720 40 720 40 720 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>;
+			qcom,default-topology-index = <1>;
+			qcom,panel-roi-alignment = <540 40 540 40 540 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+
+		timing@2{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>;
+			qcom,default-topology-index = <1>;
+			qcom,panel-roi-alignment = <360 40 360 40 360 40>;
+			qcom,partial-update-enabled = "single_roi";
+		};
+	};
+};
+
+&dsi_dual_sim_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
+				09 06 02 04 00 18 17];
+			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@2{
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sim_dsc_375_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 { /* 1080p */
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1 { /* qhd */
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <1 1 1>,
+						<2 2 1>, /* dsc merge */
+						<2 1 1>; /* 3d mux */
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_sim_dsc_375_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-display-timings {
+		timing@0 { /* qhd */
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 02 04 00 18 17];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1 { /* 4k */
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sw43404_amoled_cmd {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 16 05 05 20 1f 06
+				06 03 03 04 00 13 15];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sw43404_amoled_fhd_plus_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 12 04 04 1e 1e 04
+				05 02 03 04 00 11 14];
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sw43404_amoled_video {
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1a 07 06 22 21 07
+				07 04 02 04 00 16 16];
+			/*qcom,mdss-dsi-panel-clockrate = <700000000>;*/
+			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sharp_1080_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x18>;
+	qcom,mdss-dsi-t-clk-pre = <0x19>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
+			       07 04 03 04 00 16 16];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 1f 08 08 24 23 08
+				08 05 03 04 00 1a 18];
+			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+			qcom,mdss-mdp-transfer-time-us = <16700>;
+		};
+	};
+};
+

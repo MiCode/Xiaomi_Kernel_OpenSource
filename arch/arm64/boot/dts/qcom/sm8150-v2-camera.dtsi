@@ -1,0 +1,340 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	cam_vfe0: qcom,vfe0@acaf000 {
+		cell-index = <0>;
+		compatible = "qcom,vfe175";
+		reg-names = "ife", "cam_camnoc";
+		reg = <0xacaf000 0x4000>,
+			<0xac42000 0x5000>;
+		reg-cam-base = <0xaf000 0x42000>;
+		interrupt-names = "ife";
+		interrupts = <0 465 0>;
+		regulator-names = "camss", "ife0";
+		camss-supply = <&titan_top_gdsc>;
+		ife0-supply = <&ife_0_gdsc>;
+		clock-names =
+			"ife_clk_src",
+			"ife_clk",
+			"ife_axi_clk";
+		clocks =
+			<&clock_camcc CAM_CC_IFE_0_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_AXI_CLK>;
+		clock-rates =
+			<400000000 0 0>,
+			<558000000 0 0>,
+			<637000000 0 0>,
+			<847000000 0 0>,
+			<950000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+			"nominal", "turbo";
+		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
+		clock-names-option =  "ife_dsp_clk";
+		clocks-option = <&clock_camcc CAM_CC_IFE_0_DSP_CLK>;
+		clock-rates-option = <760000000>;
+		status = "ok";
+	};
+
+	cam_csid0: qcom,csid0@acb3000 {
+		cell-index = <0>;
+		compatible = "qcom,csid175";
+		reg-names = "csid";
+		reg = <0xacb3000 0x1000>;
+		reg-cam-base = <0xb3000>;
+		interrupt-names = "csid";
+		interrupts = <0 464 0>;
+		regulator-names = "camss", "ife0";
+		camss-supply = <&titan_top_gdsc>;
+		ife0-supply = <&ife_0_gdsc>;
+		clock-names =
+			"ife_csid_clk_src",
+			"ife_csid_clk",
+			"cphy_rx_clk_src",
+			"ife_cphy_rx_clk",
+			"ife_clk_src",
+			"ife_clk",
+			"ife_axi_clk";
+		clocks =
+			<&clock_camcc CAM_CC_IFE_0_CSID_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CSID_CLK>,
+			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_AXI_CLK>;
+		clock-rates =
+			<400000000 0 0 0 400000000 0 0>,
+			<400000000 0 0 0 558000000 0 0>,
+			<480000000 0 0 0 637000000 0 0>,
+			<600000000 0 0 0 847000000 0 0>,
+			<600000000 0 0 0 950000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+			"nominal", "turbo";
+		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
+		status = "ok";
+	};
+
+	cam_vfe1: qcom,vfe1@acb6000 {
+		cell-index = <1>;
+		compatible = "qcom,vfe175";
+		reg-names = "ife", "cam_camnoc";
+		reg = <0xacb6000 0x4000>,
+			<0xac42000 0x5000>;
+		reg-cam-base = <0xb6000 0x42000>;
+		interrupt-names = "ife";
+		interrupts = <0 467 0>;
+		regulator-names = "camss", "ife1";
+		camss-supply = <&titan_top_gdsc>;
+		ife1-supply = <&ife_1_gdsc>;
+		clock-names =
+			"ife_clk_src",
+			"ife_clk",
+			"ife_axi_clk";
+		clocks =
+			<&clock_camcc CAM_CC_IFE_1_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_1_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_AXI_CLK>;
+		clock-rates =
+			<400000000 0 0>,
+			<558000000 0 0>,
+			<637000000 0 0>,
+			<847000000 0 0>,
+			<950000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+			"nominal", "turbo";
+		src-clock-name = "ife_clk_src";
+		clock-control-debugfs = "true";
+		clock-names-option =  "ife_dsp_clk";
+		clocks-option = <&clock_camcc CAM_CC_IFE_1_DSP_CLK>;
+		clock-rates-option = <760000000>;
+		status = "ok";
+	};
+
+	cam_csid1: qcom,csid1@acba000 {
+		cell-index = <1>;
+		compatible = "qcom,csid175";
+		reg-names = "csid";
+		reg = <0xacba000 0x1000>;
+		reg-cam-base = <0xba000>;
+		interrupt-names = "csid";
+		interrupts = <0 466 0>;
+		regulator-names = "camss", "ife1";
+		camss-supply = <&titan_top_gdsc>;
+		ife1-supply = <&ife_1_gdsc>;
+		clock-names =
+			"ife_csid_clk_src",
+			"ife_csid_clk",
+			"cphy_rx_clk_src",
+			"ife_cphy_rx_clk",
+			"ife_clk_src",
+			"ife_clk",
+			"ife_axi_clk";
+		clocks =
+			<&clock_camcc CAM_CC_IFE_1_CSID_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_1_CSID_CLK>,
+			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_1_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_AXI_CLK>;
+		clock-rates =
+			<400000000 0 0 0 400000000 0 0>,
+			<400000000 0 0 0 558000000 0 0>,
+			<480000000 0 0 0 637000000 0 0>,
+			<600000000 0 0 0 847000000 0 0>,
+			<600000000 0 0 0 950000000 0 0>;
+		clock-cntl-level = "lowsvs", "svs", "svs_l1",
+			"nominal", "turbo";
+		src-clock-name = "ife_csid_clk_src";
+		clock-control-debugfs = "true";
+		status = "ok";
+	};
+
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+		status = "ok";
+
+		msm_cam_smmu_ife {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x840 0x620>,
+				<&apps_smmu 0x860 0x620>,
+				<&apps_smmu 0xA40 0x620>,
+				<&apps_smmu 0xA60 0x620>,
+				<&apps_smmu 0xC40 0x620>,
+				<&apps_smmu 0xC60 0x620>,
+				<&apps_smmu 0xE40 0x620>,
+				<&apps_smmu 0xE60 0x620>;
+			label = "ife";
+			ife_iova_mem_map: iova-mem-map {
+				/* IO region is approximately 3.4 GB */
+				iova-mem-region-io {
+					iova-region-name = "io";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0xd8c00000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+
+		msm_cam_smmu_jpeg {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x2180 0x20>,
+				<&apps_smmu 0x21A0 0x20>;
+			label = "jpeg";
+			jpeg_iova_mem_map: iova-mem-map {
+				/* IO region is approximately 3.4 GB */
+				iova-mem-region-io {
+					iova-region-name = "io";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0xd8c00000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+
+		msm_cam_icp_fw {
+			compatible = "qcom,msm-cam-smmu-fw-dev";
+			label="icp";
+			memory-region = <&pil_camera_mem>;
+		};
+
+		msm_cam_smmu_icp {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x2222 0x0>,
+				<&apps_smmu 0x2080 0x20>,
+				<&apps_smmu 0x20A0 0x20>,
+				<&apps_smmu 0x2100 0x20>,
+				<&apps_smmu 0x2120 0x20>,
+				<&apps_smmu 0x20C0 0x0>,
+				<&apps_smmu 0x2140 0x0>;
+			label = "icp";
+			icp_iova_mem_map: iova-mem-map {
+				iova-mem-region-firmware {
+					/* Firmware region is 5MB */
+					iova-region-name = "firmware";
+					iova-region-start = <0x0>;
+					iova-region-len = <0x500000>;
+					iova-region-id = <0x0>;
+					status = "ok";
+				};
+
+				iova-mem-region-shared {
+					/* Shared region is 150MB long */
+					iova-region-name = "shared";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0x9600000>;
+					iova-region-id = <0x1>;
+					status = "ok";
+				};
+
+				iova-mem-region-secondary-heap {
+					/* Secondary heap region is 1MB long */
+					iova-region-name = "secheap";
+					iova-region-start = <0x10A00000>;
+					iova-region-len = <0x100000>;
+					iova-region-id = <0x4>;
+					status = "ok";
+				};
+
+				iova-mem-region-io {
+					/* IO region is approximately 3.3 GB */
+					iova-region-name = "io";
+					iova-region-start = <0x10C00000>;
+					iova-region-len = <0xCF300000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+
+				iova-mem-qdss-region {
+					/* QDSS region is appropriate 1MB */
+					iova-region-name = "qdss";
+					iova-region-start = <0x10B00000>;
+					iova-region-len = <0x100000>;
+					iova-region-id = <0x5>;
+					qdss-phy-addr = <0x16790000>;
+					status = "ok";
+				};
+			};
+		};
+
+		msm_cam_smmu_cpas_cdm {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x2000 0x0>;
+			label = "cpas-cdm0";
+			cpas_cdm_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					/* IO region is approximately 3.4 GB */
+					iova-region-name = "io";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0xd8c00000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+
+		msm_cam_smmu_secure {
+			compatible = "qcom,msm-cam-smmu-cb";
+			label = "cam-secure";
+			qcom,secure-cb;
+		};
+
+		msm_cam_smmu_fd {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x21C0 0x20>,
+				<&apps_smmu 0x21E0 0x20>;
+			label = "fd";
+			fd_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					/* IO region is approximately 3.4 GB */
+					iova-region-name = "io";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0xd8c00000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+
+		msm_cam_smmu_lrme {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x20e0 0x0>,
+				<&apps_smmu 0x2160 0x0>;
+			label = "lrme";
+			lrme_iova_mem_map: iova-mem-map {
+				iova-mem-region-shared {
+					/* Shared region is 100MB long */
+					iova-region-name = "shared";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0x6400000>;
+					iova-region-id = <0x1>;
+					status = "ok";
+				};
+				/* IO region is approximately 3.3 GB */
+				iova-mem-region-io {
+					iova-region-name = "io";
+					iova-region-start = <0xd800000>;
+					iova-region-len = <0xd2800000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+	};
+};

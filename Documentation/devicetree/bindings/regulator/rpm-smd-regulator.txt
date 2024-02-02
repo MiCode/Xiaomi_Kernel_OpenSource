@@ -1,0 +1,336 @@
+Qualcomm RPM Regulators
+
+rpm-regulator-smd is a regulator driver which supports regulators inside of
+PMICs which are controlled by the RPM processor.  Communication with the RPM
+processor takes place over SMD.
+
+Required structure:
+- RPM regulators must be described in two levels of devices nodes.  The first
+	level describes the interface with the RPM.  The second level describes
+	properties of one regulator framework interface (of potentially many) to
+	the regulator.
+
+[First Level Nodes]
+
+Required properties:
+- compatible:          Must be "qcom,rpm-smd-regulator-resource"
+- qcom,resource-name:  Resource name string for this regulator to be used in RPM
+			transactions.  Length is 4 characters max.
+- qcom,resource-id:    Resource instance ID for this regulator to be used in RPM
+			transactions.
+- qcom,regulator-type: Type of this regulator.  Supported values are:
+				0 = LDO
+				1 = SMPS
+				2 = VS
+				3 = NCP
+				4 = Buck or Boost (BoB)
+
+Optional properties:
+- qcom,allow-atomic:   Flag specifying if atomic access is allowed for this
+			regulator.  Supported values are:
+				0 or not present = mutex locks used
+				1 = spinlocks used
+- qcom,enable-time:    Time in us to delay after enabling the regulator
+- qcom,hpm-min-load:   Load current in uA which corresponds to the minimum load
+			which requires the regulator to be in high power mode.
+- qcom,apps-only:      Flag which indicates that the regulator only has
+			consumers on the application processor. If this flag
+			is specified, then voltage and current updates are
+			only sent to the RPM if the regulator is enabled.
+- qcom,always-wait-for-ack:   Flag which indicates that the application
+			processor must wait for an ACK or a NACK from the RPM
+			for every request sent for this regulator including
+			those which are for a strictly lower power state.
+
+- qcom,regulator-hw-type: Specifies the regulator LDO hardware type. This
+			  property must be specified if "qcom,regulator-type"
+			  has been specified with a value of 0 (LDO).
+
+			  Must be one of the below:
+			  "pmic4-ldo" for PMIC4.
+			  "pmic5-ldo" for PMIC5.
+
+[Second Level Nodes]
+
+Required properties:
+- compatible:          Must be "qcom,rpm-smd-regulator"
+- regulator-name:      A string used as a descriptive name for regulator outputs
+- qcom,set:            Specifies which sets that requests made with this
+			regulator interface should be sent to.  Regulator
+			requests sent in the active set take effect immediately.
+			Requests sent in the sleep set take effect when the Apps
+			processor transitions into RPM assisted power collapse.
+			Supported values are:
+				1 = Active set only
+				2 = Sleep set only
+				3 = Both active and sleep sets
+
+
+
+Optional properties:
+- parent-supply:               phandle to the parent supply/regulator node
+- qcom,system-load:            Load in uA present on regulator that is not
+				captured by any consumer request
+- qcom,use-voltage-corner:     Flag that signifies if regulator_set_voltage
+				calls should modify the corner parameter instead
+				of the voltage parameter.  When used, voltages
+				specified inside of the regulator framework
+				represent corners that have been incremented by
+				1.  This value shift is necessary to work around
+				limitations in the regulator framework which
+				treat 0 uV as an error.
+- qcom,use-voltage-floor-corner:  Flag that signifies if regulator_set_voltage
+				calls should modify the floor corner parameter
+				instead of the voltage parameter.  When used,
+				voltages specified inside of the regulator
+				framework represent corners that have been
+				incremented by 1.  The properties
+				qcom,use-voltage-corner and
+				qcom,use-voltage-floor-corner are mutually
+				exclusive.  Only one may be specified for a
+				given regulator.
+- qcom,use-voltage-level:      Flag that signifies if regulator_set_voltage
+				calls should modify the level parameter instead
+				of the voltage parameter.
+- qcom,use-voltage-floor-level:   Flag that signifies if regulator_set_voltage
+				calls should modify the floor level parameter
+				instead of the voltage parameter.
+				The properties qcom,use-voltage-level and
+				qcom,use-voltage-floor-level are mutually
+				exclusive.  Only one may be specified for a
+				given regulator.
+- qcom,use-pin-ctrl-voltage1:  Flag which indicates that updates to voltage
+				should be sent to the pin control voltage 1
+				parameter. Only one pin may be specified per
+				regulator. This property only applies to BoB
+				type regulators.
+- qcom,use-pin-ctrl-voltage2:  Flag which indicates that updates to voltage
+				should be sent to the pin control voltage 2
+				parameter. Only one pin may be specified per
+				regulator. This property only applies to BoB
+				type regulators.
+- qcom,use-pin-ctrl-voltage3:  Flag which indicates that updates to voltage
+				should be sent to the pin control voltage 3
+				parameter. Only one pin may be specified per
+				regulator. This property only applies to BoB
+				type regulators.
+- qcom,always-send-voltage:    Flag which indicates that updates to the
+				voltage, voltage corner or voltage level set
+				point should always be sent immediately to the
+				RPM. If this flag is not specified, then
+				voltage set point updates are only sent if the
+				given regulator has also been enabled by a
+				Linux consumer.
+- qcom,always-send-current:    Flag which indicates that updates to the load
+				current should always be sent immediately to the
+				RPM.  If this flag is not specified, then load
+				current updates are only sent if the given
+				regulator has also been enabled by a Linux
+				consumer.
+- qcom,send-defaults:          Boolean flag which indicates that the initial
+				parameter values should be sent to the RPM
+				before consumers make their own requests.  If
+				this flag is not specified, then initial
+				parameters values will only be sent after some
+				consumer makes a request.
+- qcom,enable-with-pin-ctrl:   Double in which the first element corresponds to
+				the pin control enable parameter value to send
+				when all consumers have requested the regulator
+				to be disabled.  The second element corresponds
+				to the pin control enable parameter value to
+				send when any consumer has requested the
+				regulator to be enabled.  Each element supports
+				the same set of values as the
+				qcom,init-pin-ctrl-enable property listed below.
+
+The following properties specify initial values for parameters to be sent to the
+RPM in regulator requests.
+- qcom,init-enable:            0 = regulator disabled
+			       1 = regulator enabled
+- qcom,init-voltage:           Voltage in uV
+- qcom,init-current:           Current in mA
+- qcom,init-ldo-mode:          Operating mode to be used with LDO regulators
+				Supported values are:
+					0 = mode determined by current requests
+					1 = force HPM (NPM)
+- qcom,init-smps-mode:         Operating mode to be used with SMPS regulators
+				Supported values are:
+					0 = auto; hardware determines mode
+					1 = mode determined by current requests
+					2 = force HPM (PWM)
+- qcom,init-bob-mode:          Operating mode to be used with BoB regulators
+				Supported values are:
+					0 = pass; use priority order
+					1 = force PFM
+					2 = auto; hardware determines mode
+					3 = force PWM
+- qcom,init-pin-ctrl-enable:   Bit mask specifying which hardware pins should be
+				used to enable the regulator, if any; supported
+				bits are:
+					0 = ignore all hardware enable signals
+					BIT(0) = follow HW0_EN signal
+					BIT(1) = follow HW1_EN signal
+					BIT(2) = follow HW2_EN signal
+					BIT(3) = follow HW3_EN signal
+- qcom,init-pin-ctrl-mode:     Bit mask specifying which hardware pins should be
+				used to force the regulator into high power
+				mode, if any.  Supported bits are:
+					0 = ignore all hardware enable signals
+					BIT(0) = follow HW0_EN signal
+					BIT(1) = follow HW1_EN signal
+					BIT(2) = follow HW2_EN signal
+					BIT(3) = follow HW3_EN signal
+					BIT(4) = follow PMIC awake state
+- qcom,init-pin-ctrl-voltage1: Minimum voltage in micro-volts to use while pin
+				control 1 is enabled. This property only
+				applies to BoB type regulators.
+- qcom,init-pin-ctrl-voltage2: Minimum voltage in micro-volts to use while pin
+				control 2 is enabled. This property only
+				applies to BoB type regulators.
+- qcom,init-pin-ctrl-voltage3: Minimum voltage in micro-volts to use while pin
+				control 3 is enabled. This property only
+				applies to BoB type regulators.
+- qcom,init-frequency:         Switching frequency divisor for SMPS regulators.
+				Supported values are n = 0 to 31 where
+				freq = 19.2 MHz / (n + 1).
+- qcom,init-head-room:         Voltage head room in mV required for the
+				regulator.  This head room value should be used
+				in situations where the device connected to the
+				output of the regulator has low noise tolerance.
+				Note that the RPM independently enforces a
+				safety head room value for subregulated LDOs
+				which is sufficient to account for LDO drop-out
+				voltage.
+- qcom,init-quiet-mode:        Specify that quiet mode is needed for an SMPS
+				regulator in order to have lower output noise.
+				Supported values are:
+					0 = No quiet mode
+					1 = Quiet mode
+					2 = Super quiet mode
+- qcom,init-freq-reason:       Consumer requiring specified frequency for an
+				SMPS regulator.  Supported values are:
+					0 = None
+					1 = Bluetooth
+					2 = GPS
+					4 = WLAN
+					8 = WAN
+- qcom,init-voltage-corner:    Performance corner to use in order to determine
+				voltage set point.  This value corresponds to
+				the actual value that will be sent and is not
+				incremented by 1 like the values used inside of
+				the regulator framework.  The meaning of corner
+				values is set by the RPM.  It is possible that
+				different regulators on a given platform or
+				similar regulators on different platforms will
+				utilize different corner values.  These are
+				corner values supported on MSM8974 for PMIC
+				PM8841 SMPS 2 (VDD_Dig); nominal voltages for
+				these corners are also shown:
+					0 = None         (don't care)
+					1 = Retention    (0.5000 V)
+					2 = SVS Krait    (0.7250 V)
+					3 = SVS SOC      (0.8125 V)
+					4 = Normal       (0.9000 V)
+					5 = Turbo        (0.9875 V)
+					6 = Super Turbo  (1.0500 V)
+- qcom,init-disallow-bypass:   Specify that bypass mode should not be used for a
+				given LDO regulator.  When in bypass mode, an
+				LDO performs no regulation and acts as a simple
+				switch.  The RPM can utilize this mode for an
+				LDO that is subregulated from an SMPS when it is
+				possible to reduce the SMPS voltage to the
+				desired LDO output level.  Bypass mode may be
+				disallowed if lower LDO output noise is
+				required.  Supported values are:
+					0 = Allow RPM to utilize LDO bypass mode
+						if possible
+					1 = Disallow LDO bypass mode
+- qcom,init-voltage-floor-corner:  Minimum performance corner to use if any
+				processor in the system is awake.  This property
+				supports the same values as
+				qcom,init-voltage-corner.
+- qcom,init-voltage-level:     Performance level to use in order to determine
+				voltage set point. The meaning of level
+				values is set by the RPM. It is possible that
+				different regulators on a given platform or
+				similar regulators on different platforms will
+				utilize different level values. These are
+				level values supported on MSM8952 for PMIC
+				PM8952 SMPS 2 (VDD_Dig); nominal voltages for
+				these level are also shown:
+					16  = Retention    (0.5000 V)
+					128 = SVS          (1.0500 V)
+					192 = SVS+         (1.1550 V)
+					256 = Normal       (1.2250 V)
+					320 = Normal+      (1.2875 V)
+					384 = Turbo        (1.3500 V)
+- qcom,init-voltage-floor-level:   Minimum performance level to use if any
+				processor in the system is awake. This property
+				supports the same values as
+				qcom,init-voltage-level.
+
+All properties specified within the core regulator framework can also be used in
+second level nodes.  These bindings can be found in:
+Documentation/devicetree/bindings/regulator/regulator.txt.
+
+Examples:
+
+rpm-regulator-smpb1 {
+	qcom,resource-name = "smpb";
+	qcom,resource-id = <1>;
+	qcom,regulator-type = <1>;
+	qcom,hpm-min-load = <100000>;
+	compatible = "qcom,rpm-smd-regulator-resource";
+	status = "disabled";
+
+	pm8841_s1: regulator-s1 {
+		regulator-name = "8841_s1";
+		qcom,set = <3>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <1150000>;
+		qcom,init-voltage = <1150000>;
+		compatible = "qcom,rpm-smd-regulator";
+	};
+	pm8841_s1_ao: regulator-s1-ao {
+		regulator-name = "8841_s1_ao";
+		qcom,set = <1>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <1150000>;
+		compatible = "qcom,rpm-smd-regulator";
+	};
+	pm8841_s1_corner: regulator-s1-corner {
+		regulator-name = "8841_s1_corner";
+		qcom,set = <3>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <6>;
+		qcom,init-voltage-corner = <3>;
+		qcom,use-voltage-corner;
+		compatible = "qcom,rpm-smd-regulator";
+	};
+};
+
+rpm-regulator-ldoa2 {
+	qcom,resource-name = "ldoa";
+	qcom,resource-id = <2>;
+	qcom,regulator-type = <0>;
+	qcom,hpm-min-load = <10000>;
+	compatible = "qcom,rpm-smd-regulator-resource";
+
+	regulator-l2 {
+		compatible = "qcom,rpm-smd-regulator";
+		regulator-name = "8941_l2";
+		qcom,set = <3>;
+		regulator-min-microvolt = <1225000>;
+		regulator-max-microvolt = <1225000>;
+		qcom,init-voltage = <1225000>;
+	};
+	regulator-l2-pin-ctrl {
+		compatible = "qcom,rpm-smd-regulator";
+		regulator-name = "8941_l2_pin_ctrl";
+		qcom,set = <3>;
+		regulator-min-microvolt = <1225000>;
+		regulator-max-microvolt = <1225000>;
+		qcom,init-voltage = <1225000>;
+		qcom,enable-with-pin-ctrl = <0 1>;
+	};
+};

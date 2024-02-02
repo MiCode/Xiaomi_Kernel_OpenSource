@@ -1,0 +1,331 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	lpi_tlmm: lpi_pinctrl@62b40000 {
+		compatible = "qcom,lpi-pinctrl";
+		reg = <0x62b40000 0x0>;
+		qcom,num-gpios = <32>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,
+				      <0x00002000>, <0x00003000>,
+				      <0x00004000>, <0x00005000>,
+				      <0x00006000>, <0x00007000>,
+				      <0x00008000>, <0x00009000>,
+				      <0x0000A000>, <0x0000B000>,
+				      <0x0000C000>, <0x0000D000>,
+				      <0x0000E000>, <0x0000F000>,
+				      <0x00010000>, <0x00011000>,
+				      <0x00012000>, <0x00013000>,
+				      <0x00014000>, <0x00015000>,
+				      <0x00016000>, <0x00017000>,
+				      <0x00018000>, <0x00019000>,
+				      <0x0001A000>, <0x0001B000>,
+				      <0x0001C000>, <0x0001D000>,
+				      <0x0001E000>, <0x0001F000>;
+
+		clock-names = "lpass_core_hw_vote";
+		clocks = <&lpass_core_hw_vote 0>;
+
+		lpi_wcd934x_reset_active: lpi_wcd934x_reset_active {
+			mux {
+				pins = "gpio29";
+				function = "func2";
+			};
+			config {
+				pins = "gpio29";
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		lpi_wcd934x_reset_sleep: lpi_wcd934x_reset_sleep {
+			mux {
+				pins = "gpio29";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio29";
+				drive-strength = <16>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		lpi_wcd937x_reset_active: lpi_wcd937x_reset_active {
+			mux {
+				pins = "gpio24";
+				function = "func2";
+			};
+			config {
+				pins = "gpio24";
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		lpi_wcd937x_reset_sleep: lpi_wcd937x_reset_sleep {
+			mux {
+				pins = "gpio24";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio24";
+				drive-strength = <16>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic01_clk_active: dmic01_clk_active {
+			mux {
+				pins = "gpio26";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio26";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic01_clk_sleep: dmic01_clk_sleep {
+			mux {
+				pins = "gpio26";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio26";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic01_data_active: dmic01_data_active {
+			mux {
+				pins = "gpio27";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio27";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic01_data_sleep: dmic01_data_sleep {
+			mux {
+				pins = "gpio27";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio27";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		cdc_dmic23_clk_active: dmic23_clk_active {
+			mux {
+				pins = "gpio28";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio28";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic23_clk_sleep: dmic23_clk_sleep {
+			mux {
+				pins = "gpio28";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio28";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic23_data_active: dmic23_data_active {
+			mux {
+				pins = "gpio29";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio29";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic23_data_sleep: dmic23_data_sleep {
+			mux {
+				pins = "gpio29";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio29";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		tx_swr_clk_sleep: tx_swr_clk_sleep {
+			mux {
+				pins = "gpio18";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_clk_active: tx_swr_clk_active {
+			mux {
+				pins = "gpio18";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data1_sleep: tx_swr_data1_sleep {
+			mux {
+				pins = "gpio19";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio19";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data1_active: tx_swr_data1_active {
+			mux {
+				pins = "gpio19";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio19";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_sleep: tx_swr_data2_sleep {
+			mux {
+				pins = "gpio20";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_active: tx_swr_data2_active {
+			mux {
+				pins = "gpio20";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_clk_sleep: rx_swr_clk_sleep {
+			mux {
+				pins = "gpio21";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_clk_active: rx_swr_clk_active {
+			mux {
+				pins = "gpio21";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_data_sleep: rx_swr_data_sleep {
+			mux {
+				pins = "gpio22", "gpio23";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_data_active: rx_swr_data_active {
+			mux {
+				pins = "gpio22", "gpio23";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio22", "gpio23";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+	};
+};

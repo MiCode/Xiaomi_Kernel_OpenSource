@@ -1,0 +1,88 @@
+* QSEECOM (QTI Secure Execution Environment Communicator)
+
+Required properties:
+- compatible : Should be "qcom,qseecom"
+- reg : should contain memory region address reserved for loading secure apps.
+- qcom,disk-encrypt-pipe-pair : indicates what CE HW pipe pair is used for disk encryption
+- qcom,file-encrypt-pipe-pair : indicates what CE HW pipe pair is used for file encryption
+- qcom,support-multiple-ce-hw-instance : indicates if multicore CE support is supported.
+- qcom,hlos-num-ce-hw-instances : indicates number of CE HW instances hlos can use.
+- qcom,hlos-ce-hw-instance : indicates what CE HW is used by HLOS crypto driver
+- qcom,qsee-ce-hw-instance : indicates what CE HW is used by secure domain (TZ) crypto driver
+- qcom, msm_bus,name: Should be "qseecom-noc"
+- qcom, msm_bus,num_cases: Depends on the use cases for bus scaling
+- qcom, msm_bus,num_paths: The paths for source and destination ports
+- qcom, msm_bus,vectors: Vectors for bus topology.
+- qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
+- qcom,full-disk-encrypt-info : Vectors defining full disk encryption unit, crypto engine, pipe pair configuration in <unit#, ce#, pipe-pair#>
+- qcom,per-file-encrypt-info : Vectors defining per file encryption unit, crypto engine, pipe pair configuration in <unit#, ce#, pipe-pair#>
+
+Optional properties:
+  - qcom,support-bus-scaling : indicates if driver support scaling the bus for crypto operation.
+  - qcom,support-fde : indicates if driver support key managing for full disk encryption feature.
+  - qcom,support-pfe : indicates if driver support key managing for per file encryption feature.
+  - qcom,no-clock-support : indicates clocks are not handled by qseecom (could be handled by RPM)
+  - qcom,appsbl-qseecom-support : indicates if there is qseecom support in appsbootloader
+  - vdd-hba-supply   : handle for fixed power regulator
+  - qcom,qsee-reentrancy-support: indicates the qsee reentrancy phase supported by the target
+  - qcom,commonlib64-loaded-by-uefi: indicates commonlib64 is loaded by uefi already
+  - qcom,fde-key-size: indicates which FDE key size is used in device.
+  - qcom,enable-key-wrap-in-ks: enables wrapping of ICE key with KS key.
+
+Example:
+	qcom,qseecom@fe806000 {
+		compatible = "qcom,qseecom";
+		reg = <0x7f00000 0x500000>;
+		reg-names = "secapp-region";
+                qcom,disk-encrypt-pipe-pair = <2>;
+                qcom,file-encrypt-pipe-pair = <0>;
+		qcom,support-multiple-ce-hw-instance;
+		qcom,hlos-num-ce-hw-instances = <2>;
+		qcom,hlos-ce-hw-instance = <1 2>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,support-fde;
+		qcom,enable-key-wrap-in-ks;
+		qcom,support-pfe;
+		qcom,msm_bus,name = "qseecom-noc";
+		qcom,msm_bus,num_cases = <4>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+                qcom,fde-key-size;
+		qcom,msm_bus,vectors =
+			<55 512 0 0>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>;
+		qcom,ce-opp-freq = <100000000>;
+		vdd-hba-supply = <&gdsc_ufs>;
+	};
+
+Example: The following dts setup is the same as the example above.
+
+	qcom,qseecom@fe806000 {
+		compatible = "qcom,qseecom";
+		reg = <0x7f00000 0x500000>;
+		reg-names = "secapp-region";
+		qcom,support-fde;
+		qcom,enable-key-wrap-in-ks;
+		qcom,full-disk-encrypt-info = <0 1 2>, <0 2 2>;
+		qcom,support-pfe;
+		qcom,per-file-encrypt-info = <0 1 0>, <0 2 0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm_bus,name = "qseecom-noc";
+		qcom,msm_bus,num_cases = <4>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+                qcom,fde-key-size;
+		qcom,msm_bus,vectors =
+			<55 512 0 0>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>;
+		qcom,ce-opp-freq = <100000000>;
+		vdd-hba-supply = <&gdsc_ufs>;
+	};

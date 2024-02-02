@@ -1,0 +1,90 @@
+ION Memory Manager (ION)
+
+ION is a memory manager that allows for sharing of buffers between different
+processes and between user space and kernel space. ION manages different
+memory spaces by separating the memory spaces into "heaps".
+
+Required properties for Ion
+
+- compatible: "qcom,msm-ion"
+
+
+All child nodes of a qcom,msm-ion node are interpreted as Ion heap
+configurations.
+
+Required properties for Ion heaps
+
+- reg: The ID of the ION heap.
+- qcom,ion-heap-type: The heap type to use for this heap. Should be one of
+  the following:
+    - "SYSTEM"
+    - "CARVEOUT"
+    - "SECURE_CARVEOUT"
+    - "DMA"
+    - "HYP_CMA"
+    - "SYSTEM_SECURE"
+    - "SECURE_DMA"
+
+Optional properties for Ion heaps
+
+- memory-region: phandle to memory region associated with heap.
+
+
+Example:
+	qcom,ion {
+                 compatible = "qcom,msm-ion";
+                 #address-cells = <1>;
+                 #size-cells = <0>;
+
+                 system_heap: qcom,ion-heap@25 {
+                        reg = <25>;
+                        qcom,ion-heap-type = "SYSTEM";
+                 };
+
+                 qcom,ion-heap@22 { /* ADSP HEAP */
+                        reg = <22>;
+                        memory-region = <&adsp_mem>;
+                        qcom,ion-heap-type = "DMA";
+                 };
+
+                 qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */
+                        reg = <10>;
+                        memory-region = <&secure_display_memory>;
+                        qcom,ion-heap-type = "HYP_CMA";
+                 };
+
+                 qcom,ion-heap@9 {
+                        reg = <9>;
+                        qcom,ion-heap-type = "SYSTEM_SECURE";
+                 };
+
+        };
+
+"SECURE_CARVEOUT"
+
+This heap type is expected to contain multiple child nodes. Each child node
+shall contain the following required properties:
+
+- memory-region:
+Refer to Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+
+- token:
+A u32 containing the set of secure domains which will be able to access the
+memory-region.
+
+Example:
+qcom,ion {
+	compatible = "qcom,msm-ion";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	qcom,ion-heap@14 {
+		reg = <14>;
+		qcom,ion-heap-type = "SECURE_CARVEOUT";
+
+		node1 {
+			memory-region = <&cp_region>;
+			token = <ION_FLAG_CP_TOUCH>;
+		};
+	};
+};

@@ -1,0 +1,38 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&bolero {
+	va_macro: va_macro {
+		compatible = "qcom,va-macro";
+		reg = <0x0C490000 0x0>;
+		clock-names = "va_core_clk";
+		clocks = <&clock_audio_va 0>;
+		va-vdd-micb-supply = <&pms405_l7>;
+		qcom,va-vdd-micb-voltage = <1800000 1800000>;
+		qcom,va-vdd-micb-current = <9000>;
+		qcom,va-dmic-sample-rate = <2400000>;
+	};
+};
+
+&soc {
+	clock_audio_va: va_core_clk  {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <2>;
+		qcom,codec-lpass-ext-clk-freq = <9600000>;
+		qcom,codec-lpass-clk-id = <0x30B>;
+		#clock-cells = <1>;
+	};
+};
+
+&va_cdc_dma_0_tx {
+	qcom,msm-dai-is-island-supported = <1>;
+};

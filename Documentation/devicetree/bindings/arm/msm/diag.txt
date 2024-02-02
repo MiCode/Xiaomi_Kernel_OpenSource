@@ -1,0 +1,19 @@
+Qualcomm Technologies, Inc. Diagnostic Services
+
+Diag is used for generating Diagnostic Packets (F3s, Logs and Events) from the application
+processor. It also support sending and receiving commands/responses to/from the target.
+Diag will also communicate with MDM through either USB or HSIC bridge. This node will decide
+which interface diag need to choose to communicate with MDM. This node will enable USB as the
+bridge interface otherwise diag will choose HSIC (MHI) as the default bridge interface.
+
+Required properties:
+-compatible: should be "qcom,diag"
+-qcom,usb-enabled: this will enable usb as the bridge interface for diag
+		   to communicate with remote peripheral.
+
+Example:
+
+	qcom,diag {
+		compatible = "qcom,diag";
+		qcom,usb-enabled;
+	};

@@ -1,0 +1,166 @@
+source "drivers/video/fbdev/msm/msm_dba/Kconfig"
+
+if FB_MSM
+
+config FB_MSM_MDSS_COMMON
+	bool
+
+choice
+	prompt "MDP HW version"
+	default FB_MSM_MDP
+
+config FB_MSM_MDP
+	bool "MDP HW"
+	select FB_MSM_MDP_HW
+	---help---
+	The Mobile Display Processor (MDP) driver support devices which
+	contain MDP hardware block.
+
+	Support for MSM MDP HW revision 2.2.
+	Say Y here if this is msm7201 variant platform.
+
+config FB_MSM_MDSS
+	bool "MDSS HW"
+	select SYNC_FILE
+	select FB_MSM_MDSS_COMMON
+	---help---
+	The Mobile Display Sub System (MDSS) driver supports devices which
+	contain MDSS hardware block.
+
+	The MDSS driver implements frame buffer interface to provide access to
+	the display hardware and provide a way for users to display graphics
+	on connected display panels.
+
+config FB_MSM_MDP_NONE
+	bool "MDP HW None"
+	---help---
+	This is used for platforms without Mobile Display Sub System (MDSS).
+	mdm platform don't have MDSS hardware block.
+
+	Say Y here if this is mdm platform.
+
+endchoice
+
+config FB_MSM_QPIC
+	bool
+	select FB_MSM_MDSS_COMMON
+
+config FB_MSM_QPIC_ILI_QVGA_PANEL
+	bool "Qpic MIPI ILI QVGA Panel"
+	select FB_MSM_QPIC
+	---help---
+	Support for MIPI ILI QVGA (240x320) panel ILI TECHNOLOGY 9341
+	with on-chip full display RAM use parallel interface.
+
+config FB_MSM_QPIC_PANEL_DETECT
+	bool "Qpic Panel Detect"
+	select FB_MSM_QPIC_ILI_QVGA_PANEL
+	---help---
+	Support for Qpic panel auto detect.
+
+config FB_MSM_MDSS_WRITEBACK
+	bool "MDSS Writeback Panel"
+	---help---
+	The MDSS Writeback Panel provides support for routing the output of
+	MDSS frame buffer driver and MDP processing to memory.
+
+config FB_MSM_MDSS_HDMI_PANEL
+	bool "MDSS HDMI Tx Panel"
+	depends on FB_MSM_MDSS
+	select MSM_EXT_DISPLAY
+	default n
+	---help---
+	The MDSS HDMI Panel provides support for transmitting TMDS signals of
+	MDSS frame buffer data to connected hdmi compliant TVs, monitors etc.
+
+config FB_MSM_MDSS_HDMI_MHL_SII8334
+	depends on FB_MSM_MDSS_HDMI_PANEL
+	bool 'MHL SII8334 support '
+	default n
+	---help---
+	Support the HDMI to MHL conversion.
+	MHL (Mobile High-Definition Link) technology
+	uses USB connector to output HDMI content
+
+config FB_MSM_MDSS_SPI_PANEL
+	depends on SPI_QUP
+	bool "Support SPI panel feature"
+	---help---
+	The MDSS SPI Panel provides support for transmittimg SPI signals of
+	MDSS frame buffer data to connected panel. Limited by SPI clock rate,
+	the current max fps only reach to ~30 fps with 240x240 resolution, and
+	limited by MDP hardware architecture only supply GPU compostition.
+
+config FB_MSM_MDSS_RGB_PANEL
+	depends on FB_MSM_MDSS
+	bool "Support RGB panel feature"
+	---help---
+	The MDSS RGB Panel provides support for transmitting
+	MDSS frame buffer data over RGB parallel interface
+	connected to RGB panel. Panel on/off sequence commands
+	are sent to RGB Panel through an SPI interface.
+
+config FB_MSM_MDSS_MHL3
+	depends on FB_MSM_MDSS_HDMI_PANEL
+	bool "MHL3 SII8620 Support"
+	default n
+	---help---
+	Support the SiliconImage 8620 MHL Tx transmitter that uses
+	USB connector to output HDMI content. Transmitter is an
+	i2c device acting as an HDMI to MHL bridge. Chip supports
+	MHL 3.0 standard.
+
+config FB_MSM_MDSS_DSI_CTRL_STATUS
+	tristate "DSI controller status check feature"
+	---help---
+	Check DSI controller status periodically (default period is 5
+	seconds) by sending Bus-Turn-Around (BTA) command. If DSI controller
+	fails to acknowledge the BTA command, it sends PANEL_ALIVE=0 status
+	to HAL layer to reset the controller.
+
+config FB_MSM_MDSS_DP_PANEL
+        depends on FB_MSM_MDSS
+        select MSM_EXT_DISPLAY
+        bool "MDSS DP Panel"
+        ---help---
+	The MDSS DP Panel provides support for DP host controller driver
+	which runs in Video mode only and is responsible for transmitting
+	frame buffer from host SOC to DP display panel.
+
+	support for DP display panel.
+
+config FB_MSM_MDSS_EDP_PANEL
+	depends on FB_MSM_MDSS
+	bool "MDSS eDP Panel"
+	---help---
+	The MDSS eDP Panel provides support for eDP host controller driver.
+	Which runs in Video mode only and is responsible for transmitting
+	frame buffer from host SOC to eDP display panel.
+
+config FB_MSM_MDSS_MDP3
+	depends on FB_MSM_MDSS
+	bool "MDP3 display controller"
+	---help---
+	The MDP3 provides support for an older version display controller.
+	Included in latest display sub-system, known as MDSS.
+
+config FB_MSM_MDSS_XLOG_DEBUG
+	depends on FB_MSM_MDSS
+	bool "Enable MDSS debugging"
+	---help---
+	The MDSS debugging provides support to enable display debugging
+	features to: Dump MDSS registers during driver errors, panic
+	driver during fatal errors and enable some display-driver logging
+	into an internal buffer (this avoids logging overhead).
+
+config FB_MSM_MDSS_FRC_DEBUG
+	depends on DEBUG_FS && FB_MSM_MDSS
+	bool "Enable Video FRC debugging"
+	default n
+	---help---
+	The MDSS FRC debugging provides support to enable the deterministic
+	frame rate control (FRC) debugging features to: Collect video frame
+	statistics and check whether its output pattern matches expected
+	cadence.
+
+endif

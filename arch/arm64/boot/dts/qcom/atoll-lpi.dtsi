@@ -1,0 +1,423 @@
+/*
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&q6core {
+	lpi_tlmm: lpi_pinctrl@627C0000 {
+		compatible = "qcom,lpi-pinctrl";
+		reg = <0x627C0000 0x0>;
+		qcom,num-gpios = <15>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		qcom,slew-reg = <0x6295A000 0x0>;
+		qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,
+				      <0x00002000>, <0x00003000>,
+				      <0x00004000>, <0x00005000>,
+				      <0x00006000>, <0x00007000>,
+				      <0x00008000>, <0x00009000>,
+				      <0x0000A000>, <0x0000B000>,
+				      <0x0000C000>, <0x0000D000>,
+				      <0x0000E000>;
+
+		qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
+					   <0x00000004>, <0x00000008>,
+					   <0x0000000A>, <0x0000000C>,
+					   <0x00000000>, <0x00000000>,
+					   <0x00000000>, <0x00000000>,
+					   <0x00000010>, <0x00000012>,
+					   <0x00000000>, <0x00000000>,
+					   <0x00000000>;
+
+		clock-names = "lpass_core_hw_vote",
+				"lpass_audio_hw_vote";
+		clocks = <&lpass_core_hw_vote 0>,
+				<&lpass_audio_hw_vote 0>;
+
+		cdc_dmic01_clk_active: dmic01_clk_active {
+			mux {
+				pins = "gpio6";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio6";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic01_clk_sleep: dmic01_clk_sleep {
+			mux {
+				pins = "gpio6";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic01_data_active: dmic01_data_active {
+			mux {
+				pins = "gpio7";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio7";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic01_data_sleep: dmic01_data_sleep {
+			mux {
+				pins = "gpio7";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio7";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		cdc_dmic23_clk_active: dmic23_clk_active {
+			mux {
+				pins = "gpio8";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio8";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic23_clk_sleep: dmic23_clk_sleep {
+			mux {
+				pins = "gpio8";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic23_data_active: dmic23_data_active {
+			mux {
+				pins = "gpio9";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio9";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic23_data_sleep: dmic23_data_sleep {
+			mux {
+				pins = "gpio9";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		cdc_dmic45_clk_active: dmic45_clk_active {
+			mux {
+				pins = "gpio12";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio12";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic45_clk_sleep: dmic45_clk_sleep {
+			mux {
+				pins = "gpio12";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio12";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic45_data_active: dmic45_data_active {
+			mux {
+				pins = "gpio13";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio13";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic45_data_sleep: dmic45_data_sleep {
+			mux {
+				pins = "gpio13";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio13";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+
+		tx_swr_clk_sleep: tx_swr_clk_sleep {
+			mux {
+				pins = "gpio0";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio0";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_clk_active: tx_swr_clk_active {
+			mux {
+				pins = "gpio0";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio0";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-disable;
+			};
+		};
+
+		tx_swr_data0_sleep: tx_swr_data0_sleep {
+			mux {
+				pins = "gpio1";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio1";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data0_active: tx_swr_data0_active {
+			mux {
+				pins = "gpio1";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio1";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-bus-hold;
+			};
+		};
+
+		wsa_swr_clk_sleep: wsa_swr_clk_sleep {
+			mux {
+				pins = "gpio10";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio10";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		wsa_swr_clk_active: wsa_swr_clk_active {
+			mux {
+				pins = "gpio10";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio10";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-bus-hold;
+			};
+		};
+
+		wsa_swr_data_sleep: wsa_swr_data_sleep {
+			mux {
+				pins = "gpio11";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		wsa_swr_data_active: wsa_swr_data_active {
+			mux {
+				pins = "gpio11";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data1_sleep: tx_swr_data1_sleep {
+			mux {
+				pins = "gpio2";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio2";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data1_active: tx_swr_data1_active {
+			mux {
+				pins = "gpio2";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio2";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_sleep: tx_swr_data2_sleep {
+			mux {
+				pins = "gpio14";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_active: tx_swr_data2_active {
+			mux {
+				pins = "gpio14";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_clk_sleep: rx_swr_clk_sleep {
+			mux {
+				pins = "gpio3";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio3";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_clk_active: rx_swr_clk_active {
+			mux {
+				pins = "gpio3";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio3";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-disable;
+			};
+		};
+
+		rx_swr_data_sleep: rx_swr_data_sleep {
+			mux {
+				pins = "gpio4", "gpio5";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio4", "gpio5";
+				drive-strength = <10>;
+				bias-bus-hold;
+			};
+		};
+
+		rx_swr_data_active: rx_swr_data_active {
+			mux {
+				pins = "gpio4", "gpio5";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio4", "gpio5";
+				drive-strength = <10>;
+				slew-rate = <3>;
+				bias-bus-hold;
+			};
+		};
+	};
+};

@@ -1,0 +1,119 @@
+Qualcomm Technologies, Inc. SMB1355 Charger Specific Bindings
+
+SMB1355 slave charger is paired with QTI family of standalone chargers to
+enable a high current, low profile Li+ battery charging system.
+
+The device provides 28V DC withstand, wide operating input range of 3.8 to
+14.2V for standard 5V USB inputs as well as a wide variety of HVDCP Travel
+Adapters and is compatible with QTI's Quick Charge technology.
+
+=======================
+Required Node Structure
+=======================
+
+SMB1355 Charger must be described in two levels of device nodes.
+
+==================================
+First Level Node - SMB1355 Charger
+==================================
+
+Charger specific properties:
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,smb1355".
+
+- qcom,pmic-revid
+  Usage:      required
+  Value type: phandle
+  Definition: Should specify the phandle of SMB's revid module. This is used
+	      to identify the SMB subtype.
+
+- qcom,disable-ctm
+  Usage:      optional
+  Value type: <empty>
+  Definition: boolean flag. Usually a thermistor near usb/typeC connector is
+	      connected to AUX. Set this flag to indicate the thermistor
+	      doesn't exist.
+
+- qcom,parallel-mode
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies parallel charging mode. If not specified, MID-MID
+              option is selected by default.
+
+- qcom,stacked-batfet
+  Usage:      optional
+  Value type: <empty>
+  Definition: boolean flag. Specifies if parallel charger has stacked BATFET
+              configuration.
+	      In stacked batfet the main and parallel charger's batfet are
+	      stacked one after the other and thus all the charge current
+	      (FCC) flows through main. In a non-stacked configuration each
+	      charger controls the charge current (FCC) separately.
+
+- qcom,die-temp-threshold-degc
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies DIE temp threshold beyond which h/w starts mitigation.
+	      If not sepcified, 90 degrees centigrade is used.
+
+- qcom,hw-die-temp-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean property to enable h/w controlled die temp mitigation.
+
+- pinctrl-names
+  Usage:      optional
+  Value type: <string-list>
+  Definition: Should be "default".
+		Please refer to pinctrl-bindings.txt
+
+- pinctrl-0
+  Usage:      optional
+  Value type: <phandle-list>
+  Definition: phandle of the pin configuration.
+		Please refer to pinctrl-bindings.txt
+
+================================================
+Second Level Nodes - SMB1355 Charger Peripherals
+================================================
+
+Peripheral specific properties:
+- reg
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Address and size of the peripheral's register block.
+
+- interrupts
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier.
+
+- interrupt-names
+  Usage:      required
+  Value type: <stringlist>
+  Definition: Interrupt names.  This list must match up 1-to-1 with the
+	      interrupts specified in the 'interrupts' property.
+
+=======
+Example
+=======
+
+smb1355_charger: qcom,smb1355-charger {
+	compatible = "qcom,smb1355";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	qcom,chgr@1000 {
+		reg = <0x1000 0x100>;
+		interrupts = <0x10 0x1 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "chg-state-change";
+	};
+
+	qcom,chgr-misc@1600 {
+		reg = <0x1600 0x100>;
+		interrupts = <0x16 0x1 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "wdog-bark";
+	};
+};

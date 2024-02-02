@@ -1,0 +1,33 @@
+* MSM Universal Flash Storage (UFS) PHY
+
+UFSPHY nodes are defined to describe on-chip UFS PHY hardware macro.
+Each UFS PHY node should have its own node.
+
+To bind UFS PHY with UFS host controller, the controller node should
+contain a phandle reference to UFS PHY node.
+
+Required properties:
+- compatible        : compatible list, contains "qcom,ufsphy"
+- reg               : <registers mapping>
+- vdda-phy-supply   : phandle to main PHY supply for analog domain
+- vdda-pll-supply   : phandle to PHY PLL and Power-Gen block power supply
+
+Optional properties:
+- vdda-phy-max-microamp : specifies max. load that can be drawn from phy supply
+- vdda-pll-max-microamp : specifies max. load that can be drawn from pll supply
+
+Example:
+
+	ufsphy1: ufsphy@0xfc597000 {
+		compatible = "qcom,ufsphy";
+		reg = <0xfc597000 0x800>;
+		vdda-phy-supply = <&pma8084_l4>;
+		vdda-pll-supply = <&pma8084_l12>;
+		vdda-phy-max-microamp = <50000>;
+		vdda-pll-max-microamp = <1000>;
+	};
+
+	ufshc@0xfc598000 {
+		...
+		ufs-phy = <&ufsphy1>;
+	};

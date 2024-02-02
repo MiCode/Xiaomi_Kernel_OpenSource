@@ -1,0 +1,27 @@
+# UAPI Header export list
+
+ifeq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/a.out.h),)
+no-export-headers += a.out.h
+endif
+
+header-y += hbtp_input.h
+header-y += qbt1000.h
+
+ifeq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm.h),)
+no-export-headers += kvm.h
+endif
+
+ifeq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm_para.h),)
+no-export-headers += kvm_para.h
+endif
+
+header-y += mhi.h
+header-y += sockev.h
+header-y += nfc/
+header-y += seemp_api.h
+header-y += seemp_param_id.h
+
+ifneq ($(VSERVICES_SUPPORT), "")
+include include/linux/Kbuild.vservices
+endif
+header-y += okl4-link-shbuf.h

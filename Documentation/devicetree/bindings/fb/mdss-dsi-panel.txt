@@ -1,0 +1,840 @@
+Qualcomm Technologies, Inc. mdss-dsi-panel
+
+mdss-dsi-panel is a dsi panel device which supports panels that
+are compatible with MIPI display serial interface specification.
+
+Required properties:
+- compatible:				This property applies to DSI V2 panels only.
+					This property should not be added for panels
+					that work based on version "V6.0"
+					DSI panels that are of different versions
+					are initialized by the drivers for dsi controller.
+					This property specifies the version
+					for DSI HW that this panel will work with
+					"qcom,dsi-panel-v2" = DSI V2.0
+					"qcom,msm-dsi-v2" = DSI V2.0
+- status:        			This property applies to DSI V2 panels only.
+					This property should not be added for panels
+					that work based on version "V6.0"
+					DSI panels that are of different versions
+					are initialized by the drivers for dsi controller.
+					A string that has to be set to "okay/ok"
+					to enable the panel driver. By default this property
+					will be set to "disable". Will be set to "ok/okay"
+					status for specific platforms.
+- qcom,mdss-dsi-panel-controller:	Specifies the phandle for the DSI controller that
+					this panel will be mapped to.
+- qcom,mdss-dsi-panel-width:		Specifies panel width in pixels.
+- qcom,mdss-dsi-panel-height:		Specifies panel height in pixels.
+- qcom,mdss-dsi-bpp:			Specifies the panel bits per pixel.
+					3  = for rgb111
+					8  = for rgb332
+					12 = for rgb444
+					16 = for rgb565
+					18 = for rgb666
+					24 = for rgb888
+- qcom,mdss-dsi-panel-destination:	A string that specifies the destination display for the panel.
+					"display_1" = DISPLAY_1
+					"display_2" = DISPLAY_2
+- qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
+					timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-v2:	An array of length 40 char that specifies the PHY version 2
+					lane timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-12nm: An array of length 8 char that specifies the 12nm DSI PHY
+					lane timing settings for the panel.
+- qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-off-command:		A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-lp-mode-on:		This is used to enable display low persistence mode.
+					A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-lp-mode-off:		This is used to disable display low persistence mode.
+					A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-post-panel-on-command:	same as "qcom,mdss-dsi-on-command" except commands are
+					sent after displaying an image.
+
+- qcom,mdss-dsi-idle-on-command:	same as "qcom,mdss-dsi-on-command". Set of DCS command
+					used for idle mode entry.
+
+- qcom,mdss-dsi-idle-off-command:	same as "qcom,mdss-dsi-on-command". Set of DCS command
+					used for idle mode exit.
+
+Note, if a short DCS packet(i.e packet with Byte 0:dcs data type as 05) mentioned in
+qcom,mdss-dsi-on-command/qcom,mdss-dsi-off-command stream fails to transmit,
+then 3 options can be tried.
+	1. Send the packet as a long packet instead
+				Byte 0: dcs data type = 05 (DCS short Packet)
+				Byte 0: dcs data type = 29 (DCS long Packet)
+	2. Send the packet in one burst by prepending with the next packet in packet stream
+				Byte 1 = 01 (indicates this is an individual packet)
+				Byte 1 = 00 (indicates this will be appended to the next
+					     individual packet in the packet stream)
+	3. Prepend a NULL packet to the short packet and send both in one burst instead of
+	   combining multiple short packets and sending them in one burst.
+
+Optional properties:
+- qcom,mdss-dsi-panel-name:		A string used as a descriptive name of the panel
+- qcom,cmd-sync-wait-broadcast:		Boolean used to broadcast dcs command to panels.
+- qcom,mdss-dsi-fbc-enable:		Boolean used to enable frame buffer compression mode.
+- qcom,mdss-dsi-fbc-slice-height:	Slice height(in lines) of compressed block.
+					Expressed as power of 2. To set as 128 lines,
+					this should be set to 7.
+- qcom,mdss-dsi-fbc-2d-pred-mode:	Boolean to enable 2D map prediction.
+- qcom,mdss-dsi-fbc-ver2-mode:		Boolean to enable FBC 2.0 that supports 1/3
+					compression.
+- qcom,mdss-dsi-fbc-bpp:		Compressed bpp supported by the panel.
+					Specified color order is used as default value.
+- qcom,mdss-dsi-fbc-packing:		Component packing.
+					0 = default value.
+- qcom,mdss-dsi-fbc-quant-error:	Boolean used to enable quantization error calculation.
+- qcom,mdss-dsi-fbc-bias:		Bias for CD.
+					0 = default value.
+- qcom,mdss-dsi-fbc-pat-mode:		Boolean used to enable PAT mode.
+- qcom,mdss-dsi-fbc-vlc-mode:		Boolean used to enable VLC mode.
+- qcom,mdss-dsi-fbc-bflc-mode:		Boolean used to enable BFLC mode.
+- qcom,mdss-dsi-fbc-h-line-budget:	Per line extra budget.
+					0 = default value.
+- qcom,mdss-dsi-fbc-budget-ctrl:		Extra budget level.
+					0 = default value.
+- qcom,mdss-dsi-fbc-block-budget:		Per block budget.
+					0 = default value.
+- qcom,mdss-dsi-fbc-lossless-threshold: Lossless mode threshold.
+					0 = default value.
+- qcom,mdss-dsi-fbc-lossy-threshold:	Lossy mode threshold.
+					0 = default value.
+- qcom,mdss-dsi-fbc-rgb-threshold:	Lossy RGB threshold.
+					0 = default value.
+- qcom,mdss-dsi-fbc-lossy-mode-idx:	Lossy mode index value.
+					0 = default value.
+- qcom,mdss-dsi-fbc-max-pred-err:	Max quantization prediction error.
+					0 = default value
+- qcom,mdss-dsi-h-back-porch:		Horizontal back porch value in pixel.
+					6 = default value.
+- qcom,mdss-dsi-h-front-porch:		Horizontal front porch value in pixel.
+					6 = default value.
+- qcom,mdss-dsi-h-pulse-width:		Horizontal pulse width.
+					2 = default value.
+- qcom,mdss-dsi-h-sync-skew:		Horizontal sync skew value.
+					0 = default value.
+- qcom,mdss-dsi-v-back-porch:		Vertical back porch value in pixel.
+					6 = default value.
+- qcom,mdss-dsi-v-front-porch:		Vertical front porch value in pixel.
+					6 = default value.
+- qcom,mdss-dsi-v-pulse-width:		Vertical pulse width.
+					2 = default value.
+- qcom,mdss-dsi-h-left-border:		Horizontal left border in pixel.
+					0 = default value
+- qcom,mdss-dsi-h-right-border:		Horizontal right border in pixel.
+					0 = default value
+- qcom,mdss-dsi-v-top-border:		Vertical top border in pixel.
+					0 = default value
+- qcom,mdss-dsi-v-bottom-border:	Vertical bottom border in pixel.
+					0 = default value
+- qcom,mdss-dsi-underflow-color:	Specifies the controller settings for the
+					panel under flow color.
+					0xff = default value.
+- qcom,mdss-dsi-border-color:		Defines the border color value if border is present.
+					0 = default value.
+- qcom,mdss-dsi-pan-enable-dynamic-fps:	Boolean used to enable change in frame rate dynamically.
+- qcom,mdss-dsi-pan-fps-update:		A string that specifies when to change the frame rate.
+					"dfps_suspend_resume_mode"= FPS change request is
+					implemented during suspend/resume.
+					"dfps_immediate_clk_mode" = FPS change request is
+					implemented immediately using DSI clocks.
+					"dfps_immediate_porch_mode_hfp" = FPS change request is
+					implemented immediately by changing panel horizontal
+					front porch values.
+					"dfps_immediate_porch_mode_vfp" = FPS change request is
+					implemented immediately by changing panel vertical
+					front porch values.
+- qcom,min-refresh-rate:		Minimum refresh rate supported by the panel.
+- qcom,max-refresh-rate:		Maximum refresh rate supported by the panel. If max refresh
+					rate is not specified, then the frame rate of the panel in
+					qcom,mdss-dsi-panel-framerate is used.
+- qcom,mdss-dsi-bl-pmic-control-type:	A string that specifies the implementation of backlight
+					control for this panel.
+					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
+					"bl_ctrl_wled" = Backlight controlled by WLED.
+					"bl_ctrl_dcs" = Backlight controlled by DCS commands.
+					"bl_ctrl_tlmm_gpio" = Backlight controlled by TLMM GPIO.
+					other: Unknown backlight control. (default)
+- qcom,mdss-dsi-bl-pwm-pmi:		Boolean to indicate that PWM control is through second pmic chip.
+- qcom,mdss-dsi-bl-pmic-bank-select:	LPG channel for backlight.
+					Required if blpmiccontroltype is PWM
+- qcom,mdss-dsi-bl-pmic-pwm-frequency:	PWM period in microseconds.
+					Required if blpmiccontroltype is PWM
+- qcom,mdss-dsi-pwm-gpio:		PMIC gpio binding to backlight.
+					Required if blpmiccontroltype is PWM
+- qcom,mdss-dsi-bl-min-level:		Specifies the min backlight level supported by the panel.
+					0 = default value.
+- qcom,mdss-dsi-bl-max-level:		Specifies the max backlight level supported by the panel.
+					255 = default value.
+- qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
+					255 = default value.
+- qcom,mdss-dsi-interleave-mode:	Specifies interleave mode.
+					0 = default value.
+- qcom,mdss-dsi-panel-type:		Specifies the panel operating mode.
+					"dsi_video_mode" = enable video mode (default).
+					"dsi_cmd_mode" = enable command mode.
+- qcom,5v-boost-gpio:			Specifies the panel gpio for display 5v boost.
+- qcom,mdss-dsi-te-check-enable:	Boolean to enable Tear Check configuration.
+- qcom,mdss-dsi-te-using-te-pin:	Boolean to specify whether using hardware vsync.
+- qcom,mdss-dsi-te-pin-select:		Specifies TE operating mode.
+					0 = TE through embedded dcs command
+					1 = TE through TE gpio pin. (default)
+- qcom,mdss-dsi-te-dcs-command:		Inserts the dcs command.
+					1 = default value.
+- qcom,mdss-dsi-wr-mem-start:		DCS command for write_memory_start.
+					0x2c = default value.
+- qcom,mdss-dsi-wr-mem-continue:	DCS command for write_memory_continue.
+					0x3c = default value.
+- qcom,mdss-dsi-h-sync-pulse:		Specifies the pulse mode option for the panel.
+					0 = Don't send hsa/he following vs/ve packet(default)
+					1 = Send hsa/he following vs/ve packet
+- qcom,mdss-dsi-hfp-power-mode:		Boolean to determine DSI lane state during
+					horizontal front porch (HFP) blanking period.
+- qcom,mdss-dsi-hbp-power-mode:		Boolean to determine DSI lane state during
+					horizontal back porch (HBP) blanking period.
+- qcom,mdss-dsi-hsa-power-mode:		Boolean to determine DSI lane state during
+					horizontal sync active (HSA) mode.
+- qcom,mdss-dsi-last-line-interleave	Boolean to determine if last line
+					interleave flag needs to be enabled.
+- qcom,mdss-dsi-bllp-eof-power-mode:	Boolean to determine DSI lane state during
+					blanking low power period (BLLP) EOF mode.
+- qcom,mdss-dsi-bllp-power-mode:	Boolean to determine DSI lane state during
+					blanking low power period (BLLP) mode.
+- qcom,mdss-dsi-traffic-mode:		Specifies the panel traffic mode.
+					"non_burst_sync_pulse" = non burst with sync pulses (default).
+					"non_burst_sync_event" = non burst with sync start event.
+					"burst_mode" = burst mode.
+- qcom,mdss-dsi-pixel-packing:		Specifies if pixel packing is used (in case of RGB666).
+					"tight" = Tight packing (default value).
+					"loose" = Loose packing.
+- qcom,mdss-dsi-virtual-channel-id:	Specifies the virtual channel identefier.
+					0 = default value.
+- qcom,mdss-dsi-color-order:		Specifies the R, G and B channel ordering.
+					"rgb_swap_rgb" = DSI_RGB_SWAP_RGB (default value)
+					"rgb_swap_rbg" = DSI_RGB_SWAP_RBG
+					"rgb_swap_brg" = DSI_RGB_SWAP_BRG
+					"rgb_swap_grb" = DSI_RGB_SWAP_GRB
+					"rgb_swap_gbr" = DSI_RGB_SWAP_GBR
+- qcom,mdss-dsi-lane-0-state:		Boolean that specifies whether data lane 0 is enabled.
+- qcom,mdss-dsi-lane-1-state:		Boolean that specifies whether data lane 1 is enabled.
+- qcom,mdss-dsi-lane-2-state:		Boolean that specifies whether data lane 2 is enabled.
+- qcom,mdss-dsi-lane-3-state:		Boolean that specifies whether data lane 3 is enabled.
+- qcom,mdss-dsi-t-clk-post:		Specifies the byte clock cycles after mode switch.
+					0x03 = default value.
+- qcom,mdss-dsi-t-clk-pre:		Specifies the byte clock cycles before mode switch.
+					0x24 = default value.
+- qcom,mdss-dsi-stream:			Specifies the packet stream to be used.
+					0 = stream 0 (default)
+					1 = stream 1
+- qcom,mdss-dsi-mdp-trigger:		Specifies the trigger mechanism to be used for MDP path.
+					"none" = no trigger
+					"trigger_te" = Tear check signal line used for trigger
+					"trigger_sw" = Triggered by software (default)
+					"trigger_sw_te" = Software trigger and TE
+- qcom,mdss-dsi-dma-trigger:		Specifies the trigger mechanism to be used for DMA path.
+					"none" = no trigger
+					"trigger_te" = Tear check signal line used for trigger
+					"trigger_sw" = Triggered by software (default)
+					"trigger_sw_seof" = Software trigger and start/end of frame trigger.
+					"trigger_sw_te" = Software trigger and TE
+- qcom,mdss-dsi-panel-framerate:	Specifies the frame rate for the panel.
+					60 = 60 frames per second (default)
+- qcom,mdss-dsi-panel-clockrate:	A 64 bit value specifies the panel clock speed in Hz.
+					0 = default value.
+- qcom,mdss-mdp-kickoff-threshold:	This property can be used to define a region
+					(in terms of scanlines) where the
+hardware is allowed
+					to trigger a data transfer from MDP to DSI.
+					If this property is used, the region must be defined setting
+					two values, the low and the high thresholds:
+					<low_threshold high_threshold>
+					Where following condition must be met:
+					low_threshold < high_threshold
+					These values will be used by the driver in such way that if
+					the Driver receives a request to kickoff a transfer (MDP to DSI),
+					the transfer will be triggered only if the following condition
+					is satisfied:
+					low_threshold < scanline < high_threshold
+					If the condition is not met, then the driver will delay the
+					transfer by the time defined in the following property:
+					"qcom,mdss-mdp-kickoff-delay".
+					So in order to use this property, the delay property must
+					be defined as well and greater than 0.
+- qcom,mdss-mdp-kickoff-delay:	This property defines the delay in microseconds that
+					the driver will delay before triggering an MDP transfer if the
+					thresholds defined by the following property are not met:
+					"qcom,mdss-mdp-kickoff-threshold".
+					So in order to use this property, the threshold property must
+					be defined as well. Note that this delay cannot be zero
+					and also should not be greater than
+the fps window.
+					i.e. For 60fps value should not exceed
+16666 uS.
+- qcom,mdss-mdp-transfer-time-us:	Specifies the dsi transfer time for command mode
+					panels in microseconds. Driver uses this number to adjust
+					the clock rate according to the expected transfer time.
+					Increasing this value would slow down the mdp processing
+					and can result in slower performance.
+					Decreasing this value can speed up the mdp processing,
+					but this can also impact power consumption.
+					As a rule this time should not be higher than the time
+					that would be expected with the processing at the
+					dsi link rate since anyways this would be the maximum
+					transfer time that could be achieved.
+					If ping pong split enabled, this time should not be higher
+					than two times the dsi link rate time.
+					14000 = default value.
+- qcom,mdss-dsi-on-command-state:	String that specifies the ctrl state for sending ON commands.
+					"dsi_lp_mode" = DSI low power mode (default)
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-off-command-state:	String that specifies the ctrl state for sending OFF commands.
+					"dsi_lp_mode" = DSI low power mode (default)
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-post-mode-switch-on-command-state:	String that specifies the ctrl state for sending ON commands post mode switch.
+					"dsi_lp_mode" = DSI low power mode (default)
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-pan-physical-width-dimension:	Specifies panel physical width in mm which corresponds
+					to the physical width in the framebuffer information.
+- qcom,mdss-pan-physical-height-dimension:	Specifies panel physical height in mm which corresponds
+					to the physical height in the framebuffer information.
+- qcom,mdss-dsi-panel-mode-gpio-state:	String that specifies the mode state for panel if it is defined
+					in dsi controller.
+					"high" = Set GPIO to HIGH
+					"low" = Set GPIO to LOW
+- qcom,mdss-tear-check-disable:		Boolean to disable mdp tear check. Tear check is enabled by default to avoid
+					tearing. Other tear-check properties are ignored if this property is present.
+					The below tear check configuration properties can be individually tuned if
+					tear check is enabled.
+- qcom,mdss-tear-check-sync-cfg-height: Specifies the vertical total number of lines.
+					The default value is 0xfff0.
+- qcom,mdss-tear-check-sync-init-val:	Specifies the init value at which the read pointer gets loaded
+					at vsync edge. The reader pointer refers to the line number of
+					panel buffer that is currently being updated.
+					The default value is panel height.
+- qcom,mdss-tear-check-sync-threshold-start:
+					Allows the first ROI line write to an panel when read pointer is
+					between the range of ROI start line and ROI start line plus this
+					setting.
+					The default value is 4.
+- qcom,mdss-tear-check-sync-threshold-continue:
+					The minimum number of lines the write pointer needs to be
+					above the read pointer so that it is safe to write to the panel.
+					(This check is not done for the first ROI line write of an update)
+					The default value is 4.
+- qcom,mdss-tear-check-start-pos:	Specify the y position from which the start_threshold value is
+					added and write is kicked off if the read pointer falls within that
+					region.
+					The default value is panel height.
+- qcom,mdss-tear-check-rd-ptr-trigger-intr:
+					Specify the read pointer value at which an interrupt has to be
+					generated.
+					The default value is panel height + 1.
+- qcom,mdss-tear-check-frame-rate:	Specify the value to be a real frame rate(fps) x 100 factor to tune the
+					timing of TE simulation with more precision.
+					The default value is 6000 with 60 fps.
+- qcom,mdss-dsi-reset-sequence:		An array that lists the
+					sequence of reset gpio values and sleeps
+					Each command will have the format defined
+					as below:
+					--> Reset GPIO value
+					--> Sleep value (in ms)
+- qcom,partial-update-enabled:		Boolean used to enable partial
+					panel update for command mode panels.
+- qcom,mdss-dsi-horizontal-line-idle:	List of width ranges (EC - SC) in pixels indicating
+					additional idle time in dsi clock cycles that is needed
+					to compensate for smaller line width.
+- qcom,partial-update-roi-merge:	Boolean indicates roi combination is need
+					and function has been provided for dcs
+					2A/2B command.
+- qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
+					through the left DSI controller only in a dual-dsi configuration
+- qcom,mdss-dsi-panel-hdr-enabled:	Boolean to indicate HDR support in panel.
+- qcom,mdss-dsi-panel-hdr-color-primaries:
+					Array of 8 unsigned integers denoting chromaticity of panel.These
+					values are specified in nits units. The value range is 0 through 50000.
+					To obtain real chromacity, these values should be divided by factor of
+					50000. The structure of array is defined in below order
+						value 1: x value of white chromaticity of display panel
+						value 2: y value of white chromaticity of display panel
+						value 3: x value of red chromaticity of display panel
+						value 4: y value of red chromaticity of display panel
+						value 5: x value of green chromaticity of display panel
+						value 6: y value of green chromaticity of display panel
+						value 7: x value of blue chromaticity of display panel
+						value 8: y value of blue chromaticity of display panel
+- qcom,mdss-dsi-panel-peak-brightness:	Maximum brightness supported by panel.In absence of maximum value
+					typical value becomes peak brightness. Value is specified in nits units.
+					To obtail real peak brightness, this value should be divided by factor of
+					10000.
+- qcom,mdss-dsi-panel-blackness-level:	Blackness level supported by panel. Blackness level is defined as
+					ratio of peak brightness to contrast. Value is specified in nits units.
+					To obtail real blackness level, this value should be divided by factor of
+					10000.
+- qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
+					before issuing hardware reset line.
+- qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
+					mode. This master delay (t_init_delay as per DSI spec) should be sum
+					of DSI internal delay to reach fuctional after power up and minimum
+					delay required by panel to reach functional.
+- qcom,mdss-dsi-rx-eot-ignore:		Boolean used to enable ignoring end of transmission packets.
+- qcom,mdss-dsi-tx-eot-append:		Boolean used to enable appending end of transmission packets.
+- qcom,ulps-enabled:			Boolean to enable support for Ultra Low Power State (ULPS) mode.
+- qcom,suspend-ulps-enabled:		Boolean to enable support for ULPS mode for panels during suspend state.
+- qcom,panel-roi-alignment:		Specifies the panel ROI alignment restrictions on its
+					left, top, width, height alignments and minimum width and
+					height values
+- qcom,esd-check-enabled:		Boolean used to enable ESD recovery feature.
+- qcom,mdss-dsi-panel-status-command:	A byte stream formed by multiple dcs packets based on
+					qcom dsi controller protocol, to read the panel status.
+					This value is used to kick in the ESD recovery.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-panel-status-command-mode:
+					String that specifies the ctrl state for reading the panel status.
+					"dsi_lp_mode" = DSI low power mode
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-panel-status-check-mode:Specifies the panel status check method for ESD recovery.
+					"bta_check" = Uses BTA to check the panel status
+					"reg_read" = Reads panel status register to check the panel status
+					"reg_read_nt35596" = Reads panel status register to check the panel
+							     status for NT35596 panel.
+					"te_signal_check" = Uses TE signal behaviour to check the panel status
+- qcom,mdss-dsi-panel-status-read-length: Integer array that specify the expected read-back length of values
+					  for each of panel registers. Each length is corresponding to number of
+					  returned parameters of register introduced in specification.
+- qcom,mdss-dsi-panel-status-valid-params: Integer array that specify the valid returned values which need to check
+					   for each of register.
+					   Some panel need only check the first few values returned from panel.
+					   So: if this property is the same to qcom,mdss-dsi-panel-status-read-length,
+					   then just ignore this one.
+- qcom,mdss-dsi-panel-status-value:	Multiple integer arrays, each specifies the values of the panel status register
+					which is used to check the panel status. The size of each array is the sum of
+					length specified in qcom,mdss-dsi-panel-status-read-length, and must be equal.
+					This can cover that Some panel may return several alternative values.
+- qcom,mdss-dsi-panel-max-error-count:  Integer value that specifies the maximum number of errors from register
+					read that can be ignored before treating that the panel has gone bad.
+- qcom,dynamic-mode-switch-enabled:		Boolean used to mention whether panel supports
+					dynamic switching from video mode to command mode
+					and vice versa.
+- qcom,dynamic-mode-switch-type:		A string specifies how to perform dynamic mode switch.
+						If qcom,dynamic-mode-switch-enabled is set and no string specified, default value is
+						dynamic-switch-suspend-resume.
+					"dynamic-switch-suspend-resume"= Switch using suspend/resume. Panel will
+						go blank during transition.
+					"dynamic-switch-immediate"= Switch on next frame update. Panel will
+						not go blank for this transition.
+					"dynamic-resolution-switch-immediate"= Switch the panel resolution. Panel will
+						not go blank for this transition.
+- qcom,mdss-dsi-post-mode-switch-on-command:		Multiple dcs packets used for turning on DSI panel
+					after panel has switch modes.
+					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,video-to-cmd-mode-switch-commands:	List of commands that need to be sent
+					to panel in order to switch from video mode to command mode dynamically.
+					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,cmd-to-video-mode-switch-commands:	List of commands that need to be sent
+					to panel in order to switch from command mode to video mode dynamically.
+					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,send-pps-before-switch:		Boolean propety to indicate when PPS commands should be sent,
+					either before or after switch commands during dynamic resolution
+					switch in DSC panels. If the property is not present, the default
+					behavior is to send PPS commands after the switch commands.
+- qcom,mdss-dsi-panel-orientation:	String used to indicate orientation of panel
+					"180" = panel is flipped in both horizontal and vertical directions
+					"hflip" = panel is flipped in horizontal direction
+					"vflip" = panel is flipped in vertical direction
+- qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
+			   for any commands that we send.
+- qcom,mdss-dsi-force-clock-lane-hs:	Boolean to force dsi clock lanes to HS mode always.
+
+- qcom,compression-mode:		Select compression mode for panel.
+					"fbc" - frame buffer compression
+					"dsc" - display stream compression.
+					If "dsc" compression is used then config subnodes needs to be defined.
+- qcom,panel-supply-entries:		A node that lists the elements of the supply used to
+					power the DSI panel. There can be more than one instance
+					of this binding, in which case the entry would be appended
+					with the supply entry index. For a detailed description of
+					fields in the supply entry, refer to the qcom,ctrl-supply-entries
+					binding above.
+- qcom,config-select:			Optional property to select default configuration.
+- qcom,panel-allow-phy-poweroff:	A boolean property indicates that panel allows to turn off the phy power
+					supply during idle screen. A panel should able to handle the dsi lanes
+					in floating state(not LP00 or LP11) to turn on this property. Software
+					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
+					idle screen (footswitch control off) when this property is enabled.
+- qcom,skip-panel-reset:		Boolean. when set, will skip panel reset during panel ON/OFF.
+[[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
+					Default configuration can be chosen by specifying phandle of the
+					selected subnode in the qcom,config-select.
+Required properties for sub-nodes:	None
+Optional properites:
+- qcom,lm-split:			An array of two values indicating MDP should use two layer
+					mixers to reduce power.
+					Ex: Normally 1080x1920 display uses single DSI and thus one layer
+					    mixer. But if we use two layer mixers then mux the output of
+					    those two mixers into single stream and route it to single DSI
+					    then we can lower the clock requirements of MDP. To use this
+					    configuration we need two fill this array with <540 540>.
+					Both values doesn't have to be same, but recommended, however sum of
+					both values has to be equal to the panel-width.
+					By default two mixer streams are merged using 2D mux, however if
+					2 DSC encoders are used then merge is performed within compression
+					engine.
+- qcom,split-mode:			String property indicating which split mode MDP should use. Valid
+					entries are "pingpong-split" and "dualctl-split".
+					This property is mutually exclusive with qcom,lm-split.
+- qcom,mdss-dsc-version:		An 8 bit value indicates the DSC version supported by panel. Bits[0.3]
+					provides information about minor version while Bits[4.7] provides
+					major version information. It supports only DSC rev 1(Major).1(Minor)
+					right now.
+- qcom,mdss-dsc-scr-version:		Each DSC version can have multiple SCR. This 8 bit value indicates
+					current SCR revision information supported by panel.
+- qcom,mdss-dsc-encoders:		An integer value indicating how many DSC encoders should be used
+					to drive data stream to DSI.
+					Default value is 1 and max value is 2.
+					2 encoder should be used only if qcom,mdss-lm-split or
+					qcom,split-mode with pingpong-split is used.
+- qcom,mdss-dsc-slice-height:		An integer value indicates the dsc slice height.
+- qcom,mdss-dsc-slice-width:		An integer value indicates the dsc slice width.
+					Multiple of slice width should be equal to panel-width.
+					Maximum 2 slices per DSC encoder can be used so if 2 DSC encoders
+					are used then minimum slice width is equal to panel-width/4.
+- qcom,mdss-dsc-slice-per-pkt:		An integer value indicates the slice per dsi packet.
+- qcom,mdss-dsc-bit-per-component: 	An integer value indicates the bits per component before compression.
+- qcom,mdss-dsc-bit-per-pixel:		An integer value indicates the bits per pixel after compression.
+- qcom,mdss-dsc-block-prediction-enable: A boolean value to enable/disable the block prediction at decoder.
+- qcom,mdss-dsc-config-by-manufacture-cmd: A boolean to indicates panel use manufacture command to setup pps
+					instead of standard dcs type 0x0A.
+- qcom,dba-panel:	Indicates whether the current panel is used as a display bridge
+					to a non-DSI interface.
+- qcom,bridge-name:			A string to indicate the name of the bridge chip connected to DSI. qcom,bridge-name
+					is required if qcom,dba-panel is defined for the panel.
+- qcom,hdmi-mode:			Indicates where current panel is HDMI mode, otherwise, it will be DVI mode.
+- qcom,adjust-timer-wakeup-ms:		An integer value to indicate the timer delay(in ms) to accommodate
+					s/w delay while configuring the event timer wakeup logic.
+
+- qcom,mdss-dsi-display-timings:	Parent node that lists the different resolutions that the panel supports.
+					Each child represents timings settings for a specific resolution.
+- qcom,mdss-dsi-post-init-delay:        Specifies required number of frames to wait so that panel can be functional
+					to show proper display.
+
+Additional properties added to the second level nodes that represent timings properties:
+- qcom,mdss-dsi-timing-default:		Property that specifies the current child as the default
+					timing configuration that will be used.
+- qcom,mdss-dsi-timing-switch-command:	List of commands that need to be sent
+					to panel when the resolution/timing switch happens dynamically.
+					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,mdss-dsi-timing-switch-command-state:	String that specifies the ctrl state for sending resolution switch
+					commands.
+					"dsi_lp_mode" = DSI low power mode (default)
+					"dsi_hs_mode" = DSI high speed mode
+
+Note, if a given optional qcom,* binding is not present, then the driver will configure
+the default values specified.
+
+Note, all the "qcom,supply-*" properties have their definitions in mdss-dsi-txt.
+
+Example:
+&mdss_mdp {
+	dsi_sim_vid: qcom,mdss_dsi_sim_video {
+		qcom,mdss-dsi-panel-name = "simulator video mode dsi panel";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+		qcom,mdss-dsi-panel-height = <1280>;
+		qcom,mdss-dsi-panel-width = <720>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-pixel-packing = <0>;
+		qcom,mdss-dsi-panel-destination = "display_1";
+		qcom,cmd-sync-wait-broadcast;
+		qcom,mdss-dsi-fbc-enable;
+		qcom,mdss-dsi-fbc-slice-height = <5>;
+		qcom,mdss-dsi-fbc-2d-pred-mode;
+		qcom,mdss-dsi-fbc-ver2-mode;
+		qcom,mdss-dsi-fbc-bpp = <0>;
+		qcom,mdss-dsi-fbc-packing = <0>;
+		qcom,mdss-dsi-fbc-quant-error;
+		qcom,mdss-dsi-fbc-bias = <0>;
+		qcom,mdss-dsi-fbc-pat-mode;
+		qcom,mdss-dsi-fbc-vlc-mode;
+		qcom,mdss-dsi-fbc-bflc-mode;
+		qcom,mdss-dsi-fbc-h-line-budget = <0>;
+		qcom,mdss-dsi-fbc-budget-ctrl = <0>;
+		qcom,mdss-dsi-fbc-block-budget = <0>;
+		qcom,mdss-dsi-fbc-lossless-threshold = <0>;
+		qcom,mdss-dsi-fbc-lossy-threshold = <0>;
+		qcom,mdss-dsi-fbc-rgb-threshold = <0>;
+		qcom,mdss-dsi-fbc-lossy-mode-idx = <0>;
+		qcom,mdss-dsi-fbc-max-pred-err = <2>;
+		qcom,mdss-dsi-h-front-porch = <140>;
+		qcom,mdss-dsi-h-back-porch = <164>;
+		qcom,mdss-dsi-h-pulse-width = <8>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <6>;
+		qcom,mdss-dsi-v-front-porch = <1>;
+		qcom,mdss-dsi-v-pulse-width = <1>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = < 15>;
+		qcom,mdss-dsi-interleave-mode = <0>;
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-h-sync-pulse = <1>;
+		qcom,mdss-dsi-hfp-power-mode;
+		qcom,mdss-dsi-hbp-power-mode;
+		qcom,mdss-dsi-hsa-power-mode;
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-last-line-interleave;
+		qcom,mdss-dsi-traffic-mode = <0>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-color-order = <0>;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-t-clk-post = <0x20>;
+		qcom,mdss-dsi-t-clk-pre = <0x2c>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-mdp-trigger = <0>;
+		qcom,mdss-dsi-dma-trigger = <0>;
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-panel-clockrate = <424000000>;
+		qcom,mdss-mdp-kickoff-threshold = <11 2430>;
+		qcom,mdss-mdp-kickoff-delay = <1000>;
+		qcom,mdss-mdp-transfer-time-us = <12500>;
+		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
+					22 27 1e 03 04 00];
+                qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
+                                23 20 06 09 05 03 04 a0
+                                23 20 06 09 05 03 04 a0
+                                23 20 06 09 05 03 04 a0
+                                23 2e 06 08 05 03 04 a0];
+                qcom,mdss-dsi-panel-timings-phy-12nm =
+				[a9 4e 56 0b 8a 4d 0b d6];
+		qcom,mdss-dsi-on-command = [32 01 00 00 00 00 02 00 00
+					29 01 00 00 10 00 02 FF 99];
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command = [22 01 00 00 00 00 00];
+		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-lp-mode-on = [32 01 00 00 00 00 02 00 00
+					29 01 00 00 10 00 02 FF 99];
+		qcom,mdss-dsi-lp-mode-off = [22 01 00 00 00 00 00];
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-pan-enable-dynamic-fps;
+		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
+		qcom,min-refresh-rate = <30>;
+		qcom,max-refresh-rate = <60>;
+		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+		qcom,mdss-dsi-bl-pmic-pwm-frequency = <0>;
+		qcom,mdss-dsi-pwm-gpio = <&pm8941_mpps 5 0>;
+		qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
+		qcom,mdss-pan-physical-width-dimension = <60>;
+		qcom,mdss-pan-physical-height-dimension = <140>;
+		qcom,mdss-dsi-panel-mode-gpio-state = "low";
+		qcom,mdss-tear-check-sync-cfg-height = <0xfff0>;
+		qcom,mdss-tear-check-sync-init-val = <1280>;
+		qcom,mdss-tear-check-sync-threshold-start = <4>;
+		qcom,mdss-tear-check-sync-threshold-continue = <4>;
+		qcom,mdss-tear-check-start-pos = <1280>;
+		qcom,mdss-tear-check-rd-ptr-trigger-intr = <1281>;
+		qcom,mdss-tear-check-frame-rate = <6000>;
+		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
+		qcom,partial-update-enabled;
+		qcom,dcs-cmd-by-left;
+		qcom,mdss-dsi-lp11-init;
+		qcom,mdss-dsi-init-delay-us = <100>;
+		mdss-dsi-rx-eot-ignore;
+		mdss-dsi-tx-eot-append;
+		qcom,ulps-enabled;
+		qcom,suspend-ulps-enabled;
+		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+		qcom,esd-check-enabled;
+		qcom,panel-allow-phy-poweroff;
+		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
+		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+		qcom,mdss-dsi-panel-status-read-length = <8>;
+		qcom,mdss-dsi-panel-max-error-count = <3>;
+		qcom,mdss-dsi-panel-status-value = <0x1c 0x00 0x05 0x02 0x40 0x84 0x06 0x01>;
+		qcom,dynamic-mode-switch-enabled;
+		qcom,dynamic-mode-switch-type = "dynamic-switch-immediate";
+		qcom,mdss-dsi-post-mode-switch-on-command = [32 01 00 00 00 00 02 00 00
+					29 01 00 00 10 00 02 B0 03];
+		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
+						15 01 00 00 00 00 02 C2 08];
+		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
+		qcom,send-pps-before-switch;
+		qcom,panel-ack-disabled;
+		qcom,mdss-dsi-horizontal-line-idle = <0 40 256>,
+						<40 120 128>,
+						<128 240 64>;
+		qcom,mdss-dsi-panel-orientation = "180"
+		qcom,mdss-dsi-force-clock-lane-hs;
+		qcom,compression-mode = "dsc";
+		qcom,adjust-timer-wakeup-ms = <1>;
+		qcom,mdss-dsi-display-timings {
+			wqhd {
+				qcom,mdss-dsi-timing-default;
+				qcom,mdss-dsi-panel-width = <720>;
+				qcom,mdss-dsi-panel-height = <2560>;
+				qcom,mdss-dsi-h-front-porch = <20>;
+				qcom,mdss-dsi-h-back-porch = <8>;
+				qcom,mdss-dsi-h-pulse-width = <8>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <4>;
+				qcom,mdss-dsi-v-front-porch = <728>;
+				qcom,mdss-dsi-v-pulse-width = <4>;
+				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-panel-timings = [E6 38 26 00 68 6E 2A 3C 2C 03 04 00];
+				qcom,mdss-dsi-t-clk-post = <0x02>;
+				qcom,mdss-dsi-t-clk-pre = <0x2a>;
+				qcom,mdss-dsi-on-command = [05 01 00 00 a0 00 02 11 00
+					05 01 00 00 02 00 02 29 00];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-timing-switch-command = [
+					29 00 00 00 00 00 02 B0 04
+					29 00 00 00 00 00 02 F1 00];
+				qcom,mdss-dsi-timing-switch-command-state = "dsi_lp_mode";
+
+				qcom,config-select = <&dsi_sim_vid_config0>;
+				dsi_sim_vid_config0: config0 {
+					qcom,lm-split = <360 360>;
+					qcom,mdss-dsc-encoders = <2>;
+					qcom,mdss-dsc-slice-height = <16>;
+					qcom,mdss-dsc-slice-width = <360>;
+					qcom,mdss-dsc-slice-per-pkt = <2>;
+					qcom,mdss-dsc-bit-per-component = <8>;
+					qcom,mdss-dsc-bit-per-pixel = <8>;
+					qcom,mdss-dsc-block-prediction-enable;
+					qcom,mdss-dsc-config-by-manufacture-cmd;
+				};
+			};
+		};
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <2800000>;
+				qcom,supply-max-voltage = <2800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+
+		qcom,config-select = <&dsi_sim_vid_config0>;
+		qcom,dba-panel;
+		qcom,bridge-name = "adv7533";
+		qcom,mdss-dsc-version = <0x11>;
+		qcom,mdss-dsc-scr-version = <0x1>;
+
+		dsi_sim_vid_config0: config0 {
+			qcom,lm-split = <360 360>;
+			qcom,mdss-dsc-encoders = <2>;
+			qcom,mdss-dsc-slice-height = <16>;
+			qcom,mdss-dsc-slice-width = <360>;
+			qcom,mdss-dsc-slice-per-pkt = <2>;
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
+			qcom,mdss-dsc-config-by-manufacture-cmd;
+		};
+
+		dsi_sim_vid_config1: config1 {
+			qcom,mdss-dsc-encoders = <1>;
+			qcom,mdss-dsc-slice-height = <16>;
+			qcom,mdss-dsc-slice-width = <360>;
+			qcom,mdss-dsc-slice-per-pkt = <2>;
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
+			qcom,mdss-dsc-config-by-manufacture-cmd;
+		};
+
+		dsi_sim_vid_config2: config2 {
+			qcom,split-mode = "dualctl-split";
+		};
+
+		dsi_sim_vid_config3: config3 {
+			qcom,split-mode = "pingpong-split";
+		};
+	};
+};

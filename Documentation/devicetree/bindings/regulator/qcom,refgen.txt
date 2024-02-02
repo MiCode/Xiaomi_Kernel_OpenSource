@@ -1,0 +1,38 @@
+Qualcomm Technologies, Inc. REFGEN Regulator
+
+Some Qualcomm Technologies, Inc. SoCs utilize reference bias generators for
+various internal PHY blocks.  These are called REFGENs.
+
+Supported properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Must be "qcom,refgen-regulator".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Address and size of the REFGEN registers.
+
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: Specifies the name for this REFGEN regulator.
+
+- regulator-enable-ramp-delay
+	Usage:      optional
+	Value type: <u32>
+	Definition: REFGEN enable time in microseconds.
+
+- parent-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle to the parent supply/regulator node if one exists.
+
+Example:
+
+refgen-regulator@ff1000 {
+	compatible = "qcom,refgen-regulator";
+	reg = <0xff1000 0x60>;
+	regulator-name = "refgen";
+};

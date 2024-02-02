@@ -1,0 +1,104 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,smp2p-modem {
+		compatible = "qcom,smp2p";
+		reg = <0x0b011008 0x4>;
+		qcom,remote-pid = <1>;
+		qcom,irq-bitmask = <0x4000>;
+		interrupts = <0 27 1>;
+	};
+
+	smp2pgpio_smp2p_15_in: qcom,smp2pgpio-smp2p-15-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "smp2p";
+		qcom,remote-pid = <15>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_test_smp2p_15_in {
+		compatible = "qcom,smp2pgpio_test_smp2p_15_in";
+		gpios = <&smp2pgpio_smp2p_15_in 0 0>;
+	};
+
+	smp2pgpio_smp2p_15_out: qcom,smp2pgpio-smp2p-15-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "smp2p";
+		qcom,remote-pid = <15>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_test_smp2p_15_out {
+		compatible = "qcom,smp2pgpio_test_smp2p_15_out";
+		gpios = <&smp2pgpio_smp2p_15_out 0 0>;
+	};
+
+	smp2pgpio_smp2p_1_in: qcom,smp2pgpio-smp2p-1-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "smp2p";
+		qcom,remote-pid = <1>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_test_smp2p_1_in {
+		compatible = "qcom,smp2pgpio_test_smp2p_1_in";
+		gpios = <&smp2pgpio_smp2p_1_in 0 0>;
+	};
+
+	smp2pgpio_smp2p_1_out: qcom,smp2pgpio-smp2p-1-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "smp2p";
+		qcom,remote-pid = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio_test_smp2p_1_out {
+		compatible = "qcom,smp2pgpio_test_smp2p_1_out";
+		gpios = <&smp2pgpio_smp2p_1_out 0 0>;
+	};
+
+	smp2pgpio_ssr_smp2p_1_in: qcom,smp2pgpio-ssr-smp2p-1-in {
+			compatible = "qcom,smp2pgpio";
+			qcom,entry-name = "slave-kernel";
+			qcom,remote-pid = <1>;
+			qcom,is-inbound;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+	};
+
+	smp2pgpio_ssr_smp2p_1_out: qcom,smp2pgpio-ssr-smp2p-1-out {
+			compatible = "qcom,smp2pgpio";
+			qcom,entry-name = "master-kernel";
+			qcom,remote-pid = <1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+	};
+};

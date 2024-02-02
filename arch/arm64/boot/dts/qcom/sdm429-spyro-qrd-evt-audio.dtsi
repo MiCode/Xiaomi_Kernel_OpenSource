@@ -1,0 +1,189 @@
+/*
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&int_codec {
+	compatible = "qcom,msm8952-dig-asoc-snd";
+	status = "okay";
+	qcom,model = "sdm429w-snd-card";
+	qcom,msm-ext-pa = "quaternary";
+	qcom,split-a2dp;
+	asoc-wsa-codec-names;
+	asoc-wsa-codec-prefixes;
+	ext_pa_tfa98xx;
+	qcom,audio-routing =
+		"CDC_CONN", "MCLK",
+		"QUAT_MI2S_RX", "DIGITAL_REGULATOR",
+		"TX_I2S_CLK", "DIGITAL_REGULATOR",
+		"DMIC1", "Digital Mic1",
+		"DMIC2", "Digital Mic2";
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+	qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
+	qcom,msm-gpios =
+		"quat_i2s",
+		"dmic";
+	qcom,pinctrl-names =
+		"all_off",
+		"quat_i2s_act",
+		"dmic_act",
+		"quat_i2s_dmic_act";
+	pinctrl-names =
+		"all_off",
+		"quat_i2s_act",
+		"dmic_act",
+		"quat_i2s_dmic_act";
+	pinctrl-0 = <&quat_mi2s_sleep &quat_mi2s_din_sleep
+		&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	pinctrl-1 = <&quat_mi2s_active &quat_mi2s_din_active
+		&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	pinctrl-2 = <&quat_mi2s_sleep &quat_mi2s_din_sleep
+		&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+	pinctrl-3 = <&quat_mi2s_active &quat_mi2s_din_active
+		&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+	/delete-property/qcom,cdc-us-euro-gpios;
+	/delete-property/qcom,pri-mi2s-gpios;
+	/delete-property/qcom,cdc-us-eu-gpios;
+
+	asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&pcm_noirq>;
+	asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-pcm-dsp-noirq";
+	asoc-cpu = <&dai_pri_auxpcm>,
+		<&dai_mi2s0>, <&dai_mi2s1>,
+		<&dai_mi2s2>, <&dai_mi2s3>,
+		<&dai_mi2s4>, <&dai_mi2s5>,
+		<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+		<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
+		<&sb_7_rx>, <&sb_7_tx>,
+		<&bt_sco_rx>,<&bt_sco_tx>, <&bt_a2dp_rx>,
+		<&int_fm_rx>, <&int_fm_tx>,
+		<&afe_pcm_rx>, <&afe_pcm_tx>,
+		<&afe_proxy_rx>, <&afe_proxy_tx>,
+		<&incall_record_rx>, <&incall_record_tx>,
+		<&incall_music_rx>, <&incall_music_2_rx>;
+
+	asoc-cpu-names = "msm-dai-q6-auxpcm.1",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.6",
+				"msm-dai-q6-dev.16384", "msmdai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12290",
+				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
+				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+	asoc-codec = <&stub_codec>, <&msm_dig_codec>, <&ext_smart_pa>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec", "ext-smart-pa";
+};
+
+&soc {
+	msm_dig_codec: msm_dig_codec {
+		compatible = "qcom,msm-digital-codec";
+		reg = <0xc0f0000 0x0>;
+		qcom,no-analog-codec;
+		cdc-vdd-digital-supply = <&pm660_l9>;
+		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-digital-current = <10000>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
+	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+		pinctrl-1 = <&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+	};
+	qcom,msm-dai-q6 {
+	    compatible = "qcom,msm-dai-q6";
+		bt_a2dp_rx: qcom,msm-dai-q6-bt-a2dp-rx {
+		compatible = "qcom,msm-dai-q6-dev";
+		qcom,msm-dai-q6-dev-id = <12290>;
+		};
+	};
+};
+
+&tlmm {
+	smart_pa_int {
+		pa_int_default: pa_int_default {
+			mux {
+				pins = "gpio73", "gpio73";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio73", "gpio73";
+				drive-strength = <4>;
+				bias-disable;
+			};
+		};
+	};
+
+	smart_pa_rst {
+		pa_rst_default: pa_rst_default {
+			mux {
+				pins = "gpio68", "gpio68";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio68", "gpio68";
+				drive-strength = <4>;
+				bias-disable;
+			};
+		};
+	};
+};
+
+&cdc_us_euro_sw {
+	status = "disabled";
+};
+
+&cdc_pri_mi2s_gpios {
+	status = "disabled";
+};
+
+&cdc_quin_mi2s_gpios {
+	status = "disabled";
+};
+
+&i2c_2 {
+	ext_smart_pa: nxp_smartpa@34 {
+		status = "okay";
+		compatible = "nxp,tfa98xx";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 68 0>;
+		irq-gpio = <&tlmm 73 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pa_int_default &pa_rst_default>;
+		dvdd-supply = <&pm660_l9>;
+		dvdd-voltage = <1800000 1800000>;
+		dvdd-current = <15000>;
+	};
+};

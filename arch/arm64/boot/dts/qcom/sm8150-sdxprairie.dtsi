@@ -1,0 +1,342 @@
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/msm-bus-ids.h>
+#include "sdxprairie-thermal-common.dtsi"
+
+&mdm3 {
+	compatible = "qcom,ext-sdxprairie";
+	qcom,mdm-link-info = "0306_01.01.00";
+};
+
+&pil_modem {
+	/delete-property/ vdd_mss-supply;
+	/delete-property/ qcom,vdd_mss-uV-uA;
+	qcom,proxy-reg-names = "vdd_cx";
+};
+
+&pcie1 {
+	dma-coherent;
+};
+
+&mhi_0 {
+	esoc-names = "mdm";
+	esoc-0 = <&mdm3>;
+	qcom,smmu-cfg = <0x1d>;
+	qcom,addr-win = <0x0 0x20000000 0x0 0x2fffffff>;
+	mhi,sfr-support;
+
+	/* controller noc frequency scaling configuration */
+	qcom,msm-bus,name = "mhi0";
+	qcom,msm-bus,num-cases = <4>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			0 0>,
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			0 0>,
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			500000 0>, /* 4 Gbps */
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			1000000 0>; /* 8 Gbps */
+
+	mhi_channels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mhi_chan@9 {
+			mhi,num-elements = <128>;
+		};
+
+		mhi_chan@25 {
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+		};
+
+		mhi_chan@80 {
+			reg = <80>;
+			label = "AUDIO_VOICE_0";
+			mhi,event-ring = <0>;
+			mhi,chan-dir = <0>;
+			mhi,ee = <0x4>;
+			mhi,data-type = <3>;
+			mhi,offload-chan;
+			status = "ok";
+		};
+
+		mhi_chan@104 {
+			label = "IP_HW0_RSC";
+			mhi,num-elements = <512>;
+			mhi,local-elements = <3078>;
+			mhi,event-ring = <6>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <5>;
+			mhi,doorbell-mode = <3>;
+			mhi,chan-type = <3>;
+		};
+
+		mhi_chan@105 {
+			label = "IP_HW_MHIP_0";
+			mhi,event-ring = <9>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <3>;
+			mhi,ee = <0x4>;
+			mhi,offload-chan;
+		};
+
+		mhi_chan@106 {
+			reg = <106>;
+			label = "IP_HW_MHIP_0";
+			mhi,event-ring = <10>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <3>;
+			mhi,ee = <0x4>;
+			mhi,offload-chan;
+			mhi,lpm-notify;
+		};
+	};
+
+	mhi_events {
+		mhi_event@5 {
+			mhi,chan = <100>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@6 {
+			mhi,chan = <101>;
+			mhi,hw-ev;
+			mhi,client-manage;
+		};
+
+		mhi_event@7 {
+			mhi,chan = <102>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@8 {
+			mhi,chan = <103>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@9 {
+			mhi,chan = <105>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@10 {
+			mhi,chan = <106>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@11 {
+			mhi,chan = <107>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@12 {
+			mhi,chan = <108>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@13 {
+			mhi,chan = <109>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@14 {
+			mhi,chan = <110>;
+			mhi,hw-ev;
+		};
+	};
+
+	mhi_devices {
+		mhi_qrtr {
+			qcom,net-id = <3>;
+		};
+	};
+};
+
+&glink_adsp {
+	qcom,adsp_qrtr {
+		qcom,net-id = <2>;
+	};
+};
+
+&glink_slpi {
+	qcom,slpi_qrtr {
+		qcom,net-id = <1>;
+	};
+};
+
+&glink_cdsp {
+	qcom,cdsp_qrtr {
+		qcom,net-id = <1>;
+	};
+};
+
+&glink_modem {
+	qcom,modem_qrtr {
+		qcom,net-id = <2>;
+	};
+};
+
+&soc {
+	ipa_hw: qcom,ipa@1e00000 {
+		qcom,platform-type = <2>; /* APQ platform */
+		qcom,entire-ipa-block-size = <0x100000>;
+		qcom,register-collection-on-crash;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
+		qcom,secure-debug-check-action = <0>;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <5>;
+		qcom,msm-bus,num-paths = <6>;
+		qcom,msm-bus,vectors-KBps =
+		/* No vote */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF 0 0>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC 0 0>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 0 0>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 0 0>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 0 0>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 0>,
+
+		/* SVS2 */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 750000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 4789750>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 150000 1800000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 80000 350000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 40000 40000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 125>,
+
+		/* SVS */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 1500000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 7429000>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 625000 3070000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 80000 640000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 80000 80000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 250>,
+
+		/* NOMINAL */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 3000000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 8797500>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 1250000 6220000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 206000 960000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 206000 160000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 500>,
+
+		/* TURBO */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 4000000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 15640000>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 2000000 7219000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 206000 1600000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 206000 300000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 600>;
+
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+		"TURBO";
+
+		qcom,throughput-threshold = <600 2500 5000>;
+		qcom,scaling-exceptions = "wdi", "0", "600", "1200",
+			"USB DPL", "0", "2500", "5000", "ODL", "0",
+			"2500", "5000";
+	};
+
+	qcom,ipa_fws {
+		memory-region = <&pil_ipa_gsi_mem>;
+	};
+
+	qcom,ipa_uc {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0x1B>;
+		qcom,firmware-name = "ipa_uc";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
+	};
+	ipa_mpm: qcom,ipa-mpm {
+		compatible = "qcom,ipa-mpm";
+		qcom,mhi-chdb-base = <0x40300300>;
+		qcom,mhi-erdb-base = <0x40300700>;
+		qcom,iova-mapping = <0x10000000 0x0FFFFFFF>;
+	 };
+};
+
+&reserved_memory {
+	mailbox_mem: mailbox_region {
+		compatible = "shared-dma-pool";
+		no-map;
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x20000>;
+	};
+};
+
+&pil_modem_mem {
+	reg = <0x0 0x8d800000 0x0 0x3200000>;
+};
+
+&pil_video_mem {
+	reg = <0x0 0x90a00000 0x0 0x500000>;
+};
+
+&pil_slpi_mem {
+	reg = <0x0 0x90f00000 0x0 0x1500000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0x0 0x92400000 0x0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0x0 0x92410000 0x0 0xa000>;
+};
+
+&pil_gpu_mem {
+	reg = <0x0 0x9241a000 0x0 0x2000>;
+};
+
+&pil_spss_mem {
+	reg = <0x0 0x92500000 0x0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0x0 0x92600000 0x0 0x1400000>;
+};
+
+&audio_apr {
+	voice_mhi_audio: qcom,voice-mhi-audio {
+		compatible = "qcom,voice-mhi-audio";
+		memory-region = <&mailbox_mem>;
+		voice_mhi_voting;
+	};
+};
+
+&wil6210 {
+	status = "disabled";
+};

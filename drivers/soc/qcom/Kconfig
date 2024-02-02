@@ -1,0 +1,1110 @@
+#
+# QCOM Soc drivers
+#
+menu "Qualcomm SoC drivers"
+config QCOM_MEM_OFFLINE
+	bool "Dynamic Memory Region Offline driver"
+	help
+	  Add support for DDR Self-Refresh power management through the dynamic
+	  memory offline framework. This driver interfaces between the memory
+	  hotplug subsystem and AOP which hot adds or removes memory blocks and
+	  controls the start/stop of self-refresh of these DDR regions. This
+	  helps reduce power consumption during idle mode of the system.
+	  If unsure, say N
+
+config OVERRIDE_MEMORY_LIMIT
+	bool "Override memory limit set by the kernel boot parameter"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Override any memory limit set by the kernel boot parameter with
+	  limit set by mem-offline dt entry so that memory offline framework
+	  can initialize remaining memory with movable pages for memory
+	  hot-plugging.
+	  If unsure, say N
+
+config QCOM_CPUSS_DUMP
+	bool "CPU Subsystem Dumping support"
+	help
+	  Add support to dump various hardware entities such as the instruction
+	  and data tlb's as well as the unified tlb, which are a part of the
+	  cpu subsystem to an allocated buffer. This allows for analysis of the
+	  the entities if corruption is suspected.
+	  If unsure, say N
+
+config QCOM_GLINK_SSR
+	tristate "Qualcomm Glink SSR driver"
+	depends on RPMSG
+	depends on QCOM_RPROC_COMMON
+	help
+	  Say y here to enable GLINK SSR support. The GLINK SSR driver
+	  implements the SSR protocol for notifying the remote processor about
+	  neighboring subsystems going up or down.
+
+config QCOM_RUN_QUEUE_STATS
+       bool "Enable collection and exporting of QTI Run Queue stats to userspace"
+       help
+        This option enables the driver to periodically collecting the statistics
+        of kernel run queue information and calculate the load of the system.
+        This information is exported to usespace via sysfs entries and userspace
+        algorithms uses info and decide when to turn on/off the cpu cores.
+
+config QCOM_GSBI
+        tristate "QCOM General Serial Bus Interface"
+        depends on ARCH_QCOM
+        select MFD_SYSCON
+        help
+          Say y here to enable GSBI support.  The GSBI provides control
+          functions for connecting the underlying serial UART, SPI, and I2C
+          devices to the output pins.
+
+config QCOM_MDT_LOADER
+	tristate
+	select QCOM_SCM
+
+config QCOM_LLCC
+	tristate "Qualcomm Technologies, Inc. LLCC driver"
+	depends on ARCH_QCOM
+	help
+	  Qualcomm Technologies, Inc. platform specific LLCC driver for Last
+	  Level Cache. This provides interfaces to client's that use the LLCC.
+	  Say yes here to enable LLCC slice driver.
+
+config QCOM_SM8150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM8150 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SM8150. This is provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+config QCOM_SDMSHRIKE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDMSHRIKE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  This configuration option enables LLCC driver specific to SDMSHRIKE.
+	  Say 'Y' here to enable the LLCC driver for SDMSHRIKE which provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+config QCOM_SM6150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM6150 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SM6150. This is provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+config QCOM_SDMMAGPIE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDMMAGPIE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SDMMAGPIE. This is provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+config QCOM_ATOLL_LLCC
+	tristate "Qualcomm Technologies, Inc. ATOLL LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for ATOLL. This provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+config QCOM_SDXPRAIRIE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDXPRAIRIE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  This configuration option enables LLCC driver specific to SDXPRAIRIE.
+	  Say 'Y' here to enable the LLCC driver for SDXPRAIRIE which provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+
+config QCOM_LLCC_AMON
+	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables a activity monitor driver for last level cache
+	  controller. This driver configures the activity monitor as
+	  deadlock detector and dumps the AMON registers upon detection of
+	  deadlock.
+
+config QCOM_LLCC_AMON_PANIC
+	tristate "Panic on detecting LLCC Activity Monitor(AMON) error"
+	depends on QCOM_LLCC_AMON
+	help
+	  This option enables panic upon detection of LLCC Activity Monitor(AMON)
+	  errors. Say yes here to enable deadlock detection mode of AMON. In
+	  deadlock detection mode AMON will trigger an interrupt if some LLCC request
+	  ages out.
+
+config QCOM_LLCC_PERFMON
+	tristate "Qualcomm Technologies, Inc. LLCC Perfmon driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables driver for LLCC Performance monitor block. Using
+	  this various events in different LLCC sub block ports can be monitored.
+	  This is used for performance and debug activity and exports SYSFS
+	  interface. SYSFS interface used for configure and dump the LLCC
+	  performance events.
+
+config QCOM_PM
+	bool "Qualcomm Power Management"
+	depends on ARCH_QCOM && !ARM64
+	select ARM_CPU_SUSPEND
+	select QCOM_SCM
+	help
+	  QCOM Platform specific power driver to manage cores and L2 low power
+	  modes. It interface with various system drivers to put the cores in
+	  low power modes.
+
+config QCOM_QMI_HELPERS
+	bool "Qualcomm QMI Helpers"
+	depends on QRTR || QTI_QRTR
+	help
+	  Helper library for handling QMI encoded messages.  QMI encoded
+	  messages are used in communication between the majority of QRTR
+	  clients and this helpers provide the common functionality needed for
+	  doing this from a kernel driver.
+
+config QCOM_QMI_RMNET
+	bool "QTI QMI Rmnet Helpers"
+	depends on QCOM_QMI_HELPERS
+	depends on RMNET
+	help
+	  Helper for handling interfaces between kernel clients and rmnet
+	  driver. It enables the rmnet driver to create/delete DFC/WDA
+	  clients and provides the common functionality for data flow control
+	  and power save features.
+
+config QCOM_QMI_DFC
+	bool "Enable burst mode flow control"
+	depends on QCOM_QMI_RMNET
+	help
+	  Say y here to enable support for burst mode data flow control.
+	  DFC client provides an interface to the modem dfc service and
+	  does burst mode flow control. It enables the flow on receiving flow
+	  status indication and disables flows while grant size is reached.
+	  If unsure or not use burst mode flow control, say 'N'.
+
+config QCOM_QMI_POWER_COLLAPSE
+	bool "Enable power save features"
+	depends on QCOM_QMI_RMNET
+	help
+	  Say y here to enable support for power save features.
+	  It provides an interface to offload uplink flow control based on
+	  detected flow status.
+	  If unsure or not use power save feature, say 'N'.
+
+config QCOM_SMEM
+	tristate "Qualcomm Shared Memory Manager (SMEM)"
+	depends on ARCH_QCOM
+	depends on HWSPINLOCK
+	help
+	  Say y here to enable support for the Qualcomm Shared Memory Manager.
+	  The driver provides an interface to items in a heap shared among all
+	  processors in a Qualcomm platform.
+
+config MSM_APM
+	bool "Qualcomm Technologies, Inc. platform specific APM driver"
+	help
+	  Platform specific driver to manage the power source of
+	  memory arrays. Interfaces with regulator drivers to ensure
+	  SRAM Vmin requirements are met across different performance
+	  levels.
+
+config QCOM_SMD_RPM
+	tristate "Qualcomm Resource Power Manager (RPM) over SMD"
+	depends on ARCH_QCOM
+	depends on RPMSG && OF
+	help
+	  If you say yes to this option, support will be included for the
+	  Resource Power Manager system found in the Qualcomm 8974 based
+	  devices.
+
+	  This is required to access many regulators, clocks and bus
+	  frequencies controlled by the RPM on these devices.
+
+	  Say M here if you want to include support for the Qualcomm RPM as a
+	  module. This will build a module called "qcom-smd-rpm".
+
+config MSM_SPM
+        bool "Driver support for SPM and AVS wrapper hardware"
+        help
+          Enables the support for SPM and AVS wrapper hardware on MSMs. SPM
+          hardware is used to manage the processor power during sleep. The
+          driver allows configuring SPM to allow different low power modes for
+          both core and L2.
+
+config MSM_L2_SPM
+        bool "SPM support for L2 cache"
+        help
+          Enable SPM driver support for L2 cache. Some MSM chipsets allow
+          control of L2 cache low power mode with a Subsystem Power manager.
+          Enabling this driver allows configuring L2 SPM for low power modes
+          on supported chipsets.
+
+config QCOM_SCM
+	bool "Secure Channel Manager (SCM) support"
+	default n
+        help
+	 Say y here to enable Secure Channel Mananger(SCM) support for SoC.
+	 SCM provides communication channel to communicate with secure
+	 world(EL2 and EL3) by using smc call.
+	 SCM driver provides the support for atomic scm calls also.
+
+config QCOM_SCM_QCPE
+	bool "Para-Virtualized Secure Channel Manager (SCM) support over QCPE"
+	default n
+        help
+	 Say y here to enable Secure Channel Mananger(SCM) support for SoC
+	 in virtualized Linux, where SCM backend is QCPE (QCOM Protected
+	 environment). The SCM channel will use QCOM HAB interface for
+	 fronet-end to back-end communication.
+
+config QCOM_MEMORY_DUMP_V2
+	bool "QCOM Memory Dump V2 Support"
+	help
+	  This enables memory dump feature. It allows various client
+	  subsystems to register respective dump regions. At the time
+	  of deadlocks or cpu hangs these dump regions are captured to
+	  give a snapshot of the system at the time of the crash.
+
+config MSM_DEBUG_LAR_UNLOCK
+	bool "MSM Debug LAR Unlock Support"
+	depends on QCOM_MEMORY_DUMP_V2
+	help
+	  This allows unlocking Core Debug lock to allow capture
+	  of upper 32 bits of program counter at the time of
+	  system crash. This is useful in getting correct crash
+	  location.
+
+config QCOM_WATCHDOG_V2
+	bool "Qualcomm Watchdog Support"
+	depends on ARCH_QCOM
+	help
+	  This enables the watchdog module. It causes kernel panic if the
+	  watchdog times out. It allows for detection of cpu hangs and
+	  deadlocks. It does not run during the bootup process, so it will
+	  not catch any early lockups.
+
+config QCOM_FORCE_WDOG_BITE_ON_PANIC
+	bool "QCOM force watchdog bite"
+	depends on QCOM_WATCHDOG_V2
+	help
+	  This forces a watchdog bite when the device restarts due to a
+	  kernel panic. On certain MSM SoCs, this provides us
+	  additional debugging information.
+
+config QCOM_WDOG_IPI_ENABLE
+	bool "Qcom WDT pet optimization"
+	depends on QCOM_WATCHDOG_V2
+	default n
+	help
+	  When this option is enabled, watchdog sends IPI to cores in low power
+	  mode also. For power optimizations, by default watchdog don't ping
+	  cores in low power mode at pettime.
+
+	  To track CPUs health on LPM, or on debug builds enable it.
+
+config QCOM_SMEM_STATE
+	bool
+
+config QCOM_SMP2P
+	tristate "Qualcomm Shared Memory Point to Point support"
+	depends on MAILBOX
+	depends on QCOM_SMEM
+	select QCOM_SMEM_STATE
+	help
+	  Say yes here to support the Qualcomm Shared Memory Point to Point
+	  protocol.
+
+config QCOM_SMSM
+	tristate "Qualcomm Shared Memory State Machine"
+	depends on QCOM_SMEM
+	select QCOM_SMEM_STATE
+	help
+	  Say yes here to support the Qualcomm Shared Memory State Machine.
+	  The state machine is represented by bits in shared memory.
+
+config QCOM_WCNSS_CTRL
+	tristate "Qualcomm WCNSS control driver"
+	depends on ARCH_QCOM
+	depends on RPMSG
+	help
+	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
+	  firmware to a newly booted WCNSS chip.
+
+config QPNP_PBS
+	tristate "PBS trigger support for QPNP PMIC"
+	depends on SPMI
+	help
+	  This driver supports configuring software PBS trigger event through PBS
+	  RAM on Qualcomm Technologies, Inc. QPNP PMICs. This module provides
+	  the APIs to the client drivers that wants to send the PBS trigger
+	  event to the PBS RAM.
+
+config MSM_SERVICE_LOCATOR
+	bool "Service Locator"
+	depends on QCOM_QMI_HELPERS
+	help
+	  The Service Locator provides a library to retrieve location
+	  information given a service identifier. Location here translates
+	  to what process domain exports the service, and which subsystem
+	  that process domain will execute in.
+
+config MSM_SERVICE_NOTIFIER
+	bool "Service Notifier"
+	depends on MSM_SERVICE_LOCATOR && MSM_SUBSYSTEM_RESTART
+	help
+	  The Service Notifier provides a library for a kernel client to
+	  register for state change notifications regarding a remote service.
+	  A remote service here refers to a process providing certain services
+	  like audio, the identifier for which is provided by the service
+	  locator.
+
+config MSM_SUBSYSTEM_RESTART
+       bool "MSM Subsystem Restart"
+       help
+         This option enables the MSM subsystem restart framework.
+
+         The MSM subsystem restart framework provides support to boot,
+         shutdown, and restart subsystems with a reference counted API.
+         It also notifies userspace of transitions between these states via
+         sysfs.
+
+config MSM_PIL
+       bool "Peripheral image loading"
+       select FW_LOADER
+       default n
+       help
+         Some peripherals need to be loaded into memory before they can be
+         brought out of reset.
+
+         Say yes to support these devices.
+
+config MSM_SYSMON_GLINK_COMM
+       bool "MSM System Monitor communication support using GLINK transport"
+       depends on MSM_GLINK && MSM_SUBSYSTEM_RESTART
+       help
+         This option adds support for MSM System Monitor APIs using the GLINK
+         transport layer. The APIs provided may be used for notifying
+         subsystems within the SoC about other subsystems' power-up/down
+         state-changes.
+
+config MSM_SYSMON_QMI_COMM
+       bool "MSM System Monitor communication support using QMI transport"
+       depends on QCOM_QMI_HELPERS && MSM_SUBSYSTEM_RESTART
+       help
+         This option adds support for MSM System Monitor APIs using the
+         QMI layer. The APIs provided may be used for notifying
+         subsystems within the SoC about other subsystems' power-up/down
+         state-changes.
+
+config MSM_PIL_SSR_GENERIC
+       tristate "MSM Subsystem Boot Support"
+       depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+       help
+         Support for booting and shutting down MSM Subsystem processors.
+         This driver also monitors the SMSM status bits and the watchdog
+         interrupt for the subsystem and restarts it on a watchdog bite
+         or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
+         BCSS.
+
+config MSM_PIL_MSS_QDSP6V5
+       tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+       depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+       help
+         Support for booting and shutting down QDSP6v5 (Hexagon) processors
+         in modem subsystems. If you would like to make or receive phone
+         calls then say Y here.
+
+         If unsure, say N.
+
+config SETUP_SSR_NOTIF_TIMEOUTS
+	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
+	help
+	  Setup timers prior to initiating communication between
+	  subsystems through sysmon, and prior to sending notifications
+	  to drivers in the kernel that have registered callbacks with the
+	  subsystem notifier framework for a particular subsystem. This
+	  is a debugging feature.
+
+config SSR_SYSMON_NOTIF_TIMEOUT
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	int "SSR Sysmon notifications timeout in ms"
+	default 10000
+	help
+	  The amount of time, in milliseconds, that should elapse between
+	  the start and end of sysmon SSR notifications, before a warning
+	  is emitted.
+
+config SSR_SUBSYS_NOTIF_TIMEOUT
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	int "SSR Subsystem notifier timeout in ms"
+	default 10000
+	help
+	  The amount of time, in milliseconds, that should elapse between
+	  the start and end of SSR notifications through the subsystem
+	  notifier, before a warning is emitted.
+
+config PANIC_ON_SSR_NOTIF_TIMEOUT
+	bool "Trigger kernel panic when notification timeout expires"
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	help
+	  Trigger a kernel panic when communication between subsystems
+	  through sysmon is taking too long. Also trigger a kernel panic
+	  if invoking the callbacks registered with a particular subsystem's
+	  notifications by the subsystem notifier framework is taking too long.
+	  This is a debugging feature.
+
+config MSM_BOOT_STATS
+	bool "Use MSM boot stats reporting"
+	help
+	  Use this to report msm boot stats such as bootloader throughput,
+	  display init, total boot time.
+	  This figures are reported in mpm sleep clock cycles and have a
+	  resolution of 31 bits as 1 bit is used as an overflow check.
+
+config MSM_BOOT_TIME_MARKER
+        bool "Use MSM boot time marker reporting"
+        depends on MSM_BOOT_STATS
+        help
+         Use this to mark msm boot kpi for measurement.
+         An instrumentation for boot time measurement.
+         To create an entry, call "place_marker" function.
+         At userspace, write marker name to "/sys/kernel/debug/bootkpi/kpi_values"
+         If unsure, say N
+
+config MSM_CORE_HANG_DETECT
+       tristate "MSM Core Hang Detection Support"
+       help
+         This enables the core hang detection module. It causes SoC
+         reset on core hang detection and collects the core context
+         for hang. By using sysfs entries core hang detection can be
+	 enabled or disabled dynamically.
+
+config QCOM_DCC
+        bool "QCOM Data Capture and Compare enigne support"
+        help
+          This option enables driver for Data Capture and Compare engine. DCC
+          driver provides interface to configure DCC block and read back
+          captured data from DCC's internal SRAM.
+
+config QCOM_DCC_V2
+       bool "Qualcomm Technologies Data Capture and Compare enigne support for V2"
+       help
+         This option enables driver for Data Capture and Compare engine. DCC
+         driver provides interface to configure DCC block and read back
+         captured data from DCC's internal SRAM.
+
+config MSM_GLADIATOR_HANG_DETECT
+	tristate "MSM Gladiator Hang Detection Support"
+	help
+	  This enables the gladiator hang detection module.
+          If the configured threshold is reached, it causes SoC reset on
+          gladiator hang detection and collects the context for the
+          gladiator hang.
+
+config MSM_GLADIATOR_ERP
+	tristate "GLADIATOR coherency interconnect error reporting driver"
+	help
+	  Support dumping debug information for the GLADIATOR
+	  cache interconnect in the error interrupt handler.
+	  Meant to be used for debug scenarios only.
+
+	  If unsure, say N.
+
+config SDX_EXT_IPC
+	tristate "QCOM external ipc driver"
+	help
+	  This enables the module to help modem communicate with external
+	  Application processor connected to Qualcomm Technologies, Inc
+	  modem chipset. The modem and APQ can understand each other's
+	  state by reading ipc gpios.
+
+	  If unsure, say N.
+
+config QTI_NOTIFY_SIDEBAND
+	tristate "QCOM sideband signalling helper"
+	help
+	  This provides helper APIs and a header file through which
+	  transport layer driver can talk to the sideband driver to
+	  assert appropriate sideband signal.
+
+	  If unsure, say N.
+
+config PANIC_ON_GLADIATOR_ERROR
+	depends on MSM_GLADIATOR_ERP
+	bool "Panic on GLADIATOR error report"
+	help
+	  Panic upon detection of an Gladiator coherency interconnect error
+	  in order to support dumping debug information.
+	  Meant to be used for debug scenarios only.
+
+	  If unsure, say N.
+
+config QCOM_SECURE_BUFFER
+	bool "Helper functions for securing buffers through TZ"
+	help
+	 Say 'Y' here for targets that need to call into TZ to secure
+	 memory buffers. This ensures that only the correct clients can
+	 use this memory and no unauthorized access is made to the
+	 buffer
+
+config MSM_REMOTEQDSS
+	bool "Allow debug tools to enable events on other processors"
+	depends on QCOM_SCM && DEBUG_FS
+	help
+	  Other onchip processors/execution environments may support debug
+	  events. Provide a sysfs interface for debug tools to dynamically
+	  enable/disable these events. Interface located in
+	  /sys/class/remoteqdss.
+
+config ICNSS
+	tristate "Platform driver for Q6 integrated connectivity"
+	select CNSS_UTILS
+	---help---
+	  This module adds support for Q6 integrated WLAN connectivity
+	  subsystem. This module is responsible for communicating WLAN on/off
+	  control messages to FW over QMI channel. It is also responsible for
+	  handling WLAN PD restart notifications.
+
+config ICNSS_DEBUG
+	bool "ICNSS debug support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable ICNSS driver debug support. Debug support
+	  primarily consists of logs consisting of information related to
+	  hardware register access and enabling BUG_ON for certain cases to aid
+	  the debugging.
+
+config ICNSS_QMI
+       bool "ICNSS QMI support"
+       depends on ICNSS
+       ---help---
+        Say 'Y' here to enable ICNSS QMI support. ICNSS driver will use
+	QMI framework to communicate with WLAN FW. It will send coldboot
+	handshake messages to WLAN FW, which includes hardware capabilities
+	and configurations. It also send WLAN on/off control message to FW
+	over QMI channel.
+
+config CNSS_TIMESYNC
+	bool "cnss TIME SYNC support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable cnss TIME SYNC support. TIME SYNC support
+	  primarily consists of reading the AUDIO TIMESYNC register for
+	  deriving WLAN mac time stamp relation when FTM based clock sync is
+	  used.
+
+config QCOM_EUD
+	tristate "QTI Embedded USB Debugger (EUD)"
+	depends on ARCH_QCOM
+	select SERIAL_CORE
+	help
+	  The EUD (Embedded USB Debugger) is a mini-USB hub implemented
+	  on chip to support the USB-based debug and trace capabilities.
+	  This module enables support for Qualcomm Technologies, Inc.
+	  Embedded USB Debugger (EUD).
+	  If unsure, say N.
+
+config QCOM_MINIDUMP
+	bool "QCOM Minidump Support"
+	depends on QCOM_SMEM && QCOM_DLOAD_MODE
+	help
+	  This enables minidump feature. It allows various clients to
+	  register to dump their state at system bad state (panic/WDT,etc.,).
+	  Minidump would dump all registered entries, only when DLOAD mode
+	  is enabled.
+
+config MINIDUMP_MAX_ENTRIES
+	int "Minidump Maximum num of entries"
+	default 200
+	depends on QCOM_MINIDUMP
+	help
+	  This defines maximum number of entries to be allocated for application
+	  subsytem in Minidump table.
+
+config QCOM_BUS_SCALING
+	bool "Bus scaling driver"
+	help
+	This option enables bus scaling on MSM devices.  Bus scaling
+	allows devices to request the clocks be set to rates sufficient
+	for the active devices needs without keeping the clocks at max
+	frequency when a slower speed is sufficient.
+
+config  QCOM_BUS_CONFIG_RPMH
+	bool "RPMH Bus scaling driver"
+	depends on QCOM_BUS_SCALING
+	help
+	  This option enables bus scaling using QCOM specific hardware
+	  accelerators. It enables the translation of bandwidth requests
+	  from logical nodes to hardware nodes controlled by the BCM (Bus
+	  Clock Manager)
+
+config QCOM_COMMAND_DB
+	bool "Command DB"
+	help
+	  Command DB queries shared memory by key string for shared system
+	  resources
+
+config QCOM_EARLY_RANDOM
+        bool "Initialize random pool very early"
+        help
+          The standard random pool may not initialize until late in the boot
+          process which means that any calls to get random numbers before then
+          may not be truly random. Select this option to make an early call
+          to get some random data to put in the pool. If unsure, say N.
+
+config MSM_SPSS_UTILS
+	depends on MSM_PIL
+	bool "Secure Processor Utilities"
+	help
+	  spss-utils driver selects Secure Processor firmware file name.
+	  The firmware file name for dev, test or production is selected
+	  based on two fuses.
+	  Different file name is used for differnt SPSS HW versions,
+	  because the SPSS firmware size is too small to support multiple
+	  HW versions.
+
+config MSM_SPCOM
+	depends on QCOM_GLINK
+	bool "Secure Processor Communication over GLINK"
+	help
+	  spcom driver allows loading Secure Processor Applications and
+	  sending messages to Secure Processor Applications.
+	  spcom provides interface to both user space app and kernel driver.
+	  It is using glink as the transport layer, which provides multiple
+	  logical channels over single physical channel.
+	  The physical layer is based on shared memory and interrupts.
+	  spcom provides clients/server API, although currently only one client
+	  or server is allowed per logical channel.
+
+config MSM_TZ_SMMU
+	depends on ARCH_MSM8953 || ARCH_QCS405 || ARCH_QCS403 || ARCH_SDM429W
+	bool "Helper functions for SMMU configuration through TZ"
+	help
+	  Say 'Y' here for targets that need to call into TZ to configure
+	  SMMUs for any reason (for example, for errata workarounds or
+	  configuration of SMMU virtualization).
+
+	  If unsure, say N.
+
+config QTI_RPMH_API
+	bool "QTI RPMH (h/w accelerators) Communication API"
+	select MAILBOX
+	select QTI_RPMH_MBOX
+	select QTI_SYSTEM_PM
+	help
+	  This option enables RPMH hardware communication for making shared
+	  resource requests on Qualcomm Technologies Inc SoCs.
+
+config QTI_SYSTEM_PM
+	bool
+
+config QSEE_IPC_IRQ
+	bool "QSEE interrupt manager"
+	help
+	  The QSEE IPC IRQ controller manages the interrupts from the QTI
+	  secure execution environment. This interrupt controller will use
+	  the registers in the spcs region to mask and clear interrupts.
+	  Clients can use this driver to avoid adding common interrupt handling
+	  code.
+
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	select QSEE_IPC_IRQ
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards Qualcomm
+	  Technologies, Inc. Secure Execution Environment(QSEE) to userspace.
+	  The interrupt will be propagated through a character device that
+	  userspace clients can poll on.
+
+config QCOM_GLINK
+	tristate "GLINK Probe Helper"
+	depends on RPMSG_QCOM_GLINK_SMEM
+	help
+	  The GLINK RPMSG Plugin is currently designed to plugin with the
+	  remote proc framework as a subdev. This module is responsible for
+	  creating the glink transports when remote proc is disabled.
+
+config QCOM_GLINK_PKT
+	tristate "Enable device interface for GLINK packet channels"
+	depends on QCOM_GLINK || RPMSG_QCOM_GLINK_BGCOM
+	help
+	  G-link packet driver provides the interface for the userspace
+	  clients to communicate over G-Link via device nodes.
+	  This enable the userspace clients to read and write to
+	  some glink packets channel.
+
+config MSM_JTAGV8
+	bool "Debug and ETM trace support across power collapse for ARMv8"
+	default y if CORESIGHT_SOURCE_ETM4X
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on ARMv8 target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
+config QCOM_QDSS_BRIDGE
+	bool "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
+	depends on MHI_BUS
+	help
+	  The driver will help route diag traffic from modem side over the QDSS
+	  sub-system to USB on APSS side. The driver acts as a bridge between the
+	  MHI and USB interface. If unsure, say N.
+
+config QTI_RPM_STATS_LOG
+	bool "Qualcomm Technologies RPM Stats Driver"
+	depends on DEBUG_FS
+	default n
+	help
+	  This option enables a driver which reads RPM messages from a shared
+	  memory location. These messages provide statistical information about
+	  the low power modes that RPM enters. The drivers outputs the message
+	  via a debugfs node.
+
+config MSM_CDSP_LOADER
+	tristate "CDSP loader support"
+	help
+	  Enable CDSP image loader.
+	  The CDSP loader brings CDSP out of reset
+	  for platforms that have compute DSP.
+	  Say M if you want to enable this module.
+
+config QCOM_SMCINVOKE
+       bool "Secure QSEE Support"
+       help
+         Enable SMCInvoke driver which supports capability based secure
+         communication between QTI Secure Execution Environment (QSEE)
+         and high level operating system. It exposes APIs for both
+         userspace and kernel clients.
+
+config MSM_EVENT_TIMER
+	bool "Event timer"
+        help
+	  This option enables a modules that manages a list of event timers
+	  that need to be monitored by the PM. The enables the PM code to
+	  monitor events that require the core to be awake and ready to
+	  handle the event.
+
+config MSM_AVTIMER
+	tristate "Avtimer Driver"
+	default n
+	help
+	  This driver gets the Q6 out of power collapsed state
+	  and exposes ioctl control to read avtimer tick.
+	  Enables camera to use for VT call to get avtimer
+	  timestamp.
+
+config MSM_PM
+	depends on PM
+	select MSM_IDLE_STATS if DEBUG_FS
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	bool "Qualcomm Techonolgies Inc (QTI) platform specific PM driver"
+	help
+	  Platform specific power driver to manage cores and l2 low power
+	  modes. It interface with various system driver and put the cores
+	  into low power modes. It implements OS initiated scheme and
+	  determines last CPU to call into PSCI for cluster Low power
+	  modes.
+
+config MSM_PM_LEGACY
+	depends on PM
+	select MSM_IDLE_STATS if DEBUG_FS
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	bool "Qualcomm Technologies, Inc. (QTI) platform specific Legacy PM driver"
+	help
+	  Platform specific legacy power driver to manage
+	  cores and l2 low power modes. It interface with
+	  various system driver and put the cores into
+	  low power modes.
+
+config MSM_NOPM
+	default y if !PM
+	bool
+	help
+	  This enables bare minimum support of power management at platform level.
+	  i.e WFI
+
+config MSM_QBT1000
+	bool "QBT1000 Ultrasonic Fingerprint Sensor"
+	help
+	  This driver provides services for configuring the fingerprint
+	  sensor hardware and for communicating with the trusted app which
+	  uses it. It enables clocks and provides commands for loading
+	  trusted apps, unloading them and marshalling buffers to the
+	  trusted fingerprint app.
+
+config APSS_CORE_EA
+	depends on CPU_FREQ && PM_OPP
+	bool "Qualcomm Technology Inc specific power aware driver"
+	help
+	  Platform specific power aware driver to provide power
+	  and temperature information to the scheduler.
+
+config QCOM_FSA4480_I2C
+	bool "Fairchild FSA4480 chip with I2C"
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Support for the Fairchild FSA4480 IC switch chip controlled
+	  using I2C. This driver provides common support
+	  for accessing the device, switching between USB and Audio
+	  modes, changing orientation.
+
+if (MSM_PM || MSM_PM_LEGACY)
+menuconfig MSM_IDLE_STATS
+	bool "Collect idle statistics"
+	help
+	  Collect cores various low power mode idle statistics
+	  and export them in proc/msm_pm_stats. User can read
+	  this data and determine what low power modes and how
+	  many times cores have entered into LPM modes.
+
+if MSM_IDLE_STATS
+
+config MSM_IDLE_STATS_FIRST_BUCKET
+	int "First bucket time"
+	default 62500
+	help
+	  Upper time limit in nanoseconds of first bucket.
+
+config MSM_IDLE_STATS_BUCKET_SHIFT
+	int "Bucket shift"
+	default 2
+
+config MSM_IDLE_STATS_BUCKET_COUNT
+	int "Bucket count"
+	default 10
+
+config MSM_SUSPEND_STATS_FIRST_BUCKET
+	int "First bucket time for suspend"
+	default 1000000000
+	help
+	  Upper time limit in nanoseconds of first bucket of the
+	  histogram.  This is for collecting statistics on suspend.
+
+endif # MSM_IDLE_STATS
+endif # MSM_PM || MSM_PM_LEGACY
+
+source "drivers/soc/qcom/memshare/Kconfig"
+source "drivers/soc/qcom/hab/Kconfig"
+source "drivers/soc/qcom/rmnet_ctl/Kconfig"
+source "drivers/soc/qcom/hgsl/Kconfig"
+
+config MSM_PERFORMANCE
+	tristate "msm performance driver to support userspace fmin/fmax request"
+	default n
+	help
+	This driver can restrict max freq or min freq of cpu cluster
+	when requested by the userspace by changing the cpufreq policy
+	fmin and fmax.
+
+config MSM_DRM_NOTIFY
+	bool
+	depends on !DRM_MSM
+	help
+	  This driver can register and receive notification for MSM_DRM
+	  power event in external module. When display power state is
+	  updated, any modules registered to the block chain will get
+	  notified.
+
+config MSM_DRM_TECHPACK
+	bool "Enable MSM DRM from techpack"
+	depends on DRM
+	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
+	depends on OF
+	depends on MMU
+	depends on !DRM_MSM
+	select QCOM_MDT_LOADER if ARCH_QCOM
+	select REGULATOR
+	select DRM_KMS_HELPER
+	select DRM_PANEL
+	select SHMEM
+	select TMPFS
+	select QCOM_SCM
+	select SND_SOC_HDMI_CODEC if SND_SOC
+	select SYNC_FILE
+	select MSM_EXT_DISPLAY
+	select PM_GENERIC_DOMAINS
+	select V4L2_MEM2MEM_DEV
+	select DRM_MIPI_DSI
+	select MSM_DRM_NOTIFY
+	help
+	  The DRM MSM TECHPACK will select modules that are required by
+	  DRM MSM module. This option is only used when DRM MSM is loaded
+	  from external techpack, and is mutually exclusive with builtin
+	  DRM MSM module.
+
+config QMP_DEBUGFS_CLIENT
+	bool "Debugfs Client to communicate with AOP using QMP protocol"
+	depends on DEBUG_FS
+	default n
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport.
+
+config QCOM_QHEE_ENABLE_MEM_PROTECTION
+	bool "QHEE enable kernel memory protection"
+	depends on QCOM_SCM
+	default y
+	help
+	  When this option is enabled, an SCM call will be invoked to enable
+	  kernel memory protection in stage 2 memory mappings on kernel boot.
+	  This is part of a security feature enabled in QHEE.
+
+config QCOM_SMP2P_SLEEPSTATE
+	bool "SMP2P Sleepstate notifier"
+	depends on QCOM_SMP2P
+	help
+	  When this option is enabled, notifications are sent to remote procs
+	  for the power state changes on the local processor. The notifications
+	  are sent through the smp2p framework.
+
+config QCOM_CDSP_RM
+	bool "CDSP request manager"
+	depends on QCOM_GLINK
+	help
+	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
+	  improving CDSP performance. Using this driver, CDSP can set appropriate
+	  CPU L3 clock for improving IO-Coherent throughput and opt for QoS mode
+	  to improve RPC latency.
+
+config QCOM_CX_IPEAK
+	bool "Common driver to handle Cx iPeak limitation"
+	help
+	  Cx ipeak HW module is used to limit the current drawn by various subsystem
+	  blocks on Cx power rail. Each client needs to set their
+	  bit in tcsr register if it is going to cross its own threshold. If all
+	  clients are going to cross their thresholds then Cx ipeak hw module will raise
+	  an interrupt to cDSP block to throttle cDSP fmax.
+
+config QCOM_AOP_DDR_MESSAGING
+	bool "Send messages to AOP about the DDR frequency during reboot"
+	help
+	  This driver sends messages to the AOP to adjust the DDR frequency when
+	  the device is rebooting, to ensure that the device is powered off
+	  cleanly.
+
+config QCOM_AOP_DDRSS_COMMANDS
+	bool "Send commands to AOP to affect the behavior of the DDRSS"
+	help
+	  This driver allows messages to be sent to the AOP to affect the DDRSS
+	  behavior.
+
+config QCOM_ADSP_MANUAL_VOTE
+	bool "Send commands to ADSP to unvote and vote during Suspend and resume"
+	help
+	  This driver is used to manually release and acquire the ADSP vote from APPS
+	  processor during system suspend and resume.
+	  This driver sends message over QMI to the service which is running on
+	  ADSP.
+
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	  Support Muxed Data Channels over BAM interface.
+	  BAM has a limited number of pipes.  This driver
+	  provides a means to support more logical channels
+	  via muxing than BAM could without muxing.
+
+        config MSM_BGCOM_INTERFACE
+        bool "Driver support for Blackghost Communication"
+        depends on MSM_BGCOM
+        help
+                Create a bg_com_dev device node for user space communication.
+                Single user space client can open device node for communication
+                from hardware. Hardware will provide access to read
+                registers and read/write AHB memory in the device.
+
+
+        config MSM_BGCOM
+        bool "Provide APIs to communicate with Blackghost chipset"
+        help
+                BGCOM is a thin layer above SPI. It is used whithin a SoC for
+                communication between G-Link/bg_com_dev and BG processor over SPI.
+                This handle the interrupts raised by BG and notify the G-link with
+                interrupt event and event data.
+
+config MSM_BGRSB
+	bool "Provide support for rsb events on Blackghost chipset"
+	help
+	  BGRSB communicates to BG over rpmsg driver for RSB configuration and
+	  enable/disable on device power state change. It enables/disables
+	  the regulator specific to RSB. Sends the side band events generated
+	  by BG to input framework.
+
+config MSM_BGRSB_RPMSG
+	bool "Provide support for Blackghost events to RSB"
+	depends on MSM_BGRSB
+	help
+	  BGRSB-RPMSG informs BGRSB driver if GLINK channel has been
+	  opened by remote processor. It doesn't maintain state machine
+	  and is probed when BG opens channel and removed when the
+	  channel is closed by remote processor.
+
+config MSM_PIL_SSR_BG
+	tristate "MSM Subsystem Blackghost(BG) Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down Blackghost(BG) SOC which is
+	  an external SOC. This driver communicates with Blackghost(BG) SOC
+	  via pair of IPC GPIOs for inward and outward signals between MSM
+	  and Blackghost(BG) SOC.
+
+config QCOM_SOC_INFO
+	bool "Chip information for QTI SoCs"
+	depends on SOC_BUS
+	default y
+	help
+	  This driver provides information about the SoC and chip information such
+	  as the chip ID and revision. Information includes decoding the chip name
+	  based on the chip ID and querying the SoC revision. This information is
+	  loaded by the bootloader into SMEM during the boot up process.
+
+config QTI_CRYPTO_COMMON
+	tristate "Enable common crypto functionality used for FBE"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	 Say 'Y' to enable the common crypto implementation to be used by
+	 different storage layers such as UFS and EMMC for file based hardware
+	 encryption. This library implements API to program and evict
+	 keys using Trustzone or Hardware Key Manager.
+
+config QTI_CRYPTO_TZ
+	tristate "Enable Trustzone to be used for FBE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable routing crypto requests to Trustzone while
+	 performing hardware based file encryption. This means keys are
+	 programmed and managed through SCM calls to TZ where ICE driver
+	 will configure keys.
+endmenu
+
+config QCOM_HYP_CORE_CTL
+	bool "CPU reservation scheme for Hypervisor"
+	depends on OKL4_GUEST
+	help
+	  This driver reserve the specified CPUS by isolating them. The reserved
+	  CPUs can be assigned to the other guest OS by the hypervisor.
+	  An offline CPU is considered as a reserved CPU since this OS can't use
+	  it.
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status and update command line"
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface
+	  and then update cmdline
+
+config RENAME_BLOCK_DEVICE
+	bool "Rename block device node in /dev"
+	help
+	  This driver is used to rename the block device node assigned by generic driver
+	  to a name that is needed.
+
+source "drivers/soc/qcom/wcnss/Kconfig"

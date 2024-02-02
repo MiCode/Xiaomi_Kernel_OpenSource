@@ -1,0 +1,59 @@
+Qualcomm Technologies, Inc. QTI Mailbox Protocol
+
+QMP Driver
+===================
+
+Required properties:
+- compatible : should be "qcom,qmp-mbox".
+- label : the name of the remote proc this link connects to.
+- reg : The location and size of shared memory.
+	The irq register base address for triggering interrupts.
+- reg-names : "msgram" - string to identify the shared memory region.
+	"irq-reg-base" - string to identify the irq register region.
+- qcom,irq-mask : the bitmask to trigger an interrupt.
+- interrupt : the receiving interrupt line.
+- mbox-desc-offset : offset of mailbox descriptor from start of the msgram.
+- priority : the priority of this mailbox compared to other mailboxes.
+- #mbox-cells: Common mailbox binding property to identify the number of cells
+		required for the mailbox specifier, should be 1.
+
+Optional properties:
+- qcom,early-boot : bool to indicate that this remote proc will boot before QMP.
+- mbox-offset : offset of the mcore mailbox from the offset of msgram. If this
+			property is not used, qmp will use the configuration
+			provided by the ucore.
+- mbox-size : size of the mcore mailbox. If this property is not used, qmp will
+			use the configuration provided by the ucore.
+
+Example:
+	qmp_aop: qcom,qmp-aop {
+		compatible = "qcom,qmp-mbox";
+		label = "aop";
+		qcom,early-boot;
+		reg = <0xc300000 0x100000>,
+			<0x1799000C 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupt = <0 389 1>;
+		mbox-desc-offset = <0x100>;
+		priority = <1>;
+		mbox-offset = <0x500>;
+		mbox-size = <0x400>;
+		#mbox-cells = <1>;
+	};
+
+Mailbox Client
+==============
+"mboxes" and the optional "mbox-names" (please see
+Documentation/devicetree/bindings/mailbox/mailbox.txt for details). Each value
+of the mboxes property should contain a phandle to the mailbox controller
+device node and second argument is the channel index. It must be 0 (qmp
+supports only one channel).The equivalent "mbox-names" property value can be
+used to give a name to the communication channel to be used by the client user.
+
+Example:
+	qmp-client {
+		compatible = "qcom,qmp-client";
+		mbox-names = "aop";
+		mboxes = <&qmp_aop 0>,
+	};

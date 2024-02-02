@@ -1,0 +1,27 @@
+Qualcomm Technologies, Inc. Video Clock & Reset Controller Bindings
+
+Required properties:
+- compatible: shall contain "qcom,videocc-sm8150" or "qcom,videocc-sm8150-v2" or
+				"qcom,videocc-sa8155" or "qcom,videocc-sa8155-v2" or
+				"qcom,videocc-sm6150", "qcom,videocc-sdmmagpie" or
+				"qcom,videocc-trinket" or "qcom,videocc-sa6155" or
+				"qcom,atoll-videocc".
+- reg: shall contain base register location and length.
+- reg-names: names of registers listed in the same order as in the reg property.
+- vdd_<mm/cx>-supply: the logic rail supply which could be either MM or CX.
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle + clock reference to the GCC AHB clock.
+- #clock-cells: shall contain 1.
+- #reset-cells: shall contain 1.
+
+Example:
+	qcom,videocc@ab00000 {
+		compatible = "qcom,videocc-sm8150";
+		reg = <0xab00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&pm8150l_s5_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};

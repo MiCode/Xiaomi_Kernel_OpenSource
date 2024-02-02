@@ -1,0 +1,52 @@
+GENI based Qualcomm Technologies Inc Universal Peripheral version 3 (QUPv3)
+								I2C controller
+
+Required properties:
+ - compatible: Should be:
+   * "qcom,i2c-geni.
+ - reg: Should contain QUP register address and length.
+ - interrupts: Should contain I2C interrupt.
+ - clocks: Serial engine core clock, and AHB clocks needed by the device.
+ - pinctrl-names/pinctrl-0/1: The GPIOs assigned to this core. The names
+   should be "active" and "sleep" for the pin confuguration when core is active
+   or when entering sleep state.
+ - #address-cells: Should be <1> Address cells for i2c device address
+ - #size-cells: Should be <0> as i2c addresses have no size component
+ - qcom,wrapper-core: Wrapper QUPv3 core containing this I2C controller.
+
+Optional property:
+ - qcom,clk-freq-out: Desired I2C bus clock frequency in Hz.
+   When missing default to 400000Hz.
+ - qcom,clk-cfg: Array of <u32>, clk cfg array should have 2nd to 5th parameter as
+   suggested by hardware expert. Standard frequency parameters taken cared by the
+   driver itself. This field is needed only if client freq is not from the i2c standard
+   supported frequencies or to fine tune the existing clock parameters.
+   1st parameter: clk-freq-out, desired I2C bus clock frequency in Hz.
+   2nd parameter: clk_div, desired I2C bus divider value.
+   3rd parameter: t_high, desired HIGH period of SCL clock.
+   4th parameter: t_low, desired LOW period of SCL clock.
+   5th parameter: t_cycle, desired clock cycle.
+
+   Note: Both qcom,clk-freq-out and qcom,clk-cfg should not be specified at the same time.
+
+Child nodes should conform to i2c bus binding.
+
+Example:
+
+i2c@a94000 {
+	compatible = "qcom,i2c-geni";
+	reg = <0xa94000 0x4000>;
+	interrupts = <GIC_SPI 358 0>;
+	clock-names = "se-clk", "m-ahb", "s-ahb";
+	clocks = <&clock_gcc GCC_QUPV3_WRAP0_S5_CLK>,
+		<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+		<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&qup_1_i2c_5_active>;
+	pinctrl-1 = <&qup_1_i2c_5_sleep>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	qcom,wrapper-core = <&qupv3_0>;
+	qcom,clk-freq-out = <400000>;
+	qcom,clk-cfg = <400000 2 5 12 24>; //optional to qcom,clk-freq-out
+};

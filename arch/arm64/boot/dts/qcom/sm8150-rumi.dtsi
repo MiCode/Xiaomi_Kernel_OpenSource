@@ -1,0 +1,163 @@
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-audio-lpass.dtsi"
+#include "sm8150-sde-display.dtsi"
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	usb_emu_phy: usb_emu_phy@a720000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a720000 0x9500>,
+		      <0x0a6f8800 0x100>;
+		reg-names = "base", "qcratch_base";
+
+		qcom,emu-init-seq = <0xfff0 0x4
+				     0xfff3 0x4
+				     0x40 0x4
+				     0xfff3 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x1a0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	timer {
+		clock-frequency = <95000>;
+	};
+
+	timer@0x17c00000 {
+		clock-frequency = <95000>;
+	};
+
+	qcom,icnss@18800000 {
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 414 0 /* CE0 */ >,
+			     <0 415 0 /* CE1 */ >,
+			     <0 416 0 /* CE2 */ >,
+			     <0 417 0 /* CE3 */ >,
+			     <0 418 0 /* CE4 */ >,
+			     <0 419 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+	};
+
+	wdog: qcom,wdt@17c10000{
+		status = "disabled";
+	};
+
+};
+
+&audio_apr {
+	sound-stub {
+		compatible = "qcom,sm8150-asoc-snd-stub";
+		qcom,model = "sm8150-stub-snd-card";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK";
+
+		asoc-platform = <&pcm0>, <&routing>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-routing";
+		asoc-cpu = <&sb_0_rx>, <&sb_0_tx>;
+		asoc-cpu-names = "msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <0>;
+	};
+};
+
+#include "sm8150-pmic-overlay.dtsi"
+
+&VDD_MMCX_LEVEL {
+	regulator-always-on;
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&usb0 {
+	extcon = <0>, <0>, <0>;
+	dwc3@a600000 {
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm8150_l5>;
+	vdda-pll-supply = <&pm8150_l3>;
+	vdda-phy-max-microamp = <87100>;
+	vdda-pll-max-microamp = <18800>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_l10>;
+	vccq2-supply = <&pm8150_s4>;
+	vcc-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_l9>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sim_cmd_display {
+	qcom,dsi-display-active;
+};
+
+&slim_qca {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&usb2_phy0 {
+	status = "disabled";
+};
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+};

@@ -1,0 +1,77 @@
+# Qualcomm IPC Router configuration
+#
+
+config QRTR
+	tristate "Qualcomm IPC Router support"
+	depends on ARCH_QCOM || COMPILE_TEST
+	---help---
+	  Say Y if you intend to use Qualcomm IPC router protocol.  The
+	  protocol is used to communicate with services provided by other
+	  hardware blocks in the system.
+
+	  In order to do service lookups, a userspace daemon is required to
+	  maintain a service listing.
+
+if QRTR
+
+config QRTR_NODE_ID
+	int "QRTR Local Node ID"
+	default 1
+	---help---
+	  This option is used to configure the QRTR Node ID for the local
+	  processor. The node ID published to other nodes within the system.
+	  This value can be overridden by the name service application. This
+	  option is for configurations where Node ID needs to be customized
+	  but the name service application is not priveleged enough to use
+	  netlink sockets.
+
+config QRTR_SMD
+	tristate "SMD IPC Router channels"
+	depends on RPMSG || (COMPILE_TEST && RPMSG=n)
+	---help---
+	  Say Y here to support SMD based ipcrouter channels.  SMD is the
+	  most common transport for IPC Router.
+
+config QRTR_MHI
+	tristate "MHI IPC Router channels"
+	depends on MHI_BUS || (COMPILE_TEST && MHI_BUS=n)
+	---help---
+	  Say Y here to support MHI based ipcrouter channels.  MHI is the
+	  transport used for external modem connections for IPC Router.
+
+config QRTR_USB
+	tristate "USB IPC Router channels"
+	depends on USB || (COMPILE_TEST && USB=n)
+	---help---
+	  Say Y here to support USB based ipcrouter channels.
+
+config QRTR_FIFO
+	tristate "FIFO IPC Router channels"
+	---help---
+	Say Y here to support FIFO based ipcrouter channels. FIFO Transport
+	Layer enables IPC Router communication between two virtual machines.
+
+config QRTR_MHI_DEV
+	tristate "MHI Device IPC Router channels"
+	depends on MSM_MHI_DEV || (COMPILE_TEST && MSM_MHI_DEV=n)
+	---help---
+	  Say Y here to support MHI base ipcrouter channels for device
+	  endpoint mode.  MHI is the transport used for external modem
+	  connections.  This driver enables QRTR to run on the modem device
+	  side.
+
+config QRTR_USB_DEV
+	tristate "USB Device IPC Router channels"
+	depends on USB_CONFIGFS_F_IPC || (COMPILE_TEST && USB_CONFIGFS_F_IPC=n)
+	---help---
+	  Say Y here to support USB device based ipcrouter channels.
+	  This driver enables QRTR to run on the modem device.
+
+config QRTR_ETHERNET
+	tristate "Ethernet IPC Router channel"
+	help
+	  Say Y here to support Ethernet based ipcrouter channels. Ethernet
+	  is the transport used for external auto connections for IPC router.
+	  This has an out-of-tree dependency on ethernet adaption layer.
+
+endif # QRTR

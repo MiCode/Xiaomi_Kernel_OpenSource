@@ -1,0 +1,332 @@
+MSM PCIe
+
+MSM PCI express root complex
+
+Required properties:
+  - compatible: should be "qcom,pci-msm"
+  - cell-index: defines root complex ID.
+  - #address-cells: Should provide a value of 0.
+  - reg: should contain PCIe register maps.
+  - reg-names: indicates various resources passed to driver by name.
+		Should be "parf", "phy", "dm_core", "elbi", "conf", "io", "bars".
+		These correspond to different modules within the PCIe core.
+  - ranges: For details of ranges properties, please refer to:
+    "Documentation\devicetree\bindings\pci\pci.txt"
+  - interrupts: Should be in the format <0 1 2> and it is an index to the
+		interrupt-map that contains PCIe related interrupts.
+  - #interrupt-cells: Should provide a value of 1.
+  - #interrupt-map-mask: should provide a value of 0xffffffff.
+  - interrupt-map:  Must create mapping for the number of interrupts
+		    that are defined in above interrupts property.
+		    For PCIe device node, it should define 12 mappings for
+		    the corresponding PCIe interrupts supporting the specification.
+  - interrupt-names: indicates interrupts passed to driver by name.
+		     Should be "int_a", "int_b", "int_c", "int_d",
+		     "int_pls_pme", "int_pme_legacy", "int_pls_err",
+		     "int_aer_legacy", "int_pls_link_up",
+		     "int_pls_link_down", "int_bridge_flush_n"
+		     These correspond to the standard PCIe specification to support
+		     virtual IRQ's (INT#), link state notifications.
+  - perst-gpio: PERST GPIO specified by PCIe spec.
+  - wake-gpio: WAKE GPIO specified by PCIe spec.
+  - phy-status-offset: Offset from PCIe PHY base to check if PCIe PHY is up.
+  - phy-status-bit: BIT to check PCIe PHY status.
+  - pcie_rc<PCIe index>: PCI node is a sub-node of PCIe controller node.
+    node. This node holds root complex specific configurations and properties.
+  - <supply-name>-supply: phandle to the regulator device tree node.
+    Refer to the schematics for the corresponding voltage regulators.
+    vreg-1.8-supply: phandle to the analog supply for the PCIe controller.
+    vreg-3.3-supply: phandle to the analog supply for the PCIe controller.
+    vreg-0.9-supply: phandle to the analog supply for the PCIe controller.
+
+Optional Properties:
+  - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
+    Should be specified in pairs (max, min, optimal), units uV.
+  - clkreq-gpio: CLKREQ GPIO specified by PCIe spec.
+  - qcom,ep-gpio: GPIO which enables a certain type of endpoint for link training.
+  - pinctrl-names: The state name of the pin configuration.
+    supports: "default", "sleep"
+  - pinctrl-0: For details of pinctrl properties, please refer to:
+    "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+  - pinctrl-1: For details of pinctrl properties, please refer to:
+    "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+  - clocks: list of clock phandles
+  - clock-names: list of names of clock inputs.
+		     Should be "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo";
+  - max-clock-frequency-hz: list of the maximum operating frequencies stored
+				in the same order of clock names;
+  - qcom,no-l0s-supported: L0s is not supported.
+  - qcom,no-l1-supported: L1 is not supported.
+  - qcom,no-l1ss-supported: L1 sub-states (L1ss) is not supported.
+  - qcom,no-aux-clk-sync: The AUX clock is not synchronous to the Core clock to
+    support L1ss.
+  - qcom,common-clk-en: Enables the common clock configuration for the endpoint.
+  - qcom,clk-power-manage-en: Enables the clock power management for the
+    endpoint.
+  - qcom,target-link-speed: Override maximum GEN speed.
+	GEN 1: 0x1
+	GEN 2: 0x2
+	GEN 3: 0x3
+  - qcom,n-fts: The number of fast training sequences sent when the link state
+    is changed from L0s to L0.
+  - qcom,phy-power-down-offset: Offset from PCIe PHY base to control the power state
+    of the PHY.
+  - qcom,core-preset: Value for PCIe core preset. Determines how aggressive the
+    PCIe PHY equalization is. The following are recommended settings:
+	short channels: 0x55555555 (default)
+	long channels: 0x77777777
+  - qcom,pcie-phy-ver: version of PCIe PHY.
+  - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
+    Should be specified in groups (offset, value, delay).
+    Should be specified in groups (offset, value, delay).
+  - qcom,bw-scale: Table of CX voltage and rate change clock frequency pair
+    for PCIe bandwidth scaling.
+  - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
+  - qcom,boot-option: Bits that alter PCIe bus driver boot sequence.
+    Below details what happens when each bit is set
+	BIT(0): PCIe bus driver will not start enumeration during its probe.
+		Clients will control when PCIe bus driver should do enumeration.
+	BIT(1): PCIe bus driver will not start enumeration if it receives a WAKE
+		interrupt.
+  - qcom,ext-ref-clk: The reference clock is external.
+  - iommu-map: For details of iommu-map properties, please refer to:
+    "Documentation/devicetree/bindings/pci/pci-iommu.txt"
+  - iommus: the phandle and stream IDs for the SMMU used by this root
+    complex. This should be used in separate nodes from the main root
+    complex nodes, and is the only property needed in that case.
+  - qcom,smmu-sid-base: The base SMMU SID that PCIe bus driver will use to calculate
+    and assign for each endpoint.
+  - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
+    stable after power on, before de-assert the PERST to the endpoint.
+  - qcom,switch-latency: The time (unit: ms) to wait for the PCIe endpoint's link
+    training with switch downstream port after the link between switch upstream
+    port and RC is up.
+  - qcom,wr-halt-size: With base 2, this exponent determines the size of the
+    data that PCIe core will halt on for each write transaction.
+  - qcom,slv-addr-space-size: The memory space size of PCIe Root Complex.
+  - qcom,cpl-timeout: Completion timeout value. This value specifies the time range
+    which the root complex will send out a completion packet if there is no response
+    from the endpoint.
+  - linux,pci-domain: For details of pci-domains properties, please refer to:
+    "Documentation/devicetree/bindings/pci/pci.txt"
+  - qcom,perst-delay-us-min: The minimum allowed time (unit: us) to sleep after
+    asserting or de-asserting PERST GPIO.
+  - qcom,perst-delay-us-max: The maximum allowed time (unit: us) to sleep after
+    asserting or de-asserting PERST GPIO.
+  - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
+    tlp-rd-size power).
+  - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+    below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+  - resets: reset specifier pair consists of phandle for the reset controller
+    and reset lines used by this controller.
+  - reset-names: reset signal name strings sorted in the same order as the resets
+    property.
+  - clock-output-names: name of the outgoing clock signal from the PHY PLL.
+  - qcom,keep-powerdown-phy: If present, power down phy in probe to avoid leakage.
+  - errata: Selects the list of erratas to configure for the
+    corresponding switch port. This could be a third party switch connected to
+    the root port.
+
+=================
+Root Complex node
+=================
+
+Root complex are defined as subnodes of the PCIe controller node.
+
+Required properties:
+- reg: Array (5-cell PCI resource) of <u32>. First cell is devfn, which is
+  determined by pci bus topology. Assign the other cells 0 since they are not
+  used.
+
+Optional properties:
+  - qcom,iommu-cfg: Determines whether PCIe bus driver is required to configure
+    SMMU that sits behind the PCIe controller.
+	Bit mask:
+	BIT(0) : Indicates if SMMU is present
+	BIT(1) : Set IOMMU attribute S1_BYPASS
+	BIT(2) : Set IOMMU attribute FAST
+	BIT(3) : Set IOMMU attribute ATOMIC
+	BIT(4) : Set IOMMU attribute FORCE COHERENT
+  - qcom,iommu-range: Pair of values describing iova base and size to allocate.
+
+Example:
+
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,msm_pcie";
+		cell-index = <0>;
+		#address-cells = <0>;
+		reg = <0xfc520000 0x2000>,
+		      <0xfc526000 0x1000>,
+		      <0xff000000 0x1000>,
+		      <0xff001000 0x1000>,
+		      <0xff100000 0x1000>,
+		      <0xff200000 0x100000>,
+		      <0xff300000 0xd00000>;
+		reg-names = "parf", "dm_core", "elbi",
+				"conf", "io", "bars";
+		ranges = <0x01000000 0x0 0x0c200000 0x0c200000 0x0 0x100000>,
+			<0x02000000 0x0 0x0c300000 0x0c300000 0x0 0xd00000>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11
+				12 13 14 15 16 17 18 19 20
+				21 22 23 24 25 26 27 28 29
+				30 31 32 33 34 35 36 37 38
+				39 40 41 42 43>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0x0 0x0 0x0 0 &intc 0 405 0
+				0x0 0x0 0x0 1 &intc 0 244 0
+				0x0 0x0 0x0 2 &intc 0 245 0
+				0x0 0x0 0x0 3 &intc 0 247 0
+				0x0 0x0 0x0 4 &intc 0 248 0
+				0x0 0x0 0x0 5 &intc 0 249 0
+				0x0 0x0 0x0 6 &intc 0 250 0
+				0x0 0x0 0x0 7 &intc 0 251 0
+				0x0 0x0 0x0 8 &intc 0 252 0
+				0x0 0x0 0x0 9 &intc 0 253 0
+				0x0 0x0 0x0 10 &intc 0 254 0
+				0x0 0x0 0x0 11 &intc 0 255 0
+				0x0 0x0 0x0 12 &intc 0 448 0
+				0x0 0x0 0x0 13 &intc 0 449 0
+				0x0 0x0 0x0 14 &intc 0 450 0
+				0x0 0x0 0x0 15 &intc 0 451 0
+				0x0 0x0 0x0 16 &intc 0 452 0
+				0x0 0x0 0x0 17 &intc 0 453 0
+				0x0 0x0 0x0 18 &intc 0 454 0
+				0x0 0x0 0x0 19 &intc 0 455 0
+				0x0 0x0 0x0 20 &intc 0 456 0
+				0x0 0x0 0x0 21 &intc 0 457 0
+				0x0 0x0 0x0 22 &intc 0 458 0
+				0x0 0x0 0x0 23 &intc 0 459 0
+				0x0 0x0 0x0 24 &intc 0 460 0
+				0x0 0x0 0x0 25 &intc 0 461 0
+				0x0 0x0 0x0 26 &intc 0 462 0
+				0x0 0x0 0x0 27 &intc 0 463 0
+				0x0 0x0 0x0 28 &intc 0 464 0
+				0x0 0x0 0x0 29 &intc 0 465 0
+				0x0 0x0 0x0 30 &intc 0 466 0
+				0x0 0x0 0x0 31 &intc 0 467 0
+				0x0 0x0 0x0 32 &intc 0 468 0
+				0x0 0x0 0x0 33 &intc 0 469 0
+				0x0 0x0 0x0 34 &intc 0 470 0
+				0x0 0x0 0x0 35 &intc 0 471 0
+				0x0 0x0 0x0 36 &intc 0 472 0
+				0x0 0x0 0x0 37 &intc 0 473 0
+				0x0 0x0 0x0 38 &intc 0 474 0
+				0x0 0x0 0x0 39 &intc 0 475 0
+				0x0 0x0 0x0 40 &intc 0 476 0
+				0x0 0x0 0x0 41 &intc 0 477 0
+				0x0 0x0 0x0 42 &intc 0 478 0
+				0x0 0x0 0x0 43 &intc 0 479 0>;
+		interrupt-names = int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n";
+
+		qcom,phy-sequence = <0x804 0x01 0x00
+					0x034 0x14 0x00
+					0x138 0x30 0x00
+					0x048 0x0f 0x00
+					0x15c 0x06 0x00
+					0x090 0x01 0x00
+					0x808 0x03 0x00>;
+		perst-gpio = <&msmgpio 70 0>;
+		wake-gpio = <&msmgpio 69 0>;
+		clkreq-gpio = <&msmgpio 68 0>;
+		qcom,ep-gpio = <&tlmm 94 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pma8084_l12>;
+		vreg-0.9-supply = <&pma8084_l4>;
+		vreg-3.3-supply = <&wlan_vreg>;
+
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_clkreq_sleep &pcie0_perst_sleep &pcie0_wake_sleep>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
+			<&clock_rpm clk_ln_bb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_aux_clk>,
+			<&clock_gcc clk_gcc_pcie_0_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
+			<&clock_gcc clk_pcie_0_phy_ldo>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo";
+
+		resets = <&clock_gcc GCC_PCIE_PHY_BCR>,
+			<&clock_gcc GCC_PCIE_PHY_COM_BCR>,
+			<&clock_gcc GCC_PCIE_PHY_NOCSR_COM_PHY_BCR>,
+			<&clock_gcc GCC_PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset", "pcie_phy_com_reset",
+				"pcie_phy_nocsr_com_phy_reset","pcie_0_phy_reset";
+
+		max-clock-frequency-hz = <125000000>, <0>, <1000000>,
+						<0>, <0>, <0>, <0>;
+		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
+		qcom,target-link-speed = <0x2>;
+		qcom,n-fts = <0x50>;
+		qcom,pcie-phy-ver = <1>;
+		qcom,boot-option = <0x1>;
+		qcom,ext-ref-clk;
+		qcom,tlp-rd-size = <0x5>;
+		qcom,smmu-sid-base = <0x1480>;
+		qcom,ep-latency = <100>;
+		qcom,switch-latency = <100>;
+		qcom,wr-halt-size = <0xa>; /* 1KB */
+		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
+		qcom,phy-status-offset = <0x800>;
+		qcom,phy-status-status = <6>;
+		qcom,phy-power-down-offset = <0x840>;
+		qcom,core-preset = <0x55555555>; /* short channels */
+		qcom,cpl-timeout = <0x2>;
+
+		iommus = <&anoc0_smmu>;
+
+		iommu-map = <0x0 &apps_smmu 0x1d80 0x1>,
+			<0x100 &apps_smmu 0x1d81 0x1>,
+			<0x200 &apps_smmu 0x1d82 0x1>,
+			<0x300 &apps_smmu 0x1d83 0x1>,
+			<0x400 &apps_smmu 0x1d84 0x1>,
+			<0x500 &apps_smmu 0x1d85 0x1>,
+			<0x600 &apps_smmu 0x1d86 0x1>,
+			<0x700 &apps_smmu 0x1d87 0x1>,
+			<0x800 &apps_smmu 0x1d88 0x1>,
+			<0x900 &apps_smmu 0x1d89 0x1>,
+			<0xa00 &apps_smmu 0x1d8a 0x1>,
+			<0xb00 &apps_smmu 0x1d8b 0x1>,
+			<0xc00 &apps_smmu 0x1d8c 0x1>,
+			<0xd00 &apps_smmu 0x1d8d 0x1>,
+			<0xe00 &apps_smmu 0x1d8e 0x1>,
+			<0xf00 &apps_smmu 0x1d8f 0x1>;
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		pcie_rc0: pcie_rc0 {
+			reg = <0x0 0x0 0x0 0x0 0x0>;
+			qcom,iommu-cfg = <0x3> /* SMMU PRESENT. SET S1 BYPASS */
+			qcom,iommu-range = <0x0 0x10000000 0x0 0x40000000>;
+		};
+	};

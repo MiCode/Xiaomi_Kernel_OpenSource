@@ -1,0 +1,246 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c_2 {
+	status = "ok";
+	qcom,clk-freq-out = <100000>;
+
+	/* PCA9956B LED Drivers */
+	nxp-ledseg-i2c@65 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,pca9956b";
+		reg = <0x65>;
+		pca9956b,support_initialize = <1>;
+		pca9956b,mode1 = <0x09>;
+		pca9956b,mode2 = <0x05>;
+
+		pca9956b,ledout0 = <0xAA>;
+		pca9956b,ledout1 = <0xAA>;
+		pca9956b,ledout2 = <0xAA>;
+		pca9956b,ledout3 = <0xFF>;
+		pca9956b,ledout4 = <0xFF>;
+		pca9956b,ledout5 = <0xFF>;
+		pca9956b,defaultiref = <0x2f>;
+		out0@0 {
+			label = "ledsec5_b";
+			reg = <0x0>;
+		};
+		out1@1 {
+			label = "ledsec5_g";
+			reg = <0x1>;
+		};
+		out2@2 {
+			label = "ledsec5_r";
+			reg = <0x2>;
+		};
+		out3@3 {
+			label = "ledsec6_b";
+			reg = <0x3>;
+		};
+		out4@4 {
+			label = "ledsec6_g";
+			reg = <0x4>;
+		};
+		out5@5 {
+			label = "ledsec6_r";
+			reg = <0x5>;
+		};
+		out6@6 {
+			label = "ledsec7_b";
+			reg = <0x6>;
+		};
+		out7@7 {
+			label = "ledsec7_g";
+			reg = <0x7>;
+		};
+		out8@8 {
+			label = "ledsec7_r";
+			reg = <0x8>;
+		};
+		out9@9 {
+			label = "ledsec8_b";
+			reg = <0x9>;
+		};
+		out10@10 {
+			label = "ledsec8_g";
+			reg = <0xA>;
+		};
+		out11@11 {
+			label = "ledsec8_r";
+			reg = <0xB>;
+		};
+		out12@12 {
+			label = "ledsec1_b";
+			reg = <0xC>;
+		};
+		out13@13 {
+			label = "ledsec1_g";
+			reg = <0xD>;
+		};
+		out14@14 {
+			label = "ledsec1_r";
+			reg = <0xE>;
+		};
+		out15@15 {
+			label = "ledsec2_b";
+			reg = <0xF>;
+		};
+		out16@16 {
+			label = "ledsec2_g";
+			reg = <0x10>;
+		};
+		out17@17 {
+			label = "ledsec2_r";
+			reg = <0x11>;
+		};
+		out18@18 {
+			label = "ledsec3_b";
+			reg = <0x12>;
+		};
+		out19@19 {
+			label = "ledsec3_g";
+			reg = <0x13>;
+		};
+		out20@20 {
+			label = "ledsec3_r";
+			reg = <0x14>;
+		};
+		out21@21 {
+			label = "ledsec4_b";
+			reg = <0x15>;
+		};
+		out22@22 {
+			label = "ledsec4_g";
+			reg = <0x16>;
+		};
+		out23@23 {
+			label = "ledsec4_r";
+			reg = <0x17>;
+		};
+	};
+
+	nxp-ledseg-i2c@15 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,pca9956b";
+		reg = <0x15>;
+		pca9956b,support_initialize = <1>;
+		pca9956b,mode1 = <0x09>;
+		pca9956b,mode2 = <0x05>;
+
+		pca9956b,ledout0 = <0xAA>;
+		pca9956b,ledout1 = <0xAA>;
+		pca9956b,ledout2 = <0xAA>;
+		pca9956b,ledout3 = <0xFF>;
+		pca9956b,ledout4 = <0xFF>;
+		pca9956b,ledout5 = <0xFF>;
+		pca9956b,defaultiref = <0x2f>;
+		out0@0 {
+			label = "ledsec13_b";
+			reg = <0x0>;
+		};
+		out1@1 {
+			label = "ledsec13_g";
+			reg = <0x1>;
+		};
+		out2@2 {
+			label = "ledsec13_r";
+			reg = <0x2>;
+		};
+		out3@3 {
+			label = "ledsec14_b";
+			reg = <0x3>;
+		};
+		out4@4 {
+			label = "ledsec14_g";
+			reg = <0x4>;
+		};
+		out5@5 {
+			label = "ledsec14_r";
+			reg = <0x5>;
+		};
+		out6@6 {
+			label = "ledsec15_b";
+			reg = <0x6>;
+		};
+		out7@7 {
+			label = "ledsec15_g";
+			reg = <0x7>;
+		};
+		out8@8 {
+			label = "ledsec15_r";
+			reg = <0x8>;
+		};
+		out9@9 {
+			label = "ledsec16_b";
+			reg = <0x9>;
+		};
+		out10@10 {
+			label = "ledsec16_g";
+			reg = <0xA>;
+		};
+		out11@11 {
+			label = "ledsec16_r";
+			reg = <0xB>;
+		};
+		out12@12 {
+			label = "ledsec9_b";
+			reg = <0xC>;
+		};
+		out13@13 {
+			label = "ledsec9_g";
+			reg = <0xD>;
+		};
+		out14@14 {
+			label = "ledsec9_r";
+			reg = <0xE>;
+		};
+		out15@15 {
+			label = "ledsec10_b";
+			reg = <0xF>;
+		};
+		out16@16 {
+			label = "ledsec10_g";
+			reg = <0x10>;
+		};
+		out17@17 {
+			label = "ledsec10_r";
+			reg = <0x11>;
+		};
+		out18@18 {
+			label = "ledsec11_b";
+			reg = <0x12>;
+		};
+		out19@19 {
+			label = "ledsec11_g";
+			reg = <0x13>;
+		};
+		out20@20 {
+			label = "ledsec11_r";
+			reg = <0x14>;
+		};
+		out21@21 {
+			label = "ledsec12_b";
+			reg = <0x15>;
+		};
+		out22@22 {
+			label = "ledsec12_g";
+			reg = <0x16>;
+		};
+		out23@23 {
+			label = "ledsec12_r";
+			reg = <0x17>;
+		};
+	};
+};

@@ -1,0 +1,328 @@
+menu "Qualcomm technologies inc. MSM specific device drivers"
+	depends on ARCH_QCOM
+
+config MSM_EXT_DISPLAY
+	bool "MSM External Display Driver"
+	help
+	  Enabling this option adds MSM External Display Driver.
+	  External Display driver was added to support the communication
+	  between external display driver and its counterparts.
+	  This should be enabled to support audio & video over HDMI or
+	  DP for hot pluggable sink devices.
+
+config QCOM_GENI_SE
+	tristate "QCOM GENI Serial Engine Driver"
+	help
+	  This module is used to interact with GENI based Serial Engines on
+	  Qualcomm Technologies, Inc. Universal Peripheral(QUPv3). This
+	  module is used to configure and read the configuration from the
+	  Serial Engines.
+
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP REVID peripheral. REVID prints out the PMIC type and revision
+	  numbers in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a QTI chip part number and logged as well.
+
+config SPS
+	bool "SPS support"
+	select GENERIC_ALLOCATOR
+	help
+	  The SPS (Smart Peripheral Switch) is a DMA engine.
+	  It can move data in the following modes:
+		1. Peripheral-to-Peripheral.
+		2. Peripheral-to-Memory.
+		3. Memory-to-Memory.
+
+config SPS_SUPPORT_BAMDMA
+	bool "SPS support BAM DMA"
+	depends on SPS
+	default n
+	help
+	  The BAM-DMA is used for Memory-to-Memory transfers.
+	  The main use cases is RPC between processors.
+	  The BAM-DMA hardware has 2 registers sets:
+		1. A BAM HW like all the peripherals.
+		2. A DMA channel configuration (i.e. channel priority).
+
+config SPS_SUPPORT_NDP_BAM
+	bool "SPS support NDP BAM"
+	depends on SPS
+	default n
+	help
+	  No-Data-Path BAM is used to improve BAM performance.
+
+config EP_PCIE
+	bool "PCIe Endpoint mode support"
+	select GENERIC_ALLOCATOR
+	help
+	  PCIe controller is in endpoint mode.
+	  It supports the APIs to clients as a service layer, and allows
+	  clients to enable/disable PCIe link, configure the address
+	  mapping for the access to host memory, trigger wake interrupt
+	  on host side to wake up host, and trigger MSI to host side.
+
+config EP_PCIE_HW
+	bool "PCIe Endpoint HW driver"
+	depends on EP_PCIE
+	help
+	  PCIe endpoint HW specific implementation.
+	  It supports:
+		1. link training with Root Complex.
+		2. Address mapping.
+		3. Sideband signaling.
+		4. Power management.
+
+config USB_BAM
+	bool "USB BAM Driver"
+	depends on SPS && USB_GADGET
+	help
+	  Enabling this option adds USB BAM Driver.
+	  USB BAM driver was added to supports SPS Peripheral-to-Peripheral
+	  transfers between the USB and other peripheral.
+
+config VETH_IPA
+        tristate "VETH_IPA Network Interface Driver Support"
+        help
+          Enables EMAC Ethernet Front end driver.
+          Register net device and configure VETH0 iface. This driver will
+          configure EMAC IPA offload channels with help of a backend driver
+          running on GVM Host.
+
+config GSI
+	bool "GSI support"
+	help
+	  This driver provides the transport needed to talk to the
+	  IPA core. It replaces the BAM transport used previously.
+
+	  The GSI connects to a peripheral component via uniform TLV
+	  interface, and allows it to interface with other peripherals
+	  and CPUs over various types of interfaces such as MHI, xDCI,
+	  xHCI, GPI, WDI, Ethernet, etc.
+
+config GSI_REGISTER_VERSION_2
+	bool "GSI core Version 2 Registers SWI Support"
+	depends on GSI
+	help
+	  GSI core registers Software interface version 2 has updated
+	  registers interface to communicate with GSI. This includes
+	  new registers offsets, new registers fields structure and
+	  new registers.
+
+config MSM_MHI_DEV
+        tristate "Modem Device Interface Driver"
+	depends on EP_PCIE && IPA3
+        help
+          This kernel module is used to interact with PCIe Root complex
+          supporting MHI protocol. MHI is a data transmission protocol
+          involving communication between a host and a device over shared
+          memory. MHI interacts with the IPA for supporting transfers
+	  on the HW accelerated channels between Host and device.
+
+config IPA3
+	tristate "IPA3 support"
+	select GSI
+	depends on NET
+	help
+	  This driver supports the Internet Packet Accelerator (IPA3) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
+config IPA
+	tristate "IPA support"
+	depends on SPS && NET
+	help
+          This driver supports the Internet Packet Accelerator (IPA3) core.
+          IPA is a programmable protocol processor HW block.
+          It is designed to support generic HW processing of UL/DL IP packets
+          for various use cases independent of radio technology.
+          The driver support client connection and configuration
+          for the IPA core.
+          Kernel and user-space processes can call the IPA driver
+          to configure IPA core.
+
+config RMNET_IPA
+	tristate "IPA RMNET WWAN Network Device"
+	depends on IPA && QCOM_QMI_HELPERS
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
+config IPA_DEBUG
+	bool "IPA DEBUG for non-perf build"
+	depends on IPA3
+	help
+	  This driver support more debug info for non-perf build.
+	  If you use the non-perf build and want to have more debug
+	  info enabled, then this flag can be enabled.
+	  It is not suggested to enable this flag for perf build.
+
+config IPA_WDI_UNIFIED_API
+	bool "IPA WDI unified API support"
+	depends on IPA3
+	help
+	  This driver supports IPA WDI unified API.
+	  WDI is the interface between IPA micro controller and WLAN chipset.
+	  It is designed to support IPA HW accelerating path for WLAN use case.
+	  The IPA WDI unified API supports all WDI versions through a unified
+	  interface.
+
+config IPA_ETH
+	bool "IPA Ethernet Offload Sub-system support"
+	depends on IPA3
+	help
+	  Enables IPA Ethernet Offload Subsystem for offloading PCI based
+	  ethernet devices to IPA. The offload subsystem still require a
+	  compatible network driver to register with it and a corresponding
+	  offload driver to manage one of more offload data paths that uses
+	  the network device.
+
+config IPA_ETH_NOAUTO
+	bool "Disable automatic offload initialization of interfaces"
+	depends on IPA_ETH
+	help
+	  Enabling this option prevents automatic initialization of offload on
+	  ethernet interfaces. Debugfs control interface will instead be used
+	  to enable offloading. This feature is meant only for debugging.
+	  If unsure, say N.
+
+config IPA_ETH_DEBUG
+	bool "Enable addtional debug logging in the offload sub-system"
+	depends on IPA_ETH
+	help
+	  Enabling this option increases the number of messages logged by the offload
+	  sub-system for aiding debugging. Additional debug messages are logged into
+	  IPC log as well as kernel log using dynamic debug.
+	  If unsure, say N.
+
+source "drivers/platform/msm/ipa/ipa_v3/ethernet/aquantia/Kconfig"
+
+config RMNET_IPA3
+	tristate "IPA3 RMNET WWAN Network Device"
+	depends on IPA3 && QCOM_QMI_HELPERS
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
+config ECM_IPA
+	tristate "STD ECM LAN Driver support"
+	depends on IPA || IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the STD ECM protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using STD ECM protocol.
+
+config RNDIS_IPA
+	tristate "RNDIS_IPA Network Interface Driver support"
+	depends on IPA || IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the RNDIS protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using RNDIS protocol.
+
+config IPA3_MHI_PROXY
+	tristate "IPA3 MHI proxy driver"
+	depends on RMNET_IPA3
+	help
+	  This driver is used as a proxy between modem and MHI host driver.
+	  Its main functionality is to setup MHI Satellite channels on behalf of
+	  modem and provide the ability of modem to MHI device communication.
+	  Once the configuration is done modem will communicate directly with
+	  the MHI device without AP involvement, with the exception of
+	  power management.
+
+config IPA3_MHI_PRIME_MANAGER
+	tristate "IPA3 MHI Prime Manager driver"
+	depends on IPA3
+	help
+	  This driver functionality is to setup MHI Prime channels between Host and
+	  Modem and enable the ability for MHI Prime communication.
+	  Once the configuration is set up modem will communicate directly with
+	  the Host without AP involvement for tethering data offload.
+
+config IPA_UT
+	tristate "IPA Unit-Test Framework and Test Suites"
+	depends on IPA3 && DEBUG_FS
+	help
+	  This Module implements IPA in-kernel test framework.
+	  The framework supports defining and running tests, grouped
+	  into suites according to the sub-unit of the IPA being tested.
+	  The user interface to run and control the tests is debugfs file
+	  system.
+
+config MSM_11AD
+	tristate "Platform driver for 11ad chip"
+	depends on PCI
+	depends on PCI_MSM
+	default n
+	---help---
+	  This module adds required platform support for wireless adapter based on
+	  Qualcomm Technologies, Inc. 11ad chip, integrated into MSM platform
+
+	  If you choose to build it as a module, it will be called
+	  msm_11ad_proxy.
+
+config SEEMP_CORE
+	tristate "SEEMP Core"
+	help
+	  This option enables QTI Snapdragron Smart Protection to detect
+	  anomalies in various activities. It records task activities in
+	  a log and rates the actions according to whether a typical user would
+	  use the tools.
+
+config IPA_EMULATION
+	bool "IPA on X86 Linux (IPA emulation support)"
+	depends on X86 && IPA3
+	help
+	  This option is used only when building the X86 version of
+	  the IPA/GSI driver. Never set this when building for ARM.
+
+config IPA3_REGDUMP
+	bool "Dump or collect IPA/GSI register values on Linux crash"
+	depends on IPA3
+	help
+	  This option is to be used when the saving of IPA/GSI
+	  register state is desired upon system crash.
+
+config QCOM_ETHERNET_UTIL
+	bool "ethernet utilities"
+	depends on PCI
+	help
+	  This module will provide API's for clients to attach smmu &
+	  other functionalities
+
+choice
+	prompt "Platform whose registers are to be dumped/collected"
+	depends on IPA3_REGDUMP
+
+config IPA3_REGDUMP_SM8150
+	bool "The sm8150 platform"
+	depends on IPA3_REGDUMP
+	depends on ARCH_SM8150
+	help
+	  The sm8150 platform's registers will be dumped/collected.
+
+endchoice
+
+config IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS
+	int "The number of extra endp registers for remaining pipes"
+	depends on IPA3_REGDUMP
+	default 0
+	help
+	  If the platform has extra endpoint registers for remaining
+	  pipes, please express how many here.
+endmenu

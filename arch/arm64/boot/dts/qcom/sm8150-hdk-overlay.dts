@@ -1,0 +1,143 @@
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/clock/qcom,camcc-sm8150.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sm8150-hdk.dtsi"
+
+/ {
+	model = "HDK";
+	compatible = "qcom,sm8150-hdk", "qcom,sm8150", "qcom,hdk";
+	qcom,board-id = <0x1f 0x0>;
+};
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&pm8150l_wled {
+	qcom,string-cfg= <7>;
+	qcom,leds-per-string = <6>;
+	status = "ok";
+};
+
+&pm8150l_lcdb {
+	status = "ok";
+};
+
+&dsi_sw43404_amoled_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_dual_nt36850_truly_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&qupv3_se9_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	lt9611: lt,lt9611@3b {
+		compatible = "lt,lt9611";
+		reg = <0x3b>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <63 0>;
+		interrupt-names = "lt_irq";
+		lt,irq-gpio = <&tlmm 9 0x0>;
+		lt,reset-gpio = <&tlmm 7 0x0>;
+		instance_id = <0>;
+		lt,non-pluggable;
+
+		lt,preferred-mode = "1920x1080";
+
+		lt,customize-modes {
+			lt,customize-mode-id@0 {
+				lt,mode-h-active = <1920>;
+				lt,mode-h-front-porch = <88>;
+				lt,mode-h-pulse-width = <44>;
+				lt,mode-h-back-porch = <148>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <1080>;
+				lt,mode-v-front-porch = <4>;
+				lt,mode-v-pulse-width = <5>;
+				lt,mode-v-back-porch = <36>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <60>;
+				lt,mode-clock-in-khz = <148500>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in: endpoint {
+					remote-endpoint = <&ext_dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+#include "dsi-panel-ext-bridge-hdmi-1080p.dtsi"
+
+&dsi_ext_bridge_hdmi_1080p {
+	qcom,mdss-dsi-ext-bridge = <0>;
+};
+
+&soc {
+	ext_dsi_bridge_display: qcom,dsi-display@50 {
+		label = "ext_dsi_bridge_display hdmi 1080p";
+		qcom,display-type = "primary";
+		qcom,dsi-display-active;
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_ext_bridge_hdmi_1080p>;
+	};
+};
+
+&sde_dsi {
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	qcom,dsi-display-list = <&ext_dsi_bridge_display
+				  &dsi_dual_nt36850_truly_cmd_display>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			ext_dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in>;
+			};
+		};
+	};
+};

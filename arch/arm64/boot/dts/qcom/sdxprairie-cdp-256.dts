@@ -1,0 +1,29 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdxprairie.dtsi"
+#include "sdxprairie-cdp-256.dtsi"
+#include "sdxprairie-bluetooth.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXPRAIRIE CDP(256MB)";
+	compatible = "qcom,sdxprairie-cdp",
+		"qcom,sdxprairie", "qcom,cdp";
+	qcom,board-id = <0x10001 0x0>;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+

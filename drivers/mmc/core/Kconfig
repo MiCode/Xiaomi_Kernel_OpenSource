@@ -1,0 +1,140 @@
+#
+# MMC core configuration
+#
+config PWRSEQ_EMMC
+	tristate "HW reset support for eMMC"
+	default y
+	depends on OF
+	help
+	  This selects Hardware reset support aka pwrseq-emmc for eMMC
+	  devices. By default this option is set to y.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pwrseq_emmc.
+
+config PWRSEQ_SD8787
+	tristate "HW reset support for SD8787 BT + Wifi module"
+	depends on OF && (MWIFIEX || BT_MRVL_SDIO)
+	help
+	  This selects hardware reset support for the SD8787 BT + Wifi
+	  module. By default this option is set to n.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pwrseq_sd8787.
+
+config PWRSEQ_SIMPLE
+	tristate "Simple HW reset support for MMC"
+	default y
+	depends on OF
+	help
+	  This selects simple hardware reset support aka pwrseq-simple for MMC
+	  devices. By default this option is set to y.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pwrseq_simple.
+
+config MMC_BLOCK
+	tristate "MMC block device driver"
+	depends on BLOCK
+	default y
+	help
+	  Say Y here to enable the MMC block device driver support.
+	  This provides a block device driver, which you can use to
+	  mount the filesystem. Almost everyone wishing MMC support
+	  should say Y or M here.
+
+config MMC_BLOCK_MINORS
+	int "Number of minors per block device"
+	depends on MMC_BLOCK
+	range 4 256
+	default 8
+	help
+	  Number of minors per block device. One is needed for every
+	  partition on the disk (plus one for the whole disk).
+
+	  Number of total MMC minors available is 256, so your number
+	  of supported block devices will be limited to 256 divided
+	  by this number.
+
+	  Default is 8 to be backwards compatible with previous
+	  hardwired device numbering.
+
+	  If unsure, say 8 here.
+
+config MMC_BLOCK_DEFERRED_RESUME
+	bool "Defer MMC layer resume until I/O is requested"
+	depends on MMC_BLOCK
+	default n
+	help
+	  Say Y here to enable deferred MMC resume until I/O
+	  is requested.
+
+	  This will reduce overall resume latency and
+	  save power when there is an SD card inserted but not being used.
+
+config SDIO_UART
+	tristate "SDIO UART/GPS class support"
+	depends on TTY
+	help
+	  SDIO function driver for SDIO cards that implements the UART
+	  class, as well as the GPS class which appears like a UART.
+
+config MMC_TEST
+	tristate "MMC host test driver"
+	help
+	  Development driver that performs a series of reads and writes
+	  to a memory card in order to expose certain well known bugs
+	  in host controllers. The tests are executed by writing to the
+	  "test" file in debugfs under each card. Note that whatever is
+	  on your card will be overwritten by these tests.
+
+	  This driver is only of interest to those developing or
+	  testing a host driver. Most people should say N here.
+
+config MMC_RING_BUFFER
+	bool "MMC_RING_BUFFER"
+	depends on MMC
+	default n
+	help
+	  This enables the ring buffer tracing of significant
+	  events for mmc driver to provide command history for
+	  debugging purpose.
+
+	  If unsure, say N.
+
+config MMC_EMBEDDED_SDIO
+	boolean "MMC embedded SDIO device support"
+	help
+	  If you say Y here, support will be added for embedded SDIO
+	  devices which do not contain the necessary enumeration
+	  support in hardware to be properly detected.
+
+config MMC_PARANOID_SD_INIT
+	bool "Enable paranoid SD card initialization"
+	help
+	  If you say Y here, the MMC layer will be extra paranoid
+	  about re-trying SD init requests. This can be a useful
+	  work-around for buggy controllers and hardware. Enable
+	  if you are experiencing issues with SD detection.
+
+config MMC_CLKGATE
+	bool "MMC host clock gating"
+	help
+	  This will attempt to aggressively gate the clock to the MMC card.
+	  This is done to save power due to gating off the logic and bus
+	  noise when the MMC card is not in use. Your host driver has to
+	  support handling this in order for it to be of any use.
+
+	  If unsure, say N.
+
+config MMC_SIMULATE_MAX_SPEED
+	bool "Turn on maximum speed control per block device"
+	depends on MMC_BLOCK
+	help
+	  Say Y here to enable MMC device speed limiting. Used to test and
+	  simulate the behavior of the system when confronted with a slow MMC.
+
+	  Enables max_read_speed, max_write_speed and cache_size attributes to
+	  control the write or read maximum KB/second speed behaviors.
+
+	  If unsure, say N here.

@@ -1,0 +1,77 @@
+* MSM Sleep Power Manager (mpm-v2)
+
+The MPM acts a sleep power manager to shutdown the clock source and put the
+device into a retention mode to save power. The MPM is also responsible for
+waking up and bringing up the resources from sleep. The MPM driver configures
+interrupts monitored by the MPM hardware before entering sleep through a
+RPM interface.
+
+The required nodes for the MPM driver are:
+
+- compatible: "qcom, mpm-v2"
+- reg: Specifies the base physical address(s) and the size of the MPM
+	registers. The MPM driver access two memory regions for confifure the
+	virtual MPM driver on the RPM. The first region is the memory space
+	shared with the virtual MPM driver. The second region is the address
+	to the register that triggers a interrupt to the RPM.
+- reg-names: "vmpm" - string to identify the shared memory space region
+	     "ipc" - string to identify the register that triggers a interrupt
+- clocks: clock identifers used by clock driver while looking up mpm clocks.
+- clock-names: name of the clock used by mpm driver.
+- qcom,ipc-bit-offset: The bit to set in the ipc register that triggers a interrupt
+	to the RPM
+- qcom,gic-parent: phandle to the gic interrupt controller
+- qcom,gic-map: Provides a mapping of how a GIC interrupt is connect to a MPM. The
+	mapping is presented in tuples. Each tuple represents a MPM pin and
+	which GIC interrupt is routed to it. Since MPM monitors interrupts
+	only during system wide low power mode, system interrupts originating
+	from other processors can be ignored and assigned an MPM pin mapping
+	of 0xff.
+- qcom,gpio-parent: phandle to the GPIO interrupt controller
+- qcom,gpio-map: Provides a mapping of how a GPIO interrupt is connect to a MPM. The
+	mapping is presented in tuples. Each tuple represents a MPM pin and
+	which GIC interrupt is routed to it. Since MPM monitors interrupts
+	only during system wide low power mode, system interrupts originating
+	from other processors can be ignored and assigned an MPM pin mapping
+	of 0xff.
+
+Optional Properties:
+
+- qcom,num-mpm-irqs : Specifies the number of mpm interrupts supported on a
+	target. If the property isn't present, 64 interrupts are
+	considered for the target by default.
+
+Example:
+	qcom,mpm@fc4281d0 {
+		compatible = "qcom,mpm-v2";
+		reg = <0xfc4281d0 0x1000>, /* MSM_RPM_MPM_BASE 4K*/
+		    <0xfa006000 0x1000>;   /* MSM_APCS_GCC_BASE 4K*/
+		reg-names = "vmpm", "ipc"
+			interrupts = <0 171 1>;
+		clocks = <&clock_rpm clk_xo_lpm_clk>;
+		clock-names = "xo";
+
+		qcom,ipc-bit-offset = <0>;
+
+		qcom,gic-parent = <&intc>;
+		qcom,gic-map = <25 132>,
+			<27 111>,
+			<0xff 48>,
+			<0xff 51>,
+			<0xff 52>,
+			<0xff 53>,
+			<0xff 54>,
+			<0xff 55>;
+
+		qcom,gpio-parent = <&msmgpio>;
+		qcom,gpio-map = <1  46>,
+			<2 150>,
+			<4 103>,
+			<5 104>,
+			<6 105>,
+			<7 106>,
+			<8 107>,
+			<53 37>,
+			<54 24>,
+			<55 14>;
+	};

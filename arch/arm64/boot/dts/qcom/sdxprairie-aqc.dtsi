@@ -1,0 +1,163 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	aqo_proxy_host: aqo_host_proxy@17a00040 {
+		reg = <0x17800200 0>;
+		reg-names = "intc-ispendr-n";
+
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 292 IRQ_TYPE_EDGE_RISING>;
+
+		qcom,proxy-agent = "host";
+		qcom,proxy-method = "msi";
+	};
+
+	aqo_proxy_uc: aqo_uc_proxy@1ec2080 {
+		qcom,proxy-agent = "uc";
+		qcom,proxy-method = "msi";
+		qcom,proxy-msi-addr = /bits/ 64 <0x01ec2080>;
+		qcom,proxy-msi-data = /bits/ 32 <0x636f6d6d>;
+	};
+};
+
+&pcie0_rp {
+	aquantia,aqc107@pcie0_rp {
+		reg = <0 0 0 0 0>;
+
+		compatible = "aquantia,aqc-107";
+
+		pci-ids =
+			"1d6a:0001",
+			"1d6a:d107",
+			"1d6a:07b1",
+			"1d6a:87b1",
+			"1d6a:d108",
+			"1d6a:08b1",
+			"1d6a:88b1",
+			"1d6a:d109",
+			"1d6a:09b1",
+			"1d6a:89b1",
+			"1d6a:d100",
+			"1d6a:00b1",
+			"1d6a:80b1",
+			"1d6a:11b1",
+			"1d6a:91b1",
+			"1d6a:12b1",
+			"1d6a:92b1",
+			"1d6a:00c0",
+			"1d6a:04c0",
+			"1d6a:12c0",
+			"1d6a:14c0",
+			"1d6a:93c0",
+			"1d6a:94c0";
+
+		qcom,smmu;
+
+		/* IOVA range is restricted to avoid conflicts with PCI BAR
+		 * space, Q6 SMEM and IOVA spaces used by peripherals that are
+		 * currently attached to IPA.
+		 */
+		qcom,smmu-iova-base = /bits/ 64 <0x80000000>;
+		qcom,smmu-iova-size = /bits/ 64 <0x0FE40000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-fastmap;
+
+		/* AQC IPA offload driver */
+		qcom,rx-proxy = <&aqo_proxy_host>,
+				<&aqo_proxy_uc>;
+		qcom,rx-proxy-mode = "counter";
+
+		qcom,rx-ring-size = <4096>;
+		qcom,rx-buff-size = <2048>;
+		qcom,rx-int-mod-usecs = <64>;
+
+		qcom,rx-gsi-mod-pc = <10>;
+		qcom,rx-gsi-mod-timer = <32>;
+
+		qcom,tx-ring-size = <4096>;
+		qcom,tx-buff-size = <2048>;
+		qcom,tx-wrb-mod-pc = <25>;
+
+		qcom,tx-gsi-mod-pc = <10>;
+		qcom,tx-gsi-mod-timer = <32>;
+
+		qcom,use-pci-direct;
+	};
+};
+
+&pcie0_bus2_dev2_fn0 {
+	aquantia,aqc107@pcie0_bus2_dev1_fn0 {
+		reg = <0 0 0 0 0>;
+
+		compatible = "aquantia,aqc-107";
+
+		pci-ids =
+			"1d6a:0001",
+			"1d6a:d107",
+			"1d6a:07b1",
+			"1d6a:87b1",
+			"1d6a:d108",
+			"1d6a:08b1",
+			"1d6a:88b1",
+			"1d6a:d109",
+			"1d6a:09b1",
+			"1d6a:89b1",
+			"1d6a:d100",
+			"1d6a:00b1",
+			"1d6a:80b1",
+			"1d6a:11b1",
+			"1d6a:91b1",
+			"1d6a:12b1",
+			"1d6a:92b1",
+			"1d6a:00c0",
+			"1d6a:04c0",
+			"1d6a:12c0",
+			"1d6a:14c0",
+			"1d6a:93c0",
+			"1d6a:94c0";
+
+		qcom,smmu;
+
+		/* IOVA range is restricted to avoid conflicts with PCI BAR
+		 * space, Q6 SMEM and IOVA spaces used by peripherals that are
+		 * currently attached to IPA.
+		 */
+		qcom,smmu-iova-base = /bits/ 64 <0x80000000>;
+		qcom,smmu-iova-size = /bits/ 64 <0x0FE40000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-fastmap;
+
+		/* AQC IPA offload driver */
+		qcom,rx-proxy = <&aqo_proxy_host>,
+				<&aqo_proxy_uc>;
+		qcom,rx-proxy-mode = "counter";
+
+		qcom,rx-ring-size = <512>;
+		qcom,rx-buff-size = <2048>;
+		qcom,rx-int-mod-usecs = <64>;
+
+		qcom,rx-gsi-mod-pc = <10>;
+		qcom,rx-gsi-mod-timer = <32>;
+
+		qcom,tx-ring-size = <512>;
+		qcom,tx-buff-size = <2048>;
+		qcom,tx-wrb-mod-pc = <25>;
+
+		qcom,tx-gsi-mod-pc = <10>;
+		qcom,tx-gsi-mod-timer = <32>;
+
+		qcom,use-pci-direct;
+	};
+};

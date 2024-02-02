@@ -1,0 +1,675 @@
+Qualcomm Technologies, Inc. PMIC Fuel Gauge Gen4 Device
+
+QTI PMIC FG Gen4 device provides interface to the clients to read properties
+related to the battery. Its main function is to retrieve the State of Charge
+(SOC), in percentage scale representing the amount of charge left in the
+battery.
+
+=======================
+Required Node Structure
+=======================
+
+FG Gen4 device must be described in two levels of device nodes.  The first
+level describes the FG Gen4 device.  The second level describes one or more
+peripherals managed by FG Gen4 driver. All the peripheral specific parameters
+such as base address, interrupts etc., should be under second level node.
+
+====================================
+First Level Node - FG Gen4 device
+====================================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Should be "qcom,fg-gen4".
+
+- qcom,pmic-revid
+	Usage:      required
+	Value type: <phandle>
+	Definition: Should specify the phandle of PMIC revid module. This is
+		    used to identify the PMIC subtype.
+
+- qcom,pmic-pbs
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Should specify the phandle of PMIC PBS module. This is
+		    used to trigger PBS for certain configurations.
+
+- #thermal-sensor-cells: Should be 0. See thermal.txt for the description.
+
+- nvmem-names:
+	Usage: optional
+	Value type: <string>
+	Definition: Nvmem device name for SDAM to store parameters like cycle
+		    counters and learned capacity. It must be defined as
+		    "fg_sdam".
+
+- nvmem:
+	Usage: optional
+	Value type: <phandle>
+	Definition: Phandle of the nvmem device name to access SDAM to store
+		    parameters.
+
+- qcom,fg-cutoff-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage (in mV) where the fuel gauge will steer the SOC
+		    to be zero. For example, if the cutoff voltage is set to
+		    3400mv, the fuel gauge will try to count SoC so that the
+		    battery SOC will be 0 when it is 3400 mV. If this property
+		    is not specified, then the default value used will be
+		    3000 mV.
+
+- qcom,fg-empty-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) based on which the empty soc
+		    interrupt will be triggered. When the empty soc interrupt
+		    fires, battery soc will be set to 0 and the userspace will
+		    be notified via the power supply framework. The userspace
+		    will read 0% soc and immediately shutdown. If this property
+		    is not specified, then the default value used will be
+		    2812 mV.
+
+- qcom,fg-sys-min-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) which describes the system
+		    minimum voltage as per the hardware recommendation. This
+		    is not used for any configuration but only for calculating
+		    the available power. If this property is not specified,
+		    then the default value used is 2800 mV.
+
+- qcom,fg-sys-term-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery current (in mA) at which the fuel gauge will try to
+		    scale towards 100%. When the charge current goes above this
+		    the SOC should be at 100%. If this property is not
+		    specified, then the default value used will be -125 mA.
+		    This value has to be specified in negative values for
+		    the charging current.
+
+- qcom,fg-cutoff-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum Battery current (in mA) used for cutoff SOC
+		    estimate. If this property is not specified, then a default
+		    value of 200 mA will be applied.
+
+- qcom,fg-delta-soc-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: Percentage of SOC increase upon which the delta monotonic &
+		    battery SOC interrupts will be triggered. If this property
+		    is not specified, then the default value will be 5 (0.5 %).
+		    Unit is in deci-percentage. Possible values are in the range
+		    of 1 to 124.
+
+- qcom,fg-esr-timer-chg-fast
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses while the battery is
+		    charging for fast calibration. Array of 2 elements if
+		    specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
+- qcom,fg-esr-timer-dischg-fast
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses while the battery is
+		    discharging for fast calibration. Array of 2 elements if
+		    specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
+- qcom,fg-esr-timer-chg-slow
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses while the battery is
+		    charging for default calibration. Array of 2 elements if
+		    specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
+- qcom,fg-esr-timer-dischg-slow
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses while the battery is
+		    discharging for default calibration. Array of 2 elements if
+		    specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
+- qcom,fg-esr-cal-soc-thresh
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: SOC thresholds applied when ESR fast calibration is done.
+		    Array of 2 elements if specified. This should be specified
+		    if ESR fast calibration algorithm is needed.
+		    Element 0 - Minimum SOC threshold in percentage
+		    Element 1 - Maximum SOC threshold in percentage
+
+- qcom,fg-esr-cal-temp-thresh
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Battery temperature thresholds applied when ESR fast
+		    calibration is done. Array of 2 elements if specified.
+		    This should be specified if ESR fast calibration algorithm
+		    is needed.
+		    Element 0 - Minimum temperature threshold in Celsius
+		    Element 1 - Maximum temperature threshold in Celsius
+
+- qcom,fg-delta-esr-disable-count
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value after which delta ESR interrupt will be disabled.
+		    This is applicable only when ESR fast calibration is
+		    enabled. Default value is 10.
+
+- qcom,fg-delta-esr-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold for delta ESR interrupt in uOhms. Default value
+		    is 1832. If ESR fast calibration algorithm is enabled, this
+		    will be overridden with a maximum value.
+
+- qcom,fg-esr-filter-factor
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR filter factor used in ESR fast calibration algorithm.
+		    This factor will be used when ESR correction delta is
+		    applied after the calculation. Default value is 2.
+
+- qcom,fg-esr-calib-dischg:
+	Usage:      optional
+	Value type: <empty>
+	Definition: Enables ESR calibration only during discharging. This
+		    should be specified only when ESR fast calibration is not
+		    required. Also, ESR discharging timers should be specified
+		    for the proper functionality.
+
+- qcom,fg-esr-pulse-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR pulse qualification threshold in mA. If this is not
+		    specified, a default value of 110 mA will be configured.
+		    Allowed values are from 1 to 1000.
+
+- qcom,fg-esr-meas-curr-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR measurement current in mA. If this is not specified,
+		    a default value of 120 mA will be configured. Allowed
+		    values are 60, 120, 180 and 240.
+
+- qcom,fg-batt-temp-delta
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature delta interrupt threshold. Possible
+		    values are: 0, 1, 2 and 3. Unit is in Kelvin or Celsius.
+
+- qcom,fg-batt-temp-cold-thresh
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature cold interrupt threshold. Allowed
+		    values are from -128 to 127. Unit is in Kelvin or Celsius.
+
+- qcom,fg-batt-temp-hot-thresh
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature hot interrupt threshold. Allowed
+		    values are from -128 to 127. Unit is in Kelvin or Celsius.
+
+- qcom,fg-batt-temp-hyst
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature hysteresis threshold. Possible values
+		    are: 0, 1, 2 and 3. Unit is in Kelvin or Celsius.
+
+- qcom,fg-batt-therm-freq
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery thermistor interval in seconds. Possible values
+		    are from 1-255. If not specified, then the default value
+		    configured is 8.
+
+- qcom,fg-force-load-profile
+	Usage:      optional
+	Value type: <empty>
+	Definition: If set, battery profile will be force loaded if the profile
+		    loaded earlier by bootloader doesn't match with the profile
+		    available in the device tree.
+
+- qcom,cl-start-capacity
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery SOC threshold to start the capacity learning.
+		    If this is not specified, then the default value used
+		    will be 15. Unit is in percentage.
+
+- qcom,cl-min-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Lower limit of battery temperature to start the capacity
+		    learning. If this is not specified, then the default value
+		    used will be 150 (15 C). Unit is in decidegC.
+
+- qcom,cl-max-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Upper limit of battery temperature to start the capacity
+		    learning. If this is not specified, then the default value
+		    used will be 500 (50 C). Unit is in decidegC.
+
+- qcom,cl-max-increment
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum capacity increment allowed per capacity learning
+		    cycle. If this is not specified, then the default value
+		    used will be 5 (0.5%). Unit is in decipercentage.
+
+- qcom,cl-max-decrement
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum capacity decrement allowed per capacity learning
+		    cycle. If this is not specified, then the default value
+		    used will be 100 (10%). Unit is in decipercentage.
+
+- qcom,cl-min-limit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum limit that the capacity cannot go below in a
+		    capacity learning cycle. If this is not specified, then
+		    the default value is 0. Unit is in decipercentage.
+
+- qcom,cl-max-limit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum limit that the capacity cannot go above in a
+		    capacity learning cycle. If this is not specified, then
+		    the default value is 0. Unit is in decipercentage.
+
+- qcom,cl-min-delta-batt-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum change in battery SOC to qualify for capacity
+		    learning. If this is not specified, then the default
+		    value is 10. Unit is in percentage.
+
+- qcom,cl-wt-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to enable weighted capacity learning
+		    based on change in battery SOC during a charging cycle.
+		    If this is specified "qcom,cl-start-capacity" is not used.
+
+- qcom,cl-skew
+	Usage:      optional
+	Value type: <u32>
+	Definition: Skew in decipercentage which when specified will be applied
+		    to the final learned capacity.
+
+- qcom,cl-ibat-flt-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Filtered battery current to qualify the capacity learning
+		    algorithm to begin. If this is not specified, then the
+		    default value is 100 mA.
+
+- qcom,hold-soc-while-full
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined holds SOC at 100% when
+		    the battery is full.
+
+- qcom,linearize-soc
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined linearizes SOC when
+		    the SOC drops after charge termination monotonically to
+		    improve the user experience. This is applicable only if
+		    "qcom,hold-soc-while-full" is specified.
+
+- qcom,ki-coeff-soc-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of monotonic SOC threshold values to change the ki
+		    coefficient for medium discharge current during discharge.
+		    This should be defined in the ascending order and in the
+		    range of 0-100. Array limit is set to 3.
+
+- qcom,ki-coeff-low-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of ki coefficient values for low discharge current
+		    during discharge. These values will be applied when the
+		    monotonic SOC goes below the SOC threshold specified under
+		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
+		    property should be specified if qcom,ki-coeff-soc-dischg
+		    is specified to make it fully functional. Value has no
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 367.
+
+- qcom,ki-coeff-med-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of ki coefficient values for medium discharge current
+		    during discharge. These values will be applied when the
+		    monotonic SOC goes below the SOC threshold specified under
+		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
+		    property should be specified if qcom,ki-coeff-soc-dischg
+		    is specified to make it fully functional. Value has no
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 62.
+
+- qcom,ki-coeff-hi-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of ki coefficient values for high discharge current
+		    during discharge. These values will be applied when the
+		    monotonic SOC goes below the SOC threshold specified under
+		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
+		    property should be specified if qcom,ki-coeff-soc-dischg
+		    is specified to make it fully functional. Value has no
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 0.
+
+- qcom,ki-coeff-dischg-low-med-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of discharging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-low-dischg if the
+		    threshold is not breached, and qcom,ki-coeff-med-dischg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 50 (50 mA).
+
+- qcom,ki-coeff-dischg-med-hi-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of discharging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-med-dischg if the
+		    threshold is not breached, and qcom,ki-coeff-hi-dischg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 100
+		    (100 mA).
+
+- qcom,ki-coeff-low-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for low charge current during
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 184.
+
+- qcom,ki-coeff-med-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for medium charge current during
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 62.
+
+- qcom,ki-coeff-hi-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for high charge current during
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 0.
+
+- qcom,ki-coeff-chg-low-med-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of charging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-low-chg if the
+		    threshold is not breached, and qcom,ki-coeff-med-chg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 500
+		    (500 mA).
+
+- qcom,ki-coeff-chg-med-hi-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of charging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-med-chg if the
+		    threshold is not breached, and qcom,ki-coeff-hi-chg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 1000
+		    (1000 mA).
+
+- qcom,ki-coeff-cutoff
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for cutoff integration gain. Value has
+		    no unit. Allowed range is 62 to 15564 in micro units.
+
+- qcom,ki-coeff-full-dischg
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of Ki coefficient full SOC values that needs to be
+		    applied during discharging. If not specified, a value of
+		    0 will be set.
+		    Allowed range is from 62 to 15564.
+		    Element 0 - Ki coefficient for full SOC in room temperature
+		    Element 1 - Ki coefficient for full SOC in low temperature
+
+- qcom,fg-rconn-uohms
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery connector resistance (Rconn) in microohms. If it's
+		    already configured in bootloader, then it will not be
+		    configured again by GEN4 FG driver.
+
+- qcom,slope-limit-temp-threshold
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature threshold to decide when slope limit
+		    coefficients should be applied along with charging status.
+		    Unit is in decidegC.
+
+- qcom,slope-limit-coeffs
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which holds the slope limit coefficients
+		    in the following order. Allowed size is 4. Possible values
+		    are from 123 to 31128. Unit is in micro-percentage.
+		    Element 0 - Low temperature discharging
+		    Element 1 - Low temperature charging
+		    Element 2 - High temperature discharging
+		    Element 3 - High temperature charging
+		    These coefficients have to be specified along with the
+		    property "qcom,slope-limit-temp-threshold" to make dynamic
+		    slope limit adjustment functional.
+
+- qcom,rapid-soc-dec-en
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined enables rapid SOC
+		    decrease when the battery SOC is low but not converging to
+		    zero with battery voltage dropping rapidly below Vcutoff.
+
+- qcom,five-pin-battery
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified indicates that a
+		    five pin battery is used. Based on this, time to full
+		    calculations would use the Rbatt calculated properly.
+
+- qcom,multi-profile-load
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified indicates that
+		    multiple profile loading needs to be enabled. This requires
+		    multiple battery profiles to be specified for a battery for
+		    proper functionality.
+
+- qcom,soc-hi-res
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified shows high
+		    resolution of monotonic SOC under CAPACITY_RAW property
+		    during charging in the scale of 0-10000.
+
+- qcom,soc-scale-mode-en
+	Usage:      optional
+	Value type: <boolean>
+	Definition: A boolean property that when specified will enable scaling
+		    of the SOC linearly, based on the filtered battery voltage
+		    after crossing below a Vbatt threshold.
+
+- qcom,soc-scale-vbatt-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold voltage to decide when SOC should
+		    be scaled based on filtered voltage when
+		    qcom,soc-scale-mode-en is specified. If this
+		    is not specified, then the default value is 3400.
+		    Unit is in mV.
+
+- qcom,soc-scale-time-ms
+	Usage:      optional
+	Value type: <u32>
+	Definition: Timer value for doing SOC calculation based on
+		    filtered voltage when qcom,soc-scale-mode-en is
+		    specified. If this is not specified, then the
+		    default value is 10000. Unit is in ms.
+
+- qcom,sw-esr-control
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified enables SW ESR
+		    control depending on input presence and user request.
+
+- qcom,force-calib-level
+	Usage:      optional
+	Value type: <u32>
+	Definition: Calibration level in decimal. When specified,
+		    the calibration level is forced to this value.
+		    Possible values are in the range of 1 to 130.
+
+==========================================================
+Second Level Nodes - Peripherals managed by FG Gen4 driver
+==========================================================
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the specified peripheral
+
+- interrupts
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Interrupt mapping as per the interrupt encoding
+
+- interrupt-names
+	Usage:      optional
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property.
+
+========
+Example
+========
+
+pm8150b_fg: qpnp,fg {
+	compatible = "qcom,fg-gen4";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	qcom,pmic-revid = <&pm8150b_revid>;
+	nvmem-names = "fg_sdam";
+	nvmem = <&pm8150_sdam_2>;
+	#thermal-cells = <0>;
+	status = "okay";
+
+	qcom,fg-batt-soc@4000 {
+		status = "okay";
+		reg = <0x4000 0x100>;
+		interrupts = <0x2 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x2 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x40 0x3 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x5 IRQ_TYPE_EDGE_RISING>,
+			     <0x2 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "soc-update",
+				  "soc-ready",
+				  "bsoc-delta",
+				  "msoc-delta",
+				  "msoc-low",
+				  "msoc-empty",
+				  "msoc-high",
+				  "msoc-full";
+
+	};
+
+	qcom,fg-batt-info@4100 {
+		status = "okay";
+		reg = <0x4100 0x100>;
+		interrupts = <0x2 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x41 0x3 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "vbatt-low",
+				  "vbatt-pred-delta",
+				  "esr-delta";
+	};
+
+	qcom,adc-rr@4200 {
+		status = "okay";
+		reg = <0x4200 0x100>;
+		interrupts = <0x2 0x42 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x42 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x42 0x2 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x42 0x3 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x42 0x4 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "batt-missing",
+				  "batt-id",
+				  "batt-temp-delta",
+				  "batt-temp-hot",
+				  "batt-temp-cold";
+	};
+
+	qcom,fg-memif@4300 {
+		status = "okay";
+		reg = <0x4300 0x100>;
+		interrupts = <0x2 0x43 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x43 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x43 0x2 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x43 0x3 IRQ_TYPE_EDGE_BOTH>,
+		interrupt-names = "ima-rdy",
+				  "ima-xcp",
+				  "dma-xcp",
+				  "dma-grant",
+	};
+
+};
+
+======================================
+Example for thermal zone configuration
+======================================
+
+thermal_zones {
+	pm8150b_fg {
+		polling-delay-passive = <200>;
+		polling-delay = <200>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm8150b_fg>;
+
+		pm8150b_fg_trip1: pm8150b-fg-trip1 {
+			temperature = <40000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pm8150b_fg_trip2: pm8150b-fg-trip2 {
+			temperature = <45000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pm8150b_fg_trip3: pm8150b-fg-trip3 {
+			temperature = <55000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+	};
+};

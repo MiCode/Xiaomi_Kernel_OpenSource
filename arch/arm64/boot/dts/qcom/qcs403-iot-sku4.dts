@@ -1,0 +1,73 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs403.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+#include "qcs403-ext-pll-audio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS403 SSRD IOT AUDIO PLL";
+	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
+	qcom,board-id = <0x010020 0x5>;
+
+};
+
+&soc {
+	gpio_keys {
+		vol_mute {
+			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&usb3 {
+	status = "disabled";
+};
+
+&usb_ss_phy {
+	status = "disabled";
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};
+
+&tlmm {
+	evb_tlmm_gpio_key{
+		tlmm_gpio_key_active: tlmm_gpio_key_active {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+
+		tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+	};
+};

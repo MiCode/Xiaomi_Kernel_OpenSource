@@ -1,0 +1,65 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/* since m0a changed nfc part move nfc ven to overlay part */
+
+&qupv3_se2_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 37 0x00>;
+		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-firm = <&tlmm 36 0x00>;
+		qcom,nq-clkreq = <&tlmm 31 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <37 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend>;
+	};
+};
+
+&nfc_enable_active {
+	/* active state */
+	mux {
+		/* 12: NFC ENABLE; 36:NFC FIRM */
+		pins = "gpio12", "gpio36";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio12", "gpio36";
+		drive-strength = <2>; /* 2 MA */
+		bias-pull-up;
+	};
+};
+&nfc_enable_suspend {
+	/* sleep state */
+	mux {
+		pins = "gpio12", "gpio36";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio12", "gpio36";
+		drive-strength = <2>; /* 2 MA */
+		bias-disable;
+	};
+};

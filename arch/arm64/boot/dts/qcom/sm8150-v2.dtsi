@@ -1,0 +1,1346 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sm8150.dtsi"
+#include "sm8150-v2-camera.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SM8150 V2";
+	qcom,msm-name = "SM8150 V2";
+	qcom,msm-id = <339 0x20000>;
+};
+
+/* Remove smmu nodes specific to SM8150 */
+/delete-node/ &apps_smmu;
+/delete-node/ &kgsl_smmu;
+
+&soc {
+	/delete-node/ llcc-bw-opp-table;
+	/delete-node/ ddr-bw-opp-table;
+	/delete-node/ suspendable-ddr-bw-opp-table;
+};
+
+&mdss_mdp {
+	qcom,fullsize-va-map;
+	qcom,sde-min-core-ib-kbps = <0>;
+	qcom,sde-min-llcc-ib-kbps = <0>;
+};
+
+&mdss_rotator {
+	smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
+		compatible = "qcom,smmu_sde_rot_unsec";
+		iommus = <&apps_smmu 0x2040 0x0>;
+		qcom,fullsize-va-map;
+	};
+	smmu_rot_sec: qcom,smmu_rot_sec_cb {
+		compatible = "qcom,smmu_sde_rot_sec";
+		iommus = <&apps_smmu 0x2041 0x0>;
+		qcom,fullsize-va-map;
+	};
+};
+
+&tmc_etr {
+	/delete-property/ qcom,smmu-s1-bypass;
+};
+
+&mdss_dsi0_pll {
+	compatible = "qcom,mdss_dsi_pll_7nm_v2";
+};
+
+&mdss_dsi1_pll {
+	compatible = "qcom,mdss_dsi_pll_7nm_v2";
+};
+
+&spss_utils {
+	qcom,spss-dev-firmware-name  = "spss2d";	/* 8 chars max */
+	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
+	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sm8150-v2", "syscon";
+};
+
+&clock_camcc {
+	compatible = "qcom,camcc-sm8150-v2", "syscon";
+};
+
+&clock_dispcc {
+	compatible = "qcom,dispcc-sm8150-v2", "syscon";
+};
+
+&clock_videocc {
+	compatible = "qcom,videocc-sm8150-v2", "syscon";
+};
+
+&clock_npucc {
+	compatible = "qcom,npucc-sm8150-v2", "syscon";
+};
+
+&clock_scc {
+	compatible = "qcom,scc-sm8150-v2";
+};
+
+#include "msm-arm-smmu-sm8150-v2.dtsi"
+
+&pcie0 {
+	reg = <0x1c00000 0x4000>,
+		<0x1c06000 0x1000>,
+		<0x60000000 0xf1d>,
+		<0x60000f20 0xa8>,
+		<0x60001000 0x1000>,
+		<0x60100000 0x100000>,
+		<0x60200000 0x100000>,
+		<0x60300000 0x3d00000>;
+
+	qcom,pcie-phy-ver = <2110>;
+
+	qcom,phy-sequence = <0x0840 0x03 0x0
+			0x0094 0x08 0x0
+			0x0154 0x34 0x0
+			0x016c 0x08 0x0
+			0x0058 0x0f 0x0
+			0x00a4 0x42 0x0
+			0x0110 0x24 0x0
+			0x011c 0x03 0x0
+			0x0118 0xb4 0x0
+			0x010c 0x02 0x0
+			0x01bc 0x11 0x0
+			0x00bc 0x82 0x0
+			0x00d4 0x03 0x0
+			0x00d0 0x55 0x0
+			0x00cc 0x55 0x0
+			0x00b0 0x1a 0x0
+			0x00ac 0x0a 0x0
+			0x00c4 0x68 0x0
+			0x00e0 0x02 0x0
+			0x00dc 0xaa 0x0
+			0x00d8 0xab 0x0
+			0x00b8 0x34 0x0
+			0x00b4 0x14 0x0
+			0x0158 0x01 0x0
+			0x0074 0x06 0x0
+			0x007c 0x16 0x0
+			0x0084 0x36 0x0
+			0x0078 0x06 0x0
+			0x0080 0x16 0x0
+			0x0088 0x36 0x0
+			0x01b0 0x1e 0x0
+			0x01ac 0xb9 0x0
+			0x01b8 0x18 0x0
+			0x01b4 0x94 0x0
+			0x0050 0x07 0x0
+			0x0010 0x00 0x0
+			0x001c 0x31 0x0
+			0x0020 0x01 0x0
+			0x0024 0xde 0x0
+			0x0028 0x07 0x0
+			0x0030 0x4c 0x0
+			0x0034 0x06 0x0
+			0x029c 0x12 0x0
+			0x0284 0x35 0x0
+			0x023c 0x11 0x0
+			0x051c 0x03 0x0
+			0x0518 0x1c 0x0
+			0x0524 0x1e 0x0
+			0x04e8 0x00 0x0
+			0x04ec 0x0e 0x0
+			0x04f0 0x4a 0x0
+			0x04f4 0x0f 0x0
+			0x05b4 0x04 0x0
+			0x0434 0x7f 0x0
+			0x0444 0x70 0x0
+			0x0510 0x17 0x0
+			0x04d4 0x54 0x0
+			0x04d8 0x07 0x0
+			0x0598 0xd4 0x0
+			0x059c 0x54 0x0
+			0x05a0 0xdb 0x0
+			0x05a4 0x3b 0x0
+			0x05a8 0x31 0x0
+			0x0584 0x24 0x0
+			0x0588 0xe4 0x0
+			0x058c 0xec 0x0
+			0x0590 0x3b 0x0
+			0x0594 0x36 0x0
+			0x0570 0xff 0x0
+			0x0574 0xff 0x0
+			0x0578 0xff 0x0
+			0x057c 0x7f 0x0
+			0x0580 0x66 0x0
+			0x04fc 0x00 0x0
+			0x04f8 0xc0 0x0
+			0x0460 0x30 0x0
+			0x0464 0xc0 0x0
+			0x05bc 0x0c 0x0
+			0x04dc 0x0d 0x0
+			0x0408 0x0c 0x0
+			0x0414 0x03 0x0
+			0x09a4 0x01 0x0
+			0x0c90 0x00 0x0
+			0x0c40 0x01 0x0
+			0x0c48 0x01 0x0
+			0x0c50 0x00 0x0
+			0x0cbc 0x00 0x0
+			0x0ce0 0x58 0x0
+			0x0048 0x90 0x0
+			0x0c1c 0xc1 0x0
+			0x0988 0x88 0x0
+			0x0998 0x0b 0x0
+			0x08dc 0x0d 0x0
+			0x09ec 0x01 0x0
+			0x0800 0x00 0x0
+			0x0844 0x03 0x0>;
+};
+
+&pcie1 {
+	reg = <0x1c08000 0x4000>,
+		<0x1c0e000 0x2000>,
+		<0x40000000 0xf1d>,
+		<0x40000f20 0xa8>,
+		<0x40001000 0x1000>,
+		<0x40100000 0x100000>,
+		<0x40200000 0x100000>,
+		<0x40300000 0x1fd00000>;
+
+	qcom,pcie-phy-ver = <2109>;
+
+	qcom,phy-sequence = <0x0a40 0x03 0x0
+			0x0010 0x00 0x0
+			0x001c 0x31 0x0
+			0x0020 0x01 0x0
+			0x0024 0xde 0x0
+			0x0028 0x07 0x0
+			0x0030 0x4c 0x0
+			0x0034 0x06 0x0
+			0x0048 0x90 0x0
+			0x0058 0x0f 0x0
+			0x0074 0x06 0x0
+			0x0078 0x06 0x0
+			0x007c 0x16 0x0
+			0x0080 0x16 0x0
+			0x0084 0x36 0x0
+			0x0088 0x36 0x0
+			0x0094 0x08 0x0
+			0x00a4 0x42 0x0
+			0x00ac 0x0a 0x0
+			0x00b0 0x1a 0x0
+			0x00b4 0x14 0x0
+			0x00b8 0x34 0x0
+			0x00bc 0x82 0x0
+			0x00c4 0x68 0x0
+			0x00cc 0x55 0x0
+			0x00d0 0x55 0x0
+			0x00d4 0x03 0x0
+			0x00d8 0xab 0x0
+			0x00dc 0xaa 0x0
+			0x00e0 0x02 0x0
+			0x010c 0x02 0x0
+			0x0110 0x24 0x0
+			0x0118 0xb4 0x0
+			0x011c 0x03 0x0
+			0x0154 0x34 0x0
+			0x0158 0x01 0x0
+			0x016c 0x08 0x0
+			0x01ac 0xb9 0x0
+			0x01b0 0x1e 0x0
+			0x01b4 0x94 0x0
+			0x01b8 0x18 0x0
+			0x01bc 0x11 0x0
+			0x023c 0x11 0x0
+			0x0284 0x35 0x0
+			0x029c 0x12 0x0
+			0x0304 0x02 0x0
+			0x0408 0x0c 0x0
+			0x0414 0x03 0x0
+			0x0434 0x7f 0x0
+			0x0444 0x70 0x0
+			0x0460 0x30 0x0
+			0x0464 0x00 0x0
+			0x04d4 0x04 0x0
+			0x04d8 0x07 0x0
+			0x04dc 0x0d 0x0
+			0x04e8 0x00 0x0
+			0x04ec 0x0e 0x0
+			0x04f0 0x4a 0x0
+			0x04f4 0x0f 0x0
+			0x04f8 0xc0 0x0
+			0x04fc 0x00 0x0
+			0x0510 0x17 0x0
+			0x0518 0x1c 0x0
+			0x051c 0x03 0x0
+			0x0524 0x1e 0x0
+			0x0570 0xff 0x0
+			0x0574 0xff 0x0
+			0x0578 0xff 0x0
+			0x057c 0x7f 0x0
+			0x0580 0x66 0x0
+			0x0584 0x24 0x0
+			0x0588 0xe4 0x0
+			0x058c 0xec 0x0
+			0x0590 0x3b 0x0
+			0x0594 0x36 0x0
+			0x0598 0xd4 0x0
+			0x059c 0x54 0x0
+			0x05a0 0xdb 0x0
+			0x05a4 0x3b 0x0
+			0x05a8 0x31 0x0
+			0x05bc 0x0c 0x0
+			0x063c 0x11 0x0
+			0x0684 0x35 0x0
+			0x069c 0x12 0x0
+			0x0704 0x20 0x0
+			0x0808 0x0c 0x0
+			0x0814 0x03 0x0
+			0x0834 0x7f 0x0
+			0x0844 0x70 0x0
+			0x0860 0x30 0x0
+			0x0864 0x00 0x0
+			0x08d4 0x04 0x0
+			0x08d8 0x07 0x0
+			0x08dc 0x0d 0x0
+			0x08e8 0x00 0x0
+			0x08ec 0x0e 0x0
+			0x08f0 0x4a 0x0
+			0x08f4 0x0f 0x0
+			0x08f8 0xc0 0x0
+			0x08fc 0x00 0x0
+			0x0910 0x17 0x0
+			0x0918 0x1c 0x0
+			0x091c 0x03 0x0
+			0x0924 0x1e 0x0
+			0x0970 0xff 0x0
+			0x0974 0xff 0x0
+			0x0978 0xff 0x0
+			0x097c 0x7f 0x0
+			0x0980 0x66 0x0
+			0x0984 0x24 0x0
+			0x0988 0xe4 0x0
+			0x098c 0xec 0x0
+			0x0990 0x3b 0x0
+			0x0994 0x36 0x0
+			0x0998 0xd4 0x0
+			0x099c 0x54 0x0
+			0x09a0 0xdb 0x0
+			0x09a4 0x3b 0x0
+			0x09a8 0x31 0x0
+			0x09bc 0x0c 0x0
+			0x0adc 0x05 0x0
+			0x0b88 0x88 0x0
+			0x0b98 0x0b 0x0
+			0x0ba4 0x01 0x0
+			0x0bec 0x12 0x0
+			0x0e0c 0x0d 0x0
+			0x0e14 0x07 0x0
+			0x0e1c 0xc1 0x0
+			0x0e40 0x01 0x0
+			0x0e48 0x01 0x0
+			0x0e90 0x00 0x0
+			0x0eb4 0x33 0x0
+			0x0ebc 0x00 0x0
+			0x0ee0 0x58 0x0
+			0x0ea4 0x0f 0x0
+			0x0a00 0x00 0x0
+			0x0a44 0x03 0x0>;
+};
+
+&pcie_ep {
+	reg = <0x40004000 0x1000>,
+		<0x40000000 0xf1d>,
+		<0x40000f20 0xa8>,
+		<0x40001000 0x1000>,
+		<0x40002000 0x2000>,
+		<0x01c08000 0x3000>,
+		<0x01c0e000 0x2000>,
+		<0x01c0b000 0x1000>;
+};
+
+&msm_vidc {
+	qcom,allowed-clock-rates = <240000000 338000000
+		365000000 444000000 533000000>;
+
+	non_secure_cb {
+		iommus = <&apps_smmu 0x2300 0x60>;
+	};
+	secure_bitstream_cb {
+		iommus = <&apps_smmu 0x2301 0x4>;
+	};
+	secure_pixel_cb {
+		iommus = <&apps_smmu 0x2303 0x20>;
+	};
+	secure_non_pixel_cb {
+		iommus = <&apps_smmu 0x2304 0x60>;
+	};
+};
+
+&msm_fastrpc {
+	qcom,msm_fastrpc_compute_cb1 {
+		iommus = <&apps_smmu 0x1001 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb2 {
+		iommus = <&apps_smmu 0x1002 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb3 {
+		iommus = <&apps_smmu 0x1003 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb4 {
+		iommus = <&apps_smmu 0x1004 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb5 {
+		iommus = <&apps_smmu 0x1005 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb6 {
+		iommus = <&apps_smmu 0x1006 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb7 {
+		iommus = <&apps_smmu 0x1007 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb8 {
+		iommus = <&apps_smmu 0x1008 0x0460>;
+	};
+
+	qcom,msm_fastrpc_compute_cb9 {
+		iommus = <&apps_smmu 0x1009 0x0460>;
+	};
+};
+
+&energy_costs {
+	CPU_COST_0: core-cost0 {
+		busy-cost-data = <
+			 300000 24
+			 403200 25
+			 499200 27
+			 576000 29
+			 672000 33
+			 768000 37
+			 844800 42
+			 940800 47
+			1036800 54
+			1113600 59
+			1209600 66
+			1305600 73
+			1382400 79
+			1478400 88
+			1555200 96
+			1632000 105
+			1708800 115
+			1785600 128
+		>;
+		idle-cost-data = <
+			18 14 12
+		>;
+	};
+
+	CPU_COST_1: core-cost1 {
+		busy-cost-data = <
+			 710400 165
+			 825600 195
+			 940800 228
+			1056000 264
+			1171200 301
+			1286400 339
+			1401600 378
+			1497600 411
+			1612800 453
+			1708800 491
+			1804800 534
+			1920000 594
+			2016000 654
+			2131200 740
+			2227200 825
+			2323200 920
+			2419200 1022
+		>;
+		idle-cost-data = <
+			80 60 40
+		>;
+	};
+
+	CPU_COST_2: core-cost2 {
+		busy-cost-data = <
+			 825600 227
+			 940800 262
+			1056000 302
+			1171200 348
+			1286400 398
+			1401600 451
+			1497600 498
+			1612800 556
+			1708800 606
+			1804800 655
+			1920000 716
+			2016000 766
+			2131200 826
+			2227200 878
+			2323200 933
+			2419200 992
+			2534400 1075
+			2649600 1179
+			2745600 1288
+			2841600 1427
+			2956800 1670
+		>;
+		idle-cost-data = <
+			110 90 70
+		>;
+	};
+
+	CLUSTER_COST_0: cluster-cost0 {
+		busy-cost-data = <
+			 300000 3
+			 403200 4
+			 499200 4
+			 576000 4
+			 672000 5
+			 768000 5
+			 844800 6
+			 940800 7
+			1036800 8
+			1113600 9
+			1209600 10
+			1305600 11
+			1382400 12
+			1478400 13
+			1555200 14
+			1632000 15
+			1708800 16
+			1785600 17
+		>;
+		idle-cost-data = <
+			3 2 1
+		>;
+	};
+
+	CLUSTER_COST_1: cluster-cost1 {
+		busy-cost-data = <
+			 710400 25
+			 825600 26
+			 940800 27
+			1056000 28
+			1171200 29
+			1286400 30
+			1401600 32
+			1497600 34
+			1612800 37
+			1708800 40
+			1804800 45
+			1920000 50
+			2016000 57
+			2131200 64
+			2227200 74
+			2323200 90
+			2419200 106
+		>;
+		idle-cost-data = <
+			3 2 1
+		>;
+	};
+
+	CLUSTER_COST_2: cluster-cost2 {
+		busy-cost-data = <
+			 825600 30
+			 940800 33
+			1056000 36
+			1171200 39
+			1286400 42
+			1401600 46
+			1497600 49
+			1612800 55
+			1708800 67
+			1804800 77
+			1920000 87
+			2016000 100
+			2131200 110
+			2227200 120
+			2323200 128
+			2419200 135
+			2534400 140
+			2649600 147
+			2745600 160
+			2841600 180
+			2956800 197
+		>;
+		idle-cost-data = <
+			3 2 1
+		>;
+	};
+};
+
+#include "sm8150-gpu-v2.dtsi"
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x06040001>;
+
+	/* Power level to start throttling */
+	qcom,throttle-pwrlevel = <0>;
+
+	/* Updated Bus Scale Settings */
+	qcom,msm-bus,num-cases = <12>;
+
+	/*
+	 * Value for vote is: (DDR freq) * 4 - 5
+	 * The 5 value is to ensure that there is no rounding errors
+	 * where the total request doesn't divide evenly by the BCM
+	 * DDR bandwidth unit (note, 5 is greater than this unit).
+	 */
+	qcom,msm-bus,vectors-KBps =
+		<26 512 0 0>,          // 0 bus=0
+		<26 512 0 795000>,     // 1 bus=200
+		<26 512 0 1195000>,    // 2 bus=300
+		<26 512 0 1799000>,    // 3 bus=451
+		<26 512 0 2183000>,    // 4 bus=547
+		<26 512 0 2719000>,    // 5 bus=681
+		<26 512 0 3067000>,    // 6 bus=768
+		<26 512 0 4063000>,    // 7 bus=1017
+		<26 512 0 5407000>,    // 8 bus=1353
+		<26 512 0 6215000>,    // 9 bus=1555
+		<26 512 0 7211000>,    // 10 bus=1804
+		<26 512 0 8363000>;    // 11 bus=2092
+
+	/delete-property/qcom,initial-pwrlevel;
+
+	operating-points-v2 = <&gpu_opp_table_v2>;
+
+	qcom,gpu-speed-bin = <0x4130 0xe0000000 29>;
+
+	/delete-node/qcom,gpu-pwrlevels;
+	qcom,gpu-pwrlevel-bins {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible="qcom,gpu-pwrlevel-bins";
+		qcom,gpu-pwrlevels-0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <0>;
+			qcom,initial-pwrlevel = <4>;
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <585000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <11>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <499200000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <427000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <9>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <345000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <5>;
+			};
+
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <257000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <2>;
+				qcom,bus-max = <4>;
+			};
+
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+		qcom,gpu-pwrlevels-1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <1>;
+			qcom,initial-pwrlevel = <5>;
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <675000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <11>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <585000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <9>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <499200000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <427000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <9>;
+			};
+
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <345000000>;
+				qcom,bus-freq = <4>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <5>;
+			};
+
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <257000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <2>;
+				qcom,bus-max = <4>;
+			};
+
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+	};
+
+	qcom,l3-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,l3-pwrlevels";
+
+		qcom,l3-pwrlevel@0 {
+			reg = <0>;
+			qcom,l3-freq = <0>;
+		};
+
+		qcom,l3-pwrlevel@1 {
+			reg = <1>;
+			qcom,l3-freq = <1344000000>;
+		};
+
+		qcom,l3-pwrlevel@2 {
+			reg = <2>;
+			qcom,l3-freq = <1612800000>;
+		};
+	};
+};
+
+&gmu {
+	reg = <0x2c6a000 0x30000>,
+		<0xb290000 0x10000>,
+		<0xb490000 0x10000>;
+	reg-names = "kgsl_gmu_reg",
+		"kgsl_gmu_pdc_cfg",
+		"kgsl_gmu_pdc_seq";
+
+	qcom,gpu-acd-table {
+		/* Corresponds to levels in the GPU perf table */
+		qcom,acd-enable-by-level = <0x7e>;
+		qcom,acd-stride = <0x2>;
+		qcom,acd-num-levels = <0x6>;
+
+		/* ACDCR, ACDTD */
+		qcom,acd-data = <0xa02d5ffd 0x00007611 /* LowSVS */
+				0xa02d5ffd 0x00006911 /* SVS */
+				0xa02d5ffd 0x00006111 /* SVS_L1 */
+				0xa02d5ffd 0x00006011 /* SVS_L2 */
+				0x802d5ffd 0x00005411 /* NOM */
+				0x802d5ffd 0x00005411>; /* NOM_L1 */
+	};
+};
+
+/* NPU overrides */
+&msm_npu {
+	iommus = <&apps_smmu 0x1081 0x400>;
+	qcom,npu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "qcom,npu-pwrlevels";
+		initial-pwrlevel = <5>;
+		qcom,npu-pwrlevel@0 {
+			reg = <0>;
+			vreg = <1>;
+			clk-freq = <0
+				0
+				0
+				100000000
+				300000000
+				300000000
+				19200000
+				150000000
+				100000000
+				37500000
+				19200000
+				60000000
+				100000000
+				19200000
+				19200000
+				0
+				19200000
+				300000000
+				19200000
+				19200000>;
+		};
+		qcom,npu-pwrlevel@1 {
+			reg = <1>;
+			vreg = <2>;
+			clk-freq = <0
+				0
+				0
+				150000000
+				400000000
+				400000000
+				37500000
+				200000000
+				150000000
+				75000000
+				19200000
+				120000000
+				150000000
+				19200000
+				19200000
+				0
+				19200000
+				400000000
+				19200000
+				19200000>;
+		};
+		qcom,npu-pwrlevel@2 {
+			reg = <2>;
+			vreg = <3>;
+			clk-freq = <0
+				0
+				0
+				200000000
+				487000000
+				487000000
+				37500000
+				300000000
+				200000000
+				150000000
+				19200000
+				240000000
+				200000000
+				19200000
+				19200000
+				0
+				19200000
+				487000000
+				19200000
+				19200000>;
+		};
+		qcom,npu-pwrlevel@3 {
+			reg = <3>;
+			vreg = <4>;
+			clk-freq = <0
+				0
+				0
+				300000000
+				652000000
+				652000000
+				75000000
+				403000000
+				300000000
+				150000000
+				19200000
+				240000000
+				300000000
+				19200000
+				19200000
+				0
+				19200000
+				652000000
+				19200000
+				19200000>;
+		};
+		qcom,npu-pwrlevel@4 {
+			reg = <4>;
+			vreg = <6>;
+			clk-freq = <0
+				0
+				0
+				400000000
+				811000000
+				811000000
+				75000000
+				533000000
+				400000000
+				150000000
+				19200000
+				300000000
+				400000000
+				19200000
+				19200000
+				0
+				19200000
+				811000000
+				19200000
+				19200000>;
+		};
+		qcom,npu-pwrlevel@5 {
+			reg = <5>;
+			vreg = <7>;
+			clk-freq = <0
+				0
+				0
+				400000000
+				908000000
+				908000000
+				75000000
+				533000000
+				400000000
+				150000000
+				19200000
+				300000000
+				400000000
+				19200000
+				19200000
+				0
+				19200000
+				908000000
+				19200000
+				19200000>;
+		};
+	};
+};
+
+&soc {
+	llcc_bw_opp_table: llcc-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
+		BW_OPP_ENTRY( 300, 16); /*  4577 MB/s */
+		BW_OPP_ENTRY( 466, 16); /*  7110 MB/s */
+		BW_OPP_ENTRY( 600, 16); /*  9155 MB/s */
+		BW_OPP_ENTRY( 806, 16); /* 12298 MB/s */
+		BW_OPP_ENTRY( 933, 16); /* 14236 MB/s */
+		BW_OPP_ENTRY(1000, 16); /* 15258 MB/s */
+	};
+
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
+
+	suspendable_ddr_bw_opp_table: suspendable-ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(   0, 4); /*    0 MB/s */
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1353, 4); /* 5161 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
+};
+&cpu4_computemon {
+	qcom,core-dev-table =
+		< 1920000 MHZ_TO_MBPS( 200, 4) >,
+		< 2793600 MHZ_TO_MBPS(1017, 4) >,
+		< 3000000 MHZ_TO_MBPS(2092, 4) >;
+};
+
+&cpu0_llcc_ddr_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 200, 4) >,
+		<  768000 MHZ_TO_MBPS( 451, 4) >,
+		< 1113600 MHZ_TO_MBPS( 547, 4) >,
+		< 1478400 MHZ_TO_MBPS( 768, 4) >,
+		< 1632000 MHZ_TO_MBPS(1017, 4) >;
+};
+
+&cpu4_llcc_ddr_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 200, 4) >,
+		<  710400 MHZ_TO_MBPS( 451, 4) >,
+		<  825600 MHZ_TO_MBPS( 547, 4) >,
+		< 1056000 MHZ_TO_MBPS( 768, 4) >,
+		< 1286400 MHZ_TO_MBPS(1017, 4) >,
+		< 1612800 MHZ_TO_MBPS(1353, 4) >,
+		< 1804800 MHZ_TO_MBPS(1555, 4) >,
+		< 2649600 MHZ_TO_MBPS(1804, 4) >,
+		< 3000000 MHZ_TO_MBPS(2092, 4) >;
+};
+
+&cpu0_cpu_l3_latmon {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  499200  403200000 >,
+		<  576000  499200000 >,
+		<  672000  614400000 >,
+		<  768000  710400000 >,
+		<  940800  806400000 >,
+		< 1036800  902400000 >,
+		< 1113600  998400000 >,
+		< 1209600 1075280000 >,
+		< 1305600 1171200000 >,
+		< 1382400 1267200000 >,
+		< 1478400 1344000000 >,
+		< 1632000 1536000000 >,
+		< 1785600 1612800000 >;
+};
+
+&cpu4_cpu_l3_latmon {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  825600  614400000 >,
+		< 1171200  806400000 >,
+		< 1401600  998400000 >,
+		< 1708800 1267200000 >,
+		< 2016000 1344000000 >,
+		< 2419200 1536000000 >,
+		< 2841600 1612800000 >;
+};
+
+&cpu7_cpu_l3_latmon {
+	qcom,core-dev-table =
+		<  300000  300000000 >,
+		<  825600  614400000 >,
+		< 1171200  806400000 >,
+		< 1401600  998400000 >,
+		< 1708800 1267200000 >,
+		< 2016000 1344000000 >,
+		< 2419200 1536000000 >,
+		< 2841600 1612000000 >;
+};
+
+&cpu0_cpu_llcc_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 150, 16) >,
+		<  768000 MHZ_TO_MBPS( 300, 16) >,
+		< 1478400 MHZ_TO_MBPS( 466, 16) >,
+		< 1632000 MHZ_TO_MBPS( 600, 16) >;
+};
+
+&cpu4_cpu_llcc_latmon {
+	qcom,core-dev-table =
+		<  300000 MHZ_TO_MBPS( 150, 16) >,
+		<  710400 MHZ_TO_MBPS( 300, 16) >,
+		< 1056000 MHZ_TO_MBPS( 466, 16) >,
+		< 1286400 MHZ_TO_MBPS( 600, 16) >,
+		< 1804800 MHZ_TO_MBPS( 806, 16) >,
+		< 2649600 MHZ_TO_MBPS( 933, 16) >,
+		< 3000000 MHZ_TO_MBPS(1000, 16) >;
+};
+
+&usb_qmp_dp_phy {
+	qcom,qmp-phy-init-seq =
+	    <USB3_DP_QSERDES_COM_SSC_EN_CENTER 0x01 0
+	     USB3_DP_QSERDES_COM_SSC_PER1 0x31 0
+	     USB3_DP_QSERDES_COM_SSC_PER2 0x01 0
+	     USB3_DP_QSERDES_COM_SSC_STEP_SIZE1_MODE0 0xde 0
+	     USB3_DP_QSERDES_COM_SSC_STEP_SIZE2_MODE0 0x07 0
+	     USB3_DP_QSERDES_COM_SSC_STEP_SIZE1_MODE1 0xde 0
+	     USB3_DP_QSERDES_COM_SSC_STEP_SIZE2_MODE1 0x07 0
+	     USB3_DP_QSERDES_COM_SYSCLK_BUF_ENABLE 0x0a 0
+	     USB3_DP_QSERDES_COM_CMN_IPTRIM 0x20 0
+	     USB3_DP_QSERDES_COM_CP_CTRL_MODE0 0x06 0
+	     USB3_DP_QSERDES_COM_CP_CTRL_MODE1 0x06 0
+	     USB3_DP_QSERDES_COM_PLL_RCTRL_MODE0 0x16 0
+	     USB3_DP_QSERDES_COM_PLL_RCTRL_MODE1 0x16 0
+	     USB3_DP_QSERDES_COM_PLL_CCTRL_MODE0 0x36 0
+	     USB3_DP_QSERDES_COM_PLL_CCTRL_MODE1 0x36 0
+	     USB3_DP_QSERDES_COM_SYSCLK_EN_SEL 0x1a 0
+	     USB3_DP_QSERDES_COM_LOCK_CMP_EN 0x04 0
+	     USB3_DP_QSERDES_COM_LOCK_CMP1_MODE0 0x14 0
+	     USB3_DP_QSERDES_COM_LOCK_CMP2_MODE0 0x34 0
+	     USB3_DP_QSERDES_COM_LOCK_CMP1_MODE1 0x34 0
+	     USB3_DP_QSERDES_COM_LOCK_CMP2_MODE1 0x82 0
+	     USB3_DP_QSERDES_COM_DEC_START_MODE0 0x82 0
+	     USB3_DP_QSERDES_COM_DEC_START_MODE1 0x82 0
+	     USB3_DP_QSERDES_COM_DIV_FRAC_START1_MODE0 0xab 0
+	     USB3_DP_QSERDES_COM_DIV_FRAC_START2_MODE0 0xea 0
+	     USB3_DP_QSERDES_COM_DIV_FRAC_START3_MODE0 0x02 0
+	     USB3_DP_QSERDES_COM_DIV_FRAC_START1_MODE1 0xab 0
+	     USB3_DP_QSERDES_COM_DIV_FRAC_START2_MODE1 0xea 0
+	     USB3_DP_QSERDES_COM_DIV_FRAC_START3_MODE1 0x02 0
+	     USB3_DP_QSERDES_COM_VCO_TUNE_MAP 0x02 0
+	     USB3_DP_QSERDES_COM_VCO_TUNE1_MODE0 0x24 0
+	     USB3_DP_QSERDES_COM_VCO_TUNE1_MODE1 0x24 0
+	     USB3_DP_QSERDES_COM_VCO_TUNE2_MODE1 0x02 0
+	     USB3_DP_QSERDES_COM_HSCLK_SEL 0x01 0
+	     USB3_DP_QSERDES_COM_CORECLK_DIV_MODE1 0x08 0
+	     USB3_DP_QSERDES_COM_BIN_VCOCAL_CMP_CODE1_MODE0 0xca 0
+	     USB3_DP_QSERDES_COM_BIN_VCOCAL_CMP_CODE2_MODE0 0x1e 0
+	     USB3_DP_QSERDES_COM_BIN_VCOCAL_CMP_CODE1_MODE1 0xca 0
+	     USB3_DP_QSERDES_COM_BIN_VCOCAL_CMP_CODE2_MODE1 0x1e 0
+	     USB3_DP_QSERDES_COM_BIN_VCOCAL_HSCLK_SEL 0x11 0
+	     USB3_DP_QSERDES_TXA_LANE_MODE_1 0xd5 0
+	     USB3_DP_QSERDES_TXA_RCV_DETECT_LVL_2 0x12 0
+	     USB3_DP_QSERDES_TXA_RES_CODE_LANE_TX 0x00 0
+	     USB3_DP_QSERDES_TXA_RES_CODE_LANE_RX 0x00 0
+	     USB3_DP_QSERDES_TXA_RES_CODE_LANE_OFFSET_TX 0x16 0
+	     USB3_DP_QSERDES_TXA_RES_CODE_LANE_OFFSET_RX 0x05 0
+	     USB3_DP_QSERDES_TXA_PI_QEC_CTRL 0x20 0
+	     USB3_DP_QSERDES_RXA_UCDR_SO_GAIN 0x05 0
+	     USB3_DP_QSERDES_RXA_UCDR_FASTLOCK_FO_GAIN 0x2f 0
+	     USB3_DP_QSERDES_RXA_UCDR_SO_SATURATION_AND_ENABLE 0x7f 0
+	     USB3_DP_QSERDES_RXA_UCDR_FASTLOCK_COUNT_LOW 0xff 0
+	     USB3_DP_QSERDES_RXA_UCDR_FASTLOCK_COUNT_HIGH 0x0f 0
+	     USB3_DP_QSERDES_RXA_UCDR_PI_CONTROLS 0x99 0
+	     USB3_DP_QSERDES_RXA_UCDR_SB2_THRESH1 0x04 0
+	     USB3_DP_QSERDES_RXA_UCDR_SB2_THRESH2 0x08 0
+	     USB3_DP_QSERDES_RXA_UCDR_SB2_GAIN1 0x05 0
+	     USB3_DP_QSERDES_RXA_UCDR_SB2_GAIN2 0x05 0
+	     USB3_DP_QSERDES_RXA_AUX_DATA_TCOARSE_TFINE 0xa0 0
+	     USB3_DP_QSERDES_RXA_VGA_CAL_CNTRL1 0x54 0
+	     USB3_DP_QSERDES_RXA_VGA_CAL_CNTRL2 0x0e 0
+	     USB3_DP_QSERDES_RXA_GM_CAL 0x1f 0
+	     USB3_DP_QSERDES_RXA_RX_EQU_ADAPTOR_CNTRL2 0x0f 0
+	     USB3_DP_QSERDES_RXA_RX_EQU_ADAPTOR_CNTRL3 0x4a 0
+	     USB3_DP_QSERDES_RXA_RX_EQU_ADAPTOR_CNTRL4 0x0a 0
+	     USB3_DP_QSERDES_RXA_RX_IDAC_TSETTLE_LOW 0xc0 0
+	     USB3_DP_QSERDES_RXA_RX_IDAC_TSETTLE_HIGH 0x00 0
+	     USB3_DP_QSERDES_RXA_RX_EQ_OFFSET_ADAPTOR_CNTRL1 0x77 0
+	     USB3_DP_QSERDES_RXA_SIGDET_CNTRL 0x04 0
+	     USB3_DP_QSERDES_RXA_SIGDET_DEGLITCH_CNTRL 0x0e 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_00_LOW 0xbf 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_00_HIGH 0xbf 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_00_HIGH2 0x3f 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_00_HIGH3 0x7f 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_00_HIGH4 0x94 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_01_LOW 0xdc 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_01_HIGH 0xdc 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_01_HIGH2 0x5c 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_01_HIGH3 0x0b 0
+	     USB3_DP_QSERDES_RXA_RX_MODE_01_HIGH4 0xb3 0
+	     USB3_DP_QSERDES_RXA_DFE_EN_TIMER 0x04 0
+	     USB3_DP_QSERDES_RXA_DFE_CTLE_POST_CAL_OFFSET 0x38 0
+	     USB3_DP_QSERDES_RXA_DCC_CTRL1 0xc 0
+	     USB3_DP_QSERDES_RXA_VTH_CODE 0x10 0
+	     USB3_DP_QSERDES_TXB_LANE_MODE_1 0xd5 0
+	     USB3_DP_QSERDES_TXB_RCV_DETECT_LVL_2 0x12 0
+	     USB3_DP_QSERDES_TXB_RES_CODE_LANE_TX 0x00 0
+	     USB3_DP_QSERDES_TXB_RES_CODE_LANE_RX 0x00 0
+	     USB3_DP_QSERDES_TXB_RES_CODE_LANE_OFFSET_TX 0x16 0
+	     USB3_DP_QSERDES_TXB_RES_CODE_LANE_OFFSET_RX 0x05 0
+	     USB3_DP_QSERDES_TXB_PI_QEC_CTRL 0x01 0
+	     USB3_DP_QSERDES_RXB_UCDR_SO_GAIN 0x05 0
+	     USB3_DP_QSERDES_RXB_UCDR_FASTLOCK_FO_GAIN 0x2f 0
+	     USB3_DP_QSERDES_RXB_UCDR_SO_SATURATION_AND_ENABLE 0x7f 0
+	     USB3_DP_QSERDES_RXB_UCDR_FASTLOCK_COUNT_LOW 0xff 0
+	     USB3_DP_QSERDES_RXB_UCDR_FASTLOCK_COUNT_HIGH 0x0f 0
+	     USB3_DP_QSERDES_RXB_UCDR_PI_CONTROLS 0x99 0
+	     USB3_DP_QSERDES_RXB_UCDR_SB2_THRESH1 0x04 0
+	     USB3_DP_QSERDES_RXB_UCDR_SB2_THRESH2 0x08 0
+	     USB3_DP_QSERDES_RXB_UCDR_SB2_GAIN1 0x05 0
+	     USB3_DP_QSERDES_RXB_UCDR_SB2_GAIN2 0x05 0
+	     USB3_DP_QSERDES_RXB_AUX_DATA_TCOARSE_TFINE 0xa0 0
+	     USB3_DP_QSERDES_RXB_VGA_CAL_CNTRL1 0x54 0
+	     USB3_DP_QSERDES_RXB_VGA_CAL_CNTRL2 0x0e 0
+	     USB3_DP_QSERDES_RXB_GM_CAL 0x1f 0
+	     USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL2 0x0f 0
+	     USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL3 0x4a 0
+	     USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL4 0x0a 0
+	     USB3_DP_QSERDES_RXB_RX_IDAC_TSETTLE_LOW 0xc0 0
+	     USB3_DP_QSERDES_RXB_RX_IDAC_TSETTLE_HIGH 0x00 0
+	     USB3_DP_QSERDES_RXB_RX_EQ_OFFSET_ADAPTOR_CNTRL1 0x77 0
+	     USB3_DP_QSERDES_RXB_SIGDET_CNTRL 0x04 0
+	     USB3_DP_QSERDES_RXB_SIGDET_DEGLITCH_CNTRL 0x0e 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_00_LOW 0xbf 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_00_HIGH 0xbf 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_00_HIGH2 0x3f 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_00_HIGH3 0x7f 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_00_HIGH4 0x94 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_01_LOW 0xdc 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_01_HIGH 0xdc 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_01_HIGH2 0x5c 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_01_HIGH3 0x0b 0
+	     USB3_DP_QSERDES_RXB_RX_MODE_01_HIGH4 0xb3 0
+	     USB3_DP_QSERDES_RXB_DFE_EN_TIMER 0x04 0
+	     USB3_DP_QSERDES_RXB_DFE_CTLE_POST_CAL_OFFSET 0x38 0
+	     USB3_DP_QSERDES_RXB_DCC_CTRL1 0xc 0
+	     USB3_DP_QSERDES_RXB_VTH_CODE 0x10 0
+	     USB3_DP_PCS_LOCK_DETECT_CONFIG1 0xd0 0
+	     USB3_DP_PCS_LOCK_DETECT_CONFIG2 0x07 0
+	     USB3_DP_PCS_LOCK_DETECT_CONFIG3 0x20 0
+	     USB3_DP_PCS_LOCK_DETECT_CONFIG6 0x13 0
+	     USB3_DP_PCS_REFGEN_REQ_CONFIG1 0x21 0
+	     USB3_DP_PCS_RX_SIGDET_LVL 0xaa 0
+	     USB3_DP_PCS_CDR_RESET_TIME 0x0f 0
+	     USB3_DP_PCS_ALIGN_DETECT_CONFIG1 0x88 0
+	     USB3_DP_PCS_ALIGN_DETECT_CONFIG2 0x13 0
+	     USB3_DP_PCS_PCS_TX_RX_CONFIG 0x0c 0
+	     USB3_DP_PCS_EQ_CONFIG1 0x4b 0
+	     USB3_DP_PCS_EQ_CONFIG5 0x10 0
+	     USB3_DP_PCS_USB3_LFPS_DET_HIGH_COUNT_VAL 0xf8 0
+	     USB3_DP_PCS_USB3_RXEQTRAINING_DFE_TIME_S2 0x07 0
+	     0xffffffff 0xffffffff 0x00>;
+};
+
+&usb_qmp_phy {
+	qcom,qmp-phy-init-seq =
+	    <USB3_UNI_QSERDES_COM_SYSCLK_EN_SEL 0x1a 0
+	     USB3_UNI_QSERDES_COM_BIN_VCOCAL_HSCLK_SEL 0x11 0
+	     USB3_UNI_QSERDES_COM_HSCLK_SEL 0x01 0
+	     USB3_UNI_QSERDES_COM_DEC_START_MODE0 0x82 0
+	     USB3_UNI_QSERDES_COM_DIV_FRAC_START1_MODE0 0xab 0
+	     USB3_UNI_QSERDES_COM_DIV_FRAC_START2_MODE0 0xea 0
+	     USB3_UNI_QSERDES_COM_DIV_FRAC_START3_MODE0 0x02 0
+	     USB3_UNI_QSERDES_COM_BIN_VCOCAL_CMP_CODE1_MODE0 0xca 0
+	     USB3_UNI_QSERDES_COM_BIN_VCOCAL_CMP_CODE2_MODE0 0x1e 0
+	     USB3_UNI_QSERDES_COM_CP_CTRL_MODE0 0x06 0
+	     USB3_UNI_QSERDES_COM_PLL_RCTRL_MODE0 0x16 0
+	     USB3_UNI_QSERDES_COM_PLL_CCTRL_MODE0 0x36 0
+	     USB3_UNI_QSERDES_COM_VCO_TUNE1_MODE0 0x24 0
+	     USB3_UNI_QSERDES_COM_LOCK_CMP2_MODE0 0x34 0
+	     USB3_UNI_QSERDES_COM_LOCK_CMP1_MODE0 0x14 0
+	     USB3_UNI_QSERDES_COM_LOCK_CMP_EN 0x04 0
+	     USB3_UNI_QSERDES_COM_SYSCLK_BUF_ENABLE 0x0a 0
+	     USB3_UNI_QSERDES_COM_VCO_TUNE2_MODE1 0x02 0
+	     USB3_UNI_QSERDES_COM_VCO_TUNE1_MODE1 0x24 0
+	     USB3_UNI_QSERDES_COM_CORECLK_DIV_MODE1 0x08 0
+	     USB3_UNI_QSERDES_COM_DEC_START_MODE1 0x82 0
+	     USB3_UNI_QSERDES_COM_DIV_FRAC_START1_MODE1 0xab 0
+	     USB3_UNI_QSERDES_COM_DIV_FRAC_START2_MODE1 0xea 0
+	     USB3_UNI_QSERDES_COM_DIV_FRAC_START3_MODE1 0x02 0
+	     USB3_UNI_QSERDES_COM_LOCK_CMP2_MODE1 0x82 0
+	     USB3_UNI_QSERDES_COM_LOCK_CMP1_MODE1 0x34 0
+	     USB3_UNI_QSERDES_COM_CP_CTRL_MODE1 0x06 0
+	     USB3_UNI_QSERDES_COM_PLL_RCTRL_MODE1 0x16 0
+	     USB3_UNI_QSERDES_COM_PLL_CCTRL_MODE1 0x36 0
+	     USB3_UNI_QSERDES_COM_BIN_VCOCAL_CMP_CODE1_MODE1 0xca 0
+	     USB3_UNI_QSERDES_COM_BIN_VCOCAL_CMP_CODE2_MODE1 0x1e 0
+	     USB3_UNI_QSERDES_COM_CMN_IPTRIM 0x20 0
+	     USB3_UNI_QSERDES_COM_SSC_EN_CENTER 0x01 0
+	     USB3_UNI_QSERDES_COM_SSC_PER1 0x31 0
+	     USB3_UNI_QSERDES_COM_SSC_PER2 0x01 0
+	     USB3_UNI_QSERDES_COM_SSC_STEP_SIZE1_MODE1 0xde 0
+	     USB3_UNI_QSERDES_COM_SSC_STEP_SIZE2_MODE1 0x07 0
+	     USB3_UNI_QSERDES_COM_SSC_STEP_SIZE1_MODE0 0xde 0
+	     USB3_UNI_QSERDES_COM_SSC_STEP_SIZE2_MODE0 0x07 0
+	     USB3_UNI_QSERDES_COM_VCO_TUNE_MAP 0x02 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_00_HIGH4 0xb8 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_00_HIGH3 0x7f 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_00_HIGH2 0x37 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_00_HIGH 0x2f 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_00_LOW 0xef 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_01_HIGH4 0xb3 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_01_HIGH3 0x0b 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_01_HIGH2 0x5c 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_01_HIGH 0xdc 0
+	     USB3_UNI_QSERDES_RX_RX_MODE_01_LOW 0xdc 0
+	     USB3_UNI_QSERDES_RX_UCDR_PI_CONTROLS 0x99 0
+	     USB3_UNI_QSERDES_RX_UCDR_SB2_THRESH1 0x04 0
+	     USB3_UNI_QSERDES_RX_UCDR_SB2_THRESH2 0x08 0
+	     USB3_UNI_QSERDES_RX_UCDR_SB2_GAIN1 0x05 0
+	     USB3_UNI_QSERDES_RX_UCDR_SB2_GAIN2 0x05 0
+	     USB3_UNI_QSERDES_RX_UCDR_FASTLOCK_FO_GAIN 0x2f 0
+	     USB3_UNI_QSERDES_RX_UCDR_FASTLOCK_COUNT_LOW 0xff 0
+	     USB3_UNI_QSERDES_RX_UCDR_FASTLOCK_COUNT_HIGH 0x0f 0
+	     USB3_UNI_QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE 0x7f 0
+	     USB3_UNI_QSERDES_RX_UCDR_FO_GAIN 0x08 0
+	     USB3_UNI_QSERDES_RX_VGA_CAL_CNTRL1 0x54 0
+	     USB3_UNI_QSERDES_RX_VGA_CAL_CNTRL2 0x0c 0
+	     USB3_UNI_QSERDES_RX_GM_CAL 0x1f 0
+	     USB3_UNI_QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2 0x0f 0
+	     USB3_UNI_QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3 0x4a 0
+	     USB3_UNI_QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4 0x0a 0
+	     USB3_UNI_QSERDES_RX_DFE_EN_TIMER 0x04 0
+	     USB3_UNI_QSERDES_RX_RX_EQ_OFFSET_ADAPTOR_CNTRL1 0x47 0
+	     USB3_UNI_QSERDES_RX_RX_OFFSET_ADAPTOR_CNTRL2 0x80 0
+	     USB3_UNI_QSERDES_RX_SIGDET_CNTRL 0x04 0
+	     USB3_UNI_QSERDES_RX_SIGDET_DEGLITCH_CNTRL 0x0e 0
+	     USB3_UNI_QSERDES_RX_RX_IDAC_TSETTLE_HIGH 0x00 0
+	     USB3_UNI_QSERDES_RX_RX_IDAC_TSETTLE_LOW 0xc0 0
+	     USB3_UNI_QSERDES_RX_DFE_CTLE_POST_CAL_OFFSET 0x20 0
+	     USB3_UNI_QSERDES_RX_UCDR_SO_GAIN 0x04 0
+	     USB3_UNI_QSERDES_RX_DCC_CTRL1 0xc 0
+	     USB3_UNI_QSERDES_TX_RCV_DETECT_LVL_2 0x12 0
+	     USB3_UNI_QSERDES_TX_LANE_MODE_1 0x95 0
+	     USB3_UNI_QSERDES_TX_PI_QEC_CTRL 0x40 0
+	     USB3_UNI_QSERDES_TX_RES_CODE_LANE_OFFSET_TX 0x05 0
+	     USB3_UNI_PCS_LOCK_DETECT_CONFIG1 0xd0 0
+	     USB3_UNI_PCS_LOCK_DETECT_CONFIG2 0x07 0
+	     USB3_UNI_PCS_LOCK_DETECT_CONFIG3 0x20 0
+	     USB3_UNI_PCS_LOCK_DETECT_CONFIG6 0x13 0
+	     USB3_UNI_PCS_RCVR_DTCT_DLY_P1U2_L 0xe7 0
+	     USB3_UNI_PCS_RCVR_DTCT_DLY_P1U2_H 0x03 0
+	     USB3_UNI_PCS_RX_SIGDET_LVL 0xaa 0
+	     USB3_UNI_PCS_USB3_RXEQTRAINING_DFE_TIME_S2 0x07 0
+	     USB3_UNI_PCS_USB3_LFPS_DET_HIGH_COUNT_VAL 0xf8 0
+	     USB3_UNI_PCS_CDR_RESET_TIME 0x0f 0
+	     USB3_UNI_PCS_ALIGN_DETECT_CONFIG1 0x88 0
+	     USB3_UNI_PCS_ALIGN_DETECT_CONFIG2 0x13 0
+	     USB3_UNI_PCS_EQ_CONFIG1 0x4b 0
+	     USB3_UNI_PCS_EQ_CONFIG5 0x10 0
+	     USB3_UNI_PCS_REFGEN_REQ_CONFIG1 0x21 0
+	     USB3_UNI_PCS_PCS_TX_RX_CONFIG 0x0c 0
+	     0xffffffff 0xffffffff 0x00>;
+};
+
+/* qcedev override */
+&qcom_cedev {
+	qcom_cedev_ns_cb {
+		iommus = <&apps_smmu 0x512 0>,
+			 <&apps_smmu 0x518 0>,
+			 <&apps_smmu 0x519 0>,
+			 <&apps_smmu 0x51f 0>;
+	};
+
+	qcom_cedev_s_cb {
+		iommus = <&apps_smmu 0x513 0>,
+			 <&apps_smmu 0x51c 0>,
+			 <&apps_smmu 0x51d 0>,
+			 <&apps_smmu 0x51e 0>;
+	};
+};

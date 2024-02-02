@@ -1,0 +1,46 @@
+ARM CPU memory latency monitor device
+
+arm-memlat-mon is a device that represents the use of the PMU in ARM cores
+to measure the parameters for latency driven memory access patterns.
+
+Required properties:
+- compatible:			Must be "qcom,arm-memlat-mon" or "qcom,arm-cpu-mon"
+- qcom,cpulist:			List of CPU phandles to be monitored in a cluster
+- qcom,target-dev:		The DT device that corresponds to this master port
+- qcom,core-dev-table:		A mapping table of core frequency to a required bandwidth vote at the
+				given core frequency.
+
+Optional properties:
+- qcom,cachemiss-ev:		The cache miss event that this monitor is supposed to measure.
+				Defaults to 0x17 if not specified.
+- qcom,inst-ev:			The instruction count event that this monitor is supposed to measure.
+				Defaults to 0x08 if not specified.
+- qcom,stall-cycle-ev:		The stall cycle count that this monitor is supposed to measure.
+				Assumes 100% stall if not specified.
+- qcom,ddr-type:		Optional property indicates ddr type which can support
+				different frequencies for a given target.
+
+
+Example:
+	qcom,arm-memlat-mon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1>;
+		qcom,target-dev = <&memlat0>;
+		qcom,cachemiss-ev = <0x2A>;
+		qcom,inst-ev = <0x08>;
+		qcom,stall-cycle-ev = <0xE7>;
+		ddr3-map {
+			qcom,ddr-type = <DDR_TYPE_LPDDR3>;
+			qcom,core-dev-table =
+				<  300000 1525 >,
+				<  499200 3143 >,
+				< 1881600 5859 >;
+		};
+		ddr4-map {
+			qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+			qcom,core-dev-table =
+				<  300000 1525 >,
+				<  499200 3143 >,
+				< 1881600 5859 >;
+		};
+	};

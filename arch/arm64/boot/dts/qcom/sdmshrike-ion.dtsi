@@ -1,0 +1,65 @@
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		system_heap: qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+
+		qcom,ion-heap@22 { /* ADSP HEAP */
+			reg = <22>;
+			memory-region = <&adsp_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@26 { /* USER CONTIG HEAP */
+			reg = <26>;
+			memory-region = <&user_contig_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@27 { /* QSEECOM HEAP */
+			reg = <27>;
+			memory-region = <&qseecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
+			reg = <19>;
+			memory-region = <&qseecom_ta_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@13 { /* SPSS HEAP */
+			reg = <13>;
+			memory-region = <&sp_mem>;
+			qcom,ion-heap-type = "HYP_CMA";
+		};
+
+		qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */
+			reg = <10>;
+			memory-region = <&secure_display_memory>;
+			qcom,ion-heap-type = "HYP_CMA";
+		};
+
+		qcom,ion-heap@9 {
+			reg = <9>;
+			qcom,ion-heap-type = "SYSTEM_SECURE";
+		};
+	};
+};

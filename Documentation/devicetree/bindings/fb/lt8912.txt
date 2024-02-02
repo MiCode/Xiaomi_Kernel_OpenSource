@@ -1,0 +1,20 @@
+LT8912 DSI to HDMI bridge
+
+
+Required properties:
+- compatible:				Must be "lontium,lt8912"
+- reg:					Main I2C slave ID (for I2C host driver)
+
+Optional properties:
+- qcom,hdmi-reset:				Main reset gpio mapping
+
+Example:
+&soc {
+	i2c@78b8000 {
+		lt8912@48 {
+			compatible = "lontium,lt8912";
+			reg = <0x48>;
+			qcom,hdmi-reset = <&tlmm 64 0x0>;
+		};
+	};
+};

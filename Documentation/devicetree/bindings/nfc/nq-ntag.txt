@@ -1,0 +1,25 @@
+Qualcomm Technologies, Inc NTx NTAG device
+
+Near Field Communication wireless tag integrated circuit device(NTAG) is compliant
+with NFC Forum Type 2 Tag specification.
+
+Required properties:
+
+- compatible: "qcom,nq-ntag"
+- reg: i2c slave address.
+- pinctrl-names, pinctrl-0, pinctrl-1: references to our pinctrl settings
+- qcom,nq-ntagfd : specific gpio for field detect interrupt.
+
+Example:
+
+	nq-ntag@55 {
+		compatible = "qcom,nq-ntag";
+		reg = <0x55>;
+		qcom,nq-ntagfd = <&tlmm 22 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <22 0>;
+		interrupt-names = "ntag_fd";
+		pinctrl-names = "ntag_active","ntag_suspend";
+		pinctrl-0 = <&ntag_int_active>;
+		pinctrl-1 = <&ntag_int_suspend>;
+	};

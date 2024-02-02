@@ -1,0 +1,8 @@
+config RMNET_USB
+	tristate "RmNet USB Driver"
+	depends on USB_USBNET
+	help
+	  Select this if you have a QTI modem device connected via USB
+	  supporting RmNet network interface.
+	  To compile this driver as a module, choose M here: the module
+	  will be called rmnet_usb. If unsure, choose N.

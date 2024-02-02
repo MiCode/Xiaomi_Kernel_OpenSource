@@ -1,0 +1,30 @@
+CSRA66X0 audio codec
+
+Required properties:
+ - compatible = "qcom,csra66x0"
+ - reg: represents the slave base address provided to the peripheral.
+ - qcom,csra-vreg-en-gpio: CSRA66X0 codec enable signal.
+
+Optional Properties:
+ - qcom,csra-cluster: Indication that CSRA66X0 device is member
+			of a multi-device cluster.
+ - qcom,csra-cluster-master: Indication that CSRA66X0 device is
+			master of multi-device cluster.
+ - interrupt-parent: The parent interrupt controller.
+ - interrupts: Specifies the interrupt to Apps processor.
+ - irq-active-low: Active interrupt level indication.
+
+Example:
+
+	csra66x0_ampl_68: csra66x0@68 {
+		compatible = "qcom,csra66x0";
+		reg = <0x68>;
+		qcom,csra-vreg-en-gpio = <&tlmm 96 0>;
+
+		qcom,csra-cluster = <1>;
+		qcom,csra-cluster-master = <1>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 IRQ_TYPE_LEVEL_HIGH>;
+		irq-active-low = <0>;
+	};

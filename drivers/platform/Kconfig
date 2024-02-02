@@ -1,0 +1,12 @@
+if X86
+source "drivers/platform/x86/Kconfig"
+endif
+if MIPS
+source "drivers/platform/mips/Kconfig"
+endif
+
+source "drivers/platform/goldfish/Kconfig"
+
+source "drivers/platform/chrome/Kconfig"
+
+source "drivers/platform/msm/Kconfig"

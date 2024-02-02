@@ -1,0 +1,145 @@
+/*
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pm8150.dtsi"
+#include "pm8150b.dtsi"
+#include "pm8150l.dtsi"
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+/* PMIC GPIO pin control configurations: */
+&pm8150_gpios {
+	key_home {
+		key_home_default: key_home_default {
+			pins = "gpio1";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio9";
+			function = "normal";
+			output-low;
+			power-source = <1>;	/* 1.8V input supply */
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio10";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <1>;	/* 1.8V input supply */
+		};
+	};
+};
+
+&pm8150l_gpios {
+	cam_sensor_eldo4 {
+		cam_sensor_eldo4_default: cam_sensor_eldo4_default {
+			pins = "gpio3";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+
+	cam_sensor_eldo3 {
+		cam_sensor_eldo3_default: cam_sensor_eldo3_default {
+			pins = "gpio4";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+};
+
+&pm8150b_charger {
+	dpdm-supply = <&usb2_phy0>;
+	smb5_vconn: qcom,smb5-vconn {
+		regulator-name = "smb5-vconn";
+	};
+	smb5_vbus: qcom,smb5-vbus {
+		regulator-name = "smb5-vbus";
+	};
+};
+
+&pm8150b_fg {
+	nvmem-names = "fg_sdam";
+	nvmem = <&pm8150_sdam_2>;
+};
+
+&pm8150b_qnovo {
+	pinctrl-names = "q_state1", "q_state2";
+	pinctrl-0 = <&qnovo_fet_ctrl_state1>;
+	pinctrl-1 = <&qnovo_fet_ctrl_state2>;
+};
+
+&pm8150b_gpios {
+	smb_stat {
+		smb_stat_default: smb_stat_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,pull-up-strength = <PMIC_GPIO_PULL_UP_30>;
+			power-source = <0>;
+		};
+	};
+
+	qnovo_fet_ctrl {
+		qnovo_fet_ctrl_state1: qnovo_fet_ctrl_state1 {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			output-disable;
+			bias-disable;
+			power-source = <0>;
+		};
+
+		qnovo_fet_ctrl_state2: qnovo_fet_ctrl_state2 {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			output-disable;
+			bias-pull-down;
+			power-source = <0>;
+		};
+	};
+};
+
+&usb0 {
+	extcon = <&pm8150b_pdphy>, <&eud>;
+};
+
+&usb_qmp_dp_phy {
+	extcon = <&pm8150b_pdphy>;
+};
+
+&sde_dp {
+	extcon = <&pm8150b_pdphy>;
+};

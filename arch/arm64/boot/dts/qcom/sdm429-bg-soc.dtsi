@@ -1,0 +1,143 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	qcom,blackghost {
+		compatible = "qcom,pil-blackghost";
+		qcom,pil-force-shutdown;
+		qcom,firmware-name = "bg-wear";
+		/* GPIO inputs from blackghost */
+		qcom,bg2ap-status-gpio = <&tlmm 44 0>;
+		qcom,bg2ap-errfatal-gpio = <&tlmm 72 0>;
+		/* GPIO output to blackghost */
+		qcom,ap2bg-status-gpio = <&tlmm 61 0>;
+		qcom,ap2bg-errfatal-gpio = <&tlmm 62 0>;
+	};
+
+	spi_3: spi@78b7000 {  /* BLSP1 QUP3*/
+		status = "ok";
+		qcom,shared_ee;
+		qcom,bg-spi {
+			compatible = "qcom,bg-spi";
+			reg = <0>;
+			spi-max-frequency = <16000000>;
+			interrupt-parent = <&tlmm>;
+			qcom,irq-gpio = <&tlmm 43 1>;
+		};
+	};
+
+	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
+		status = "disabled";
+	};
+
+	qcom,bg-daemon {
+		compatible = "qcom,bg-daemon";
+		qcom,bg-reset-gpio = <&pm660_gpios 5 0>;
+		ssr-reg1-supply = <&pm660_l3>;
+		ssr-reg2-supply = <&pm660_l9>;
+	};
+
+	qcom,glink-bgcom-xprt-bg {
+		compatible = "qcom,glink-bgcom-xprt";
+		label = "bg";
+
+		qcom,glink-bg-rsb {
+			qcom,glink-channels = "RSB_CTRL";
+			qcom,intents = <0x0C 1>;
+		};
+
+		qcom,glink-bg-daemon {
+			qcom,glink-channels = "bg-daemon";
+			qcom,intents = <0x14 1>;
+		};
+
+		qcom,glink-bg-daemon-ctrl  {
+			qcom,glink-channels = "bg-daemon-ctl";
+			qcom,intents = <0x08 1>;
+		};
+
+		qcom,glink-bg-display-ctrl {
+			qcom,glink-channels = "display-ctrl";
+			qcom,intents = <0x38 1>;
+		};
+
+		qcom,glink-bg-display-data  {
+			qcom,glink-channels = "display-data";
+			qcom,intents = <0x10 1>;
+		};
+
+		qcom,glink-bg-sso-ctrl  {
+			qcom,glink-channels = "sso-ctrl";
+			qcom,intents = <0x2C 1>;
+		};
+
+		qcom,glink-bg-buzzer-ctrl  {
+			qcom,glink-channels = "buzzer-ctrl";
+			qcom,intents = <0x14 1>;
+		};
+	};
+
+	qcom,glink_pkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-bg-daemon {
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "bg-daemon";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_daemon";
+		};
+
+		qcom,glinkpkt-bg-daemon-ctrl {
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "bg-daemon-ctl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_daemon_ctrl";
+		};
+
+		qcom,glinkpkt-bg-display-ctrl {
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "display-ctrl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_ctrl";
+		};
+
+		qcom,glinkpkt-bg-display-data {
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "display-data";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_data";
+		};
+
+		qcom,glinkpkt-bg-sso-ctrl {
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "sso-ctrl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_sso_ctrl";
+		};
+
+		qcom,glinkpkt-bg-buzzer-ctrl {
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "buzzer-ctrl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_buzzer_ctrl";
+		};
+	};
+
+	qcom,bg-rsb {
+		compatible = "qcom,bg-rsb";
+		vdd-ldo1-supply = <&pm660_l11>;
+		qcom,bg-rsb-gpio = <&tlmm 40 1>;
+		qcom,rsb-use-msm-gpio;
+	};
+	qcom,bgrsb-rpmsg {
+		compatible = "qcom,bgrsb-rpmsg";
+		qcom,glink-channels = "RSB_CTRL";
+		qcom,glinkpkt-edge = "bg";
+		intents = <0x200 20>;
+	};
+
+};

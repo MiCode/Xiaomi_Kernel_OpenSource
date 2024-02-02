@@ -1,0 +1,96 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_sharp_4k_dsc_video: qcom,mdss_dsi_sharp_4k_dsc_video {
+		qcom,mdss-dsi-panel-name = "Sharp 4k video mode dsc dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 100>, <0 100>, <1 100>;
+		qcom,mdss-pan-physical-width-dimension = <71>;
+		qcom,mdss-pan-physical-height-dimension = <129>;
+		qcom,mdss-dsi-tx-eot-append;
+
+		qcom,adjust-timer-wakeup-ms = <1>;
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000
+			17000 15500 30000 8000 3000>;
+		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
+		qcom,mdss-dsi-panel-blackness-level = <3230>;
+
+		qcom,mdss-dsi-display-timings {
+			timing@0{
+				qcom,mdss-dsi-panel-width = <1080>;
+				qcom,mdss-dsi-panel-height = <3840>;
+				qcom,mdss-dsi-h-front-porch = <30>;
+				qcom,mdss-dsi-h-back-porch = <100>;
+				qcom,mdss-dsi-h-pulse-width = <4>;
+				qcom,mdss-dsi-h-sync-skew = <0>;
+				qcom,mdss-dsi-v-back-porch = <7>;
+				qcom,mdss-dsi-v-front-porch = <8>;
+				qcom,mdss-dsi-v-pulse-width = <1>;
+				qcom,mdss-dsi-h-sync-pulse = <0>;
+				qcom,mdss-dsi-panel-framerate = <60>;
+
+				qcom,mdss-dsi-on-command = [
+					39 01 00 00 00 00 11 91 09 20 00 20 02
+					00 03 1c 04 21 00
+					0f 03 19 01 97
+					39 01 00 00 00 00 03 92 10 f0
+					15 01 00 00 00 00 02 90 03
+					15 01 00 00 00 00 02 03 01
+					39 01 00 00 00 00 06 f0 55 aa 52 08 04
+					15 01 00 00 00 00 02 c0 03
+					39 01 00 00 00 00 06 f0 55 aa 52 08 07
+					15 01 00 00 00 00 02 ef 01
+					39 01 00 00 00 00 06 f0 55 aa 52 08 00
+					15 01 00 00 00 00 02 b4 10
+					15 01 00 00 00 00 02 35 00
+					39 01 00 00 00 00 06 f0 55 aa 52 08 01
+					39 01 00 00 00 00 05 ff aa 55 a5 80
+					15 01 00 00 00 00 02 6f 01
+					15 01 00 00 00 00 02 f3 10
+					39 01 00 00 00 00 05 ff aa 55 a5 00
+					/* sleep out + delay 120ms */
+					05 01 00 00 78 00 01 11
+					/* display on + delay 120ms */
+					05 01 00 00 78 00 01 29
+					];
+				qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+				qcom,mdss-dsi-off-command =
+					[05 01 00 00 78 00 02 28 00
+					 05 01 00 00 78 00 02 10 00];
+				qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+
+				qcom,compression-mode = "dsc";
+				qcom,mdss-dsc-slice-height = <32>;
+				qcom,mdss-dsc-slice-width = <1080>;
+				qcom,mdss-dsc-slice-per-pkt = <1>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+			};
+		};
+	};
+};

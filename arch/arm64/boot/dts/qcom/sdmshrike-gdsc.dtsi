@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sm8150-gdsc.dtsi"
+
+&soc {
+	/* GDSCs in Global CC */
+	pcie_2_gdsc: qcom,gdsc@19d004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "pcie_2_gdsc";
+		reg = <0x19d004 0x4>;
+		status = "disabled";
+	};
+
+	pcie_3_gdsc: qcom,gdsc@1a3004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "pcie_3_gdsc";
+		reg = <0x1a3004 0x4>;
+		status = "disabled";
+	};
+
+	ufs_card_2_gdsc: qcom,gdsc@1a2004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "ufs_card_2_gdsc";
+		reg = <0x1a2004 0x4>;
+		status = "disabled";
+	};
+
+	usb30_mp_gdsc: qcom,gdsc@1a6004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "usb30_mp_gdsc";
+		reg = <0x1a6004 0x4>;
+		status = "disabled";
+	};
+
+	/* GDSCs in Camera CC */
+	ife_2_gdsc: qcom,gdsc@ad0f004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "ife_2_gdsc";
+		reg = <0xad0f004 0x4>;
+		status = "disabled";
+	};
+
+	ife_3_gdsc: qcom,gdsc@ad0f070 {
+		compatible = "qcom,gdsc";
+		regulator-name = "ife_3_gdsc";
+		reg = <0xad0f070 0x4>;
+		status = "disabled";
+	};
+};

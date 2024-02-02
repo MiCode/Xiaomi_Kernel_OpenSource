@@ -1,0 +1,84 @@
+* Qualcomm Technologies, Inc. MSM UART
+
+Required properties:
+- compatible :
+	- "qcom,msm-uart", and one of "qcom,msm-hsuart" or
+	  "qcom,msm-lsuart".
+- reg : offset and length of the register set for the device
+	for the hsuart operating in compatible mode, there should be a
+	second pair describing the gsbi registers.
+- interrupts : should contain the uart interrupt.
+
+There are two different UART blocks used in MSM devices,
+"qcom,msm-hsuart" and "qcom,msm-lsuart".  The msm-serial driver is
+able to handle both of these, and matches against the "qcom,msm-uart"
+as the compatibility.
+
+The registers for the "qcom,msm-hsuart" device need to specify both
+register blocks, even for the common driver.
+
+Example:
+
+	uart@19c400000 {
+		compatible = "qcom,msm-hsuart", "qcom,msm-uart";
+		reg = <0x19c40000 0x1000>,
+		      <0x19c00000 0x1000>;
+		interrupts = <195>;
+	};
+
+* Qualcomm Technologies, Inc. MSM HSUART
+
+Required properties:
+- compatible : one of:
+	- "qcom,msm-lsuart-v14"
+- reg : offset and length of the register set for the device.
+- interrupts : should contain the uart interrupt.
+
+Optional properties:
+- qcom,config-gpio : Set this value if UART GPIOs need to be configured by driver.
+set 4 if 4-wire UART used (for Tx, Rx, CTS, RFR GPIOs).
+Set 1 if 2-wire UART used (for Tx, Rx GPIOs).
+- qcom,<gpio-name>-gpio : handle to the GPIO node, see "gpios property" in
+Documentation/devicetree/bindings/gpio/gpio.txt.
+"gpio-name" can be "tx", "rx", "cts" and "rfr" based on number of UART GPIOs
+need to configured.
+qcom,use-pm : If present, this property will cause the device to prevent system
+suspend as long as the port remains open.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for below properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,active_only
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+
+Aliases:
+An alias may optionally be used to bind the serial device to a tty device
+(ttyHSLx) with a given line number. Aliases are of the form serial<n> where <n>
+is an integer representing the line number to use. On systems with multiple
+serial devices present it is recommended that an alias be defined for each such
+device.
+
+Example:
+	aliases {
+		serial0 = &uart0;       // This device will be called ttyHSL0
+	};
+
+	uart0: serial@19c400000 {
+		compatible = "qcom,msm-lsuart-v14"
+		reg = <0x19c40000 0x1000">;
+		interrupts = <195>;
+
+		qcom,config-gpio = <4>;
+		qcom,tx-gpio = <&msmgpio 41 0x00>;
+		qcom,rx-gpio = <&msmgpio 42 0x00>;
+		qcom,cts-gpio = <&msmgpio 43 0x00>;
+		qcom,rfr-gpio = <&msmgpio 44 0x00>;
+		qcom,use-pm;
+
+		qcom,msm-bus,name = "serial_uart0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<84 512 0 0>,
+				<84 512 500 800>;
+	};

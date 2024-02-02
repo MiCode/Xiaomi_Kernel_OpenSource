@@ -1,0 +1,49 @@
+* MSM PM
+
+PM is the low power management device for MSM (Snapdragon class) chipsets.
+This device sets up different components to do low power modes and registers with
+the kernel to be notified of idle and suspend states and when called, follows
+through the set of instructions in putting the application cores to the lowest
+power mode possible.
+The PC debug counter reserves 16 registers in the IMEM memory space which maintains
+a count on the state of power collapse on each core. This count will be useful to
+debug the power collapse state on each core.
+
+The required properties for PM are:
+
+- compatible: "qcom,pm"
+
+The optional properties are:
+
+- reg: physical IMEM address reserved for PC counters and the size
+- qcom,use-sync-timer: Indicates whether the target uses the synchronized QTimer.
+- qcom,synced-clocks: Indicates that all cpus running off a single clock source and to
+	instantiate the necessary clock source.
+- qcom,pc-resets-timer: Indicates that the timer gets reset during power collapse.
+- qcom,tz-flushes-cache: Indicates that TZ flushes all of the cache during
+power collapse. MSM PM can decide to not perform cache flush operations to
+reduce latency associated with L2 PC.
+- qcom,saw-turns-off-pll: Indicates that the CPU's PLL can be managed from SAW
+	hardware. On such targets software management of PLL is not required. If
+	this property is specified then qcom,synced-clocks would be ignored.
+- qcom,no-pll-switch-for-retention: Boolean property, to indicate that the cpu
+	clock can be sourced even from the HFPLL even when the cpu is in
+	retention, and need not be switched to an always on pll. If this flag
+	is set then the cpu clock is not ramped down when entering retention or
+	ramped up on exiting retention.
+
+Example 1:
+
+qcom,pm@fe800664 {
+		compatible = "qcom,pm";
+		reg = <0xfe800664 0x40>;
+		qcom,use-sync-timer;
+	};
+
+Example 2:
+
+qcom,pm@fe800664 {
+		compatible = "qcom,pm";
+		reg = <0xfe800664 0x40>;
+		qcom,saw-turns-off-pll;
+	};

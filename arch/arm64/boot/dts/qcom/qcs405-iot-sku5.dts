@@ -1,0 +1,97 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs405.dtsi"
+#include "qcs405-nowcd-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+#include "qcs405-mdss-panels.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1 4000 RGB IOT";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x030020 0x1>;
+};
+
+&mdss_dsi {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&mdss_hdmi_tx {
+	status = "disabled";
+};
+
+&msm_ext_disp {
+	status = "disabled";
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "rgb";
+};
+
+&mdss_rgb {
+	qcom,rgb-panel = <&rgb_st7789v>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_rgb_active &mdss_rgb_data0_active
+			&mdss_rgb_data1_active &mdss_rgb_data2_active
+			&mdss_rgb_data3_active &mdss_rgb_data4_active
+			&mdss_rgb_data5_active &mdss_rgb_data_b0_active
+			&mdss_rgb_data_b1_active &mdss_rgb_data_b2_active
+			&mdss_rgb_data_b3_active &mdss_rgb_data_b4_active
+			&mdss_rgb_data_b5_active &mdss_rgb_hsync_active
+			&mdss_rgb_vsync_active &mdss_rgb_de_active
+			&mdss_rgb_clk_active>;
+	pinctrl-1 = <&mdss_rgb_suspend &mdss_rgb_data0_suspend
+			&mdss_rgb_data1_suspend &mdss_rgb_data2_suspend
+			&mdss_rgb_data3_suspend &mdss_rgb_data4_suspend
+			&mdss_rgb_data5_suspend &mdss_rgb_data_b0_suspend
+			&mdss_rgb_data_b1_suspend &mdss_rgb_data_b2_suspend
+			&mdss_rgb_data_b3_suspend &mdss_rgb_data_b4_suspend
+			&mdss_rgb_data_b5_suspend &mdss_rgb_hsync_suspend
+			&mdss_rgb_vsync_suspend &mdss_rgb_de_suspend
+			&mdss_rgb_clk_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 58 0>;
+};
+
+&rgb_st7789v {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&spi_1 {
+	status = "ok";
+	mdss_rgb_spi: qcom,mdss_rgb_spi@0 {
+		compatible = "qcom,mdss-rgb-spi";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+	};
+};
+
+&soc {
+	gpio_keys {
+		status = "disabled";
+	};
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+};

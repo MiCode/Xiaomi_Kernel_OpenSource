@@ -1,0 +1,33 @@
+Qualcomm Technologies, Inc. Camera Clock & Reset Controller Binding
+-------------------------------------------------------------------
+
+Required properties :
+- compatible : must contain one of the following:
+		"qcom,camcc-sm8150",
+		"qcom,camcc-sm8150-v2",
+		"qcom,camcc-sa8155",
+		"qcom,camcc-sa8155-v2",
+		"qcom,camcc-sdmshrike",
+		"qcom,camcc-sm6150",
+		"qcom,camcc-sdmmagpie",
+		"qcom,camcc-sa6155",
+		"qcom,atoll-camcc".
+- reg : shall contain base register location and length.
+- reg-names: names of registers listed in the same order as in
+	     the reg property.
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle + clock reference to the GCC AHB clock.
+- vdd_<rail>-supply: The logic rail supply.
+- #clock-cells : shall contain 1.
+
+Example:
+	clock_camcc: qcom,camcc {
+		compatible = "qcom,camcc-sm8150";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_mx-supply = <&pm8150l_s4_level>;
+		vdd_mm-supply = <&pm8150l_s5_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		#clock-cells = <1>;
+	};

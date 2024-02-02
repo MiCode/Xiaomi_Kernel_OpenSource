@@ -1,0 +1,85 @@
+* MSM PCIe MSI controller
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: Value to identify this is a MSM PCIe MSI controller
+
+- msi-controller:
+	Usage: required
+	Value type: <bool>
+	Definition: Indicates that this is a MSM PCIe MSI controller node
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Physical QGIC address (0x17a00040), MSI message address
+
+-interrupt-parent:
+	Usage: required
+	Value type: <phandle>
+	Definition: Phandle of the interrupt controller that services
+		interrupts for this device
+
+-interrupts:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Array of tuples which describe interrupt lines for PCIe MSI
+
+-qcom,snps:
+	Usage: optional
+	Value type: <bool>
+	Definition: Set if interrupt controller is Synopsys instead of QGIC
+
+=======
+Example
+=======
+/* QGIC */
+pci_msi: qcom,pci_msi {
+	compatible = "qcom,pci-msi";
+	msi-controller;
+	reg = <0x17a00040 0x0 0x0 0x0 0xff>;
+	interrupt-parent = <&pdc>;
+	interrupts = <GIC_SPI 832 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 833 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 834 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 835 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 836 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 837 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 838 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 839 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 840 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 841 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 842 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 843 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 844 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 845 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 846 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 847 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 848 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 849 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 850 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 851 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 852 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 853 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 854 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 855 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 856 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 857 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 858 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 859 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 860 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 861 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 862 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 863 IRQ_TYPE_EDGE_RISING>;
+};
+
+/* Synopsys */
+pci_msi: qcom,pci_msi {
+	compatible = "qcom,pci-msi";
+	msi-controller;
+	reg = <0xa0000000 0x0>;
+	interrupt-parent = <&intc>;
+	interrupts = <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH>;
+	qcom,snps;
+};

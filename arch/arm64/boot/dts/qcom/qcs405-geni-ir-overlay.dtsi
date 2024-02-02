@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs405-pinctrl.dtsi"
+
+&soc {
+	qcom,msm-geni-ir@740000 {
+		compatible = "qcom,msm-geni-ir";
+		reg-names = "base";
+		reg = <0x740000 0x1000>;
+
+		interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "geni-ir-core-irq";
+
+		clocks = <&clock_gcc GCC_GENI_IR_H_CLK>,
+			<&clock_gcc GCC_GENI_IR_S_CLK>;
+		clock-names = "iface_clk", "serial_clk";
+
+		qcom,geni-ir-wakeup-gpio = <&tlmm 77 IRQ_TYPE_LEVEL_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ir_in_default>;
+
+		resets = <&clock_gcc GCC_GENI_IR_BCR>;
+		reset-names = "geni_reset";
+	};
+};

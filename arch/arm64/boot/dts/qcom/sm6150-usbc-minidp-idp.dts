@@ -1,0 +1,28 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sm6150.dtsi"
+#include "sm6150-idp.dtsi"
+#include "sm6150-usbc-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SM6150 PM6150 USBC mini DP Primary Panel IDP";
+	compatible = "qcom,sm6150-idp", "qcom,sm6150", "qcom,idp";
+	qcom,board-id = <34 4>;
+};
+
+&sde_dp {
+	qcom,dp-hpd-gpio = <&tlmm 103 0>;
+	qcom,dp-low-power-hw-hpd;
+};

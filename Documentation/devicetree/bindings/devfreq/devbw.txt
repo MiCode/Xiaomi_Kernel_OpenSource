@@ -1,0 +1,68 @@
+MSM device bandwidth device
+
+devbw is a device that represents a MSM device's BW requirements from its
+master port(s) to a different device's slave port(s) in a MSM SoC. This
+device is typically used to vote for BW requirements from a device's (Eg:
+CPU, GPU) master port(s) to the slave (Eg: DDR) port(s).
+
+Required properties:
+- compatible:		Must be "qcom,devbw"
+- qcom,src-dst-ports:	A list of tuples where each tuple consists of a bus
+			master port number and a bus slave port number.
+- operating-points-v2:	A phandle to the OPP v2 table that holds meaningful
+			instantaneous bandwidth values (in MB/s) that can be
+			requested from the device master port to the slave port.
+			The list of values depend on the supported bus/slave
+			frequencies and the bus width.
+
+Optional properties:
+- qcom,active-only:	Indicates that the bandwidth votes need to be
+			enforced only when the CPU subsystem is active.
+- governor:		Initial governor to use for the device.
+			Default: "performance"
+- qcom,ddr-type:	Optional property indicates ddr type which can support
+				different frequencies for a given target.
+
+Example:
+
+	bw_opp_table: bw-opp-table {
+		compatible = "operating-points-v2";
+		opp-75  {
+			opp-hz = /bits/ 64 <  572 >; /*  75 MHz */
+		};
+		opp-150 {
+			opp-hz = /bits/ 64 < 1144 >; /* 150 MHz */
+		};
+		opp-200 {
+			opp-hz = /bits/ 64 < 1525 >; /* 200 MHz */
+		};
+		opp-307 {
+			opp-hz = /bits/ 64 < 2342 >; /* 307 MHz */
+		};
+		opp-460 {
+			opp-hz = /bits/ 64 < 3509 >; /* 460 MHz */
+		};
+		opp-614 {
+			opp-hz = /bits/ 64 < 4684 >; /* 614 MHz */
+		};
+		opp-800 {
+			opp-hz = /bits/ 64 < 6103 >; /* 800 MHz */
+		};
+		opp-931 {
+			opp-hz = /bits/ 64 < 7102 >; /* 931 MHz */
+		};
+	};
+	qcom,cpubw {
+		compatible = "qcom,devbw";
+		qcom,src-dst-ports = <1 512>, <2 512>;
+		qcom,active-only;
+		operating-points-v2 = <&bw_opp_table>;
+		ddr3-opp {
+			operating-points-v2 = <&ddr3_bw_opp_table>;
+			qcom,ddr-type = <DDR_TYPE_LPDDR3>;
+		};
+		ddr4-opp {
+			operating-points-v2 = <&ddr4_bw_opp_table>;
+			qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+		};
+	};

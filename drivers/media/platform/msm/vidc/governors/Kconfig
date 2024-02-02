@@ -1,0 +1,6 @@
+menuconfig MSM_VIDC_GOVERNORS
+	tristate "Clock and bandwidth governors for QTI MSM V4L2 based video driver"
+	depends on MSM_VIDC_V4L2 && PM_DEVFREQ
+	help
+	Chooses a set of devfreq governors aimed at providing accurate bandwidth
+	or clock frequency values for MSM V4L2 video driver.

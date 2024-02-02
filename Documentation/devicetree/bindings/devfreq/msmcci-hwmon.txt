@@ -1,0 +1,28 @@
+MSM CCI hardware monitor device
+
+msmcci-hwmon is a device that represents the MSM CCI hardware monitors
+that can be used to measure the various types of requests in the MSM CCI.
+
+Required properties:
+- compatible:		Must be "qcom,msmcci-hwmon"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- interrupts:		Lists the threshold IRQ.
+- qcom,counter-event-sel:	Array of event selection values.
+- qcom,target-dev:	The DT device that is monitored by this MSM CCI
+			counter configuration.
+
+Optional properties:
+- qcom,secure-io	Indicates register access are secured.
+- qcom,shared-irq       Indicates ccci-hwmon counters share the interrupt.
+
+Example:
+	qcom,msmcci-hwmon {
+		compatible = "qcom,msmcci-hwmon";
+		reg = <0xf910f000 0xb0>,
+		      <0xf910f004 0xb0>;
+		interrupts = <0 345 4>,
+			     <0 346 4>;
+		qcom,counter-event-sel = <1 2>;
+		qcom,target-dev = <&cci_cache>;
+	};

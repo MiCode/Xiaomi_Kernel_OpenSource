@@ -1,0 +1,267 @@
+if ARCH_QCOM
+menu "QCOM SoC Type"
+
+config ARCH_SDM660
+	bool "Enable Support for SDM660"
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select GENERIC_IRQ_MIGRATION
+	select MSM_JTAGV8 if CORESIGHT_ETMV4
+	help
+	This enables support for the SDM660 chipset. If you do not
+	wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_QCS405
+	bool "Enable Support for QCS405"
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select QCOM_GDSC
+	select PINCTRL_MSM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select MSM_JTAGV8 if CORESIGHT_ETMV4
+	help
+	This enables support for the QCS405 chipset. If you do not
+	wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_QCS403
+	bool "Enable Support for QCS403"
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select QCOM_GDSC
+	select PINCTRL_MSM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select MSM_JTAGV8 if CORESIGHT_ETMV4
+	help
+	This enables support for the QCS403 chipset. If you do not
+	wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_TRINKET
+	bool "Enable Support for TRINKET"
+	select CPU_V7
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select QCOM_GDSC
+	select PINCTRL_MSM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select PCI
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_RPM_LOG
+	select MSM_RPM_STATS_LOG
+	help
+	This enables support for the TRINKET chipset. If you do not
+	wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_MSM8X60
+	bool "Enable support for MSM8X60"
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_QCOM
+	select CLKSRC_OF
+	select COMMON_CLK
+
+config ARCH_MSM8960
+	bool "Enable support for MSM8960"
+	select CLKSRC_QCOM
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
+
+
+config ARCH_MSM8974
+	bool "Enable support for MSM8974"
+	select HAVE_ARM_ARCH_TIMER
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
+
+config ARCH_MDM9615
+	bool "Enable support for MDM9615"
+	select CLKSRC_QCOM
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
+
+config ARCH_SDXPRAIRIE
+	bool "Enable support for SDXPRAIRIE"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PCI
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select GENERIC_CLOCKEVENTS_BROADCAST
+
+config ARCH_MDM9607
+	bool "MDM9607"
+	select ARM_GIC
+	select CPU_V7
+	select REGULATOR
+	select REGULATOR_RPM_SMD
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_RPM_SMD
+	select MEMORY_HOLE_CARVEOUT
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select USE_PINCTRL_IRQ
+	select MSM_IRQ
+	select MSM_PM_LEGACY if PM
+	select PM_DEVFREQ
+	select QCOM_DEVFREQ_DEVBW
+	select QCOM_BIMC_BWMON
+	select DEVFREQ_GOV_QCOM_BW_HWMON
+	select HWSPINLOCK
+	select HAVE_CLK_PREPARE
+
+config ARCH_SDM429W
+	bool "Enable support for SDM429W"
+	select CPU_V7
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select PINCTRL_MSM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select PCI
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_RPM_LOG
+	select MSM_RPM_STATS_LOG
+
+endmenu
+endif

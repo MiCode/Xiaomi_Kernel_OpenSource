@@ -1,0 +1,721 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	/delete-node/ qcom,pm6150@0;
+	/delete-node/ qcom,pm6150@1;
+	/delete-node/ qcom,pm6150l@4;
+	/delete-node/ qcom,pm6150l@5;
+};
+
+&thermal_zones {
+	pm6150-tz {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150-ibat-lvl0 {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150-ibat-lvl1 {
+		/delete-property/ thermal-sensors;
+
+	};
+
+	pm6150-vbat-lvl0 {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150-vbat-lvl1 {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150-vbat-lvl2 {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150l-tz {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150l-vph-lvl0 {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150l-vph-lvl1 {
+		/delete-property/ thermal-sensors;
+	};
+
+	pm6150l-vph-lvl2 {
+		/delete-property/ thermal-sensors;
+	};
+
+	xo-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	sdm-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	conn-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	emmc_ufs-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	rf_pa0_therm-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	camera_flash-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	quiet-therm {
+		/delete-property/ thermal-sensors;
+	};
+
+	quiet-therm-step {
+		/delete-property/ thermal-sensors;
+	};
+
+	soc {
+		/delete-property/ thermal-sensors;
+	};
+
+	quiet-therm-step {
+		cooling-maps {
+			battery_lvl0 {
+				/delete-property/ cooling-device;
+			};
+
+			battery_lvl1 {
+				/delete-property/ cooling-device;
+			};
+
+			battery_lvl2 {
+				/delete-property/ cooling-device;
+			};
+
+			battery_lvl3 {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+};
+
+&usb0 {
+	/delete-property/ extcon;
+};
+
+&soc {
+	qcom,lpass@62400000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	/* Regulators */
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-lcxlvl;
+
+	rpmh-regulator-mxlvl {
+		/delete-node/ regulator-pm6150-s3;
+		/delete-node/ regulator-pm6150-s3-level-ao;
+
+		VDD_MX_LEVEL:
+		S5A_LEVEL: pm6150_s5_level: regulator-pm6150-s5 {
+			regulator-name = "pm6150_s5_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
+
+		VDD_MX_LEVEL_AO:
+		S5A_LEVEL_AO: pm6150_s5_level_ao: regulator-pm6150-s5-level-ao {
+			regulator-name = "pm6150_s5_level_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
+
+	rpmh-regulator-cxlvl {
+		/delete-property/ pm6150_s1_level-parent-supply;
+		/delete-property/ pm6150_s1_level_ao-parent-supply;
+		/delete-node/ regulator-pm6150-s1;
+		/delete-node/ regulator-pm6150-s1-level-ao;
+		VDD_CX_LEVEL:
+		VDD_MSS_LEVEL:
+		S3A_LEVEL: pm6150_s3_level: regulator-pm6150-s3 {
+			regulator-name = "pm6150_s3_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			qcom,min-dropout-voltage-level = <(-1)>;
+		};
+
+		VDD_CX_LEVEL_AO:
+		S3A_LEVEL_AO: pm6150_s3_level_ao: regulator-pm6150-s3-level-ao {
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-name = "pm6150_s3_level_ao";
+			regulator-min-microvolt =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+					<RPMH_REGULATOR_LEVEL_RETENTION>;
+			qcom,min-dropout-voltage-level = <(-1)>;
+		};
+	};
+
+	rpmh-regulator-ldoa5 {
+		L5A: pm6150_l5: regulator-pm6150-l5 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <3100000>;
+			qcom,init-voltage = <1650000>;
+		};
+	};
+
+	rpmh-regulator-ldoa6 {
+		L6A: pm6150_l6: regulator-pm6150-l6 {
+			regulator-min-microvolt = <568000>;
+			regulator-max-microvolt = <650000>;
+			qcom,init-voltage = <568000>;
+		};
+	};
+
+	rpmh-regulator-ldoa7 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa7";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L7A: pm6150_l7: regulator-pm6150-l7 {
+			regulator-name = "pm6150_l7";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <975000>;
+			qcom,init-voltage = <800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	/* pm6125 L8 - WCSS_CX supply */
+	rpmh-regulator-ldoa8 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa8";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L8A: pm6150_l8: regulator-pm6150-l8 {
+			regulator-name = "pm6150_l8";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <728000>;
+			qcom,init-voltage = <400000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa9 {
+		L9A: pm6150_l9: regulator-pm6150-l9 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1829000>;
+			qcom,init-voltage = <1800000>;
+		};
+	};
+
+	rpmh-regulator-ldoa10 {
+		L10A: pm6150_l10: regulator-pm6150-l10 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1890000>;
+			qcom,init-voltage = <1800000>;
+		};
+	};
+
+	rpmh-regulator-ldoa11 {
+		L11A: pm6150_l11: regulator-pm6150-l11 {
+			regulator-min-microvolt = <1624000>;
+			regulator-max-microvolt = <1984000>;
+			qcom,init-voltage = <1624000>;
+		};
+	};
+
+	rpmh-regulator-ldoa12 {
+		L12A: pm6150_l12: regulator-pm6150-l12 {
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-voltage = <1648000>;
+		};
+	};
+
+	rpmh-regulator-ldoa13 {
+		L13A: pm6150_l13: regulator-pm6150-l13 {
+			regulator-min-microvolt = <1720000>;
+			regulator-max-microvolt = <1824000>;
+			qcom,init-voltage = <1720000>;
+		};
+	};
+
+	rpmh-regulator-ldoa14 {
+		L14A: pm6150_l14: regulator-pm6150-l14 {
+			regulator-min-microvolt = <1696000>;
+			regulator-max-microvolt = <1904000>;
+			qcom,init-voltage = <1696000>;
+		};
+	};
+
+	rpmh-regulator-ldoa15 {
+		L15A: pm6150_l15: regulator-pm6150-l15 {
+			regulator-min-microvolt = <2928000>;
+			regulator-max-microvolt = <3230000>;
+			qcom,init-voltage = <2928000>;
+		};
+	};
+
+	rpmh-regulator-ldoa16 {
+		L16A: pm6150_l16: regulator-pm6150-l16 {
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <1900000>;
+			qcom,init-voltage = <1648000>;
+		};
+	};
+
+	rpmh-regulator-ldoa17 {
+		L17A: pm6150_l17: regulator-pm6150-l17 {
+			regulator-min-microvolt = <1144000>;
+			regulator-max-microvolt = <1304000>;
+			qcom,init-voltage = <1144000>;
+		};
+	};
+
+	rpmh-regulator-ldoa18 {
+		L18A: pm6150_l18: regulator-pm6150-l18 {
+			regulator-min-microvolt = <1136000>;
+			regulator-max-microvolt = <1260000>;
+			qcom,init-voltage = <1136000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa19 {
+		L19A: pm6150_l19: regulator-pm6150-l19 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <1650000>;
+		};
+	};
+
+	rpmh-regulator-ldoa20 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa20";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L20A: pm6150_l20: regulator-pm6150-l20 {
+			regulator-name = "pm6150_l20";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <1650000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa21 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa21";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L21A: pm6150_l21: regulator-pm6150-l21 {
+			regulator-name = "pm6150_l21";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2600000>;
+			regulator-max-microvolt = <2856000>;
+			qcom,init-voltage = <2600000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa22 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa22";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L22A: pm6150_l22: regulator-pm6150-l22 {
+			regulator-name = "pm6150_l22";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2944000>;
+			regulator-max-microvolt = <3304000>;
+			qcom,init-voltage = <2944000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa23 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa23";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L23A: pm6150_l23: regulator-pm6150-l23 {
+			regulator-name = "pm6150_l23";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2700000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa24 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa24";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+				<RPMH_REGULATOR_MODE_LPM
+				RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L24A: pm6150_l24: regulator-pm6150-l24 {
+			regulator-name = "pm6150_l24";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1696000>;
+			regulator-max-microvolt = <3304000>;
+			qcom,init-voltage = <1696000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+};
+
+#include "pm6125.dtsi"
+#include "pmi632.dtsi"
+
+&pm6125_clkdiv {
+	/delete-property/ clocks;
+	clocks = <&clock_rpmh RPMH_CXO_CLK>;
+};
+
+&pm6125_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&camera_therm_default &emmc_therm_default>;
+
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		label = "rf_pa0_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	camera_flash_therm {
+		reg = <ADC_GPIO1_PU2>;
+		label = "camera_flash_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	emmc_ufs_therm {
+		reg = <ADC_GPIO3_PU2>;
+		label = "emmc_ufs_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6125_gpios {
+	camera_therm {
+		camera_therm_default: camera_therm_default {
+			pins = "gpio3";
+			bias-high-impedance;
+		};
+	};
+
+	emmc_therm {
+		emmc_therm_default: emmc_therm_default {
+			pins = "gpio6";
+			bias-high-impedance;
+		};
+	};
+};
+
+&spmi_bus {
+	qcom,pm6125@0 {
+		pm6125_adc_tm_iio: adc_tm@3400 {
+			compatible = "qcom,adc-tm5-iio";
+			reg = <0x3400 0x100>;
+			#thermal-sensor-cells = <1>;
+			io-channels = <&pm6125_vadc ADC_GPIO1_PU2>,
+					<&pm6125_vadc ADC_GPIO3_PU2>;
+
+			emmc_ufs_therm {
+				reg = <ADC_GPIO1_PU2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
+			camera_flash_therm {
+				reg = <ADC_GPIO3_PU2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+		};
+	};
+};
+
+&pm6125_adc_tm {
+	io-channels = <&pm6125_vadc ADC_AMUX_THM1_PU2>,
+			<&pm6125_vadc ADC_AMUX_THM2_PU2>,
+			<&pm6125_vadc ADC_XO_THERM_PU2>;
+
+	/* Channel nodes */
+	rf_pa0_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pmi632_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&conn_therm_default &skin_therm_default>;
+
+	xo_therm {
+		status = "disabled";
+	};
+
+	bat_therm {
+		qcom,lut-index = <1>;
+	};
+
+	bat_therm_30k {
+		qcom,lut-index = <1>;
+	};
+
+	bat_therm_400k {
+		qcom,lut-index = <1>;
+	};
+
+	conn_therm {
+		reg = <ADC_GPIO1_PU2>;
+		label = "conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	skin_therm {
+		reg = <ADC_GPIO2_PU2>;
+		label = "skin_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pmi632_gpios {
+	conn_therm {
+		conn_therm_default: conn_therm_default {
+			pins = "gpio1";
+			bias-high-impedance;
+		};
+	};
+
+	skin_therm {
+		skin_therm_default: skin_therm_default {
+			pins = "gpio3";
+			bias-high-impedance;
+		};
+	};
+};
+
+&pmi632_adc_tm {
+	io-channels = <&pmi632_vadc ADC_GPIO1_PU2>,
+			<&pmi632_vadc ADC_VBAT_SNS>,
+			<&pmi632_vadc ADC_GPIO2_PU2>;
+
+	/* Channel nodes */
+	conn_therm {
+		reg = <ADC_GPIO1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	vbat_sns {
+		reg = <ADC_VBAT_SNS>;
+		qcom,kernel-client;
+		qcom,scale-type = <0>;
+		qcom,prescaling = <3>;
+	};
+
+	skin_therm {
+		reg = <ADC_GPIO2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&thermal_zones {
+
+	/delete-node/ sdm-therm;
+	/delete-node/ conn-therm;
+	/delete-node/ xo-therm;
+	/delete-node/ emmc_ufs-therm;
+	/delete-node/ rf_pa0_therm-therm;
+	/delete-node/ camera_flash-therm;
+	/delete-node/ quiet-therm;
+
+	rf-pa0-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm6125_adc_tm ADC_AMUX_THM1_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	quiet-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm6125_adc_tm ADC_AMUX_THM2_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	xo-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm6125_adc_tm ADC_XO_THERM_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	conn-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmi632_adc_tm ADC_GPIO1_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	skin-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pmi632_adc_tm ADC_GPIO2_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	emmc-ufs-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <5000>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm6125_adc_tm_iio ADC_GPIO1_PU2>;
+	};
+
+	camera-ftherm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <5000>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&pm6125_adc_tm_iio ADC_GPIO3_PU2>;
+	};
+
+};

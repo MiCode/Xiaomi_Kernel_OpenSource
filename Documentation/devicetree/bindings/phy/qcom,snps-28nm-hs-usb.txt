@@ -1,0 +1,76 @@
+Qualcomm Synopsys 28nm Femto phy controller
+===========================================
+
+Synopsys 28nm femto phy controller supports LS/FS/HS usb connectivity on
+Qualcomm chipsets.
+
+Required properties:
+- compatible:
+    Value type: <string>
+    Definition: Should contain "qcom,usb-snps-hsphy".
+
+- reg:
+    Value type: <prop-encoded-array>
+    Definition: USB PHY base address and length of the register map
+
+- reg-names:
+    Value type: <string>
+    Definition: Names of the reg bases in 1-1 correspondence with the
+		"reg" property. "phy_csr" is a mandatory reg base.
+
+- clocks:
+    Value type: <prop-encoded-array>
+    Definition: See clock-bindings.txt section "consumers". List of
+                two clock specifiers for interface and core controller
+                clocks.
+
+- clock-names:
+    Value type: <string>
+    Definition: Names of the clocks in 1-1 correspondence with the "clocks"
+		property. Must contain "phy_csr_clk" and "ref_clk" clocks.
+
+- vdd-supply:
+    Value type: <phandle>
+    Definition: phandle to the regulator VDD supply node.
+
+- vdda18-supply:
+    Value type: <phandle>
+    Definition: phandle to the regulator 1.8V supply node.
+
+- vdda33-supply:
+    Value type: <phandle>
+    Definition: phandle to the regulator 3.3V supply node.
+
+- qcom,vdd-voltage-level:
+    Value type: <prop-array>
+    Definition: This is a list of three integer values (no, min, max) where
+		each value corresponding to voltage corner.
+
+- resets:
+    Value type: <prop-encoded-array>
+    Definition: See reset.txt section "consumers". PHY reset specifier.
+
+- reset-names:
+    Value type: <string>
+    Definition: Must contain "phy_por_reset" and "phy_reset" strings.
+
+Example:
+	usb_phy: phy@78d9000 {
+		compatible = "qcom,usb-snps-hsphy";
+		reg = <0x78d9000 0x400>;
+		reg-names = "phy_csr";
+
+		vdd-supply = <&pm8916_s1_corner>;
+		vdda18-supply = <&pm8916_l7>;
+		vdda33-supply = <&pm8916_l13>;
+
+		clocks = <&gcc GCC_USB_HS_AHB_CLK>,
+			     <&gcc GCC_USB_HS_SYSTEM_CLK>;
+		clock-names = "phy_csr_clk", "ref_clk";
+
+		resets = <&gcc GCC_QUSB2_PHY_BCR>,
+			 <&gcc GCC_USB2_HS_PHY_ONLY_BCR>;
+		reset-names = "phy_por_reset", "phy_reset";
+
+	};
+

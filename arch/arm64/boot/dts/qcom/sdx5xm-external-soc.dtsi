@@ -1,0 +1,59 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdm3: qcom,mdm3 {
+		cell-index = <0>;
+		#address-cells = <0>;
+		interrupt-parent = <&mdm3>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-names =
+			"err_fatal_irq",
+			"status_irq",
+			"mdm2ap_vddmin_irq";
+		/* modem attributes */
+		qcom,ramdump-delay-ms = <3000>;
+		qcom,ramdump-timeout-ms = <120000>;
+		qcom,vddmin-modes = "normal";
+		qcom,vddmin-drive-strength = <8>;
+		qcom,sfr-query;
+		qcom,sysmon-id = <20>;
+		qcom,ssctl-instance-id = <0x10>;
+		qcom,support-shutdown;
+		qcom,pil-force-shutdown;
+		pinctrl-names = "default", "mdm_active", "mdm_suspend";
+		pinctrl-0 = <&ap2mdm_pon_reset_default>;
+		pinctrl-1 = <&ap2mdm_active &mdm2ap_active>;
+		pinctrl-2 = <&ap2mdm_sleep &mdm2ap_sleep>;
+		interrupt-map = <0 &tlmm 53 0x3
+				1 &tlmm 135 0x3>;
+		qcom,mdm2ap-errfatal-gpio = <&tlmm 53 0x00>;
+		qcom,ap2mdm-errfatal-gpio = <&tlmm 141 0x00>;
+		qcom,mdm2ap-status-gpio   = <&tlmm 142 0x00>;
+		qcom,ap2mdm-status-gpio   = <&tlmm 135 0x00>;
+		qcom,ap2mdm-soft-reset-gpio = <&pm8150l_gpios 9 0>;
+		qcom,esoc-skip-restart-for-mdm-crash;
+		status = "ok";
+	};
+};
+
+&pm8150l_gpios {
+	ap2mdm_pon_reset {
+		ap2mdm_pon_reset_default: ap2mdm_pon_reset_default {
+		/* MDM PON conrol*/
+		pins = "gpio9";
+		function = "normal";
+		power-source = <1>; /* 1.8V */
+		};
+	};
+};

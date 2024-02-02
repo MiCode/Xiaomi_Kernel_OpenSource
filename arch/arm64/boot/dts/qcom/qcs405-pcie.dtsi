@@ -1,0 +1,144 @@
+/*
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/qcom,gcc-qcs405.h>
+
+&soc {
+	pcie0: qcom,pcie@7780000 {
+		compatible = "qcom,pci-msm";
+		cell-index = <0>;
+
+		reg = <0x7780000 0x2000>,
+		      <0x7786000 0x1000>,
+		      <0x10000000 0xf1d>,
+		      <0x10000f20 0xa8>,
+		      <0x10100000 0x100000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x10200000 0x10200000 0x0 0x100000>,
+			<0x02000000 0x0 0x10300000 0x10300000 0x0 0xd00000>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+		interrupt-map = <0 0 0 0 &intc 0 269 0
+			0 0 0 1 &intc 0 68 0
+			0 0 0 2 &intc 0 224 0
+			0 0 0 3 &intc 0 267 0
+			0 0 0 4 &intc 0 268 0
+			0 0 0 5 &intc 0 270 0
+			0 0 0 6 &intc 0 271 0
+			0 0 0 7 &intc 0 272 0
+			0 0 0 8 &intc 0 273 0
+			0 0 0 9 &intc 0 274 0
+			0 0 0 10 &intc 0 275 0 >;
+		interrupt-names = "int_pls_pme", "int_a", "int_b", "int_c",
+				"int_d", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n";
+
+		qcom,phy-sequence = <0x00a0 0x0 0x0
+				0x00a4 0x01  0x3E8
+				0x0044 0x01  0x0
+				0x0088 0x78  0x0
+				0x008c 0x78  0x0
+				0x0074 0x24  0x0
+				0x0078 0x1a  0x0
+				0x007c 0x18  0x0
+				0x0084 0x04  0x0
+				0x0094 0x00  0x0
+				0x0080 0x00  0x0
+				0x0044 0x00  0x0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_perst_default>;
+
+		perst-gpio = <&tlmm 43 0>;
+
+		vreg-1.8-supply = <&pms405_l5>;
+		vreg-0.9-supply = <&pms405_l3>;
+
+		qcom,vreg-0.9-voltage-level = <1160000 976000 24000>;
+
+		msi-parent = <&pcie0_msi>;
+
+		qcom,ep-latency = <10>;
+
+		qcom,phy-status-offset = <0x3c>;
+		qcom,phy-status-bit = <0>;
+		qcom,phy-power-down-offset = <0x98>;
+		qcom,core-preset = <0x77777777>;
+		qcom,boot-option = <0x0>;
+		qcom,keep-powerdown-phy;
+		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
+
+		linux,pci-domain = <0>;
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_PCIE
+					MSM_BUS_SLAVE_EBI_CH0 0 0>,
+				<MSM_BUS_MASTER_PCIE
+					MSM_BUS_SLAVE_EBI_CH0 500 800>;
+
+		clocks = <&clock_gcc GCC_PCIE_0_PIPE_CLK>,
+			<&clock_cmn_blk_pll CMN_BLK_PLL>,
+			<&clock_gcc GCC_PCIE_0_AUX_CLK>,
+			<&clock_gcc GCC_PCIE_0_CFG_AHB_CLK>,
+			<&clock_gcc GCC_PCIE_0_MSTR_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_0_SLV_AXI_CLK>,
+			<&clock_rpmcc RPM_SMD_LN_BB_CLK>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo";
+		max-clock-frequency-hz = <250000000>, <0>, <1200000>,
+						<0>, <0>, <0>, <0>;
+
+		clock-output-names = "pcie_0_pipe_clk";
+
+		resets = <&clock_gcc GCC_PCIEPHY_0_PHY_BCR>,
+			<&clock_gcc GCC_PCIE_0_BCR>,
+			<&clock_gcc GCC_PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_0_phy_reset",
+				"pcie_0_core_reset",
+				"pcie_phy_reset";
+
+		pcie_rc0: pcie_rc0 {
+			#address-cells = <5>;
+			#size-cells = <0>;
+			reg = <0 0 0 0 0>;
+			pci-ids = "17cb:1000";
+		};
+	};
+
+	pcie0_msi: qcom,pcie0_msi@a0000000 {
+		compatible = "qcom,pci-msi";
+		msi-controller;
+		reg = <0xa0000000 0x0>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,snps;
+	};
+};

@@ -1,0 +1,40 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&bolero {
+	wsa_macro: wsa-macro {
+		compatible = "qcom,wsa-macro";
+		reg = <0x0C2C0000 0x0>;
+		clock-names = "wsa_core_clk", "wsa_npl_clk";
+		clocks = <&clock_audio_wsa_1 0>,
+		<&clock_audio_wsa_2 0>;
+		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
+	};
+};
+
+&soc {
+	clock_audio_wsa_1: wsa_core_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <3>;
+		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-clk-id = <0x309>;
+		#clock-cells = <1>;
+	};
+
+	clock_audio_wsa_2: wsa_npl_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <4>;
+		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-clk-id = <0x30A>;
+		#clock-cells = <1>;
+	};
+};

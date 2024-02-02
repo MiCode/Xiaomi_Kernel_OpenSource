@@ -1,0 +1,100 @@
+/*
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs407.dtsi"
+#include "qcs405-csra8-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-linear-pca9956.dtsi"
+#include "qcs405-mdss-panels.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS407 EVB1 4K/CSRA8 SPI/LiN";
+	compatible = "qcom,qcs407-iot", "qcom,qcs407", "qcom,iot";
+	qcom,board-id = <0x080020 0x1>;
+};
+
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+};
+
+&sdhc_2 {
+	/delete-property/ qcom,devfreq,freq-table;
+	/delete-property/ cd-gpios;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000>;
+	/* VDD is an external regulator eLDO5 */
+	vdd-io-supply = <&pms405_l6>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	post-power-on-delay-ms = <100>;
+
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
+		&sdc2_wlan_on4>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+		&sdc2_wlan_off4>;
+
+	status = "ok";
+};
+
+&mdss_hdmi_tx {
+	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
+				"hdmi_active", "hdmi_sleep";
+	pinctrl-0 = <&mdss_hdmi_5v_active  &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+	pinctrl-1 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_active &mdss_hdmi_cec_suspend>;
+	pinctrl-2 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_cec_active &mdss_hdmi_ddc_suspend>;
+	pinctrl-3 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_active &mdss_hdmi_cec_active>;
+	pinctrl-4 = <&mdss_hdmi_5v_suspend &mdss_hdmi_hpd_suspend
+			&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_720_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 41 0>;
+	qcom,platform-reset-gpio = <&tlmm 39 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 48 0>;
+};
+
+&dsi_hx8394d_720_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_tlmm_gpio";
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};

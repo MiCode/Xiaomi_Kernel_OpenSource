@@ -1,0 +1,324 @@
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "sa8155-pmic-overlay.dtsi"
+#include "sa8155-cnss.dtsi"
+
+&qupv3_3 {
+	status = "ok";
+};
+
+&qupv3_se0_spi {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <38 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&qupv3_se3_spi {
+	status = "disabled";
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+};
+
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
+&qupv3_se10_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	asm330@6a {
+		compatible = "st,asm330lhh";
+		reg = <0x6a>;
+		vio-supply = <&pm8150_2_l7>;
+		vdd-supply = <&pm8150_2_l16>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <12 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int1_default
+			&sensor_int2_default>;
+	};
+};
+
+&pil_modem {
+	status = "disabled";
+};
+
+&soc {
+	qcom,lpass@17300000 {
+		status = "ok";
+	};
+
+	qcom,ssc@5c00000 {
+		status = "disabled";
+	};
+
+	qcom,glink {
+		modem {
+			status = "disabled";
+		};
+	};
+
+	ss5_pwr_ctrl0 {
+		compatible = "gnss_sirf";
+		pinctrl-0 = <&ss5_pwr_ctrl_rst_on>;
+		ssVreset-gpio = <&tlmm 11 1>;
+		ssVonoff-gpio = <&tlmm 39 1>;
+	};
+
+	qcom,turing@8300000 {
+		status = "ok";
+	};
+
+	qcom,venus@aae0000 {
+		status = "ok";
+	};
+
+	qcom,spss@1880000 {
+		status = "ok";
+	};
+
+	qcom,npu@0x9800000 {
+		status = "ok";
+	};
+
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+
+	qcom,ipa_fws {
+		status = "disabled";
+	};
+
+	qcom,msm-cdsp-loader {
+		status = "ok";
+	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		status = "disabled";
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_home_default
+			     &key_vol_up_default>;
+
+		home {
+			label = "home";
+			gpios = <&pm8150_1_gpios 1 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_HOME>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8150_1_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+
+	vdda-pll-supply = <&pm8150_2_l8>;
+	vdda-phy-max-microamp = <87100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_1_l10>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm8150_1_s4>;
+	vcc-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_2_l5>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8150_1_l17>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8150_2_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on
+		&sdc2_cmd_on &sdc2_data_on &storage_cd_default>;
+	pinctrl-1 = <&sdc2_clk_off
+		&sdc2_cmd_off &sdc2_data_off &storage_cd_default>;
+
+	cd-gpios = <&pm8150_1_gpios 4 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&usb0 {
+	qcom,default-mode-none;
+	qcom,ignore-wakeup-src-in-hostmode;
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x43 0x70
+		 0x01 0xb0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2phy_ac_en1_default>;
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&usb1 {
+	status = "ok";
+	qcom,default-mode-host;
+	qcom,ignore-wakeup-src-in-hostmode;
+};
+
+&usb2_phy1 {
+	qcom,param-override-seq = <0x01 0xb0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2phy_ac_en2_default>;
+};
+
+&shared_meta {
+	parts = "vbmeta,boot,system,vendor,dtbo";
+};
+
+&pcie_rc1 {
+	aqc_rc1: aquantia,aqc107@pcie_rc1 {
+		reg = <0 0 0 0 0>;
+		compatible = "aquantia,aqc-107";
+		pci-ids =
+			"1d6a:0001",
+			"1d6a:d107",
+			"1d6a:07b1",
+			"1d6a:87b1",
+			"1d6a:d108",
+			"1d6a:08b1",
+			"1d6a:88b1",
+			"1d6a:d109",
+			"1d6a:09b1",
+			"1d6a:89b1",
+			"1d6a:d100",
+			"1d6a:00b1",
+			"1d6a:80b1",
+			"1d6a:11b1",
+			"1d6a:91b1",
+			"1d6a:51b1",
+			"1d6a:12b1",
+			"1d6a:92b1",
+			"1d6a:52b1";
+
+		qcom,smmu;
+		qcom,smmu-iova-base = /bits/ 64 <0x20000000>;
+		qcom,smmu-iova-size = /bits/ 64 <0x40000000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-s1-bypass;
+	};
+};
+
+&pcie1 {
+	qcom,boot-option = <0x0>;
+};
+
+&pcie_rc1 {
+	nvme_x8: qcom,nvme@pcie_rc1 {
+		reg = <0 0 0 0 0>;
+		compatible = "qcom,nvme";
+		pci-ids =
+			"8086:0953",
+			"8086:0a54",
+			"8086:0a55",
+			"8086:f1a5",
+			"8086:f1a5",
+			"1c58:0003",
+			"1c58:0023",
+			"1c5c:1327",
+			"1c5f:0540",
+			"144d:a821",
+			"144d:a822",
+			"144d:a808",
+			"1d1d:1f1f",
+			"1d1d:2807",
+			"1d1d:2601",
+			"106b:2001",
+			"106b:2003",
+			"1179:0115",
+			"1179:0116";
+
+		qcom,smmu;
+		qcom,smmu-iova-base = /bits/ 64 <0x20000000>;
+		qcom,smmu-iova-size = /bits/ 64 <0x40000000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-s1-bypass;
+	};
+};

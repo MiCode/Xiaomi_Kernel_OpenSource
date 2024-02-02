@@ -1,0 +1,11 @@
+obj-$(CONFIG_MSM_AIS) += cam_res_mgr/
+obj-$(CONFIG_MSM_AIS) += cam_sensor_utils/
+obj-$(CONFIG_MSM_AIS) += cam_cci/
+obj-$(CONFIG_MSM_AIS) += cam_sensor_io/
+obj-$(CONFIG_MSM_AIS) += cam_csiphy/
+obj-$(CONFIG_MSM_AIS) += cam_actuator/
+obj-$(CONFIG_MSM_AIS) += cam_sensor/
+obj-$(CONFIG_MSM_AIS) += cam_flash/
+obj-$(CONFIG_MSM_AIS) += cam_eeprom/
+obj-$(CONFIG_MSM_AIS) += cam_ois/
+obj-$(CONFIG_MSM_AIS) += cam_ir_led/

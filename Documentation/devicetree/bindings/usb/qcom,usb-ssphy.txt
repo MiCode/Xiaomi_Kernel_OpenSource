@@ -1,0 +1,35 @@
+Qualcomm Technologies, Inc. MSM PHY Transceivers
+
+Required properties:
+- compatible: Should be "qcom,usb-ssphy"
+- reg: Address and length of the register set for the device
+- clocks: a list of handles to the PHY clocks. Use as per
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+- clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+  property. "ref_clk", "cfg_ahb_clk" and "pipe_clk" are mandatory.
+- <supply-name>-supply: phandle to the regulator device tree node
+Required "supply-name" examples are:
+"vdd" : vdd supply for SSPHY digital circuit operation
+"vdda18" : 1.8v high-voltage analog supply for SSPHY
+- qcom,vdd-voltage-level: This property must be a list of three integer
+values (no, min, max) where each value represents either a voltage in
+microvolts or a value corresponding to voltage corner
+
+Optional properties:
+- qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
+the USB PHY and the controller must rely on external VBUS notification in
+order to manually relay the notification to the SSPHY.
+-qcom,keep-powerdown: If present, power down the SSPHY to avoid leakage current.
+
+Example:
+ssphy@f9200000 {
+	compatible = "qcom,usb-ssphy";
+	reg = <0xf9200000 0xfc000>;
+	vdd-supply = <&pm8841_s2_corner>;
+	vdda18-supply = <&pm8941_l6>;
+	qcom,vdd-voltage-level = <1 5 7>;
+	clocks = <&clock_gcc USB_PHY_REF_CLK>,
+		 <&clock_gcc USB_PHY_CFG_AHB_CLK>,
+		 <&clock_gcc USB_PHY_PIPE_CLK>;
+	clock-names = "ref_clk", "cfg_ahb_clk", "pipe_clk";
+};

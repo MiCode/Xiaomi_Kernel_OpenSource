@@ -1,0 +1,24 @@
+Qualcomm Technologies, Inc. RPMh Clocks
+
+Required properties:
+- compatible:	Must contain one of the following:
+		"qcom,rpmh-clk-sm6150",
+		"qcom,rpmh-clk-sm8150",
+		"qcom,rpmh-clk-sdmshrike",
+		"qcom,rpmh-clk-sdmmagpie"
+		"qcom,rpmh-clk-sdxprairie",
+		"qcom,rpmh-clk-atoll".
+- #clock-cells:	Must contain 1.
+- mboxes:	List of RPMh mailbox phandle and channel identifier tuples.
+- mbox-names:	List of names to identify the RPMh mailboxes used.
+		Must contain "apps".  May optionally contain "display" if
+		the RPMh mailbox phandle for the Display RSC is specified
+		in the mboxes property.
+
+Example:
+	qcom,rpmhclk {
+		compatible = "qcom,rpmh-clk-sm8150";
+		#clock-cells = <1>;
+		mboxes = <&apps_rsc 0>, <&disp_rsc 0>;
+		mbox-names = "apps", "display";
+	};

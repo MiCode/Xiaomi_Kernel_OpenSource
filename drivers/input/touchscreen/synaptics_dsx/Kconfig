@@ -1,0 +1,137 @@
+#
+# Synaptics DSX touchscreen driver configuration
+#
+menuconfig TOUCHSCREEN_SYNAPTICS_DSX
+	bool "Synaptics DSX touchscreen"
+	help
+	  Say Y here if you have a Synaptics DSX touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+if TOUCHSCREEN_SYNAPTICS_DSX
+
+choice
+	default TOUCHSCREEN_SYNAPTICS_DSX_I2C
+	prompt "Synaptics DSX bus interface"
+config TOUCHSCREEN_SYNAPTICS_DSX_I2C
+	bool "RMI over I2C"
+	depends on I2C
+config TOUCHSCREEN_SYNAPTICS_DSX_SPI
+	bool "RMI over SPI"
+	depends on SPI_MASTER
+config TOUCHSCREEN_SYNAPTICS_DSX_RMI_HID_I2C
+	bool "HID over I2C"
+	depends on I2C
+endchoice
+
+config TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	tristate "Synaptics DSX core driver module"
+	depends on I2C || SPI_MASTER
+	help
+	  Say Y here to enable basic touch reporting functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_core.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_RMI_DEV
+	tristate "Synaptics DSX RMI device module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for direct RMI register access.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_rmi_dev.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
+	tristate "Synaptics DSX firmware update module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for doing firmware update.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_fw_update.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE_EXTRA_SYSFS
+	bool "Synaptics DSX firmware update sysfs attributes"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
+	help
+	  Say Y here to enable support for sysfs attributes for
+	  performing firmware update in a development environment.
+	  This does not affect the core or other subsystem attributes.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_TEST_REPORTING
+	tristate "Synaptics DSX test reporting module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for retrieving production test reports.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_test_reporting.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_PROXIMITY
+	tristate "Synaptics DSX proximity module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for proximity functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_proximity.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_ACTIVE_PEN
+	tristate "Synaptics DSX active pen module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for active pen functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_active_pen.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_GESTURE
+	tristate "Synaptics DSX user defined gesture module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for user defined gesture functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_gesture.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_VIDEO
+	tristate "Synaptics DSX video module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for video communication functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_video.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_DEBUG
+	tristate "Synaptics DSX debug module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+	help
+	  Say Y here to enable support for firmware debug functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_debug.
+
+endif

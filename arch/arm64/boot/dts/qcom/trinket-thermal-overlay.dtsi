@@ -1,0 +1,343 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/thermal/thermal.h>
+
+&thermal_zones {
+	pmi632-tz {
+		cooling-maps {
+			trip0_bat {
+				trip = <&pmi632_trip0>;
+				cooling-device =
+					<&pmi632_charger (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip1_bat {
+				trip = <&pmi632_trip1>;
+				cooling-device =
+					<&pmi632_charger THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm6125-tz {
+		cooling-maps {
+			trip0_cpu0 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu1 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu2 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu3 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu4 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU4 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu5 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU5 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu6 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU6 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu7 {
+				trip = <&pm6125_trip0>;
+				cooling-device =
+					<&CPU7 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip1_cpu1 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu2 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu3 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu4 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu5 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu6 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu7 {
+				trip = <&pm6125_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pmi632-bcl-lvl0 {
+		cooling-maps {
+			cpu0_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu1_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu2_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu3_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu4_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU4 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu5_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU5 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu6_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU6 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+			cpu7_cdev {
+				trip = <&bcl_lvl0>;
+				cooling-device =
+					<&CPU7 (THERMAL_MAX_LIMIT-6)
+						(THERMAL_MAX_LIMIT-6)>;
+			};
+		};
+	};
+
+	pmi632-bcl-lvl1 {
+		cooling-maps {
+			cpu0_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu1_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu2_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu3_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu4_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU4 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu5_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU5 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu6_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			cpu7_cdev {
+				trip = <&bcl_lvl1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pmi632-bcl-lvl2 {
+		cooling-maps {
+			cpu0_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu1_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu2_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu3_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			cpu4_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			cpu5_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			cpu6_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			cpu7_cdev {
+				trip = <&bcl_lvl2>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_cpu0 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			soc_cpu1 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			soc_cpu2 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			soc_cpu3 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			soc_cpu4 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU4 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			soc_cpu5 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU5 (THERMAL_MAX_LIMIT-5)
+						(THERMAL_MAX_LIMIT-5)>;
+			};
+			soc_cpu6 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_cpu7 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
+};

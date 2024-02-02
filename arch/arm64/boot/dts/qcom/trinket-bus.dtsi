@@ -1,0 +1,1117 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
+
+&soc {
+	ad_hoc_bus: ad-hoc-bus {
+		compatible = "qcom,msm-bus-device";
+		reg = <0x1880000 0x60200>,
+			<0x4480000 0x80000>,
+			<0x1900000 0x8200>,
+			<0x1880000 0x60200>,
+			<0x1880000 0x60200>,
+			<0x1880000 0x60200>,
+			<0x1880000 0x60200>;
+		reg-names = "sys_noc-base", "bimc-base", "config_noc-base",
+				"qup_virt-base", "fab-gpu_vert-base",
+				"mmnrt_virt-base", "mmrt_virt-base";
+
+		/*Buses*/
+
+		fab_bimc: fab-bimc {
+			cell-id = <MSM_BUS_FAB_BIMC>;
+			label = "fab-bimc";
+			qcom,fab-dev;
+			qcom,base-name = "bimc-base";
+			qcom,bus-type = <2>;
+			qcom,util-fact = <153>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc BIMC_MSMBUS_CLK>,
+				<&clock_rpmcc BIMC_MSMBUS_A_CLK>;
+		};
+
+		fab_config_noc: fab-config_noc {
+			cell-id = <MSM_BUS_FAB_CONFIG_NOC>;
+			label = "fab-config_noc";
+			qcom,fab-dev;
+			qcom,base-name = "config_noc-base";
+			qcom,bypass-qos-prg;
+			qcom,bus-type = <1>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc CNOC_MSMBUS_CLK>,
+				<&clock_rpmcc CNOC_MSMBUS_A_CLK>;
+		};
+
+		fab_qup_virt: fab-qup_virt {
+			cell-id = <MSM_BUS_FAB_QUP_VIRT>;
+			label = "fab-qup_virt";
+			qcom,fab-dev;
+			qcom,base-name = "qup_virt-base";
+			qcom,bypass-qos-prg;
+			qcom,bus-type = <1>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc RPM_SMD_QUP_CLK>,
+				<&clock_rpmcc RPM_SMD_QUP_A_CLK>;
+		};
+
+		fab_sys_noc: fab-sys_noc {
+			cell-id = <MSM_BUS_FAB_SYS_NOC>;
+			label = "fab-sys_noc";
+			qcom,fab-dev;
+			qcom,base-name = "sys_noc-base";
+			qcom,bus-type = <3>;
+			qcom,base-offset = <0x15000>;
+			qcom,qos-off = <0x1000>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc SNOC_MSMBUS_CLK>,
+				<&clock_rpmcc SNOC_MSMBUS_A_CLK>;
+		};
+
+		fab_gpu_vert: fab-gpu_vert {
+			cell-id = <MSM_BUS_FAB_GPU_VIRT>;
+			label = "fab-gpu_vert";
+			qcom,vert-dev;
+			qcom,base-name = "fab-gpu_vert-base";
+			qcom,bypass-qos-prg;
+			qcom,bus-type = <3>;
+		};
+
+		fab_mmnrt_virt: fab-mmnrt_virt {
+			cell-id = <MSM_BUS_FAB_MMNRT_VIRT>;
+			label = "fab-mmnrt_virt";
+			qcom,fab-dev;
+			qcom,base-name = "mmnrt_virt-base";
+			qcom,bus-type = <3>;
+			qcom,base-offset = <0x15000>;
+			qcom,qos-off = <0x1000>;
+			qcom,util-fact = <142>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc CPP_MMNRT_MSMBUS_CLK>,
+				<&clock_rpmcc CPP_MMNRT_MSMBUS_A_CLK>;
+		};
+
+		fab_mmrt_virt: fab-mmrt_virt {
+			cell-id = <MSM_BUS_FAB_MMRT_VIRT>;
+			label = "fab-mmrt_virt";
+			qcom,fab-dev;
+			qcom,base-name = "mmrt_virt-base";
+			qcom,bus-type = <3>;
+			qcom,base-offset = <0x15000>;
+			qcom,qos-off = <0x1000>;
+			qcom,util-fact = <139>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc MDP_MMRT_MSMBUS_CLK>,
+				<&clock_rpmcc MDP_MMRT_MSMBUS_A_CLK>;
+		};
+
+		/*Masters*/
+
+		mas_apps_proc: mas-apps-proc {
+			cell-id = <MSM_BUS_MASTER_AMPSS_M0>;
+			label = "mas-apps-proc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <0>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
+			qcom,prio-lvl = <0>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_APPSS_PROC>;
+		};
+
+		mas_snoc_bimc_rt: mas-snoc-bimc-rt {
+			cell-id = <MSM_BUS_MASTER_SNOC_BIMC_RT>;
+			label = "mas-snoc-bimc-rt";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <2>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_ebi>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_BIMC_RT>;
+		};
+
+		mas_snoc_bimc_nrt: mas-snoc-bimc-nrt {
+			cell-id = <MSM_BUS_MASTER_SNOC_BIMC_NRT>;
+			label = "mas-snoc-bimc-nrt";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <3>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_ebi>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_BIMC_NRT>;
+		};
+
+		mas_snoc_bimc: mas-snoc-bimc {
+			cell-id = <MSM_BUS_SNOC_BIMC_MAS>;
+			label = "mas-snoc-bimc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <6>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_ebi>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_BIMC>;
+		};
+
+		mas_gpu_cdsp_bimc: mas-gpu-cdsp-bimc {
+			cell-id = <MSM_BUS_MASTER_GPU_CDSP_PROC>;
+			label = "mas-gpu-cdsp-bimc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <1>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_GPU_CDSP_PROC>;
+		};
+
+		mas_tcu_0: mas-tcu-0 {
+			cell-id = <MSM_BUS_MASTER_TCU_0>;
+			label = "mas-tcu-0";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <4>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
+			qcom,prio-lvl = <6>;
+			qcom,prio-rd = <6>;
+			qcom,prio-wr = <6>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_TCU_0>;
+		};
+
+		mas_snoc_cnoc: mas-snoc-cnoc {
+			cell-id = <MSM_BUS_SNOC_CNOC_MAS>;
+			label = "mas-snoc-cnoc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,connections = <&slv_qhs_tlmm_south
+				&slv_qhs_camera_rt_throttle_cfg
+				&slv_qhs_cdsp_throttle_cfg &slv_qhs_sdc2
+				&slv_qhs_sdc1 &slv_qhs_ufs_mem_cfg
+				&slv_qhs_qm_cfg &slv_qhs_tlmm_east
+				&slv_qhs_bimc_cfg &slv_qhs_qm_mpu_cfg
+				&slv_qhs_camera_nrt_throttle_cfg
+				&slv_qhs_tlmm_west &slv_qhs_qdss_cfg
+				&slv_qhs_pdm &slv_qhs_ipa_cfg
+				&slv_qhs_display_throttle_cfg &slv_qhs_tcsr
+				&slv_qhs_mesg_ram &slv_qhs_pmic_arb
+				&slv_qhs_lpass &slv_qhs_venus_cfg
+				&slv_qhs_gpu_cfg &slv_qhs_imem_cfg
+				&slv_snoc_cfg &slv_srvc_cnoc
+				&slv_qhs_venus_throttle_cfg &slv_qhs_prng
+				&slv_qhs_vsense_ctrl_cfg &slv_qhs_crypto0_cfg
+				&slv_qhs_pimem_cfg &slv_qhs_usb3
+				&slv_qhs_qup0 &slv_qhs_qup1
+				&slv_qhs_camera_ss_cfg &slv_qhs_clk_ctl>;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_CNOC>;
+		};
+
+		mas_crypto_c0: mas-crypto-c0 {
+			cell-id = <MSM_BUS_MASTER_CRYPTO_CORE0>;
+			label = "mas-crypto-c0";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <22>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc CRYPTO_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc CRYPTO_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_CRYPTO_CORE0>;
+		};
+
+		mas_qup_core_master_0: mas-qup-core-master-0 {
+			cell-id = <MSM_BUS_MASTER_QUP_CORE_0>;
+			label = "mas-qup-core-master-0";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qup_core_slave_0>;
+			qcom,bus-dev = <&fab_qup_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QUP_CORE_0>;
+		};
+
+		mas_qup_core_master_1: mas-qup-core-master-1 {
+			cell-id = <MSM_BUS_MASTER_QUP_CORE_1>;
+			label = "mas-qup-core-master-1";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qup_core_slave_1>;
+			qcom,bus-dev = <&fab_qup_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QUP_CORE_1>;
+		};
+
+		mas_snoc_cfg: mas-snoc-cfg {
+			cell-id = <MSM_BUS_MASTER_SNOC_CFG>;
+			label = "mas-snoc-cfg";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,connections = <&slv_srvc_snoc>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_CFG>;
+		};
+
+		mas_anoc_snoc: mas-anoc-snoc {
+			cell-id = <MSM_BUS_MASTER_ANOC_SNOC>;
+			label = "mas-anoc-snoc";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qxs_pimem &slv_qxs_imem
+					&slv_qhs_apss &slv_snoc_bimc
+					&slv_snoc_cnoc &slv_xs_sys_tcu_cfg
+					&slv_xs_qdss_stm>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_A0NOC_SNOC>;
+		};
+
+		mas_bimc_snoc: mas-bimc-snoc {
+			cell-id = <MSM_BUS_BIMC_SNOC_MAS>;
+			label = "mas-bimc-snoc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qxs_pimem &slv_qxs_imem
+					&slv_qhs_apss &slv_snoc_cnoc
+					&slv_xs_sys_tcu_cfg &slv_xs_qdss_stm>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_BIMC_SNOC>;
+		};
+
+		mas_qxm_cpp: mas-qxm-cpp {
+			cell-id = <MSM_BUS_MASTER_CPP>;
+			label = "mas-qxm-cpp";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <15>;
+			qcom,qos-mode = "fixed";
+			qcom,prio = <3>;
+			qcom,connections = <&slv_snoc_bimc_nrt>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_CPP>;
+		};
+
+		mas_qxm_jpeg: mas-qxm-jpeg {
+			cell-id = <MSM_BUS_MASTER_JPEG>;
+			label = "mas-qxm-jpeg";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <4>;
+			qcom,qos-mode = "fixed";
+			qcom,prio = <1>;
+			qcom,connections = <&slv_snoc_bimc_nrt>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_JPEG>;
+		};
+
+		mas_qxm_mdp0: mas-qxm-mdp0 {
+			cell-id = <MSM_BUS_MASTER_MDP_PORT0>;
+			label = "mas-qxm-mdp0";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <5>;
+			qcom,qos-mode = "bypass";
+			qcom,forwarding;
+			qcom,connections = <&slv_snoc_bimc_rt>;
+			qcom,bus-dev = <&fab_mmrt_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
+		};
+
+		mas_qxm_pimem: mas-qxm-pimem {
+			cell-id = <MSM_BUS_MASTER_PIMEM>;
+			label = "mas-qxm-pimem";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <20>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_qxs_imem &slv_snoc_bimc>;
+			qcom,prio = <2>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_PIMEM>;
+		};
+
+		mas_qxm_venus0: mas-qxm-venus0 {
+			cell-id = <MSM_BUS_MASTER_VIDEO_P0>;
+			label = "mas-qxm-venus0";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <9>;
+			qcom,qos-mode = "bypass";
+			qcom,forwarding;
+			qcom,connections = <&slv_snoc_bimc_nrt>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO_P0>;
+		};
+
+		mas_qxm_venus_arm9: mas-qxm-venus-arm9 {
+			cell-id = <MSM_BUS_MASTER_VIDEO_PROC>;
+			label = "mas-qxm-venus-arm9";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <13>;
+			qcom,qos-mode = "fixed";
+			qcom,prio = <4>;
+			qcom,forwarding;
+			qcom,connections = <&slv_snoc_bimc_nrt>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO_PROC>;
+
+		};
+
+		mas_qxm_vfe0: mas-qxm-vfe0 {
+			cell-id = <MSM_BUS_MASTER_VFE0>;
+			label = "mas-qxm-vfe0";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <10>;
+			qcom,qos-mode = "bypass";
+			qcom,forwarding;
+			qcom,connections = <&slv_snoc_bimc_rt>;
+			qcom,bus-dev = <&fab_mmrt_virt>;
+			qcom,mas-rpm-id = <ICBID_MASTER_VFE0>;
+		};
+
+		mas_qhm_qdss_bam: mas-qhm-qdss-bam {
+			cell-id = <MSM_BUS_MASTER_QDSS_BAM>;
+			label = "mas-qhm-qdss-bam";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <2>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QDSS_BAM>;
+		};
+
+		mas_qhm_qup0: mas-qhm-qup0 {
+			cell-id = <MSM_BUS_MASTER_QUP_0>;
+			label = "mas-qhm-qup0";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <0>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc QUP0_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc QUP0_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QUP_0>;
+		};
+
+		mas_qhm_qup1: mas-qhm-qup1 {
+			cell-id = <MSM_BUS_MASTER_QUP_1>;
+			label = "mas-qhm-qup1";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <1>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc QUP1_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc QUP1_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QUP_1>;
+		};
+
+		mas_qhm_spdm: mas-qhm-spdm {
+			cell-id = <MSM_BUS_MASTER_SPDM>;
+			label = "mas-qhm-spdm";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SPDM>;
+		};
+
+		mas_qxm_ipa: mas-qxm-ipa {
+			cell-id = <MSM_BUS_MASTER_IPA>;
+			label = "mas-qxm-ipa";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <3>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
+		};
+
+		mas_xm_dap: mas-xm-dap {
+			cell-id = <MSM_BUS_MASTER_QDSS_DAP>;
+			label = "mas-xm-dap";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,connections = <&slv_anoc_snoc>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc DAP_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc DAP_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QDSS_DAP>;
+		};
+
+		mas_xm_qdss_etr: mas-xm-qdss-etr {
+			cell-id = <MSM_BUS_MASTER_QDSS_ETR>;
+			label = "mas-xm-qdss-etr";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <12>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_QDSS_ETR>;
+		};
+
+		mas_xm_sdc1: mas-xm-sdc1 {
+			cell-id = <MSM_BUS_MASTER_SDCC_1>;
+			label = "mas-xm-sdc1";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <17>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc SDC1_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc SDC1_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SDCC_1>;
+		};
+
+		mas_xm_sdc2: mas-xm-sdc2 {
+			cell-id = <MSM_BUS_MASTER_SDCC_2>;
+			label = "mas-xm-sdc2";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <23>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc SDC2_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc SDC2_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_SDCC_2>;
+		};
+
+		mas_xm_ufs_mem: mas-xm-ufs-mem {
+			cell-id = <MSM_BUS_MASTER_UFS_MEM>;
+			label = "mas-xm-ufs-mem";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <25>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc RPM_SMD_SNOC_LPASS_CLK>,
+				<&clock_rpmcc RPM_SMD_SNOC_LPASS_A_CLK>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_UFS_MEM>;
+		};
+
+		mas_xm_usb3_0: mas-xm-usb3-0 {
+			cell-id = <MSM_BUS_MASTER_USB3>;
+			label = "mas-xm-usb3-0";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <24>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_anoc_snoc>;
+			qcom,prio = <2>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_USB3_0>;
+		};
+
+		mas_qnm_gpu_qos: mas-qnm-gpu-qos {
+			cell-id = <MSM_BUS_MASTER_GRAPHICS_3D_PORT1>;
+			label = "mas-qnm-gpu-qos";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <16>;
+			qcom,qos-mode = "fixed";
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,prio = <0>;
+			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
+		};
+
+		mas_qnm_gpu: mas-qnm-gpu {
+			cell-id = <MSM_BUS_MASTER_GRAPHICS_3D>;
+			label = "mas-qnm-gpu";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,connections = <&slv_gpu_cdsp_bimc>;
+			qcom,bus-dev = <&fab_gpu_vert>;
+			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
+
+		};
+
+		/*Slaves*/
+
+		slv_ebi:slv-ebi {
+			cell-id = <MSM_BUS_SLAVE_EBI_CH0>;
+			label = "slv-ebi";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_EBI1>;
+		};
+
+		slv_bimc_snoc:slv-bimc-snoc {
+			cell-id = <MSM_BUS_BIMC_SNOC_SLV>;
+			label = "slv-bimc-snoc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,connections = <&mas_bimc_snoc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_BIMC_SNOC>;
+		};
+
+		slv_qhs_bimc_cfg:slv-qhs-bimc-cfg {
+			cell-id = <MSM_BUS_SLAVE_BIMC_CFG>;
+			label = "slv-qhs-bimc-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_BIMC_CFG>;
+		};
+
+		slv_qhs_camera_nrt_throttle_cfg:slv-qhs-camera-nrt-throtle-cfg {
+			cell-id = <MSM_BUS_SLAVE_CAMERA_NRT_THROTTLE_CFG>;
+			label = "slv-qhs-camera-nrt-throttle-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_CAMERA_NRT_THROTTLE_CFG>;
+		};
+
+		slv_qhs_camera_rt_throttle_cfg:slv-qhs-camera-rt-throttle-cfg {
+			cell-id = <MSM_BUS_SLAVE_CAMERA_RT_THROTTLE_CFG>;
+			label = "slv-qhs-camera-rt-throttle-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_CAMERA_RT_THROTTLE_CFG>;
+		};
+
+		slv_qhs_camera_ss_cfg:slv-qhs-camera-ss-cfg {
+			cell-id = <MSM_BUS_SLAVE_CAMERA_CFG>;
+			label = "slv-qhs-camera-ss-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_CAMERA_CFG>;
+		};
+
+		slv_qhs_cdsp_throttle_cfg:slv-qhs-cdsp-throttle-cfg {
+			cell-id = <MSM_BUS_SLAVE_CDSP_THROTTLE_CFG>;
+			label = "slv-qhs-cdsp-throttle-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_CDSP_THROTTLE_CFG>;
+		};
+
+		slv_qhs_clk_ctl:slv-qhs-clk-ctl {
+			cell-id = <MSM_BUS_SLAVE_CLK_CTL>;
+			label = "slv-qhs-clk-ctl";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_CLK_CTL>;
+		};
+
+		slv_qhs_crypto0_cfg:slv-qhs-crypto0-cfg {
+			cell-id = <MSM_BUS_SLAVE_CRYPTO_0_CFG>;
+			label = "slv-qhs-crypto0-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_CRYPTO_0_CFG>;
+		};
+
+		slv_qhs_display_throttle_cfg:slv-qhs-display-throttle-cfg {
+			cell-id = <MSM_BUS_SLAVE_DISPLAY_THROTTLE_CFG>;
+			label = "slv-qhs-display-throttle-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_DISPLAY_THROTTLE_CFG>;
+		};
+
+		slv_qhs_gpu_cfg:slv-qhs-gpu-cfg {
+			cell-id = <MSM_BUS_SLAVE_GPU_CFG>;
+			label = "slv-qhs-gpu-cfg";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_GPU_CFG>;
+		};
+
+		slv_qhs_imem_cfg:slv-qhs-imem-cfg {
+			cell-id = <MSM_BUS_SLAVE_IMEM_CFG>;
+			label = "slv-qhs-imem-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_IMEM_CFG>;
+		};
+
+		slv_qhs_ipa_cfg:slv-qhs-ipa-cfg {
+			cell-id = <MSM_BUS_SLAVE_IPA_CFG>;
+			label = "slv-qhs-ipa-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_IPA_CFG>;
+		};
+
+		slv_qhs_lpass:slv-qhs-lpass {
+			cell-id = <MSM_BUS_SLAVE_LPASS>;
+			label = "slv-qhs-lpass";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_LPASS>;
+		};
+
+		slv_qhs_mesg_ram:slv-qhs-mesg-ram {
+			cell-id = <MSM_BUS_SLAVE_MESSAGE_RAM>;
+			label = "slv-qhs-mesg-ram";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_MESSAGE_RAM>;
+		};
+
+		slv_qhs_pdm:slv-qhs-pdm {
+			cell-id = <MSM_BUS_SLAVE_PDM>;
+			label = "slv-qhs-pdm";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_PDM>;
+		};
+
+		slv_qhs_pimem_cfg:slv-qhs-pimem-cfg {
+			cell-id = <MSM_BUS_SLAVE_PIMEM_CFG>;
+			label = "slv-qhs-pimem-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_PIMEM_CFG>;
+		};
+
+		slv_qhs_pmic_arb:slv-qhs-pmic-arb {
+			cell-id = <MSM_BUS_SLAVE_PMIC_ARB>;
+			label = "slv-qhs-pmic-arb";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_PMIC_ARB>;
+		};
+
+		slv_qhs_prng:slv-qhs-prng {
+			cell-id = <MSM_BUS_SLAVE_PRNG>;
+			label = "slv-qhs-prng";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_PRNG>;
+		};
+
+		slv_qhs_qdss_cfg:slv-qhs-qdss-cfg {
+			cell-id = <MSM_BUS_SLAVE_QDSS_CFG>;
+			label = "slv-qhs-qdss-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QDSS_CFG>;
+		};
+
+		slv_qhs_qm_cfg:slv-qhs-qm-cfg {
+			cell-id = <MSM_BUS_SLAVE_QM_CFG>;
+			label = "slv-qhs-qm-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QM_CFG>;
+		};
+
+		slv_qhs_qm_mpu_cfg:slv-qhs-qm-mpu-cfg {
+			cell-id = <MSM_BUS_SLAVE_QM_MPU_CFG>;
+			label = "slv-qhs-qm-mpu-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QM_MPU_CFG>;
+		};
+
+		slv_qhs_qup0:slv-qhs-qup0 {
+			cell-id = <MSM_BUS_SLAVE_QUP_0>;
+			label = "slv-qhs-qup0";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QUP_0>;
+		};
+
+		slv_qhs_qup1:slv-qhs-qup1 {
+			cell-id = <MSM_BUS_SLAVE_QUP_1>;
+			label = "slv-qhs-qup1";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QUP_1>;
+		};
+
+		slv_qhs_sdc1:slv-qhs-sdc1 {
+			cell-id = <MSM_BUS_SLAVE_SDCC_1>;
+			label = "slv-qhs-sdc1";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc SDC1_SLV_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc
+					SDC1_SLV_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SDCC_1>;
+		};
+
+		slv_qhs_sdc2:slv-qhs-sdc2 {
+			cell-id = <MSM_BUS_SLAVE_SDCC_2>;
+			label = "slv-qhs-sdc2";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			clock-names = "node_clk", "node_a_clk";
+			clocks = <&clock_rpmcc SDC2_SLV_MSMBUS_SNOC_PERIPH_CLK>,
+				<&clock_rpmcc
+					SDC2_SLV_MSMBUS_SNOC_PERIPH_A_CLK>;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SDCC_2>;
+		};
+
+		slv_snoc_cfg:slv-snoc-cfg {
+			cell-id = <MSM_BUS_SLAVE_SNOC_CFG>;
+			label = "slv-snoc-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,connections = <&mas_snoc_cfg>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_CFG>;
+		};
+
+		slv_qhs_tcsr:slv-qhs-tcsr {
+			cell-id = <MSM_BUS_SLAVE_TCSR>;
+			label = "slv-qhs-tcsr";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_TCSR>;
+		};
+
+		slv_qhs_tlmm_east:slv-qhs-tlmm-east {
+			cell-id = <MSM_BUS_SLAVE_TLMM_EAST>;
+			label = "slv-qhs-tlmm-east";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_TLMM_EAST>;
+		};
+
+		slv_qhs_tlmm_south:slv-qhs-tlmm-south {
+			cell-id = <MSM_BUS_SLAVE_TLMM_SOUTH>;
+			label = "slv-qhs-tlmm-south";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_TLMM_SOUTH>;
+		};
+
+		slv_qhs_tlmm_west:slv-qhs-tlmm-west {
+			cell-id = <MSM_BUS_SLAVE_TLMM_WEST>;
+			label = "slv-qhs-tlmm-west";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_TLMM_WEST>;
+		};
+
+		slv_qhs_ufs_mem_cfg:slv-qhs-ufs-mem-cfg {
+			cell-id = <MSM_BUS_SLAVE_UFS_MEM_CFG>;
+			label = "slv-qhs-ufs-mem-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_UFS_MEM_CFG>;
+		};
+
+		slv_qhs_usb3:slv-qhs-usb3 {
+			cell-id = <MSM_BUS_SLAVE_USB3>;
+			label = "slv-qhs-usb3";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_USB3>;
+		};
+
+		slv_qhs_venus_cfg:slv-qhs-venus-cfg {
+			cell-id = <MSM_BUS_SLAVE_VENUS_CFG>;
+			label = "slv-qhs-venus-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_VENUS_CFG>;
+		};
+
+		slv_qhs_venus_throttle_cfg:slv-qhs-venus-throttle-cfg {
+			cell-id = <MSM_BUS_SLAVE_VENUS_THROTTLE_CFG>;
+			label = "slv-qhs-venus-throttle-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_VENUS_THROTTLE_CFG>;
+		};
+
+		slv_qhs_vsense_ctrl_cfg:slv-qhs-vsense-ctrl-cfg {
+			cell-id = <MSM_BUS_SLAVE_VSENSE_CTRL_CFG>;
+			label = "slv-qhs-vsense-ctrl-cfg";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_VSENSE_CTRL_CFG>;
+		};
+
+		slv_srvc_cnoc:slv-srvc-cnoc {
+			cell-id = <MSM_BUS_SLAVE_SERVICE_CNOC>;
+			label = "slv-srvc-cnoc";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_config_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SERVICE_CNOC>;
+		};
+
+		slv_qup_core_slave_0:slv-qup-core-slave-0 {
+			cell-id = <MSM_BUS_SLAVE_QUP_CORE_0>;
+			label = "slv-qup-core-slave-0";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_qup_virt>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QUP_CORE_0>;
+		};
+
+		slv_qup_core_slave_1:slv-qup-core-slave-1 {
+			cell-id = <MSM_BUS_SLAVE_QUP_CORE_1>;
+			label = "slv-qup-core-slave-1";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_qup_virt>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QUP_CORE_1>;
+		};
+
+		slv_qhs_apss:slv-qhs-apss {
+			cell-id = <MSM_BUS_SLAVE_APPSS>;
+			label = "slv-qhs-apss";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_APPSS>;
+		};
+
+		slv_snoc_bimc_nrt:slv-snoc-bimc-nrt {
+			cell-id = <MSM_BUS_SLAVE_SNOC_BIMC_NRT>;
+			label = "slv-snoc-bimc-nrt";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
+			qcom,connections = <&mas_snoc_bimc_nrt>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC_NRT>;
+		};
+
+		slv_snoc_bimc_rt:slv-snoc-bimc-rt {
+			cell-id = <MSM_BUS_SLAVE_SNOC_BIMC_RT>;
+			label = "slv-snoc-bimc-rt";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_mmrt_virt>;
+			qcom,connections = <&mas_snoc_bimc_rt>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC_RT>;
+		};
+
+		slv_snoc_cnoc:slv-snoc-cnoc {
+			cell-id = <MSM_BUS_SNOC_CNOC_SLV>;
+			label = "slv-snoc-cnoc";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,connections = <&mas_snoc_cnoc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_CNOC>;
+		};
+
+		slv_qxs_imem:slv-qxs-imem {
+			cell-id = <MSM_BUS_SLAVE_OCIMEM>;
+			label = "slv-qxs-imem";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_IMEM>;
+		};
+
+		slv_qxs_pimem:slv-qxs-pimem {
+			cell-id = <MSM_BUS_SLAVE_PIMEM>;
+			label = "slv-qxs-pimem";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_PIMEM>;
+		};
+
+		slv_snoc_bimc:slv-snoc-bimc {
+			cell-id = <MSM_BUS_SNOC_BIMC_SLV>;
+			label = "slv-snoc-bimc";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,connections = <&mas_snoc_bimc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC>;
+		};
+
+		slv_srvc_snoc:slv-srvc-snoc {
+			cell-id = <MSM_BUS_SLAVE_SERVICE_SNOC>;
+			label = "slv-srvc-snoc";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_SERVICE_SNOC>;
+		};
+
+		slv_xs_qdss_stm:slv-xs-qdss-stm {
+			cell-id = <MSM_BUS_SLAVE_QDSS_STM>;
+			label = "slv-xs-qdss-stm";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_QDSS_STM>;
+		};
+
+		slv_xs_sys_tcu_cfg:slv-xs-sys-tcu-cfg {
+			cell-id = <MSM_BUS_SLAVE_TCU>;
+			label = "slv-xs-sys-tcu-cfg";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_TCU>;
+		};
+
+		slv_anoc_snoc:slv-anoc-snoc {
+			cell-id = <MSM_BUS_SLAVE_ANOC_SNOC>;
+			label = "slv-anoc-snoc";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,connections = <&mas_anoc_snoc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_A0NOC_SNOC>;
+		};
+
+		slv_gpu_cdsp_bimc:slv-gpu-cdsp-bimc {
+			cell-id = <MSM_BUS_SLAVE_GPU_CDSP_BIMC>;
+			label = "slv-gpu-cdsp-bimc";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_gpu_vert>;
+			qcom,connections = <&mas_gpu_cdsp_bimc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_GPU_CDSP_BIMC>;
+		};
+	};
+};

@@ -1,0 +1,781 @@
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	qcom,pmi632@2 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x2 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmi632_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pmi632_pon: qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
+
+		pmi632_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>, <0x3700 0x100>;
+			reg-names = "adc5-usr-base", "adc5-cal-base";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x2 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+			qcom,pmic-revid = <&pmi632_revid>;
+
+			/* Channel nodes */
+			ref_gnd {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vph_pwr {
+				reg = <ADC_VPH_PWR>;
+				label = "vph_pwr";
+				qcom,pre-scaling = <1 3>;
+			};
+
+			vbat_sns {
+				reg = <ADC_VBAT_SNS>;
+				label = "vbat_sns";
+				qcom,pre-scaling = <1 3>;
+			};
+
+			usb_in_i_uv {
+				reg = <ADC_USB_IN_I>;
+				label = "usb_in_i_uv";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			usb_in_v_div_16 {
+				reg = <ADC_USB_IN_V_16>;
+				label = "usb_in_v_div_16";
+				qcom,pre-scaling = <1 16>;
+			};
+
+			chg_temp {
+				reg = <ADC_CHG_TEMP>;
+				label = "chg_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_therm {
+				reg = <ADC_BAT_THERM_PU2>;
+				label = "bat_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_therm_30k {
+				reg = <ADC_BAT_THERM_PU1>;
+				label = "bat_therm_30k";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_therm_400k {
+				reg = <ADC_BAT_THERM_PU3>;
+				label = "bat_therm_400k";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			bat_id {
+				reg = <ADC_BAT_ID_PU2>;
+				label = "bat_id";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			xo_therm {
+				reg = <ADC_XO_THERM_PU2>;
+				label = "xo_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			v_i_int_ext {
+				reg = <ADC_INT_EXT_ISENSE_VBAT_VDATA>;
+				label = "v_i_int_vbat_vdata";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			v_i_parallel {
+				reg = <ADC_PARALLEL_ISENSE_VBAT_VDATA>;
+				label = "v_i_parallel_vbat_vdata";
+				qcom,pre-scaling = <1 1>;
+			};
+
+		};
+
+		pmi632_adc_tm: adc_tm@3500 {
+			compatible = "qcom,adc-tm5";
+			reg = <0x3500 0x100>;
+			interrupts = <0x2 0x35 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "thr-int-en";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#thermal-sensor-cells = <1>;
+		};
+
+		pmi632_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			#thermal-sensor-cells = <0>;
+			qcom,temperature-threshold-set = <1>;
+		};
+
+		pmi632_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x800>;
+			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
+					<0x2 0xc1 0 IRQ_TYPE_NONE>,
+					<0x2 0xc2 0 IRQ_TYPE_NONE>,
+					<0x2 0xc3 0 IRQ_TYPE_NONE>,
+					<0x2 0xc4 0 IRQ_TYPE_NONE>,
+					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc6 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmi632_gpio1", "pmi632_gpio2",
+					"pmi632_gpio3", "pmi632_gpio4",
+					"pmi632_gpio5", "pmi632_gpio6",
+					"pmi632_gpio7", "pmi632_gpio8";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		pmi632_charger: qcom,qpnp-smb5 {
+			compatible = "qcom,qpnp-smb5";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			#cooling-cells = <2>;
+
+			qcom,pmic-revid = <&pmi632_revid>;
+			io-channels = <&pmi632_vadc ADC_USB_IN_V_16>,
+				      <&pmi632_vadc ADC_USB_IN_I>,
+				      <&pmi632_vadc ADC_CHG_TEMP>,
+				      <&pmi632_vadc ADC_DIE_TEMP>;
+			io-channel-names = "usb_in_voltage",
+					   "usb_in_current",
+					   "chg_temp",
+					   "die_temp";
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =
+					<0x2 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x4 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "chgr-error",
+						  "chg-state-change",
+						  "step-chg-state-change",
+						  "step-chg-soc-update-fail",
+						  "step-chg-soc-update-req",
+						  "fg-fvcal-qualified",
+						  "vph-alarm",
+						  "vph-drop-prechg";
+			};
+
+			qcom,dcdc@1100 {
+				reg = <0x1100 0x100>;
+				interrupts =
+					<0x2 0x11 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x11 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x11 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x11 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+				interrupt-names = "otg-fail",
+						  "otg-oc-disable-sw",
+						  "otg-oc-hiccup",
+						  "bsm-active",
+						  "high-duty-cycle",
+						  "input-current-limiting",
+						  "concurrent-mode-disable",
+						  "switcher-power-ok";
+			};
+
+			qcom,batif@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =
+					<0x2 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x12 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x6 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+				interrupt-names = "bat-temp",
+						  "all-chnl-conv-done",
+						  "bat-ov",
+						  "bat-low",
+						  "bat-therm-or-id-missing",
+						  "bat-terminal-missing",
+						  "buck-oc",
+						  "vph-ov";
+			};
+
+			qcom,usb@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =
+					<0x2 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "usbin-collapse",
+						  "usbin-vashdn",
+						  "usbin-uv",
+						  "usbin-ov",
+						  "usbin-plugin",
+						  "usbin-revi-change",
+						  "usbin-src-change",
+						  "usbin-icl-change";
+			};
+
+			qcom,typec@1500 {
+				reg = <0x1500 0x100>;
+				interrupts =
+					<0x2 0x15 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x15 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x15 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x15 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "typec-or-rid-detect-change",
+						  "typec-vpd-detect",
+						  "typec-cc-state-change",
+						  "typec-vconn-oc",
+						  "typec-vbus-change",
+						  "typec-attach-detach",
+						  "typec-legacy-cable-detect",
+						  "typec-try-snk-src-detect";
+			};
+
+			qcom,misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts =
+					<0x2 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x16 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "wdog-snarl",
+						  "wdog-bark",
+						  "aicl-fail",
+						  "aicl-done",
+						  "smb-en",
+						  "imp-trigger",
+						  "temp-change",
+						  "temp-change-smb";
+			};
+
+			qcom,schgm-flash@a600 {
+				reg = <0xa600 0x100>;
+				interrupts =
+					<0x2 0xa6 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0xa6 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0xa6 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0xa6 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+				interrupt-names = "flash-state-change",
+						"ilim1-s1",
+						"ilim2-s2",
+						"vreg-ok";
+			};
+		};
+
+		pmi632_qg: qpnp,qg {
+			compatible = "qcom,qpnp-qg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,pmic-revid = <&pmi632_revid>;
+			io-channels = <&pmi632_vadc ADC_BAT_THERM_PU2>,
+				      <&pmi632_vadc ADC_BAT_ID_PU2>;
+			io-channel-names = "batt-therm",
+					   "batt-id";
+
+			qcom,qgauge@4800 {
+				status = "okay";
+				reg = <0x4800 0x100>;
+				interrupts =
+					<0x2 0x48 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x48 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x48 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x48 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x48 0x4 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "qg-batt-missing",
+						  "qg-vbat-low",
+						  "qg-vbat-empty",
+						  "qg-fifo-done",
+						  "qg-good-ocv";
+			};
+
+			qcom,qg-sdam@b100 {
+				status = "okay";
+				reg = <0xb100 0x100>;
+			};
+		};
+
+		pmi632_pbs_client3: qcom,pbs@7400 {
+			compatible = "qcom,qpnp-pbs";
+			reg = <0x7400 0x100>;
+		};
+
+		pmi632_sdam7: qcom,sdam@b600 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0xb600 0x100>;
+		};
+
+		bcl_sensor: bcl@3d00 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x3d00 0x100>;
+			interrupts = <0x2 0x3d 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x3d 0x1 IRQ_TYPE_NONE>,
+					<0x2 0x3d 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1",
+						"bcl-lvl2";
+			qcom,ibat-use-qg-adc-5a;
+			#thermal-sensor-cells = <1>;
+		};
+
+		bcl_soc: bcl-soc {
+			compatible = "qcom,msm-bcl-soc";
+			#thermal-sensor-cells = <0>;
+		};
+	};
+
+	pmi632_3: qcom,pmi632@3 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x3 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmi632_vib: qcom,vibrator@5700 {
+			compatible = "qcom,qpnp-vibrator-ldo";
+			reg = <0x5700 0x100>;
+			qcom,vib-ldo-volt-uv = <3000000>;
+			qcom,disable-overdrive;
+		};
+
+		pmi632_pwm: qcom,pwms@b300 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb300 0x500>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <5>;
+			nvmem-names = "ppg_sdam";
+			nvmem = <&pmi632_sdam7>;
+			qcom,pbs-client = <&pmi632_pbs_client3>;
+			qcom,lut-sdam-base = <0x80>;
+			qcom,lut-patterns = <0 0 0 14 28 42 56 70 84 100
+						100 84 70 56 42 28 14 0 0 0>;
+			lpg@1 {
+				qcom,lpg-chan-id = <1>;
+				qcom,ramp-step-ms = <200>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <19>;
+				qcom,ramp-pattern-repeat;
+				qcom,lpg-sdam-base = <0x48>;
+			};
+			lpg@2 {
+				qcom,lpg-chan-id = <2>;
+				qcom,ramp-step-ms = <200>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <19>;
+				qcom,ramp-pattern-repeat;
+				qcom,lpg-sdam-base = <0x56>;
+			};
+			lpg@3 {
+				qcom,lpg-chan-id = <3>;
+				qcom,ramp-step-ms = <200>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <19>;
+				qcom,ramp-pattern-repeat;
+				qcom,lpg-sdam-base = <0x64>;
+			};
+		};
+
+		pmi632_rgb: qcom,leds@d000 {
+			compatible = "qcom,tri-led";
+			reg = <0xd000 0x100>;
+			red {
+				label = "red";
+				pwms = <&pmi632_pwm 0 1000000>;
+				led-sources = <0>;
+				linux,default-trigger = "timer";
+			};
+			green {
+				label = "green";
+				pwms = <&pmi632_pwm 1 1000000>;
+				led-sources = <1>;
+				linux,default-trigger = "timer";
+			};
+			blue {
+				label = "blue";
+				pwms = <&pmi632_pwm 2 1000000>;
+				led-sources = <2>;
+				linux,default-trigger = "timer";
+			};
+		};
+
+		pmi632_lcdb: qpnp-lcdb@ec00 {
+			compatible = "qcom,qpnp-lcdb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0xec00 0x100>;
+			interrupts = <0x3 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "sc-irq";
+
+			qcom,pmic-revid = <&pmi632_revid>;
+			qcom,voltage-step-ramp;
+
+			lcdb_ldo_vreg: ldo {
+				label = "ldo";
+				regulator-name = "lcdb_ldo";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_ncp_vreg: ncp {
+				label = "ncp";
+				regulator-name = "lcdb_ncp";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_bst_vreg: bst {
+				label = "bst";
+				regulator-name = "lcdb_bst";
+				regulator-min-microvolt = <4700000>;
+				regulator-max-microvolt = <6275000>;
+			};
+		};
+
+		flash_led: qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led-v2";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			interrupts = <0x3 0xd3 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x3 0xd3 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x3 0xd3 0x4 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "led-fault-irq",
+					  "all-ramp-down-done-irq",
+					  "all-ramp-up-done-irq";
+			qcom,short-circuit-det;
+			qcom,open-circuit-det;
+			qcom,vph-droop-det;
+			qcom,thermal-derate-en;
+			qcom,thermal-derate-current = <200 500 1000>;
+			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pmi632_revid>;
+
+			pmi632_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_switch0: qcom,led_switch_0 {
+				label = "switch";
+				qcom,led-name = "led:switch_0";
+				qcom,led-mask = <3>;
+				qcom,default-led-trigger = "switch0_trigger";
+			};
+
+			pmi632_switch1: qcom,led_switch_1 {
+				label = "switch";
+				qcom,led-name = "led:switch_1";
+				qcom,led-mask = <2>;
+				qcom,default-led-trigger = "switch1_trigger";
+			};
+
+		};
+
+	};
+};
+
+&thermal_zones {
+	pmi632_temp_alarm: pmi632-tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pmi632_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pmi632_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pmi632_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-ibat-lvl0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 0>;
+		wake-capable-sensor;
+
+		trips {
+			pmi632_ibat_lvl0: ibat-lvl0 {
+				temperature = <4000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-ibat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 1>;
+		wake-capable-sensor;
+
+		trips {
+			pmi632_ibat_lvl1: ibat-lvl1 {
+				temperature = <4200>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-vbat-lvl0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 2>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			pmi632_vbat_lvl0: vbat-lvl0 {
+				temperature = <3000>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-vbat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 3>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			pmi632_vbat_lvl1: vbat-lvl1 {
+				temperature = <2800>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-vbat-lvl2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 4>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			pmi632_vbat_lvl2: vbat-lvl1 {
+				temperature = <2600>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-bcl-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 5>;
+		wake-capable-sensor;
+
+		trips {
+			bcl_lvl0: bcl-lvl0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-bcl-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 6>;
+		wake-capable-sensor;
+
+		trips {
+			bcl_lvl1: bcl-lvl1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pmi632-bcl-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 7>;
+		wake-capable-sensor;
+
+		trips {
+			bcl_lvl2: bcl-lvl2 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	soc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_soc>;
+		wake-capable-sensor;
+		tracks-low;
+
+		trips {
+			pmi632_low_soc: low-soc {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};

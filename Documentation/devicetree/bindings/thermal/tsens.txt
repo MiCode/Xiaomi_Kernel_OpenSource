@@ -1,0 +1,54 @@
+Qualcomm Technologies, Inc. TSENS driver
+
+Temperature sensor (TSENS) driver supports reading temperature from sensors
+across the MSM. The driver defaults to support a 12 bit ADC.
+
+The driver uses the Thermal sysfs framework to provide thermal
+clients the ability to read from supported on-die temperature sensors,
+set temperature thresholds for cool/warm thresholds and receive notification
+on temperature threshold events.
+
+TSENS node
+
+Required properties:
+- compatible : should be "qcom,msm8996-tsens" for 8996 TSENS driver.
+	       should be "qcom,msm8953-tsens" for 8953 TSENS driver.
+	       should be "qcom,msm8998-tsens" for 8998 TSENS driver.
+	       should be "qcom,msmhamster-tsens" for hamster TSENS driver.
+	       should be "qcom,sdm660-tsens" for 660 TSENS driver.
+	       should be "qcom,sdm630-tsens" for 630 TSENS driver.
+	       should be "qcom,sdm845-tsens" for SDM845 TSENS driver.
+	       should be "qcom,tsens24xx" for 2.4 TSENS controller.
+	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
+	       should be "qcom,qcs405-tsens" for QCS405 TSENS driver.
+	       should be "qcom,sm6150-tsens" for 6150 TSENS driver.
+	       should be "qcom,mdm9607-tsens" for 9607 TSENS driver.
+
+	       The compatible property is used to identify the respective controller to use
+	       for the corresponding SoC.
+- reg : offset and length of the TSENS registers with associated property in reg-names
+	as "tsens_srot_physical" for TSENS SROT physical address region. TSENS TM
+	physical address region as "tsens_tm_physical", and "tsens_eeprom_physical" for the
+	TSENS calibration fuse register region.
+- reg-names : resource names used for the physical address of the TSENS
+	      registers. Should be "tsens_srot_physical" for physical address of the TSENS
+	      SROT region, "tsens_tm_physical" for physical address of the TM region and
+		  "tsens_eeprom_physical" for the TSENS calibration fuse register region.
+- interrupts : TSENS interrupt to notify Upper/Lower and Critical temperature threshold.
+- interrupt-names: Should be "tsens-upper-lower" for temperature threshold.
+		   Add "tsens-critical" for Critical temperature threshold notification
+		   in addition to "tsens-upper-lower" for 8996 TSENS since
+		   8996 supports Upper/Lower and Critical temperature threshold.
+
+Example:
+
+tsens@fc4a8000 {
+	compatible = "qcom,msm-tsens";
+	reg = <0xfc4a8000 0x10>,
+		<0xfc4b8000 0x1ff>;
+	reg-names = "tsens_srot_physical",
+		    "tsens_tm_physical",
+			"tsens_eeprom_physical",
+	interrupts = <0 184 0>;
+	interrupt-names = "tsens-upper-lower";
+};

@@ -1,0 +1,23 @@
+Introduction
+=============
+The power management integrated circuit (PMIC) records the reason the
+Application processor was powered on in Shared Memory.
+The hardware and software used is the shared memory interface. This document
+is not for the purpose of describing this interface, but to identify the
+possible values for this data item.
+
+Description
+===========
+Shared memory item (SMEM_POWER_ON_STATUS_INFO) is read to get access to
+this data. The table below identifies the possible values stored.
+
+power_on_status values set by the PMIC for power on event:
+----------------------------------------------------------
+0x01 -- keyboard power on
+0x02 -- RTC alarm
+0x04 -- cable power on
+0x08 -- SMPL
+0x10 -- Watch Dog timeout
+0x20 -- USB charger
+0x40 -- Wall charger
+0xFF -- error reading power_on_status value

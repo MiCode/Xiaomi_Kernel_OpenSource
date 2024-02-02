@@ -1,0 +1,96 @@
+Qualcomm Technologies, Inc.
+
+AQT1000 audio CODEC
+
+Required properties:
+
+- compatible: "qcom,aqt1000-i2c-codec" for AQT1000 Codec
+
+- qcom,aqt-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
+                          configuration. If this property is not defined,
+                          codec will not get registered.
+
+- reg: Address of the codec. If this property is not defined then I2C will
+       not be able to get AQT1000 address.
+
+- qcom,cdc-static-supplies: Static VREG_BOB Supply for AQT1000 codec.
+                            All other supplies are derived from this.
+                            If this property is not defined,
+                            codec will not power up.
+
+-qcom,cdc-micbias1-mv: micbias1 output voltage in milli volts.
+                       This is used when cfilt is not user configurable
+                       and micbias1 is directly controlled with a register
+                       write.
+-qcom,cdc-ext-clk-rate: External clock frequency used for AQT1000.
+                        All internal clocks for AQT1000 are derived from this clock.
+                        If this property is not defined then default external
+                        clock rate of 9.6M will be provided.
+-qcom,cdc-mclk-clk-rate: Specifies the master clock rate in Hz required for
+                         codec.
+-qcom,aqt-irq: Phandle reference to DT node having codec interrupt gpio
+               configuration. If this property is not defined,
+               interrupt will not be enabled.
+
+- clock-names : clock name defined for external clock.
+- clocks : external clock defined for codec clock.
+
+- interrupt-controller : Mark this device node as an interrupt controller
+- #interrupt-cells : Should be 1
+- interrupt-parent : Parent interrupt controller
+- qcom,gpio-connect: GPIO that connects to parent interrupt controller
+
+- pinctrl-names: Pinctrl state names for each pin group configuration.
+- pinctrl-x: Defines pinctrl state for each pin group.
+
+Optional properties:
+
+- cdc-vdd-rxtx-supply: phandle of rxtx supply's regulator device tree node.
+- qcom,cdc-vdd-rxtx-voltage: rxtx supply's voltage level min and max in mV.
+- qcom,cdc-vdd-rxtx-current: rxtx supply's max current in mA.
+
+- cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+- qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+- qcom,cdc-vdd-buck-current: buck supply's max current in mA.
+
+- cdc-vdd-vbat-supply: phandle of vbat supply's regulator device tree node.
+- qcom,cdc-vdd-vbat-voltage: vbat supply's voltage level min and max in mV.
+- qcom,cdc-vdd-vbat-current: vbat supply's max current in mA.
+
+Example:
+i2c@a88000 {
+        status = "ok";
+        aqt1000_cdc: aqt1000-i2c-codec@d {
+                compatible = "qcom,aqt1000-i2c-codec";
+                reg = <0x0d>;
+                qcom,aqt-rst-gpio-node = <&aqt_rst_gpio>;
+                clock-names = "aqt_clk";
+                clocks = <&clock_audio_lnbb AUDIO_PMIC_LNBB_CLK>;
+                interrupt-controller;
+                #interrupt-cells = <1>;
+                interrupt-parent = <&tlmm>;
+                qcom,gpio-connect = <&tlmm 125 0>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&aqt_intr_default>;
+
+                cdc-vdd-rxtx-supply = <&pm8150_s4>;
+                qcom,cdc-vdd-rxtx-voltage = <1800000 1800000>;
+                qcom,cdc-vdd-rxtx-current = <33300>;
+
+                cdc-vdd-buck-supply = <&pm8150_s4>;
+                qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+                qcom,cdc-vdd-buck-current = <650000>;
+
+                cdc-vdd-vbat-supply = <&pm81501_bob>;
+                qcom,cdc-vdd-vbat-voltage = <3300000 3300000>;
+                qcom,cdc-vdd-vbat-current = <5000>;
+
+                qcom,cdc-static-supplies = "cdc-vdd-rxtx",
+                                           "cdc-vdd-buck",
+                                           "cdc-vdd-vbat";
+
+                qcom,cdc-ext-clk-rate = <19200000>;
+                qcom,cdc-mclk-clk-rate = <9600000>;
+                qcom,cdc-micbias1-mv = <1800>;
+        };
+};

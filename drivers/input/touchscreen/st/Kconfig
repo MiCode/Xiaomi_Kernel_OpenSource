@@ -1,0 +1,25 @@
+#
+# STMicroelectronics touchscreen driver configuration
+#
+
+#config TOUCHSCREEN_ST
+#	bool "STMicroelectronics Touchscreen Driver"
+#	default n
+#	depends on I2C
+#	help
+#	  Say Y here if you have a STMicroelectronics Touchscreen.
+#	  If unsure, say N.
+#
+
+#if TOUCHSCREEN_ST
+
+config TOUCHSCREEN_ST_I2C
+	#tristate "STMicroelectronics i2c touchscreen"
+	string "STMicroelectronics ts directory name"
+	default "st"
+	depends on TOUCHSCREEN_ST
+	help
+	 This enables support for ST touch panel over I2C based touchscreens.
+
+#endif
+

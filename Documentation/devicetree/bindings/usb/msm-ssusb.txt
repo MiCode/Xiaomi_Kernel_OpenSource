@@ -1,0 +1,152 @@
+MSM SuperSpeed USB3.0 SoC controller
+
+Required properties :
+- compatible : should be "qcom,dwc-usb3-msm"
+ - reg: Address and length of the register set for the device
+   Required regs are:
+	"core_base" : usb controller register set
+- interrupts: IRQ lines used by this controller
+- interrupt-names : Interrupt resource entries are :
+	"pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
+	Used for SS-USB power events.
+ - clocks: a list of phandles to the controller clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Required clocks are "xo", "iface_clk", "core_clk", "sleep_clk"
+   and "utmi_clk".
+- resets: reset specifier pair consists of phandle for the reset provider
+  and reset lines used by this controller.
+- reset-names: reset signal name strings sorted in the same order as the resets
+  property.
+
+Optional properties :
+- reg: Additional registers
+     "ahb2phy_base" : top-level register to configure read/write wait cycle with
+     both QMP and QUSB PHY registers.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+- qcom,default-bus-vote: To use default bus voting other than NOMINAL. Default is NOMINAL.
+- interrupt-names : Optional interrupt resource entries are:
+    "ss_phy_irq"  : Interrupt from super speed phy for wake up notification.
+    "hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM.
+    "dp_hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM
+    going through PDC. (use qcom,use-pdc-interrupts property)
+    "dm_hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM
+    going through PDC. (use qcom,use-pdc-interrupts property)
+
+ - clocks: a list of phandles to the controller clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Optional clocks are "bus_aggr_clk", "noc_aggr_clk" and "cfg_ahb_clk".
+- qcom,charging-disabled: If present then battery charging using USB
+  is disabled.
+- vbus_dwc3-supply: phandle to the 5V VBUS supply regulator used for host mode.
+- USB3_GDSC-supply : phandle to the globally distributed switch controller
+  regulator node to the USB controller.
+- dpdm-supply: phandle to dpdm supply which will be used to drive dp/dm lines
+  in high-z state.
+- qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
+		TX fifo allocation in bytes
+- qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
+  after USB is kept into LPM.
+- qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
+- qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
+- qcom,core-clk-rate-hs: If present, indicates min core clock frequency required to support
+  hs speed.
+- qcom,use-pdc-interrupts: It present, it configures provided PDC IRQ with required
+  configuration for wakeup functionality.
+- extcon: phandles to external connector devices. First phandle should point to
+	  external connector, which provide type-C based "USB" cable events, the
+	  second should point to external connector device, which provide type-C
+	  "USB-HOST" cable events. A single phandle may be specified if a single
+	  connector device provides both "USB" and "USB-HOST" events. An optional
+	  third phandle may be specified for EUD based attach/detach events. A
+	  mandatory fourth phandle has to be specified to provide microUSB based
+	  "USB" cable events. An optional fifth phandle may be specified to provide
+	  microUSB based "USB-HOST" cable events. Only the fourth phandle may be
+	  specified if a single connector device provides both "USB" and "USB-HOST"
+	  events.
+- qcom,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated
+  event buffers. 1 event buffer is needed per h/w accelerated endpoint.
+- qcom,gsi-reg-offset: USB GSI wrapper registers offset. It is must to provide this
+  if qcom,num-gsi-evt-buffs property is specified. Check dwc3-msm driver for order
+  and name of register offset need to provide.
+- qcom,gsi-disable-io-coherency: IO-coherency is enabled by default in usb gsi driver.
+  This property disables io-coherency in usb gsi driver.
+- qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
+	which is used as a vote by driver to get max performance in perf mode.
+- qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
+- qcom,dbm-version: If present, specifies DBM version. Currently "1.4" or "1.5"
+	are supported. If omitted, assume HW supports "1.5".
+- qcom,reset-ep-after-lpm-resume: If present, dbm requires ep reset after
+	going to lpm
+- qcom,ignore-wakeup-src-in-hostmode: If present, PM suspend/freeze allowed
+	irrespective of host runtimePM state. In PM suspend/resume case, core
+	will stay powered and connected devices will just be suspended/resumed.
+	In hibernation, core will power collapse and connected devices will
+	reset-resume on PM restore.
+- qcom,default-mode-none: If present, do not start any mode on probe for an OTG
+	capable DWC3 which does not have extcon handle.
+- qcom,default-mode-host: If present, start host mode on probe for an OTG
+	capable DWC3 which does not have extcon handle.
+- qcom,dual-port: If present, 2 different physical ports are supported by this
+	core. Please note that this flag is valid for cores supporting only host mode.
+
+Sub nodes:
+- Sub node for "DWC3- USB3 controller".
+  This sub node is required property for device node. The properties of this subnode
+  are specified in dwc3.txt.
+
+Example MSM USB3.0 controller device node :
+	usb@f9200000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xf9200000 0xfc000>,
+		      <0xf9b3e000 0x3ff>;
+		reg-names = "core_base",
+			"ahb2phy_base",
+		interrupts = <0 133 0>;
+		interrupt-names = "hs_phy_irq";
+		vbus_dwc3-supply = <&pm8941_mvs1>;
+		USB3_GDSC-supply = <&gdsc_usb30>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>
+		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,usb-dbm = <&dbm_1p4>;
+		qcom,lpm-to-suspend-delay-ms = <2>;
+		qcom,num-gsi-evt-buffs = <0x2>;
+		qcom,pm-qos-latency = <2>;
+
+		qcom,msm_bus,name = "usb3";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+				<61 512 0 0>,
+				<61 512 240000000 960000000>;
+
+		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
+			<&clock_gcc clk_gcc_cfg_noc_usb3_axi_clk>,
+			<&clock_gcc clk_gcc_aggre1_usb3_axi_clk>,
+			<&clock_rpmcc RPM_AGGR2_NOC_CLK>,
+			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
+			<&clock_gcc clk_gcc_usb30_sleep_clk>,
+			<&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+			<&clock_gcc clk_cxo_dwc3_clk>;
+
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk", "noc_aggr_clk",
+				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
+
+		resets = <&clock_gcc GCC_USB_30_BCR>;
+		reset-names = "core_reset";
+
+		dwc3@f9200000 {
+			compatible = "synopsys,dwc3";
+			reg = <0xf9200000 0xfc000>;
+			interrupts = <0 131 0>, <0 179 0>;
+			interrupt-names = "irq", "otg_irq";
+			tx-fifo-resize;
+		};
+	};

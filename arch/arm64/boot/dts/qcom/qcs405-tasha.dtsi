@@ -1,0 +1,113 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	wcd9xxx_intc: wcd9xxx-irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&tlmm>;
+		qcom,gpio-connect = <&tlmm 105 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
+	};
+
+	clock_audio: audio_ext_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <0>;
+		qcom,use-pinctrl = <1>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&tasha_mclk_default>;
+		pinctrl-1 = <&tasha_mclk_default>;
+		clock-names = "osr_clk";
+		clocks = <&pms405_clkdiv>;
+		pmic-clock-names = "pms405_div_clk1";
+		#clock-cells = <1>;
+	};
+
+	wcd_rst_gpio: msm_cdc_pinctrl@46 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 46 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
+	lineout_booster_gpio: msm_cdc_pinctrl@113 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		qcom,lo-booster-gpio = <&tlmm 113 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&lineout_booster_active>;
+		pinctrl-1 = <&lineout_booster_sleep>;
+	};
+};
+
+&slim_aud {
+	wcd9335: tasha_codec {
+		compatible = "qcom,tasha-slim-pgd";
+		elemental-addr = [00 01 a0 01 17 02];
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+		      17 18 19 20 21 22 23 24 25 26 27 28 29
+		      30>;
+
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+		clock-names = "wcd_clk";
+		clocks = <&clock_audio AUDIO_PMI_CLK>;
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-slim-ifd = "tasha-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 a0 01 17 02];
+		qcom,cdc-dmic-sample-rate = <4800000>;
+		qcom,cdc-mad-dmic-rate = <600000>;
+		qcom,vote-dynamic-supply-on-demand = <1>;
+
+		cdc-vdd-buck-supply = <&pms405_s4>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <594000>;
+
+		cdc-buck-sido-supply = <&pms405_s4>;
+		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+		qcom,cdc-buck-sido-current = <200000>;
+
+		cdc-vdd-tx-h-supply = <&pms405_l6>;
+		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-tx-h-current = <25000>;
+
+		cdc-vdd-rx-h-supply = <&pms405_l6>;
+		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rx-h-current = <25000>;
+
+		cdc-vdd-px-supply = <&pms405_l6>;
+		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-px-current = <9000>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-buck",
+					   "cdc-buck-sido",
+					   "cdc-vdd-px";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-tx-h",
+					      "cdc-vdd-rx-h";
+	};
+};
+
+&qcs405_snd {
+	qcom,lineout-booster-gpio = <&lineout_booster_gpio>;
+};

@@ -1,0 +1,898 @@
+QTI CPR (Core Power Reduction) Regulator
+
+CPR regulator device is for QTI RBCPR (RapidBridge CPR) on
+	application processor core. It takes voltage corner level
+	as input and converts it to actual voltage based on the
+	suggestions from factory production process. When CPR is
+	enabled for application processer core, it will suggest
+	scaling the voltage up or down for best performance and
+	power of the core. The scaling based on factory production
+	process is called PVS (Process Voltage Scaling) with efuse
+	bits to indicate what bin (and voltage range) a chip is in.
+
+Required properties:
+- compatible:			Must be "qcom,cpr-regulator"
+- reg:				Register addresses for RBCPR, RBCPR clock
+				select, PVS and CPR eFuse address
+- reg-names:			Register names. Must be "rbcpr" and "efuse_addr".
+				"rbcpr_clk" is optional.
+- regulator-name:		A string used to describe the regulator
+- interrupts:			Interrupt line from RBCPR to interrupt controller.
+- qcom,cpr-fuse-corners:	Number of fuse corners present.  Many other properties
+				are sized based upon this value.
+- regulator-min-microvolt:	Minimum corner value which should be 1 to
+				represent the lowest supported corner.
+- regulator-max-microvolt:	Maximum corner value which should be equal to
+				qcom,cpr-fuse-corners if consumers request fuse
+				corners or the length of qcom,cpr-corner-map if
+				consumers request virtual corners.
+- qcom,cpr-voltage-ceiling:	Array of ceiling voltages in microvolts for fuse
+				corners ordered from lowest voltage corner to highest
+				voltage corner.  This property must be of length
+				defined by qcom,cpr-fuse-corners.
+- qcom,cpr-voltage-floor:	Array of floor voltages in microvolts for fuse
+				corners ordered from lowest voltage corner to highest
+				voltage corner.  This property must be of length
+				defined by qcom,cpr-fuse-corners.
+- vdd-apc-supply:		Regulator to supply VDD APC power
+- qcom,vdd-apc-step-up-limit:	Limit of vdd-apc-supply steps for scaling up.
+- qcom,vdd-apc-step-down-limit:	Limit of vdd-apc-supply steps for scaling down.
+- qcom,cpr-ref-clk:		The reference clock in kHz.
+- qcom,cpr-timer-delay:		The delay in microseconds for the timer interval.
+- qcom,cpr-timer-cons-up:	Consecutive number of timer interval (qcom,cpr-timer-delay)
+				occurred before issuing UP interrupt.
+- qcom,cpr-timer-cons-down:	Consecutive number of timer interval (qcom,cpr-timer-delay)
+				occurred before issuing DOWN interrupt.
+- qcom,cpr-irq-line:		Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
+- qcom,cpr-step-quotient:	Defines the number of CPR quotient (i.e. Ring Oscillator(RO)
+				count) per vdd-apc-supply output voltage step.  A single
+				integer value may be specified which is to be used for all
+				RO's.  Alternatively, 8 integer values may be specified which
+				define the step quotients for RO0 to RO7 in order.
+- qcom,cpr-up-threshold:	The threshold for CPR to issue interrupt when
+				error_steps is greater than it when stepping up.
+- qcom,cpr-down-threshold:	The threshold for CPR to issue interrupt when
+				error_steps is greater than it when stepping down.
+- qcom,cpr-idle-clocks:		Idle clock cycles RO can be in.
+- qcom,cpr-gcnt-time:		The time for gate count in microseconds.
+- qcom,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
+- qcom,cpr-fuse-row:		Array of row number of CPR fuse and method to read that row. It should have
+				index and value like this:
+				 [0] => the fuse row number
+				 [1] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qcom,cpr-fuse-target-quot:	Array of bit positions in the primary CPR fuse row defined
+				by qcom,cpr-fuse-row for the target quotients of each
+				fuse corner.  Each bit position corresponds to the LSB
+				of the quotient parameter.  The elements in the array
+				are ordered from lowest voltage corner to highest voltage
+				corner.  This property must be of length defined by
+				qcom,cpr-fuse-corners.
+- qcom,cpr-fuse-ro-sel:		Array of bit positions in the primary CPR fuse row defined
+				by qcom,cpr-fuse-row for the ring oscillator selection for each
+				fuse corner.  Each bit position corresponds to the LSB
+				of the RO select parameter.  The elements in the array
+				are ordered from lowest voltage corner to highest voltage
+				corner.  This property must be of length defined by
+				qcom,cpr-fuse-corners.
+
+Optional properties:
+- vdd-mx-supply:		Regulator to supply memory power as dependency
+				of VDD APC.
+- qcom,vdd-mx-vmax:		The maximum voltage in uV for vdd-mx-supply. This
+				is required when vdd-mx-supply is present.
+- qcom,vdd-mx-vmin-method:	The method to determine the minimum voltage for
+				vdd-mx-supply, which can be one of following
+				choices compared with VDD APC:
+				  0 => equal to the voltage(vmin) of VDD APC
+				  1 => equal to PVS corner ceiling voltage
+				  2 => equal to slow speed corner ceiling
+				  3 => equal to qcom,vdd-mx-vmax
+				  4 => equal to VDD_APC fuse corner mapped vdd-mx voltage
+				  5 => equal to VDD_APC virtual corner mapped vdd-mx voltage
+				This is required when vdd-mx-supply is present.
+- qcom,vdd-mx-corner-map:	Array of integers which defines the mapping from VDD_APC
+				voltage corners to vdd-mx-supply voltages.
+				Each element is a voltage to request from vdd-mx for the
+				corresponding fuse corner or virtual corner. The elements
+				in the array are ordered from lowest voltage corner
+				to highest voltage corner.  The length of this property
+				depends on the value of qcom,vdd-mx-vmin-method property.
+				When qcom,vdd-mx-vmin-method property has a value of 4, the length
+				of this property must be equal to the value defined by qcom,cpr-fuse-corners.
+				When qcom,vdd-mx-vmin-method property has a value of 5, the length of
+				this property must be equal to the number of elements in the qcom,cpr-corner-map
+				property.
+- qcom,pvs-voltage-table: 	Array of N-tuples in which each tuple specifies the
+				initial voltage in microvolts of the PVS bin for each
+				fuse voltage corner.  The location or 0-based index
+				of a tuple in the list corresponds to the PVS bin number.
+				Each tuple must be of length defined by qcom,cpr-fuse-corners.
+				A given cpr-regulator device must have either
+				qcom,pvs-voltage-table specified or
+				qcom,cpr-fuse-init-voltage (and its associated properties).
+- qcom,pvs-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
+				compare with in order to decide if the redundant PVS fuse bits would be
+				used instead of the original bits and method to read fuse row, reading
+				register through SCM or directly. The 5 elements with index [0..4] are:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => the value to indicate redundant selection
+				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
+				When the value of the fuse bits specified by first 3 elements equals to
+				the value in 4th element, redundant PVS fuse bits should be selected.
+				Otherwise, the original PVS bits should be selected. If the 5th
+				element is 0, read the fuse row from register directly. Otherwise,
+				read it through SCM.
+				This property is required if qcom,pvs-voltage-table is present.
+- qcom,pvs-fuse:		Array of 4 elements to indicate the bits for PVS fuse and read method.
+				The array should have index and value like this:
+				  [0] => the PVS fuse row number
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+				This property is required if qcom,pvs-voltage-table is present.
+- qcom,pvs-fuse-redun:		Array of 4 elements to indicate the bits for redundant PVS fuse.
+				The array should have index and value like this:
+				  [0] => the redundant PVS fuse row number
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+				This property is required if qcom,pvs-voltage-table is present.
+- qcom,cpr-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
+				compare with in order to decide if the redundant CPR fuse bits would be
+				used instead of the original bits and method to read fuse row, using SCM
+				to read or read register directly. The 5 elements with index [0..4] are:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => the value to indicate redundant selection
+				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
+				When the value of the fuse bits specified by first 3 elements equals to
+				the value in 4th element, redundant CPR fuse bits should be selected.
+				Otherwise, the original CPR bits should be selected. If the 5th element
+				is 0, read the fuse row from register directly. Otherwise, read it through
+				SCM.
+- qcom,cpr-fuse-redun-row:	Array of row number of redundant CPR fuse and method to read that
+				row. It should have index and value like this:
+				 [0] => the redundant fuse row number
+				 [1] => the value to indicate reading the fuse row directly or using SCM
+				This property is required if qcom,cpr-fuse-redun-sel is present.
+- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in the redundant CPR fuse row defined
+				by qcom,cpr-fuse-redun-row for the target quotients of each
+				fuse corner.  Each bit position corresponds to the LSB
+				of the quotient parameter.  The elements in the array
+				are ordered from lowest voltage corner to highest voltage corner.
+				This property must be of length defined by qcom,cpr-fuse-corners.
+				This property is required if qcom,cpr-fuse-redun-sel is present.
+- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in the redundant CPR fuse row defined
+				by qcom,cpr-fuse-redun-row for the ring oscillator select of each
+				fuse corner.  Each bit position corresponds to the LSB of the RO
+				select parameter.  The elements in the array are ordered from
+				lowest voltage corner to highest voltage corner.
+				This property must be of length defined by qcom,cpr-fuse-corners.
+				This property is required if qcom,cpr-fuse-redun-sel is present.
+- qcom,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
+- qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
+					This property is required if cpr-fuse-redun-bp-cpr-disable
+					is present, and vise versa.
+- qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disabled
+- qcom,cpr-fuse-bp-scheme:     Bit position of the bit to indicate if it's a global/local scheme
+- qcom,cpr-fuse-revision:	Array of 4 integer elements which define the location of the bits for
+				the CPR fusing revision fuse parameter.  The 4 elements are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => the number of bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The fusing revision value is used to determine which specific adjustments
+				are required on some chips.
+- qcom,cpr-fuse-target-quot-size:	Array of target quotient parameter bit sizes in the primary
+				or redundant CPR fuse row for each fuse corner.  The elements in the
+				array are ordered from lowest voltage corner to highest voltage corner.
+				If this property is not present, then all target quotient fuse values
+				are assumed to be the default length of 12 bits.
+- qcom,cpr-fuse-target-quot-scale:	Array of doubles which defines the scaling coefficients to decode
+				the target quotients of each fuse corner.  The first element in each
+				double represents the offset to add to the scaled quotient.  The second
+				element represents the multiplier to scale the quotient by.  For example,
+				given a tuple <A B>, quot_decoded = A + (B * quot_raw).
+				The doubles in the array are ordered from lowest voltage corner to highest
+				voltage corner.  This property must contain a number of doubles equal to
+				the value of qcom,cpr-fuse-corners.  If this property is not present,
+				then all target quotient parameters are assumed to have an offset of 0
+				and a multiplier of 1 (i.e. no decoding needed).
+- qcom,cpr-enable:		Present: CPR enabled by default.
+				Not Present: CPR disable by default.
+- qcom,cpr-fuse-cond-min-volt-sel:	Array of 5 elements to indicate where to read the bits,  what value to
+				compare with in order to decide if the conditional minimum apc voltage needs
+				to be applied and the fuse reading method.
+				The 5 elements with index[0..4] are:
+				[0] => the fuse row number;
+				[1] => LSB bit position of the bits;
+				[2] => number of the bits;
+				[3] => the expected data to read;
+				[4] => fuse reading method, 0 for direct reading or 1 for SCM reading;
+				When the value of the fuse bits specified by first 3 elements is not equal to
+				the value in 4th element, then set the apc voltage for all parts running
+				at each voltage corner to be not lower than the voltage defined
+				using "qcom,cpr-cond-min-voltage".
+- qcom,cpr-cond-min-voltage:	Minimum voltage in microvolts allowed for cpr-regulator output if the fuse bits
+				defined in qcom,cpr-fuse-cond-min-volt-sel have not been programmed with the
+				expected data. This is required if cpr-fuse-cond-min-volt-sel is present.
+- qcom,cpr-fuse-uplift-sel: 	Array of 5 elements to indicate where to read the bits, what value to
+				compare with in order to enable or disable the pvs voltage uplift workaround,
+				and the fuse reading method.
+				The 5 elements with index[0..4] are:
+				[0]: => the fuse row number of the selector;
+				[1]: => LSB bit position of the bits;
+				[2]: => number of the bits;
+				[3]: => the value to indicate if the apc pvs voltage uplift workaround will
+					be enabled;
+				[4]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+				When the value of the fuse bits specified by first 3 elements equals to the
+				value in 4th element, the pvs voltage uplift workaround will be enabled.
+- qcom,speed-bin-fuse-sel:	Array of 4 elements to indicate where to read the speed bin of the processor,
+				and the fuse reading method.
+				The 4 elements with index[0..3] are:
+				[0]: => the fuse row number of the selector;
+				[1]: => LSB bit position of the bits;
+				[2]: => number of the bits;
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qcom,cpr-uplift-voltage:	Uplift in microvolts used for increasing pvs init voltage. If this property is present,
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qcom,cpr-uplift-max-volt:	Maximum voltage in microvolts used for pvs voltage uplift workaround to limit
+				the maximum pvs voltage.
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qcom,cpr-uplift-quotient:	Array of target quotient increments to add to the fused quotients of each
+				fuse corner as part of the PVS voltage uplift workaround.
+				The elements in the array are ordered from lowest voltage
+				corner to highest voltage corner.  This property must be of
+				length defined by qcom,cpr-fuse-corners.  This is required
+				if cpr-fuse-uplift-disable-sel is present.
+- qcom,cpr-uplift-speed-bin:	The speed bin value corresponding to one type of processor which needs to apply the
+				pvs voltage uplift workaround.
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qcom,cpr-fuse-version-map:	Array of integer tuples which each match to a given combination of CPR
+				fuse parameter values.  Each tuple consists of N + 3 elements.  Where
+				N is the number of fuse corners defined by the qcom,cpr-fuse-corners
+				property.  The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU
+				[1]: =>		the PVS version of the CPU
+				[2]: =>		the CPR fuse revision
+				[3 - N+2]: =>	the ring oscillator select value of each fuse corner
+						ordered from lowest to highest
+				Any element in a tuple may use the value 0xffffffff as a wildcard
+				which will match against any fuse parameter value.  The first tuple
+				that matches against the fuse values read from hardware will be used.
+				This property is used by several properties to provide an index into
+				their lists.
+- qcom,cpr-allowed:		Integer values that specifies whether the closed loop CPR is allowed or
+				not for a particular fuse revision. If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-allowed must contain the same number
+				of integers as that of the number of tuples in qcom,cpr-fuse-version-map.
+				If the integer value has a value 0 for a particular fuse revision, then it
+				is treated as if the closed loop operation is disabled in the fuse. If the
+				integer value has a value 1 for a particular fuse revision, then the closed
+				loop operation is enabled for that fuse revision. If nothing is specified
+				for a particular fuse revision, then the closed loop operation is enabled
+				for that fuse revision by default.
+- qcom,cpr-quotient-adjustment:	Array of integer tuples of target quotient adjustments to add to the fused
+				quotients of each fuse corner.  The elements in a tuple are ordered from
+				lowest voltage corner to highest voltage corner.  Each tuple must be of
+				length defined by qcom,cpr-fuse-corners.  If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-quotient-adjustment must contain the
+				same number of tuples as qcom,cpr-fuse-version-map.  These tuples are then
+				mapped one-to-one in the order specified.  E.g. if the second
+				qcom,cpr-fuse-version-map tuple matches for a given device, then the quotient
+				adjustments defined in the second qcom,cpr-quotient-adjustment tuple will
+				be applied.  If the qcom,cpr-fuse-version-map property is not specified,
+				then qcom,cpr-quotient-adjustment must contain a single tuple which is then
+				applied unconditionally.  If this property is specified, then the quotient
+				adjustment values are added to the target quotient values read from fuses
+				before writing them into the CPR GCNT target control registers.
+				This property can be used to add or subtract static voltage margin from the
+				regulator managed by the CPR controller.
+- qcom,cpr-init-voltage-adjustment:  Array of integer tuples of initial voltage adjustments in microvolts to
+				add to the fused initial voltage values of each fuse corner.  The elements
+				in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length defined by qcom,cpr-fuse-corners.  If the
+				qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-init-voltage-adjustment must contain the same number of tuples as
+				qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then the initial voltage adjustments defined in the
+				second qcom,cpr-init-voltage-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-init-voltage-adjustment must contain a single tuple which is then
+				applied unconditionally.  This property can be used to add or subtract
+				static initial voltage margin from the regulator managed by the CPR
+				controller.
+- qcom,cpr-quot-offset-adjustment:	Array of integer tuples of target quotient offset adjustments to add
+				to the fused quotient offsets of each fuse corner. The elements in a tuple
+				are ordered from lowest voltage corner to highest voltage corner. Each tuple
+				must be of length defined by qcom,cpr-fuse-corners. If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-quot-offset-adjustment must contain the
+				same number of tuples as qcom,cpr-fuse-version-map.  These tuples are then
+				mapped one-to-one in the order specified.  E.g. if the second
+				qcom,cpr-fuse-version-map tuple matches for a given device, then the quotient
+				offset adjustments defined in the second qcom,cpr-quot-offset-adjustment tuple
+				will be applied. If the qcom,cpr-fuse-version-map property is not specified,
+				then qcom,cpr-quot-offset-adjustment must contain a single tuple which is then
+				applied unconditionally.  If this property is specified, then the quotient
+				offset adjustment values are added to the target quotient offset values read
+				from fuses.
+				This property can be used to add or subtract static quotient offset margin from
+				the regulator managed by the CPR controller.
+- qcom,cpr-clamp-timer-interval:	The number of 64 reference clock cycle blocks to delay for whenever
+					the clamp signal, sensor mask registers or sensor bypass registers
+					change.  The CPR controller loop is disabled during this delay.
+					Supported values are 0 to 255.  If this property is not specified,
+					then a value of 0 is assumed.  Note that if this property has a
+					value greater than 0, then software cannot accurately determine the
+					error_steps value that corresponds to a given CPR measurement
+					unless processor power collapsing is disabled.  If this property
+					has a value of 0, then the CPR controller loop is not disabled and
+					re-enabled while idle if the clamp signal changes.  Instead, it
+					will remain idle until software issues an ACK or NACK command.
+					This ensures that software can read the error_steps value which
+					resulted in the CPR up or down interrupt.  Setting this property to
+					a value greater than 0 is useful for resetting the CPR sensors of a
+					processor that uses BHS type voltage switches in order to avoid
+					anomalous CPR up interrupts when exiting from power collapse.
+- vdd-apc-optional-prim-supply:	Present: Regulator of highest priority to supply VDD APC power
+				Not Present: No such regulator.
+- vdd-apc-optional-sec-supply:	Present: Regulator of second highest priority to supply VDD APC power.
+				Not Present: No such regulator.
+- qcom,cpr-speed-bin-max-corners: Array of (N+2)-tuples in which each tuple maps a CPU speed bin and PVS version to
+				the maximum virtual voltage corner corresponding to each fuse corner.  The value N
+				corresponds to the number of fuse corners specified by qcom,cpr-fuse-corners.
+				The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU. It may use the value 0xffffffff as a
+						wildcard to match any speed bin values.
+				[1]: =>		the PVS version of the CPU. It may use the value 0xffffffff as
+						a wildcard to match any PVS version values.
+				[2 - N+1]: =>	the max virtual voltage corner value corresponding to each fuse corner
+						for this speed bin, ordered from lowest voltage corner to highest
+						voltage corner.
+				No CPR target quotient scaling is applied on chips which have a speed bin + PVS version
+				pair that does not appear in one of the tuples in this property. If the property is
+				specified, then quotient scaling is enabled for the highest voltage corner. If this property is
+				not specified, then no quotient scaling can take place.
+- qcom,cpr-corner-map:		Array of elements of fuse corner value for each virtual corner.
+				The location or 1-based index of an element in the list corresponds to
+				the virtual corner value. For example, the first element in the list is the fuse corner
+				value that virtual corner 1 maps to.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- qcom,cpr-corner-frequency-map: Array of tuples in which a tuple describes a corner to application processor frequency
+				mapping.
+				The 2 elements in one tuple are:
+				[0]: => a virtual voltage corner.
+				[1]: => the application processor frequency in Hz corresponding to the virtual corner.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- qcom,pvs-version-fuse-sel:	Array of 4 elements to indicate where to read the pvs version of the processor,
+				and the fuse reading method.
+				The 4 elements with index[0..3] are:
+				[0]: => the fuse row number of the selector;
+				[1]: => LSB bit position of the bits;
+				[2]: => the number of bits;
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+- qcom,cpr-voltage-ceiling-override: Array of (N+2)-tuples in which each tuple maps a CPU speed bin and PVS version
+				to the ceiling voltage to apply for each virtual voltage corner.  The value N
+				corresponds to the number of virtual corners as specified by the number of elements
+				in the qcom,cpr-corner-map property.
+				The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU. It may use the value 0xffffffff as a
+						wildcard to match any speed bin values.
+				[1]: =>		the PVS version of the CPU. It may use the value 0xffffffff as a
+						wildcard to match any PVS version values.
+				[2 - N+1]: =>	the ceiling voltage value in microvolts corresponding to each virtual
+						corner for this speed bin, ordered from lowest voltage corner to
+						highest voltage corner.
+				No ceiling override is applied on chips which have a speed bin + PVS version
+				pair that does not appear in one of the tuples in this property.  If the property is
+				specified and the speed bin + PVS version matches, then the per-virtual-corner ceiling
+				voltages will be used in place of the per-fuse-corner ceiling voltages defined in the
+				qcom,cpr-voltage-ceiling property.  If this property is not specified, then the
+				per-fuse-corner ceiling voltages will always be used.
+- qcom,cpr-voltage-floor-override: Array of (N+2)-tuples in which each tuple maps a CPU speed bin and PVS version
+				to the floor voltage to apply for each virtual voltage corner.  The value N
+				corresponds to the number of virtual corners as specified by the number of elements
+				in the qcom,cpr-corner-map property.
+				The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU. It may use the value 0xffffffff as a
+						wildcard to match any speed bin values.
+				[1]: =>		the PVS version of the CPU. It may use the value 0xffffffff as a
+						wildcard to match any PVS version values.
+				[2 - N+1]: =>	the floor voltage value in microvolts corresponding to each virtual
+						corner for this speed bin, ordered from lowest voltage corner to
+						highest voltage corner.
+				No floor override is applied on chips which have a speed bin + PVS version
+				pair that does not appear in one of the tuples in this property.  If the property is
+				specified and the speed bin + PVS version matches, then the per-virtual-corner floor
+				voltages will be used in place of the per-fuse-corner floor voltages defined in the
+				qcom,cpr-voltage-floor property.  If this property is not specified, then the
+				per-fuse-corner floor voltages will always be used.
+- qcom,cpr-floor-to-ceiling-max-range:	Array of integer tuples of floor-to-ceiling max range values in microvolts
+				to be subtracted from the ceiling voltage values of each virtual corner.
+				Supported values are those greater than or equal 0, or (-1). The value 0 for a corner
+				implies that the floor value for that corner has to equal to its ceiling value.
+				The value (-1) for a corner implies that no modification to the default floor voltage
+				is required. The elements in a tuple are ordered from lowest voltage corner to highest
+				voltage corner. Each tuple must be of the length equal to the number of virtual corners
+				as specified by the number of elements in the qcom,cpr-corner-map property. If the
+				qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-dynamic-floor-override-adjustment must contain the same number of
+				tuples as qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then voltage adjustments defined in the second
+				qcom,cpr-dynamic-floor-override-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-dynamic-floor-override-adjustment must contain a single tuple which
+				is then applied unconditionally.
+- qcom,cpr-virtual-corner-init-voltage-adjustment: Array of integer tuples of voltage adjustments in microvolts to be
+				added to the initial voltage values of each virtual corner.  The elements
+				in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length equal to the number of virtual corners as
+				specified by the number of elements in the qcom,cpr-corner-map property. If the
+				qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-virtual-corner-init-voltage-adjustment must contain the same number of
+				tuples as qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then voltage adjustments defined in the second
+				qcom,cpr-virtual-corner-init-voltage-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-virtual-corner-init-voltage-adjustment must contain a single tuple which
+				is then applied unconditionally.
+- qcom,cpr-virtual-corner-quotient-adjustment: Array of integer tuples of quotient offsets to be added to
+				the scaled target quotient of each virtual corner. The elements
+				in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length equal to the number of virtual corners as
+				specified by the number of elements in the qcom,cpr-corner-map property.
+				If the qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-virtual-corner-quotient-adjustment must contain the same number of tuples as
+				qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then quotient adjustments defined in the second
+				qcom,cpr-virtual-corner-quotient-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-virtual-corner-quotient-adjustment must contain a single tuple which is then
+				applied unconditionally.
+- qcom,cpr-cpus:		Array of CPU phandles which correspond to the cores that this cpr-regulator
+				device must monitor when adjusting the voltage and/or target quotient based
+				upon the number of online cores or make sure that one of them must be online
+				when performing de-aging measurements. This property must be specified in order to
+				utilize the qcom,cpr-aging-sensor-id property.
+- qcom,cpr-init-voltage-as-ceiling: Boolean which indicates that the ceiling voltage used for a given virtual
+				corner may be reduced to the per-fuse-corner initial voltage fuse value.
+- qcom,cpr-scaled-init-voltage-as-ceiling: Boolean which indicates that the ceiling voltage used for a given
+				virtual corner may be reduced to the interpolated, per-virtual-corner initial
+				voltage value.  Note that if both qcom,cpr-init-voltage-as-ceiling and
+				qcom,cpr-scaled-init-voltage-as-ceiling are specified, then
+				qcom,cpr-scaled-init-voltage-as-ceiling will take precedence since the interpolated
+				voltages are necessarily less than or equal to the fused initial voltage values.
+- qcom,cpr-voltage-scaling-factor-max: Array of values which define the maximum allowed scaling factor to apply
+				when calculating per-corner initial voltage values for each fuse corner.  The
+				array must be of length equal to the value of the qcom,cpr-fuse-corners property.
+				Each element in the array maps to the fuse corners in increasing order.
+				The elements have units of uV/MHz.  Each element corresponds to 'max_factor' in
+				the following equation:
+				init_voltage_min(f) = fuse_init_voltage(f) - (fuse_f_max - f) * max_factor
+				If this property is not specified, then the initial voltage for each virtual
+				corner will be set to the initial voltage of the associated fuse corner.
+- qcom,cpr-quot-adjust-scaling-factor-max: Array of values which define the maximum allowed scaling factor to
+				apply when calculating per-virtual-corner target quotients for each fuse
+				corner.  Two data formats are allowed for this property.  The primary one
+				requires that the array be of length equal to the value of the
+				qcom,cpr-fuse-corners property.  When using this format, each element in the
+				array maps to the fuse corners in increasing order.  The second depreciated
+				format allows for only a single element to be specified which defines the
+				maximum scaling factor for the highest fuse corner.  In this case, a value of
+				0 is assumed for the lower fuse corners.  The elements of this property have
+				units of QUOT/GHz.  Each element corresponds to 'max_factor' in the following
+				equation:
+				quot_min(f) = fuse_quot(f) - (fuse_f_max - f) * max_factor / 1000
+				where f and fuse_f_max have units of MHz.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- qcom,cpr-fuse-init-voltage:	Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get an initial voltage for a fuse corner. The fuse values
+				are encoded as voltage steps higher or lower than the voltages defined in
+				qcom,cpr-voltage-ceiling. Each step corresponds to the voltage defined by
+				the qcom,cpr-init-voltage-step property.
+				The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => number of the bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The quadruples are ordered from the lowest voltage fuse corner to the
+				highest voltage fuse corner.
+				A given cpr-regulator device must have either qcom,cpr-fuse-init-voltage
+				specified or qcom,pvs-voltage-table (and its associated properties).
+- qcom,cpr-fuse-redun-init-voltage: Array of quadruples in which each quadruple specifies a fuse location
+				to read in order to get the redundant initial voltage for a fuse corner.
+				This property is the same as qcom,cpr-fuse-init-voltage except that it is
+				only utilized if a chip is configured to use the redundant set of fuse
+				values.  This property is required if qcom,cpr-fuse-redun-sel and
+				qcom,cpr-fuse-init-voltage are specified.
+- qcom,cpr-init-voltage-ref:	Array of reference voltages in microvolts used when decoding the initial
+				voltage fuse values.  The elements in the array are ordered from lowest
+				voltage corner to highest voltage corner.  This property must be of length
+				defined by qcom,cpr-fuse-corners.
+				This property is required if qcom,cpr-fuse-init-voltage is present.
+- qcom,cpr-init-voltage-step:	The voltage step size in microvolts of the CPR initial voltage fuses described by the
+				qcom,cpr-fuse-init-voltage property.
+				This property is required if qcom,cpr-fuse-init-voltage is present.
+- mem-acc-supply:		Regulator to vote for the memory accelerator configuration.
+				Not Present: memory accelerator configuration not supported.
+- qcom,mem-acc-corner-map:	Array of integer which defines the mapping from mem-acc corner value for each
+				virtual corner. Each element is a mem-acc state for the corresponding virtual corner.
+				The elements in the array are ordered from lowest voltage corner to highest voltage corner.
+- qcom,fuse-remap-source:	Array of quadruples in which each quadruple specifies a fuse location to
+				remap.  The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => the number of bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The fuse bits for all quadruples are packed together in the order specified
+				into 64-bit virtual fuse rows beginning at the row number defined in the
+				qcom,fuse-remap-base-row property.  The remapped rows may be used by any
+				other properties.
+				Example:
+					qcom,fuse-remap-base-row = <1000>;
+					qcom,fuse-remap-source =
+							<13 57 2 0>,
+							<14 30 3 0>,
+							<20 1 7 0>,
+							<40 47 120 0>;
+
+					This results in the following bit remapping:
+
+					Row   Bits       Remap Row  Remap Bits
+					13    57..58  -->  1000      0..1
+					14    30..32  -->  1000      2..4
+					20     1..7   -->  1000      5..11
+					40    47..63  -->  1000     12..28
+					41     0..34  -->  1000     29..63
+					41    35..63  -->  1001      0..28
+					42     0..34  -->  1001     29..63
+					42    35..38  -->  1002      0..3
+
+					A tuple like this could then be used to reference some of the
+					concatenated bits from rows 13, 14, and 20:
+
+					qcom,cpr-fuse-init-voltage = <1000 0 6 0>;
+- qcom,fuse-remap-base-row:	Integer which defines the virtual row number to use as a base when remapping
+				fuse bits.  The remap base row number can be any value as long as it is
+				greater than all of the real row numbers addressed in other properties of
+				the cpr-regulator device node.  This property is required if
+				qcom,fuse-remap-source is specified.
+- qcom,cpr-quot-min-diff:	Integer which defines the minimum target-quotient difference between
+				the highest and (highest - 1) fuse corner to keep CPR enabled. If this
+				property is not specified a default value of 50 is used.
+- qcom,cpr-fuse-quot-offset:	Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get the quotient offset for a fuse corner. The fuse values
+				are encoded as the difference between quotients of that fuse corner and its
+				adjacent lower fuse corner divided by an unpacking multiplier value defined
+				under qcom,cpr-fuse-quot-offset-scale property.
+				The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => number of the bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The quadruples are ordered from the lowest fuse corner to the highest
+				fuse corner.
+				Quotient offset read from the fuse locations above can be overridden with
+				the property qcom,cpr-quot-adjust-scaling-factor-max.
+- qcom,cpr-fuse-quot-offset-scale:	Array of integer values which defines the multipliers to decode the quotient offsets
+				of each fuse corner. The elements in the array are ordered from the lowest voltage fuse corner
+				to the highest voltage fuse corner. If this property is not present, then all target quotient
+				parameters are assumed to have a multiplier of 1 (i.e. no decoding needed).
+- qcom,cpr-redun-fuse-quot-offset: Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get the redundant quotient offset for a fuse corner. This
+				property is the same as qcom,cpr-fuse-quot-offset except that it is only
+				utilized if a chip is configured to use the redundant set of fuse values.
+- qcom,cpr-fuse-min-quot-diff:	Array of values which define the minimum difference allowed between the adjusted
+				quotients of the fuse corners. The length of the array should be equal to the value
+				of the qcom,cpr-fuse-corners property. Where each element in the array maps to the
+				fuse corners in increasing order.
+- qcom,cpr-min-quot-diff-adjustment:	Array of integer tuples of target quotient offsets to be added to
+				the adjusted target quotients of each fuse corner. When the quotient difference
+				between two adjacent fuse corners is insufficient, the quotient for the higher fuse corner is
+				replaced with that of the lower fuse corner plus the adjustment value.
+				The elements in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length defined by qcom,cpr-fuse-corners.
+				If the qcom,cpr-fuse-version-map property is specified, then qcom,cpr-min-quot-diff-adjustment
+				must contain the same number of tuples as qcom,cpr-fuse-version-map.  These tuples are then mapped
+				one-to-one in the order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then the quotient adjustments defined in the
+				second qcom,cpr-min-quot-diff-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-min-quot-diff-adjustment must contain a single tuple which is then
+				applied unconditionally. The qcom,cpr-min-quot-diff-adjustment property must be specified
+				if the qcom,cpr-fuse-min-quot-diff property is specified.
+- rpm-apc-supply:		Regulator to notify RPM of the APC operating
+				corner
+- qcom,rpm-apc-corner-map:	Array of integers which define the mapping of
+				the RPM corner to the corresponding APC virtual
+				corner. This property must be defined if
+				'rpm-apc-supply' is present.
+- qcom,vsens-corner-map:	Array of integers which define the mapping of the VSENS corner to the
+				corresponding APC fuse corner. The qcom,vsens-corner-map and
+				vdd-vsense-corner-supply properties must both be specified for a given
+				cpr-regulator device or neither must be specified.
+- vdd-vsens-corner-supply:	Regulator to specify the current operating fuse corner to the Voltage Sensor.
+- vdd-vsens-voltage-supply:	Regulator to specify the corner floor/ceiling voltages to the Voltage Sensor.
+- qcom,cpr-aging-sensor-id:	Array of CPR sensor IDs to be used in the CPR de-aging algorithm. The number
+				of values should be equal to number of sensors selected for age calibration.
+				If this property is not specified, then the de-aging procedure is not enabled.
+- qcom,cpr-de-aging-allowed:	Integer values that specify whether the CPR de-aging procedure is allowed or
+				not for a particular fuse revision. If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-de-aging-allowed must contain the same number
+				of elements as there are tuples in qcom,cpr-fuse-version-map. If qcom,cpr-fuse-version-map
+				is not specified, then qcom,cpr-de-aging-allowed must contain a single value that
+				is used unconditionally. An element value of 1 means that the CPR de-aging procedure
+				can be performed for parts with the corresponding fuse revision. An element value of 0
+				means that CPR de-aging cannot be performed.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-ref-corner:	The vdd-apc-supply reference virtual voltage corner to be set during the CPR de-aging
+				measurements. This corner value is needed to set appropriate voltage on
+				the dependent voltage rails such as vdd-mx and mem-acc.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-ref-voltage:	The vdd-apc-supply reference voltage in microvolts to be set during the
+				CPR de-aging measurements.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-max-aging-margin:	The maximum allowed aging voltage margin in microvolts. This is used to limit
+				the calculated aging voltage margin.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-non-collapsible-sensors: Array of CPR sensor IDs which are in non-collapsible domain. The sensor IDs not
+				specified in the array should be bypassed for the de-aging procedure. The number of
+				elements should be less than or equal to 32. The values of the array elements should
+				be greater than or equal to 0 and less than or equal to 31.
+				This property is required for power-domains with bypass mux present in HW.
+				This property can be required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-ro-scaling-factor:	The aging ring oscillator (RO) scaling factor with units of QUOT/V.
+				This value is used for calculating a voltage margin from RO measurements.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-ro-scaling-factor:	Array of scaling factors with units of QUOT/V for each ring oscillator ordered
+				from the lowest to the highest RO. These values are used to calculate
+				the aging voltage margin adjustment for all of the ROs. Since CPR2 supports
+				exactly 8 ROs, the array must contain 8 elements corresponding to RO0 through RO7 in order.
+				If a given RO is unused for a fuse corner, then its scaling factor may be specified as 0.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-derate:	Array of scaling factors which define the amount of derating to apply to the reference
+				aging voltage margin adjustment for each of the fuse corners. Each element has units
+				of uV/mV. This property must be of length defined by qcom,cpr-fuse-corners.
+				The elements are ordered from the lowest to the highest fuse corner.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-fuse-aging-init-quot-diff:	Array of quadruples in which each quadruple specifies a fuse location to read in
+				order to get an initial quotient difference. The difference between quot min and quot max
+				is fused as the initial quotient difference.
+				The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => number of the bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The number of quadruples should be equal to the number of values specified in
+				the qcom,cpr-aging-sensor-id property. This property is required if
+				the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-vdd-mode-map:	Array of boolean values which define the mapping
+				of the VDD operating mode for each APC virtual
+				corner. A element value 0 indicates the VDD to
+				be configured to AUTO mode and value 1 indicates
+				the VDD to be configured to PWM mode for the
+				corresponding virtual corner. The elements in
+				the array are ordered from lowest voltage corner
+				to highest voltage corner.
+Example:
+	apc_vreg_corner: regulator@f9018000 {
+		status = "okay";
+		compatible = "qcom,cpr-regulator";
+		reg = <0xf9018000 0x1000>, <0xfc4b8000 0x1000>;
+		reg-names = "rbcpr", "efuse_addr";
+		interrupts = <0 15 0>;
+		regulator-name = "apc_corner";
+		qcom,cpr-fuse-corners = <3>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <12>;
+
+		qcom,pvs-fuse = <22 6 5 1>;
+		qcom,pvs-fuse-redun-sel = <22 24 3 2 1>;
+		qcom,pvs-fuse-redun = <22 27 5 1>;
+
+		qcom,pvs-voltage-table =
+			<1050000 1150000 1350000>,
+			<1050000 1150000 1340000>,
+			<1050000 1150000 1330000>,
+			<1050000 1150000 1320000>,
+			<1050000 1150000 1310000>,
+			<1050000 1150000 1300000>,
+			<1050000 1150000 1290000>,
+			<1050000 1150000 1280000>,
+			<1050000 1150000 1270000>,
+			<1050000 1140000 1260000>,
+			<1050000 1130000 1250000>,
+			<1050000 1120000 1240000>,
+			<1050000 1110000 1230000>,
+			<1050000 1100000 1220000>,
+			<1050000 1090000 1210000>,
+			<1050000 1080000 1200000>,
+			<1050000 1070000 1190000>,
+			<1050000 1060000 1180000>,
+			<1050000 1050000 1170000>,
+			<1050000 1050000 1160000>,
+			<1050000 1050000 1150000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>,
+			<1050000 1050000 1140000>;
+		qcom,cpr-voltage-ceiling = <1050000 1150000 1280000>;
+		qcom,cpr-voltage-floor = <1050000 1050000 1100000>;
+		vdd-apc-supply = <&pm8226_s2>;
+		qcom,cpr-vdd-mode-map = <0 0 0 0 0 0 1 1 1 1 1 1>;
+		vdd-apc-optional-prim-supply = <&ncp6335d>;
+		vdd-apc-optional-sec-supply = <&fan53555>;
+		vdd-mx-supply = <&pm8226_l3_ao>;
+		qcom,vdd-mx-vmax = <1350000>;
+		qcom,vdd-mx-vmin-method = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <1>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <15>;
+		qcom,cpr-up-threshold = <1>;
+		qcom,cpr-down-threshold = <2>;
+		qcom,cpr-idle-clocks = <5>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,cpr-clamp-timer-interval = <1>;
+		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,vsens-corner-map = <1 2 2>;
+		vdd-vsens-corner-supply = <&vsens_apc0_corner>;
+		vdd-vsens-voltage-supply = <&vsens_apc0_voltage>;
+
+		rpm-apc-supply = <&rpm_apc_vreg>;
+		qcom,rpm-apc-corner-map = <4 4 5 5 7 7 7 7 7 7 7 7>;
+
+		qcom,cpr-fuse-row = <138 1>;
+		qcom,cpr-fuse-bp-cpr-disable = <36>;
+		qcom,cpr-fuse-bp-scheme = <37>;
+		qcom,cpr-fuse-target-quot = <24 12 0>;
+		qcom,cpr-fuse-target-quot-size = <12 12 12>;
+		qcom,cpr-fuse-ro-sel = <54 38 41>;
+		qcom,cpr-fuse-revision = <140 26 2 0>;
+		qcom,cpr-fuse-redun-sel = <138 57 1 1 1>;
+		qcom,cpr-fuse-redun-row = <139 1>;
+		qcom,cpr-fuse-redun-target-quot = <24 12 0>;
+		qcom,cpr-fuse-redun-ro-sel = <46 36 39>;
+		qcom,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
+		qcom,cpr-cond-min-voltage = <1140000>;
+		qcom,cpr-fuse-uplift-sel = <22 53 1 0 0>;
+		qcom,cpr-uplift-voltage = <50000>;
+		qcom,cpr-uplift-quotient = <0 0 120>;
+		qcom,cpr-uplift-max-volt = <1350000>;
+		qcom,cpr-uplift-speed-bin = <1>;
+		qcom,speed-bin-fuse-sel = <22 0 3 0>;
+		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3>;
+		qcom,cpr-corner-frequency-map =
+				<1 300000000>,
+				<2 384000000>,
+				<3 600000000>,
+				<4 787200000>,
+				<5 998400000>,
+				<6 1094400000>,
+				<7 1190400000>,
+				<8 1305600000>,
+				<9 1344000000>,
+				<10 1401600000>,
+				<11 1497600000>,
+				<12 1593600000>;
+		qcom,pvs-version-fuse-sel = <22 4 2 0>;
+		qcom,cpr-speed-bin-max-corners =
+				<0 1 2 4 7>,
+				<1 1 2 4 12>,
+				<2 1 2 4 10>,
+				<5 1 2 4 14>;
+		qcom,cpr-fuse-target-quot-scale =
+				<0 1>,
+				<0 1>,
+				<0 1>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 650 650>;
+		qcom,cpr-fuse-quot-offset =
+				<138 53 5 0>,
+				<138 53 5 0>,
+				<138 48 5 0>,
+				<138 58 5 0>;
+		qcom,cpr-fuse-redun-quot-offset =
+				<200 53 5 0>,
+				<200 53 5 0>,
+				<200 48 5 0>,
+				<200 58 5 0>;
+		qcom,cpr-fuse-init-voltage =
+				<27 36 6 0>,
+				<27 18 6 0>,
+				<27 0 6 0>;
+		qcom,cpr-fuse-redun-init-voltage =
+				<140 36 6 0>,
+				<140 18 6 0>,
+				<140 0 6 0>;
+		qcom,cpr-init-voltage-ref = <1050000 1150000 1280000>;
+		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-voltage-ceiling-override =
+				<1 1 1050000 1050000 1150000 1150000 1280000
+				     1280000 1280000 1280000 1280000 1280000
+				     1280000 1280000>;
+		qcom,cpr-voltage-floor-override =
+				<1 1 1050000 1050000 1050000 1050000 1060000
+				     1070000 1080000 1090000 1100000 1100000
+				     1100000 1100000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
+
+		qcom,cpr-fuse-version-map =
+				<0xffffffff 0xffffffff 2 4 4 4>,
+				<0xffffffff 0xffffffff 2 6 6 6>,
+				<0xffffffff 0xffffffff 3 4 4 4>;
+		qcom,cpr-quotient-adjustment =
+				<0 0 (-210)>,
+				<0 0 (-60)>,
+				<0 0 (-94)>;
+		qcom,cpr-quot-offset-adjustment =
+				<0 0 (-5)>;
+		qcom,cpr-init-voltage-adjustment =
+				<0 0 (-100000)>,
+				<0 0 (-100000)>,
+				<0 0 (-45000)>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 40>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0>,
+					<0 0 72>,
+					<0 0 104>;
+		qcom,cpr-floor-to-ceiling-max-range =
+			<(-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1)>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1)>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) (-1) 50000 50000 50000 50000 50000>;
+		qcom,cpr-virtual-corner-init-voltage-adjustment =
+			<0 0 0 (-10000) 0 0 0 0 0 0 0 0>,
+			<0 0 0 0 0 0 0 0 0 0 0 (-20000)>,
+			<0 0 0 0 0 0 0 0 0 0 0 (-30000)>;
+		qcom,cpr-virtual-corner-quotient-adjustment =
+			<0 0 0 100 0 0 0 0 0 0 0 0>,
+			<0 0 0 0 0 0 0 0 0 0 0 (-300)>,
+			<0 0 0 (-60) 0 0 0 0 0 0 0 0>;
+		qcom,cpr-cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,cpr-allowed =
+			<0>,
+			<1>,
+			<1>;
+
+		qcom,fuse-remap-base-row = <1000>;
+		qcom,fuse-remap-source =
+				<140 7 3 0>,
+				<138 45 5 0>;
+		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
+
+		qcom,cpr-aging-sensor-id = <17, 18>;
+		qcom,cpr-aging-ref-corner = <4>;
+		qcom,cpr-aging-ref-voltage = <1050000>;
+		qcom,cpr-max-aging-margin = <15000>;
+		qcom,cpr-de-aging-allowed =
+				<0>,
+				<0>,
+				<1>;
+		qcom,cpr-non-collapsible-sensors= <7 12 17 22>;
+		qcom,cpr-aging-ro-scaling-factor = <3500>;
+		qcom,cpr-ro-scaling-factor = <0 2500 2500 2500 0 0 0 0>;
+		qcom,cpr-aging-derate = <1000 1000 1250>;
+		qcom,cpr-fuse-aging-init-quot-diff =
+				<101 0 8 0>,
+				<101 8 8 0>;
+	};

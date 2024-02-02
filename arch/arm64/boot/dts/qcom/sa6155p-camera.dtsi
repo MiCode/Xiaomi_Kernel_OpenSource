@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&cam_isp_mgr {
+	status = "disabled";
+};
+
+&cam_csid0 {
+	compatible = "qcom,ais-csid170";
+};
+
+&cam_vfe0 {
+	compatible = "qcom,ais-vfe170";
+};
+
+&cam_csid1 {
+	compatible = "qcom,ais-csid170";
+};
+
+&cam_vfe1 {
+	compatible = "qcom,ais-vfe170";
+};
+
+&cam_csid_lite {
+	compatible = "qcom,ais-csid-lite170";
+};
+
+&cam_vfe_lite {
+	compatible = "qcom,ais-vfe-lite170";
+};
+
+&cam_lrme_mgr {
+	status = "disabled";
+};
+&cam_lrme {
+	status = "disabled";
+};
+
+&cam_smmu {
+	msm_cam_smmu_ife_cp {
+		compatible = "qcom,msm-cam-smmu-cb";
+		iommus = <&apps_smmu 0x821 0x1C0>,
+			<&apps_smmu 0x841 0x0>,
+			<&apps_smmu 0x861 0x1C0>;
+		label = "ife-cp";
+		qcom,secure-pixel-cb;
+		ife_cp_iova_mem_map: iova-mem-map {
+			/* IO region is approximately 2.5 GB */
+			iova-mem-region-io {
+				iova-region-name = "io";
+				iova-region-start = <0x7400000>;
+				iova-region-len = <0x98C00000>;
+				iova-region-id = <0x3>;
+				status = "ok";
+			};
+		};
+	};
+};
+
+&soc {
+	/delete-node/ cam_isp_mgr;
+	/delete-node/ cam_fd_mgr;
+	/delete-node/ cam_fd;
+	/delete-node/ cam_lrme_mgr;
+	/delete-node/ cam_lrme;
+
+	qcom,ais-ife0 {
+		compatible = "qcom,ais-ife";
+		cell-index = <0>;
+		status = "ok";
+	};
+
+	qcom,ais-ife1 {
+		compatible = "qcom,ais-ife";
+		cell-index = <1>;
+		status = "ok";
+	};
+
+	qcom,ais-ife2 {
+		compatible = "qcom,ais-ife";
+		cell-index = <2>;
+		status = "ok";
+	};
+};

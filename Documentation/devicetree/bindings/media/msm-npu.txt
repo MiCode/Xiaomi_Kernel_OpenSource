@@ -1,0 +1,228 @@
+* Qualcomm Technologies, Inc. MSM NPU
+
+NPU (Neural Network Processing Unit) applies neural network processing
+
+Required properties:
+- compatible: Must be "qcom,msm-npu"
+- reg: Specify offset and length of the device register sets.
+- reg-names: Names corresponding to the defined register sets.
+	- "npu_base": npu base registers
+- interrupts: Specify the npu interrupts.
+- interrupt-names: should specify relevant names to each interrupts
+	property defined.
+- cache-slice-names: A set of names that identify the usecase names of a
+	client that uses cache slice. These strings are used to look up the
+	cache slice entries by name
+- cache-slices: The tuple has phandle to llcc device as the first argument
+	and the second argument is the usecase id of the client
+- clocks: clocks required for the device.
+- clock-names: names of clocks required for the device.
+- vdd-supply: Phandle for vdd regulator device node
+- vdd_'reg'-supply: Reference to the regulator that supplies the corresponding
+	'reg' domain, e.g. vdd_cx-supply.
+- qcom,proxy-reg-names: Names of the regulators that need to be turned on/off
+	during proxy voting/unvoting.
+- qcom,vdd_'reg'-uV-uA: Voltage and current values for the 'reg' regulator,
+	e.g. qcom,vdd_cx-uV-uA.
+- mboxes: Phandle array for mailbox controllers to be used for IPC
+- mbox-names: names of each mailboxes
+- #cooling-cells: Should be set to 2
+- qcom,npubw-dev: a phandle to a device representing bus bandwidth requirements
+	(see devbw.txt)
+- qcom,npu-pwrlevels: Container for NPU power levels
+	(see msm-npu-pwrlevels.txt)
+Example:
+	msm_npu: qcom,msm_npu@9800000 {
+		compatible = "qcom,msm-npu";
+		status = "ok";
+		reg = <0x9800000 0x800000>;
+		reg-names = "npu_base";
+		interrupts = <GIC_SPI 368 IRQ_TYPE_EDGE_RISING>;
+		iommus = <&apps_smmu 0x1461 0x0>, <&apps_smmu 0x2061 0x0>;
+		cache-slice-names = "npu";
+		cache-slices = <&llcc 23>;
+		clocks = <&clock_npucc NPU_CC_CAL_DP_CLK>,
+				<&clock_npucc NPU_CC_CAL_DP_CLK_SRC>,
+				<&clock_npucc NPU_CC_XO_CLK>,
+				<&clock_npucc NPU_CC_ARMWIC_CORE_CLK>,
+				<&clock_npucc NPU_CC_BTO_CORE_CLK>,
+				<&clock_npucc NPU_CC_BWMON_CLK>,
+				<&clock_npucc NPU_CC_CAL_DP_CDC_CLK>,
+				<&clock_npucc NPU_CC_COMP_NOC_AXI_CLK>,
+				<&clock_npucc NPU_CC_CONF_NOC_AHB_CLK>,
+				<&clock_npucc NPU_CC_NPU_CORE_APB_CLK>,
+				<&clock_npucc NPU_CC_NPU_CORE_ATB_CLK>,
+				<&clock_npucc NPU_CC_NPU_CORE_CLK>,
+				<&clock_npucc NPU_CC_NPU_CORE_CLK_SRC>,
+				<&clock_npucc NPU_CC_NPU_CORE_CTI_CLK>,
+				<&clock_npucc NPU_CC_NPU_CPC_CLK>,
+				<&clock_npucc NPU_CC_NPU_CPC_TIMER_CLK>,
+				<&clock_npucc NPU_CC_PERF_CNT_CLK>,
+				<&clock_npucc NPU_CC_QTIMER_CORE_CLK>,
+				<&clock_npucc NPU_CC_SLEEP_CLK>;
+		clock-names = "cal_dp_clk",
+				"cal_dp_clk_src",
+				"xo_clk",
+				"armwic_core_clk",
+				"bto_core_clk",
+				"bwmon_clk",
+				"cal_dp_cdc_clk",
+				"comp_noc_axi_clk",
+				"conf_noc_ahb_clk",
+				"npu_core_apb_clk",
+				"npu_core_atb_clk",
+				"npu_core_clk",
+				"npu_core_clk_src",
+				"npu_core_cti_clk",
+				"npu_cpc_clk",
+				"npu_cpc_timer_clk",
+				"perf_cnt_clk",
+				"qtimer_core_clk",
+				"sleep_clk";
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&pm8150l_s6_level>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		mboxes = <&qmp_npu0 0>, <&qmp_npu1 0>;
+		mbox-names = "npu_low", "npu_high";
+		#cooling-cells = <2>;
+		qcom,npubw-dev = <&npu_npu_ddr_bw>;
+		qcom,npu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,npu-pwrlevels";
+			initial-pwrlevel = <4>;
+			qcom,npu-pwrlevel@0 {
+				reg = <0>;
+				clk-freq = <9600000
+						9600000
+						19200000
+						19200000
+						19200000
+						19200000
+						9600000
+						60000000
+						19200000
+						19200000
+						30000000
+						19200000
+						19200000
+						19200000
+						19200000
+						19200000
+						9600000
+						19200000
+						0>;
+			};
+			qcom,npu-pwrlevel@1 {
+				reg = <1>;
+				clk-freq = <300000000
+						300000000
+						19200000
+						100000000
+						19200000
+						19200000
+						300000000
+						150000000
+						19200000
+						19200000
+						60000000
+						100000000
+						100000000
+						37500000
+						100000000
+						19200000
+						300000000
+						19200000
+						0>;
+			};
+			qcom,npu-pwrlevel@2 {
+				reg = <2>;
+				clk-freq = <350000000
+						350000000
+						19200000
+						150000000
+						19200000
+						19200000
+						350000000
+						200000000
+						37500000
+						19200000
+						120000000
+						150000000
+						150000000
+						75000000
+						150000000
+						19200000
+						350000000
+						19200000
+						0>;
+			};
+			qcom,npu-pwrlevel@3 {
+				reg = <3>;
+				clk-freq = <400000000
+						400000000
+						19200000
+						200000000
+						19200000
+						19200000
+						400000000
+						300000000
+						37500000
+						19200000
+						120000000
+						200000000
+						200000000
+						75000000
+						200000000
+						19200000
+						400000000
+						19200000
+						0>;
+			};
+			qcom,npu-pwrlevel@4 {
+				reg = <4>;
+				clk-freq = <600000000
+						600000000
+						19200000
+						300000000
+						19200000
+						19200000
+						600000000
+						403000000
+						75000000
+						19200000
+						240000000
+						300000000
+						300000000
+						150000000
+						300000000
+						19200000
+						600000000
+						19200000
+						0>;
+			};
+			qcom,npu-pwrlevel@5 {
+				reg = <5>;
+				clk-freq = <715000000
+						715000000
+						19200000
+						350000000
+						19200000
+						19200000
+						715000000
+						533000000
+						75000000
+						19200000
+						240000000
+						350000000
+						350000000
+						150000000
+						350000000
+						19200000
+						715000000
+						19200000
+						0>;
+			};
+		};
+	};

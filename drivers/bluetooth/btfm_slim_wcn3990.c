@@ -1,0 +1,224 @@
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <linux/slimbus/slimbus.h>
+#include "btfm_slim.h"
+#include "btfm_slim_wcn3990.h"
+
+/* WCN3990 Port assignment */
+struct btfmslim_ch wcn3990_rxport[] = {
+	{.id = BTFM_BT_SCO_A2DP_SLIM_RX, .name = "SCO_A2P_Rx",
+	.port = CHRK_SB_PGD_PORT_RX_SCO},
+	{.id = BTFM_BT_SPLIT_A2DP_SLIM_RX, .name = "A2P_Rx",
+	.port = CHRK_SB_PGD_PORT_RX_A2P},
+	{.id = BTFM_SLIM_NUM_CODEC_DAIS, .name = "",
+	.port = BTFM_SLIM_PGD_PORT_LAST},
+};
+
+struct btfmslim_ch wcn3990_txport[] = {
+	{.id = BTFM_FM_SLIM_TX, .name = "FM_Tx1",
+	.port = CHRK_SB_PGD_PORT_TX1_FM},
+	{.id = BTFM_FM_SLIM_TX, .name = "FM_Tx2",
+	.port = CHRK_SB_PGD_PORT_TX2_FM},
+	{.id = BTFM_BT_SCO_SLIM_TX, .name = "SCO_Tx",
+	.port = CHRK_SB_PGD_PORT_TX_SCO},
+	{.id = BTFM_BT_SPLIT_A2DP_SLIM_TX, .name = "A2DP_Tx",
+	.port = CHRK_SB_PGD_PORT_TX_A2DP},
+	{.id = BTFM_SLIM_NUM_CODEC_DAIS, .name = "",
+	.port = BTFM_SLIM_PGD_PORT_LAST},
+};
+
+/* Function description */
+int btfm_slim_chrk_hw_init(struct btfmslim *btfmslim)
+{
+	int ret = 0;
+	uint8_t reg_val;
+	uint16_t reg;
+
+	BTFMSLIM_DBG("");
+
+	if (!btfmslim)
+		return -EINVAL;
+
+	/* Get SB_SLAVE_HW_REV_MSB value*/
+	reg = CHRK_SB_SLAVE_HW_REV_MSB;
+	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
+	if (ret) {
+		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
+		goto error;
+	}
+	BTFMSLIM_DBG("Major Rev: 0x%x, Minor Rev: 0x%x",
+		(reg_val & 0xF0) >> 4, (reg_val & 0x0F));
+
+	/* Get SB_SLAVE_HW_REV_LSB value*/
+	reg = CHRK_SB_SLAVE_HW_REV_LSB;
+	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
+	if (ret) {
+		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
+		goto error;
+	}
+	BTFMSLIM_DBG("Step Rev: 0x%x", reg_val);
+
+error:
+	return ret;
+}
+
+static inline int is_fm_port(struct btfmslim *btfmslim)
+{
+	BTFMSLIM_INFO("dai id is %d", btfmslim->dai_id);
+	if (btfmslim->dai_id == BTFM_FM_SLIM_TX)
+		return 1;
+	else
+		return 0;
+}
+
+int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
+	uint8_t rxport, uint8_t enable)
+{
+	int ret = 0;
+	uint8_t reg_val = 0, en;
+	uint8_t rxport_num = 0;
+	uint16_t reg;
+	uint8_t prev_reg_val = 0;
+
+	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
+	if (rxport) {
+		BTFMSLIM_DBG("sample rate is %d", btfmslim->sample_rate);
+		if (enable) {
+			/* For SCO Rx, A2DP Rx other than 44.1 and 88.2Khz */
+			if (port_num < 24) {
+				rxport_num = port_num - 16;
+				reg_val = 0x01 << rxport_num;
+				reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_0(
+					rxport_num);
+			} else {
+				rxport_num = port_num - 24;
+				reg_val = 0x01 << rxport_num;
+				reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_1(
+					rxport_num);
+			}
+
+			if (btfmslim->sample_rate == 44100 ||
+				btfmslim->sample_rate == 88200) {
+				BTFMSLIM_DBG("unsetting multichannel bit");
+				ret = btfm_slim_read(btfmslim, reg,  1,
+							&prev_reg_val, IFD);
+				if (ret < 0) {
+					BTFMSLIM_ERR("error %d reading", ret);
+					prev_reg_val = 0;
+				}
+				BTFMSLIM_DBG("prev_reg_val (%d) from reg(%x)",
+						prev_reg_val, reg);
+				reg_val = prev_reg_val & ~reg_val;
+			} else
+				BTFMSLIM_DBG("setting multichannel bit");
+
+			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
+				reg_val, reg);
+			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+			if (ret) {
+				BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+					ret, reg);
+				goto error;
+			}
+		}
+		/* Port enable */
+		reg = CHRK_SB_PGD_PORT_RX_CFGN(port_num - 0x10);
+		goto enable_disable_rxport;
+	}
+	if (!enable)
+		goto enable_disable_txport;
+
+	/* txport */
+	/* Multiple Channel Setting */
+	if (is_fm_port(btfmslim)) {
+		if (port_num == CHRKVER3_SB_PGD_PORT_TX1_FM)
+			reg_val = (0x1 << CHRKVER3_SB_PGD_PORT_TX1_FM);
+		else if (port_num == CHRKVER3_SB_PGD_PORT_TX2_FM)
+			reg_val = (0x1 << CHRKVER3_SB_PGD_PORT_TX2_FM);
+		else
+			reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
+					(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
+
+		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		BTFMSLIM_INFO("writing reg_val (%d) to reg(%x)", reg_val, reg);
+		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+		if (ret) {
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+			goto error;
+		}
+	} else if (port_num == CHRK_SB_PGD_PORT_TX_SCO) {
+		/* SCO Tx */
+		reg_val = 0x1 << CHRK_SB_PGD_PORT_TX_SCO;
+		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
+				reg_val, reg);
+		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+		if (ret) {
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+					ret, reg);
+			goto error;
+		}
+	} else if (port_num == CHRK_SB_PGD_PORT_TX_A2DP) {
+		/* SCO Tx */
+		reg_val = 0x1 << CHRK_SB_PGD_PORT_TX_A2DP;
+		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
+				reg_val, reg);
+		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+		if (ret) {
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+					ret, reg);
+			goto error;
+		}
+	}
+
+	/* Enable Tx port hw auto recovery for underrun or overrun error */
+	reg_val = (CHRK_ENABLE_OVERRUN_AUTO_RECOVERY |
+				CHRK_ENABLE_UNDERRUN_AUTO_RECOVERY);
+	reg = CHRK_SB_PGD_PORT_TX_OR_UR_CFGN(port_num);
+	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+	if (ret) {
+		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+		goto error;
+	}
+
+enable_disable_txport:
+	/* Port enable */
+	reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
+
+enable_disable_rxport:
+	if (enable)
+		en = CHRK_SB_PGD_PORT_ENABLE;
+	else
+		en = CHRK_SB_PGD_PORT_DISABLE;
+
+	if (is_fm_port(btfmslim))
+		reg_val = en | CHRK_SB_PGD_PORT_WM_L8;
+	else if (port_num == CHRK_SB_PGD_PORT_TX_SCO)
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_L1 : en;
+	else
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
+
+	if (enable && port_num == CHRK_SB_PGD_PORT_TX_SCO)
+		BTFMSLIM_INFO("programming SCO Tx with reg_val %d to reg 0x%x",
+				reg_val, reg);
+	else if (enable && port_num == CHRK_SB_PGD_PORT_TX_A2DP)
+		BTFMSLIM_INFO("programming A2DP Tx with reg_val %d to reg 0x%x",
+				reg_val, reg);
+
+	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+	if (ret)
+		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+
+error:
+	return ret;
+}

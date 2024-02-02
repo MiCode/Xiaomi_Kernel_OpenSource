@@ -1,0 +1,279 @@
+config MSM_CAMERA_SENSOR
+	    bool "QTI MSM camera sensor support"
+	    depends on MSMB_CAMERA
+	    select NEW_LEDS
+	    select LEDS_CLASS
+        ---help---
+          This flag enables support for Camera Sensor.
+          The sensor driver is capable of providing real time
+          data for camera support. The driver support V4L2
+          subdev APIs.
+
+config MSM_CPP
+        bool "QTI MSM Camera Post Processing Engine support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Camera Post-processing Engine
+          The Post processing engine is capable of scaling
+          and cropping image. The driver support V4L2 subdev
+          APIs.
+
+config MSM_CCI
+        bool "QTI MSM Camera Control Interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Camera Control Interface driver only
+          for those platforms that have hardware support. This driver
+          is responsible for handling I2C read and write on the I2C
+          bus. It is also responsible for synchronization with
+          GPIO and data frames.
+
+config MSM_CSI20_HEADER
+        bool "QTI MSM CSI 2.0 Header"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 2.0
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required targets based on 8960,
+          8930 and 8064 platforms.
+
+config MSM_CSI22_HEADER
+        bool "QTI MSM CSI 2.2 Header"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 2.2
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required targets based on 8610
+          platform.
+
+config MSM_CSI30_HEADER
+        bool "QTI MSM CSI 3.0 Header"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 3.0
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required for targets based on
+          8064 platforms.
+
+config MSM_CSI31_HEADER
+        bool "QTI MSM CSI 3.1 Header"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for CSI drivers to include 3.0
+          header. This header has register macros and its
+          values and bit mask for register configuration bits
+          This config macro is required for targets based on
+          APQ8084 platform.
+
+config MSM_CSIPHY
+        bool "QTI MSM Camera Serial Interface Physical receiver support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Camera Serial Interface
+          Physical receiver. It deserializes packets and
+          supports detection of packet start and stop
+          signalling.
+
+config MSM_CSID
+        bool "QTI MSM Camera Serial Interface decoder support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Camera Serial Interface decoder.
+          It supports lane merging and decoding of packets
+          based on cid which is mapped to a virtual channel
+          and datatype.
+
+config MSM_EEPROM
+        bool "QTI MSM Camera ROM Interface for Calibration support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for ROM Interface for Calibration
+          Provides interface for reading the Claibration data.
+          and also provides support for writing data in case of FLASH ROM.
+	  Currently supports I2C, CCI and SPI protocol
+
+config MSM_ISP_V1
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of CSID can be routed to of pix or raw
+          data interface in VFE.
+
+config MSM_ISPIF
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of CSID can be routed to of pix or raw
+          data interface in VFE.
+
+config MSM_ISPIF_V1
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of MSM_CSI22_HEADER can be routed to of pix
+          or raw data interface in VFE.
+
+config MSM_ISPIF_V2
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module acts as a crossbar between CSID and VFE. Output
+          of any CID of CSID can be routed to of pix
+          or raw data interface in VFE.
+
+config MSM_DUAL_ISP_SYNC
+        bool "QTI MSM Image Signal Processing interface support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for Image Signal Processing interface module.
+          This module is used to enable the dual isp sync generator that
+	  does the synchronization of two VFE's. There will be a single
+	  output from the sync generator
+
+config IMX134
+	bool "Sensor IMX134 (BAYER 8M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 8 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes full resolution @30fps and
+		HFR @60fps and @120fps,
+		Video HDR support.
+
+config IMX132
+	bool "Sensor IMX132 (BAYER 2M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 2 MP Bayer Sensor with auto focus, uses
+		2 mipi lanes, preview config = 1920 x 1080 at 30 fps,
+		snapshot config = 1920 x 1080 at 30 fps,
+		Video HDR support.
+
+config OV9724
+	bool "Sensor OV9724 (BAYER 2M)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 2 MP Bayer Sensor, supports 2 mipi lanes,
+		preview and snapshot config at 1280*720 at 30 fps,
+		hfr video at 60, 90 and 120 fps. This sensor driver does
+		not support auto focus.
+
+config OV5648
+	bool "Sensor OV5648 (BAYER 5M)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 5 MP Bayer Sensor, only use 1 mipi lane,
+		preview set to 1296*972 at 30 fps,
+		snapshot set to 2592*1944 at 12 fps,
+		This sensor driver does not support auto focus.
+
+config GC0339
+	bool "Sensor GC0339 (BAYER .3M)"
+	depends on MSMB_CAMERA
+	---help---
+		gc0339 is a Galaxycore .3 MP Bayer Sensor.
+		It supports 1 or 2 mipi lanes.
+		Preview and snapshot resolution shall be 640*480 at 30 fps,
+		It does not support auto focus.
+
+config OV8825
+	bool "OmniVision OV8825 (BAYER 8MP)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 8 MP Bayer Sensor with auto focus.uses
+		2 mipi lanes, preview config = 1632*1224 30 fps,
+		snapshot config = 3264 * 2448 at 18 fps.
+		2 lanes max fps is 18, 4 lanes max fps is 24.
+
+config OV8865
+	bool "OmniVision OV8865 (BAYER 8MP)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 8 MP Bayer Sensor with auto focus.uses
+		4 mipi lanes, preview config = 1632*1224 30 fps,
+		snapshot config = 3264 * 2448 at 30 fps.
+		Max fps is 30fps at 3264 * 2448, 60fps at 1632 * 1224
+
+config s5k4e1
+	bool "Sensor s5k4e1 (BAYER 5MP)"
+	depends on MSMB_CAMERA
+	---help---
+		Samsung 5 MP Bayer Sensor. It uses 2 mipi lanes,
+		supports 720P preview at 30 fps
+		and QSXGA snapshot at 15 fps.
+		This sensor driver does not support auto focus.
+
+config OV12830
+	bool "OmniVision OV12830 (BAYER 12MP)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 12.8 MP Bayer Sensor with auto focus.uses
+		4 mipi lanes, preview config = 2112 * 1500 at 30 fps,
+		snapshot config = 4224 * 3000 at 15 fps.
+		2 lanes max fps is 18, 4 lanes max fps is 24.
+
+config MSM_V4L2_VIDEO_OVERLAY_DEVICE
+	tristate "QTI MSM V4l2 video overlay device"
+	---help---
+	  Enables support for the MSM V4L2 video
+	  overlay driver. This allows video rendering
+	  apps to render overlaid video using Video4Linux2
+	  APIs, by using /dev/videoX device
+
+config MSMB_JPEG
+	tristate "QTI MSM Jpeg Encoder Engine support"
+        depends on MSMB_CAMERA && (ARCH_MSM8974 || ARCH_MSM8226 || ARCH_APQ8084 || ARCH_MSM8916 || ARCH_QCOM)
+	---help---
+	  Enable support for Jpeg Encoder/Decoder
+	  Engine for 8974.
+	  This module serves as the common driver
+	  for the JPEG 1.0 encoder and decoder.
+
+config MSM_GEMINI
+	tristate "QTI MSM Gemini JPEG engine support"
+	depends on MSMB_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM8960)
+	---help---
+	  Enables support for the Gemini JPEG encoder
+	  Engine for 8x60, 7x30 and 8960.
+	  This module serves as the driver
+	  for JPEG encoding functionality.
+
+config MSM_FD
+	 tristate "QTI MSM FD face detection engine support"
+	 depends on MSMB_CAMERA
+	 ---help---
+	    Enables support for the MSM FD face detection engine
+            Engine for 8996, 8998.
+            This module serves as the driver for
+            detection of face ROI in a luma frame.
+
+config MSM_JPEGDMA
+	tristate "QTI MSM Jpeg dma"
+        depends on MSMB_CAMERA
+        select V4L2_MEM2MEM_DEV
+	---help---
+	  Enable support for Jpeg dma engine
+          Engine for 8996, 8998.
+          This module serves as the driver for
+          downscale and data transfer functionality.
+
+config MSM_SEC_CCI_TA_NAME
+	string "Name of TA to handle Secure CCI transactions"
+	depends on MSM_CCI
+	default "seccamdemo64"
+
+config MSM_SEC_CCI_DEBUG
+	bool "QTI MSM Secure CCI Relay Debug"
+	depends on MSM_CCI
+	---help---
+	  Enables simulation of secure camera for Secure CCI Realy
+	  debugging.

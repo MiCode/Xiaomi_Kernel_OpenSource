@@ -1,0 +1,98 @@
+ Qualcomm Technologies,Inc SLIMBUS controller
+ Qualcomm Technologies,Inc implements 2 type of slimbus controllers:
+1. "qcom,slim-msm": This controller is used if applications processor
+	driver is controlling slimbus master component. This driver is
+	responsible for communicating with slave HW directly using
+	messaging interface, and doing data channel management. Driver
+	also communicates with satellite component (driver implemented
+	by other execution environment, such as ADSP) to get its
+	requirements for data channel and bandwidth requirements.
+2. "qcom,slim-ngd": This controller is used if applications processor
+	driver is controlling slimbus satellite component (also known as
+	Non-ported Generic Device, or NGD). This is light-weight slimbus
+	controller responsible for communicating with slave HW directly
+	over bus messaging interface, and communicating with master component
+	(driver residing on other execution environment, such as ADSP)
+	for bandwidth and data channel management.
+
+Required properties:
+
+ - reg : Offset and length of the register region(s) for the device
+ - reg-names : Register region name(s) referenced in reg above
+	 Required register resource entries are:
+	 "slimbus_physical": Physical adderss of controller register blocks
+	 "slimbus_bam_physical": Physical address of Bus Access Module (BAM)
+				 for this controller
+ - compatible : should be "qcom,slim-msm" if this is master component driver
+ - compatible : should be "qcom,slim-ngd" if this is satellite component driver
+ - cell-index : SLIMBUS number used for this controller
+ - interrupts : Interrupt numbers used by this controller
+ - interrupt-names : Required interrupt resource entries are:
+	"slimbus_irq" : Interrupt for SLIMBUS core
+	"slimbus_bam_irq" : Interrupt for controller core's BAM
+
+Optional property:
+ - reg entry for slew rate : If slew rate control register is provided, this
+	 entry should be used.
+ - reg-name for slew rate: "slimbus_slew_reg"
+ - qcom,min-clk-gear : Minimum clock gear at which this controller can be run
+		 (range: 1-10)
+		 Default value will be 1 if this entry is not specified
+ - qcom,max-clk-gear: Maximum clock gear at which this controller can be run
+		 (range: 1-10)
+		 Default value will be 10 if this entry is not specified
+ - qcom,rxreg-access: This boolean indicates that slimbus RX should use direct
+		 register access to receive data. This flag is only needed if
+		 BAM pipe is not available to receive data from slimbus
+ - qcom,apps-ch-pipes: This value represents BAM pipe-mask used by application
+		 processor for data channels. If this property is not defined,
+		 default mask of 0 is used indicating that application
+		 processor does not use BAM pipes for data channels.
+ - qcom,ea-pc: This value represents product code (PC) field of enumeration
+		 address (EA) for the QTI slimbus controller hardware.
+		 This value is needed if data-channels originating from apps
+		 are to be used, so that application processor can query
+		 logical address of the ported generic device to be used.
+		 Other than PC, fields of EA are same across platforms.
+ - qcom,slim-mdm: This value provides the identifier of slimbus component on
+		 external mdm. This property enables the slimbus driver to
+		 register and receive subsytem restart notification from mdm
+		 and follow appropriate steps to ensure communication on the bus
+		 can be resumed after mdm-restart.
+ - qcom,subsys-name: This value provides the subsystem name where slimbus master
+		 is present. This property enables the slimbus driver to
+		 register and receive subsytem restart notification from subsystem
+		 and follow appropriate steps to ensure communication on the bus
+		 can be resumed after subsytem restart. By default slimbus driver
+		 register with ADSP subsystem.
+ - qcom,iommu-s1-bypass: Boolean flag to bypass IOMMU stage 1 translation.
+ - qcom,iommu-atomic-ctx: Boolean flag to enable IOMMU in atomic context
+
+Optional subnodes:
+qcom,iommu_slim_ctrl_cb : Child node representing the Slimbus controller
+                          context bank.
+
+Subnode Required properties:
+- compatible : Must be "qcom,slim-ctrl-cb";
+- iommus : A list of phandle and IOMMU specifier pairs that
+           describe the IOMMU master interfaces of the device.
+
+Example:
+	slim@fe12f000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-msm";
+		reg = <0xfe12f000 0x35000>,
+		      <0xfe104000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0 0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,min-clk-gear = <10>;
+		qcom,rxreg-access;
+		qcom,apps-ch-pipes = <0x60000000>;
+		qcom,ea-pc = <0x30>;
+
+		iommu_slim_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1 0x0>;
+		};
+	};

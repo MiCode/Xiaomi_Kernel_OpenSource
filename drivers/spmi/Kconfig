@@ -1,0 +1,49 @@
+#
+# SPMI driver configuration
+#
+menuconfig SPMI
+	tristate "SPMI support"
+	help
+	  SPMI (System Power Management Interface) is a two-wire
+	  serial interface between baseband and application processors
+	  and Power Management Integrated Circuits (PMIC).
+
+if SPMI
+
+config SPMI_MSM_PMIC_ARB
+	tristate "Qualcomm MSM SPMI Controller (PMIC Arbiter)"
+	select IRQ_DOMAIN
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on HAS_IOMEM
+	default ARCH_QCOM
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in SPMI PMIC Arbiter interface on Qualcomm MSM family
+	  processors.
+
+	  This is required for communicating with Qualcomm PMICs and
+	  other devices that have the SPMI interface.
+
+config SPMI_MSM_PMIC_ARB_DEBUG
+	tristate "QTI SPMI Debug Controller (PMIC Arbiter)"
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on HAS_IOMEM
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in SPMI PMIC Arbiter debug interface on Qualcomm Technologies,
+	  Inc. (QTI) MSM family processors.  This feature is available on chips
+	  with PMIC arbiter version 5 and above.
+
+config VIOSPMI_MSM_PMIC_ARB
+	tristate "QTI Virtio SPMI Controller (Virtio PMIC Arbiter)"
+	select IRQ_DOMAIN
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on HAS_IOMEM
+	depends on VIRTIO
+	default ARCH_QCOM
+	help
+	  This is virtio SPMI frontend driver for QTI MSM virtual platform.
+
+source "drivers/spmi/simulator/Kconfig"
+
+endif

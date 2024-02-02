@@ -1,0 +1,301 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs403.dtsi"
+
+&tlmm {
+	pinctrl-0 = <&status_gpio>;
+	pinctrl-names = "default";
+	status_gpio: status_gpio {
+		ap2mdm_status {
+			pins = "gpio80";
+			function = "gpio";
+			drive-strength = <8>;
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	wakeup_gpio_default: wakeup_gpio_default {
+		mux {
+			pins = "gpio79";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio79";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};
+
+&pcie0_perst_default {
+	mux {
+		pins = "gpio107";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio107";
+		drive-strength = <2>;
+		bias-disable;
+	};
+};
+
+&pcie0_wake_default {
+	mux {
+		pins = "gpio115";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio115";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
+
+&usb3_id_det_default {
+	mux {
+		pins = "gpio113";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio113";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+};
+
+&spi_1 {
+	status = "disabled";
+};
+
+&i2c_3 {
+	status = "disabled";
+};
+
+&smb1351_otg_supply {
+	status = "disabled";
+};
+
+&cnss_sdio {
+	status = "disabled";
+};
+
+&spi_2 {
+	status = "okay";
+
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <34 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <2>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&spi_6 {
+	status = "okay";
+
+	spidev0: spidev@0 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+&i2c_5 {
+	status = "okay";
+	qcom,clk-freq-out = <100000>;
+};
+
+&soc {
+	gpio_keys {
+		status = "disabled";
+	};
+
+	vreg_emac_phy: emac_phy_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "emac_phy";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-enable-ramp-delay = <100>;
+		gpio = <&tlmm 92 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	vreg_rgmii_io_pads: rgmii_io_pads_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "rgmii_io_pads";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <100>;
+		gpio = <&tlmm 15 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	usb2_extcon: usb2_extcon {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&tlmm 53 GPIO_ACTIVE_HIGH>;
+		vbus-gpio = <&tlmm 116 GPIO_ACTIVE_HIGH>;
+		vbus-out-gpio = <&tlmm 108 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_det_default
+				&usb2_id_det_default
+				&usb2_vbus_boost_default>;
+	};
+
+	pps {
+		compatible = "pps-gpio";
+		gpios = <&tlmm 96 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
+	qmi-tmd-devices {
+		adsp {
+			qcom,instance-id = <0x1>;
+
+			adsp_vdd: adsp-vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+
+	sdx_ext_ipc: qcom,sdx_ext_ipc {
+		compatible = "qcom,sdx-ext-ipc";
+		qcom,wakeup-gpio-in = <&tlmm 14 0x00>;
+		qcom,wakeup-gpio-out = <&tlmm 79 0x00>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wakeup_gpio_default>;
+	};
+};
+
+&thermal_zones {
+	aoss-lowf {
+		cooling-maps {
+			adsp_vdd_cdev {
+				trip = <&aoss_lowf>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+		};
+	};
+};
+
+&usb3 {
+	qcom,ignore-wakeup-src-in-hostmode;
+};
+
+&usb3_extcon {
+	id-gpio = <&tlmm 113 GPIO_ACTIVE_HIGH>;
+};
+
+&usb2s {
+	extcon = <&usb2_extcon>;
+};
+
+&ethqos_hw {
+	status = "okay";
+	vreg_emac_phy-supply = <&vreg_emac_phy>;
+	vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+	rxc-skew-ps = <0>;
+
+	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state";
+	pinctrl-15 = <&emac_phy_reset_state>;
+};
+
+&emac_hw {
+	status = "okay";
+	vreg_emac_phy-supply = <&vreg_emac_phy>;
+	vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+	qcom,phy-reset-delay-msecs = <10>;
+	rxc-skew-ps = <0>;
+
+	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state";
+	pinctrl-15 = <&emac_phy_reset_state>;
+};
+
+&pcie0 {
+	pinctrl-0 = <&pcie0_perst_default
+		     &pcie0_wake_default>;
+
+	perst-gpio = <&tlmm 107 0>;
+	wake-gpio = <&tlmm 115 0>;
+};
+
+&sdhc_2 {
+	/delete-property/ qcom,nonhotplug;
+	/delete-property/ qcom,nonremovable;
+
+	vdd-io-supply = <&pms405_l11>;
+	qcom,vdd-io-voltage-level = <2950000 2950000>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+		    &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+		    &sdc2_cd_off>;
+	cd-gpios = <&tlmm 21 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa1 {
+		status = "disabled";
+		pms405_l1: regulator-l1 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "disabled";
+		pms405_l2: regulator-l2 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "disabled";
+		pms405_l7: regulator-l7 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "disabled";
+		pms405_l10: regulator-l10 {
+			status = "disabled";
+		};
+	};
+};

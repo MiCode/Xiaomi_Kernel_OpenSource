@@ -1,0 +1,698 @@
+source "drivers/clk/qcom/mdss/Kconfig"
+
+config QCOM_GDSC
+	bool
+	select PM_GENERIC_DOMAINS if PM
+
+config QCOM_RPMCC
+	bool
+
+config COMMON_CLK_QCOM
+	tristate "Support for Qualcomm's clock controllers"
+	depends on OF
+	depends on ARCH_QCOM || COMPILE_TEST
+	select REGMAP_MMIO
+	select RESET_CONTROLLER
+
+config QCOM_CLK_RPM
+	tristate "RPM based Clock Controller"
+	depends on COMMON_CLK_QCOM && MFD_QCOM_RPM
+	select QCOM_RPMCC
+	help
+	  The RPM (Resource Power Manager) is a dedicated hardware engine for
+	  managing the shared SoC resources in order to keep the lowest power
+	  profile. It communicates with other hardware subsystems via shared
+	  memory and accepts clock requests, aggregates the requests and turns
+	  the clocks on/off or scales them on demand.
+	  Say Y if you want to support the clocks exposed by the RPM on
+	  platforms such as apq8064, msm8660, msm8960 etc.
+
+config QCOM_CLK_SMD_RPM
+	tristate "RPM over SMD based Clock Controller"
+	depends on COMMON_CLK_QCOM && QCOM_SMD_RPM
+	select QCOM_RPMCC
+	help
+	  The RPM (Resource Power Manager) is a dedicated hardware engine for
+	  managing the shared SoC resources in order to keep the lowest power
+	  profile. It communicates with other hardware subsystems via shared
+	  memory and accepts clock requests, aggregates the requests and turns
+	  the clocks on/off or scales them on demand.
+	  Say Y if you want to support the clocks exposed by the RPM on
+	  platforms such as apq8016, apq8084, msm8974 etc.
+
+config APQ_GCC_8084
+	tristate "APQ8084 Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on apq8084 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, SATA, PCIe, etc.
+
+config APQ_MMCC_8084
+	tristate "APQ8084 Multimedia Clock Controller"
+	select APQ_GCC_8084
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the multimedia clock controller on apq8084 devices.
+	  Say Y if you want to support multimedia devices such as display,
+	  graphics, video encode/decode, camera, etc.
+
+config IPQ_GCC_4019
+	tristate "IPQ4019 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on ipq4019 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, etc.
+
+config IPQ_GCC_806X
+	tristate "IPQ806x Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on ipq806x devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, etc.
+
+config IPQ_LCC_806X
+	tristate "IPQ806x LPASS Clock Controller"
+	select IPQ_GCC_806X
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the LPASS clock controller on ipq806x devices.
+	  Say Y if you want to use audio devices such as i2s, pcm,
+	  S/PDIF, etc.
+
+config IPQ_GCC_8074
+	tristate "IPQ8074 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for global clock controller on ipq8074 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, etc. Select this for the root clock
+	  of ipq8074.
+
+config MSM_GCC_8660
+	tristate "MSM8660 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on msm8660 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, etc.
+
+config MSM_GCC_8916
+	tristate "MSM8916 Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on msm8916 devices.
+	  Say Y if you want to use devices such as UART, SPI i2c, USB,
+	  SD/eMMC, display, graphics, camera etc.
+
+config MSM_GCC_8960
+	tristate "APQ8064/MSM8960 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on apq8064/msm8960 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, SATA, PCIe, etc.
+
+config MSM_LCC_8960
+	tristate "APQ8064/MSM8960 LPASS Clock Controller"
+	select MSM_GCC_8960
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the LPASS clock controller on apq8064/msm8960 devices.
+	  Say Y if you want to use audio devices such as i2s, pcm,
+	  SLIMBus, etc.
+
+config MDM_GCC_9615
+	tristate "MDM9615 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on mdm9615 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, etc.
+
+config MDM_LCC_9615
+	tristate "MDM9615 LPASS Clock Controller"
+	select MDM_GCC_9615
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the LPASS clock controller on mdm9615 devices.
+	  Say Y if you want to use audio devices such as i2s, pcm,
+	  SLIMBus, etc.
+
+config MSM_MMCC_8960
+	tristate "MSM8960 Multimedia Clock Controller"
+	select MSM_GCC_8960
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the multimedia clock controller on msm8960 devices.
+	  Say Y if you want to support multimedia devices such as display,
+	  graphics, video encode/decode, camera, etc.
+
+config MSM_GCC_8974
+	tristate "MSM8974 Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on msm8974 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, SD/eMMC, SATA, PCIe, etc.
+
+config MSM_MMCC_8974
+	tristate "MSM8974 Multimedia Clock Controller"
+	select MSM_GCC_8974
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the multimedia clock controller on msm8974 devices.
+	  Say Y if you want to support multimedia devices such as display,
+	  graphics, video encode/decode, camera, etc.
+
+config MSM_GCC_8994
+	tristate "MSM8994 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on msm8994 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_GCC_8996
+	tristate "MSM8996 Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on msm8996 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  i2c, USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_MMCC_8996
+	tristate "MSM8996 Multimedia Clock Controller"
+	select MSM_GCC_8996
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the multimedia clock controller on msm8996 devices.
+	  Say Y if you want to support multimedia devices such as display,
+	  graphics, video encode/decode, camera, etc.
+
+config MSM_GCC_660
+	tristate "SDM660 Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	---help---
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SDM660 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_GPUCC_660
+	tristate "SDM660 Graphics Clock Controller"
+	select MSM_GCC_660
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  SDM660 devices.
+	  Say Y if you want to support graphics controller devices which will
+	  be required to enable those device.
+
+config MSM_MMCC_660
+	tristate "SDM660 Multimedia Clock Controller"
+	select MSM_GCC_660
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the multimedia clock controller on Qualcomm Technologies, Inc
+	  SDM660 devices.
+	  Say Y if you want to support multimedia devices such as display,
+	  video encode/decode, camera, etc.
+
+config SPMI_PMIC_CLKDIV
+	tristate "SPMI PMIC clkdiv Support"
+	depends on (COMMON_CLK_QCOM && SPMI) || COMPILE_TEST
+	help
+	  This driver supports the clkdiv functionality on the Qualcomm
+	  Technologies, Inc. SPMI PMIC. It configures the frequency of
+	  clkdiv outputs of the PMIC. These clocks are typically wired
+	  through alternate functions on GPIO pins.
+
+config MSM_CLK_AOP_QMP
+	tristate "AOP QMP Clock Driver"
+	depends on COMMON_CLK_QCOM && MSM_QMP
+	help
+	  Always On Processor manages few shared clocks on some Qualcomm
+	  Technologies, Inc. SoCs. It accepts requests from other hardware
+	  subsystems via QMP mailboxes.
+	  Say Y to support the clocks managed by AOP on platforms such as sm8150.
+
+config MSM_GCC_SM8150
+	tristate "SM8150 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_NPUCC_SM8150
+	tristate "SM8150 NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+          Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to enable use of the Network Processing Unit.
+
+config MSM_SCC_SM8150
+	tristate "SM8150 Sensor Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the sensor clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.  The sensor controller contains several QUP clocks
+	  which can be managed using DFS.  This controller is typically owned by
+	  the sensor processor.  However, on some systems it is instead owned
+	  by the application processor.
+
+config MSM_VIDEOCC_SM8150
+	tristate "SM8150 Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config MSM_CAMCC_SM8150
+	tristate "SM8150 Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+          Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config CLOCK_CPU_OSM
+	tristate "OSM CPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the OSM clock controller.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support OSM clocks.
+
+config CLOCK_CPU_OSM_660
+	tristate "OSM CPU Clock Controller for SDM660"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the OSM clock controller for SDM660.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support OSM clocks.
+
+config MSM_DISPCC_SM8150
+	tristate "SM8150 Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config MSM_DEBUGCC_SM8150
+	tristate "SM8150 Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config MSM_CLK_RPMH
+	tristate "RPMh Clock Driver"
+	depends on COMMON_CLK_QCOM && QTI_RPMH_API
+	help
+	  RPMh manages shared resources on some Qualcomm Technologies, Inc.
+	  SoCs. It accepts requests from other hardware subsystems via RSC.
+	  Say Y to support the clocks managed by RPMh VRM/ARC on platforms
+	  such as sdm845.
+
+config MSM_GPUCC_SM8150
+	tristate "SM8150 Graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  sm8150 devices.
+	  Say Y if you want to support graphics controller devices.
+
+config MSM_GCC_SDMSHRIKE
+	tristate "SDMSHRIKE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_CAMCC_SDMSHRIKE
+	tristate "SDMSHRIKE Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+          Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config MSM_DEBUGCC_SDMSHRIKE
+	tristate "SDMSHRIKE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+	  Say Y if you want to support the clock measurement functionality for
+	  measuring the clock frequency.
+
+config MDM_GCC_QCS405
+	tristate "QCS405 Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the global clock controller on Qualcomm Technologies, Inc
+	 QCS405 devices.
+	 Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	 USB, SD/eMMC, PCIe, etc.
+
+config MDM_DEBUGCC_QCS405
+	tristate "QCS405 Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  QCS405 devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config CLOCK_CPU_QCS405
+	bool "CPU QCS405 Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the cpu clock controller on QCS405
+	 based devices.
+	 Say Y if you want to support CPU clock scaling using
+	 CPUfreq drivers for dynamic power management.
+
+config MSM_GCC_SM6150
+	tristate "SM6150 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_GPUCC_SM6150
+	tristate "SM6150 graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  SM6150 devices.
+	  Say Y if you want to support graphics clocks.
+
+config MSM_VIDEOCC_SM6150
+	tristate "SM6150 Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SM6150 devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config MSM_DEBUGCC_SM6150
+	tristate "SM6150 Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config MSM_CAMCC_SM6150
+	tristate "SM6150 Cameira Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config MSM_DISPCC_SM6150
+	tristate "SM6150 Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config MSM_SCC_SM6150
+	tristate "SM6150 Sensor Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the sensor clock controller on Qualcomm Technologies, Inc
+	  SM6150 devices. The sensor controller contains several QUP clocks
+	  which can be managed using DFS.
+	  Say Y if you want to support Sensor clocks.
+
+config MSM_CAMCC_SDMMAGPIE
+	tristate "SDMMAGPIE Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config MSM_DISPCC_SDMMAGPIE
+	tristate "SDMMAGPIE Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config MSM_GCC_SDMMAGPIE
+	tristate "SDMMAGPIE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_VIDEOCC_SDMMAGPIE
+	tristate "SDMMAGPIE Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SDMMAGPIE devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config MSM_NPUCC_SDMMAGPIE
+	tristate "SDMMAGPIE NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+          Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to enable use of the Network Processing Unit.
+
+config MSM_GPUCC_SDMMAGPIE
+	tristate "SDMMAGPIE graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  SDMMAGPIE devices.
+	  Say Y if you want to support graphics clocks.
+
+config MSM_DEBUGCC_SDMMAGPIE
+	tristate "SDMMAGPIE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDMMAGPIE devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config GCC_SDXPRAIRIE
+	tristate "SDXPRAIRIE Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the global clock controller on Qualcomm Technologies, Inc
+	 SDXPRAIRIE devices.
+	 Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	 USB, SD/eMMC, PCIe, etc.
+
+config DEBUGCC_SDXPRAIRIE
+	tristate "SDXPRAIRIE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDXPRAIRIE devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config CLOCK_CPU_SDXPRAIRIE
+	bool "CPU SDXPRAIRIE Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the cpu clock controller on SDXPRAIRIE
+	  based devices.
+	  Say Y if you want to support CPU clock scaling using
+	  CPUfreq drivers for dynamic power management.
+
+config SM_GCC_TRINKET
+	tristate "TRINKET Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  TRINKET devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SM_GPUCC_TRINKET
+	tristate "TRINKET graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  TRINKET devices.
+	  Say Y if you want to support graphics clocks.
+
+config SM_VIDEOCC_TRINKET
+	tristate "TRINKET Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  TRINKET devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config SM_DISPCC_TRINKET
+	tristate "TRINKET Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  TRINKET devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config SM_DEBUGCC_TRINKET
+	tristate "TRINKET Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  TRINKET devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config QCS_CMN_BLK_PLL
+	tristate "QCS405 CMN BLK PLL"
+	select MDM_GCC_QCS405
+	help
+	 Support for the CMN BLK PLL on Qualcomm Technologies, Inc QCS405
+	 devices.
+	 Say Y if you want to support the Common Block PLL.
+
+config QCOM_CLK_VIRT
+	tristate "QTI Virtual Clock Frontend Driver"
+	depends on COMMON_CLK_QCOM && MSM_HAB
+	help
+	  This is the virtual clock frontend driver which is based on HAB for
+	  the QTI virtual machine.
+	  Say Y if you want to support virtual clock.
+
+config VIRTIO_CLK
+	tristate "Virtio clock driver"
+	depends on VIRTIO
+	---help---
+	  This is the virtual clock driver for virtio.
+
+config SM_GCC_ATOLL
+	tristate "ATOLL Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SM_CAMCC_ATOLL
+	tristate "ATOLL Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SM_VIDEOCC_ATOLL
+	tristate "ATOLL Video Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  ATOLL devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config SM_DISPCC_ATOLL
+	tristate "ATOLL Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config SM_NPUCC_ATOLL
+	tristate "ATOLL NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to enable use of the Network Processing Unit.
+
+config SM_DEBUGCC_ATOLL
+	tristate "ATOLL Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config SDM_GCC_429W
+        tristate "SDM429W Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on SDM429W devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, Display, Camera, Video etc.
+
+config SDM_DEBUGCC_429W
+	tristate "SDM429W Debug Clock Controller"
+	depends on SDM_GCC_429W
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDM429W devices.
+	  Say Y if you want to support the clock measurement functionality.
+
+config CLOCK_CPU_SDM
+	bool "CPU SDM Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the cpu clock controller on SDM based devices(e.g. SDM429).
+	 Say Y if you want to support CPU clock scaling using
+	 CPUfreq drivers for dynamic power management.

@@ -1,0 +1,476 @@
+/*
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&rpm_bus {
+	/* PM660 S1 - VDD_CX supply */
+	rpm-regulator-smpa1 {
+		status = "okay";
+		VDD_CX_LEVEL: S1A_LEVEL:
+		pm660_s1_level: regulator-s1-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s1_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_CX_FLOOR_LEVEL: S1A_FLOOR_LEVEL:
+		pm660_s1_floor_level: regulator-s1-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s1_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		VDD_CX_LEVEL_AO: S1A_LEVEL_AO:
+		pm660_s1_level_ao: regulator-s1-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s1_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		pm660_cx_cdev: cx {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm660_s1_floor_level>;
+			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS
+					RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			#cooling-cells = <2>;
+		};
+	};
+
+	/* PM660 S2 - VDD_MX supply */
+	rpm-regulator-smpa2 {
+		status = "okay";
+		VDD_MX_LEVEL: S2A_LEVEL:
+		pm660_s2_level: regulator-s2-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_MX_LEVEL_AO: S2A_LEVEL_AO:
+		pm660_s2_level_ao: regulator-s2-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_MX_LEVEL_SO: S2A_LEVEL_SO:
+		pm660_s2_level_so: regulator-s2-level-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2_level_so";
+			qcom,set = <2>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		S4A: pm660_s4: regulator-s4 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa5 {
+		status = "okay";
+		S5A: pm660_s5: regulator-s5 {
+			regulator-min-microvolt = <1040000>;
+			regulator-max-microvolt = <1420000>;
+			qcom,init-voltage = <1040000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa6 {
+		status = "okay";
+		S6A: pm660_s6_level: regulator-s6-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s6_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		L1A: pm660_l1: regulator-l1 {
+			regulator-min-microvolt = <970000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <970000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		L2A: pm660_l2: regulator-l2 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <900000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		L3A: pm660_l3: regulator-l3 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <900000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		L5A: pm660_l5: regulator-l5 {
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1450000>;
+			qcom,init-voltage = <1150000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		L6A: pm660_l6: regulator-l6 {
+			regulator-min-microvolt = <670000>;
+			regulator-max-microvolt = <930000>;
+			qcom,init-voltage = <800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		L7A: pm660_l7: regulator-l7 {
+			regulator-min-microvolt = <1140000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <1140000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		L8A: pm660_l8: regulator-l8 {
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1500000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		L9A: pm660_l9: regulator-l9 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		L10A: pm660_l10: regulator-l10 {
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <500000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		L11A: pm660_l11: regulator-l11 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		L12A: pm660_l12: regulator-l12 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1620000>;
+			status = "okay";
+		};
+
+		L12A_AO: pm660_l12_ao: regulator-l12-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_l12_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1620000>;
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		L13A: pm660_l13: regulator-l13 {
+			regulator-min-microvolt = <1600000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1600000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		L14A: pm660_l14: regulator-l14 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <1900000>;
+			qcom,init-voltage = <1700000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		L15A: pm660_l15: regulator-l15 {
+			regulator-min-microvolt = <2650000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2650000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		L16A: pm660_l16: regulator-l16 {
+			regulator-min-microvolt = <2970000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2970000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		L17A: pm660_l17: regulator-l17 {
+			regulator-min-microvolt = <2400000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <2400000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa18 {
+		status = "okay";
+		L18A: pm660_l18: regulator-l18 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <3050000>;
+			qcom,init-voltage = <1650000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa19 {
+		status = "okay";
+		L19A: pm660_l19: regulator-l19 {
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2700000>;
+			status = "okay";
+		};
+	};
+};
+
+/* SPM controlled regulators */
+&spmi_bus {
+	qcom,pm660@1 {
+		apc_vreg_regulator: S3A: pm660_s3: spm-regulator@1a00 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x1a00 0x100>;
+			regulator-name = "pm660_s3";
+			regulator-min-microvolt = <490000>;
+			regulator-max-microvolt = <980000>;
+		};
+	};
+};
+
+&soc {
+	apc_mem_acc_vreg: apc-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		regulator-name = "apc_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,acc-reg-addr-list = <0x01942138 0x01942130 0x01946004>;
+		qcom,acc-init-reg-config = <1 0xff>;
+		qcom,num-acc-corners = <2>;
+		qcom,boot-acc-corner = <1>;
+		qcom,corner1-reg-config =
+			/* 1 -> 1 */
+			<(-1) (-1)>, <(-1) (-1)>,
+			/* 1 -> 2 */
+			<  2 0xffff>, < 3  0xff>;
+		qcom,corner2-reg-config =
+			/* 2 -> 1 */
+			<  2 0x5555>, < 3  0x55>,
+			/* 2 -> 2 */
+			<(-1) (-1)>, <(-1) (-1)>;
+	};
+
+	apc_vreg_corner: regulator@b018000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xb018000 0x1000>, <0xb011064 4>, <0xa4000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 15 0>;
+		regulator-name = "apc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <6>;
+
+		qcom,cpr-fuse-corners = <3>;
+		qcom,cpr-voltage-ceiling = <810000 845000 980000>;
+		qcom,cpr-voltage-floor =   <700000 700000 790000>;
+		vdd-apc-supply = <&pm660_s3>;
+		mem-acc-supply = <&apc_mem_acc_vreg>;
+		qcom,mem-acc-corner-map = <1 1 1 1 2 2>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <10>;
+		qcom,cpr-up-threshold = <2>;
+		qcom,cpr-down-threshold = <4>;
+		qcom,cpr-idle-clocks = <15>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <4000>; /* 4mV for PM660 */
+
+		qcom,cpr-fuse-row = <67 0>;
+		qcom,cpr-fuse-target-quot = <42 24 6>;
+		qcom,cpr-fuse-ro-sel = <60 57 54>;
+		qcom,cpr-init-voltage-ref = <760000 795000 910000>;
+		qcom,cpr-fuse-init-voltage =
+					<67 36 6 0>,
+					<67 18 6 0>,
+					<67  0 6 0>;
+		qcom,cpr-fuse-quot-offset =
+					<71 26 6 0>,
+					<71 20 6 0>,
+					<70 54 7 0>;
+		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
+		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-corner-map = <1 2 3 3 3 3>;
+		qcom,cpr-corner-frequency-map =
+				<1 1305600000>,
+				<2 1497600000>,
+				<3 1708800000>,
+				<4 1804800000>,
+				<5 1958400000>,
+				<6 2016000000>;
+		qcom,speed-bin-fuse-sel = <37 34 3 0>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 (-1) 1 2 5>,
+					<1 (-1) 1 2 5>,
+					<4 (-1) 1 2 6>,
+					<5 (-1) 1 2 6>;
+		qcom,cpr-fuse-revision = <69 39 3 0>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
+
+		qcom,cpr-fuse-version-map =
+			/* <Speed-bin pvs-version cpr-rev ... ... ...> */
+			<(-1)    (-1)   ( 0)   (-1)    (-1)    (-1)>,
+			<(-1)    (-1)   ( 1)   (-1)    (-1)    (-1)>,
+			<(-1)    (-1)   (-1)   (-1)    (-1)    (-1)>;
+
+		qcom,cpr-quotient-adjustment =
+			<66      77      66>, /* SVSP/NOM/TUR:30/35/30 mV */
+			<(-74)    0   (-30)>, /* SVSP/NOM/TUR:-34/0/-14 mV */
+			<0        0       0>;
+
+		qcom,cpr-floor-to-ceiling-max-range =
+			<50000 50000 65000 65000 65000 65000>,
+			<50000 50000 65000 65000 65000 65000>,
+			<50000 50000 65000 65000 65000 65000>;
+
+		qcom,cpr-voltage-ceiling-override =
+			<(-1) (-1) 810000 845000 885000 980000 980000 980000>;
+
+		qcom,cpr-virtual-corner-quotient-adjustment =
+			<0  0    0   0   0    0>,
+			<0  0  (-22) 0   0    0>, /* NOMP: -10 mV */
+			<0  0    0   0   0    0>;
+
+		qcom,cpr-enable;
+	};
+
+	vreg_sd_pad: vreg_sd_pad {
+		compatible = "regulator-gpio";
+		regulator-name = "vreg_sd_pad";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2950000>;
+		enable-gpio = <&tlmm 63 GPIO_ACTIVE_HIGH>;
+		gpios = <&tlmm 91 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0>, <2950000 1>;
+		startup-delay-us = <200000>;
+		enable-active-high;
+	};
+
+	vreg_sd_vdd: sd-vdd-fixed-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "sd_vdd";
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+	};
+};

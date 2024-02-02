@@ -1,0 +1,93 @@
+Qualcomm Technologies, Inc. SMSM Point-to-Point (SMP2P) GPIO Driver
+
+Used to map an SMP2P entry and remote processor ID to a virtual GPIO controller
+and virtual interrupt controller.
+
+Required properties:
+-compatible : should be "qcom,smp2pgpio";
+-qcom,entry-name : name of the SMP2P entry
+-qcom,remote-pid : the SMP2P remote processor ID (see smp2p_private_api.h)
+-gpio-controller : specifies that this is a GPIO controller
+-#gpio-cells : number of GPIO cells (should always be <2>)
+-interrupt-controller : specifies that this is an interrupt controller
+-#interrupt-cells : number of interrupt cells (should always be <2>)
+
+Optional properties:
+-qcom,is-inbound : specifies that this is an inbound entry (default is outbound)
+
+Comments:
+All device tree entries must be unique.  Therefore to prevent naming collisions
+between clients, it is recommended that the DT nodes should be named using the
+format:
+	smp2pgpio_<ENTRY_NAME>_<REMOTE PID>_<in|out>
+
+Unit test devices ("smp2p" entries):
+-compatible : should be one of
+		"qcom,smp2pgpio_test_smp2p_1_out"
+		"qcom,smp2pgpio_test_smp2p_1_in"
+		"qcom,smp2pgpio_test_smp2p_2_out"
+		"qcom,smp2pgpio_test_smp2p_2_in"
+		"qcom,smp2pgpio_test_smp2p_3_out"
+		"qcom,smp2pgpio_test_smp2p_3_in"
+		"qcom,smp2pgpio_test_smp2p_4_out"
+		"qcom,smp2pgpio_test_smp2p_4_in"
+		"qcom,smp2pgpio_test_smp2p_7_out"
+		"qcom,smp2pgpio_test_smp2p_7_in"
+		"qcom,smp2pgpio_test_smp2p_15_out"
+		"qcom,smp2pgpio_test_smp2p_15_in"
+-gpios : the relevant gpio pins of the entry
+
+Example:
+	/* Maps inbound "smp2p" entry on remote PID 7 to GPIO controller. */
+	smp2pgpio_smp2p_7_in: qcom,smp2pgpio-smp2p-7-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "smp2p";
+		qcom,remote-pid = <7>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/*
+	 * Maps inbound "smp2p" entry on remote PID 7 to client driver
+	 * "qcom,smp2pgpio_test_smp2p_7_in".
+	 *
+	 * Note:  If all 32-pins are used by this client, then you
+	 *        can just list pin 0 here as a shortcut.
+	 */
+	qcom,smp2pgpio_test_smp2p_7_in {
+		compatible = "qcom,smp2pgpio_test_smp2p_7_in";
+		gpios = <&smp2pgpio_smp2p_7_in 0 0>, /* pin 0 */
+			<&smp2pgpio_smp2p_7_in 1 0>,
+			. . .
+			<&smp2pgpio_smp2p_7_in 31 0>;    /* pin 31 */
+	};
+
+
+	/* Maps outbound "smp2p" entry on remote PID 7 to GPIO controller. */
+	smp2pgpio_smp2p_7_out: qcom,smp2pgpio-smp2p-7-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "smp2p";
+		qcom,remote-pid = <7>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/*
+	 * Maps outbound "smp2p" entry on remote PID 7 to client driver
+	 * "qcom,smp2pgpio_test_smp2p_7_out".
+	 *
+	 * Note:  If all 32-pins are used by this client, then you
+	 *        can just list pin 0 here as a shortcut.
+	 */
+	qcom,smp2pgpio_test_smp2p_7_out {
+		compatible = "qcom,smp2pgpio_test_smp2p_7_out";
+		gpios = <&smp2pgpio_smp2p_7_out 0 0>, /* pin 0 */
+			<&smp2pgpio_smp2p_7_out 1 0>,
+			. . .
+			<&smp2pgpio_smp2p_7_out 31 0>;    /* pin 31 */
+	};

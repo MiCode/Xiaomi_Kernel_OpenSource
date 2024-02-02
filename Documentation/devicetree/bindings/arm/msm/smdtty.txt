@@ -1,0 +1,39 @@
+Qualcomm Technologies, Inc. Shared Memory TTY Driver (smdtty)
+
+[Root level node]
+Required properties:
+-compatible : should be "qcom,smdtty"
+
+[Second level nodes]
+qcom,smdtty-port-names
+Required properties:
+-qcom,smdtty-remote: the remote subsystem name
+-qcom,smdtty-port-name : the smd channel name
+
+Optional properties:
+-qcom,smdtty-dev-name : the smdtty device name
+
+Required alias:
+- The index into TTY subsystem is specified via an alias with the following format
+         'smd{n}' where n is the tty device index.
+
+Example:
+	aliases {
+		smd1 = &smdtty_apps_fm;
+		smd36 = &smdtty_loopback;
+	};
+
+	qcom,smdtty {
+		compatible = "qcom,smdtty";
+
+		smdtty_apps_fm: qcom,smdtty-apps-fm {
+			qcom,smdtty-remote = "wcnss";
+			qcom,smdtty-port-name = "APPS_FM";
+		};
+
+		smdtty_loopback: smdtty-loopback {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "LOOPBACK";
+			qcom,smdtty-dev-name = "LOOPBACK_TTY";
+		};
+	};

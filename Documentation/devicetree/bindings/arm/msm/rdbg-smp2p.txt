@@ -1,0 +1,31 @@
+Qualcomm Technologies, Inc. Remote Debugger (RDBG) driver
+
+Required properties:
+-compatible : Should be one of
+	To communicate with adsp
+		qcom,smp2p-interrupt-rdbg-2-in (inbound)
+		qcom,smp2p-interrupt-rdbg-2-out (outbound)
+	To communicate with cdsp
+		qcom,smp2p-interrupt-rdbg-5-in (inbound)
+		qcom,smp2p-interrupt-rdbg-5-out (outbound)
+
+Example:
+	qcom,smp2p_interrupt_rdbg_2_in {
+            compatible = "qcom,smp2p-interrupt-rdbg-2-in";
+	};
+
+Required properties:
+-compatible : Should be one of
+        To communicate with modem
+                qcom,smp2pgpio_client_rdbg_2_in (inbound)
+                qcom,smp2pgpio_client_rdbg_2_out (outbound)
+        To communicate with modem
+                qcom,smp2pgpio_client_rdbg_1_in (inbound)
+                qcom,smp2pgpio_client_rdbg_1_out (outbound)
+-gpios : the relevant gpio pins of the entry.
+
+Example:
+        qcom,smp2pgpio_client_rdbg_2_in {
+                compatible = "qcom,smp2pgpio_client_rdbg_2_in";
+                gpios = <&smp2pgpio_rdbg_2_in 0 0>;
+        };

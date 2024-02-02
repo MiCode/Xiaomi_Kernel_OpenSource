@@ -1,0 +1,194 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Stub regulators */
+
+/ {
+	/* PMS405_S1 - VDD_MX/CX supply */
+	pms405_s1_level: regulator-pms405-s1-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_s1_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	pms405_s1_floor_level: regulator-pms405-s1-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_s1_floor_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	pms405_s1_level_ao: regulator-pms405-s1-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_s1_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	/* PMS405_S2 - VDD_LPI_CX supply */
+	pms405_s2_level: regulator-pms405-s2-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_s2_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	pms405_s2_floor_level: regulator-pms405-s2-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_s2_floor_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	pms405_s4: regulator-pms405-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_s4";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1728000>;
+		regulator-max-microvolt = <1920000>;
+	};
+
+	pms405_l1: regulator-pms405-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l1";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1240000>;
+		regulator-max-microvolt = <1352000>;
+	};
+
+	pms405_l2: regulator-pms405-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l2";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1048000>;
+		regulator-max-microvolt = <1280000>;
+	};
+
+	pms405_l3: regulator-pms405-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l3";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <976000>;
+		regulator-max-microvolt = <1160000>;
+	};
+
+	pms405_l4: regulator-pms405-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l4";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1144000>;
+		regulator-max-microvolt = <1256000>;
+	};
+
+	pms405_l5: regulator-pms405-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l5";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pms405_l5_ao: regulator-pms405-l5-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l5_ao";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pms405_l6: regulator-pms405-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l6";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1704000>;
+		regulator-max-microvolt = <1896000>;
+	};
+
+	pms405_l7: regulator-pms405-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l7";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1616000>;
+		regulator-max-microvolt = <3000000>;
+	};
+
+	pms405_l8: regulator-pms405-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l8";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1136000>;
+		regulator-max-microvolt = <1352000>;
+	};
+
+	/* PMS405 L9 - VDD_LPI_MX supply */
+	pms405_l9_level: regulator-pms405-l9-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l9_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	pms405_l9_floor_level: regulator-pms405-l9-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l9_floor_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	pms405_l10: regulator-pms405-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l10";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2936000>;
+		regulator-max-microvolt = <3088000>;
+	};
+
+	pms405_l11: regulator-pms405-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2696000>;
+		regulator-max-microvolt = <3304000>;
+	};
+
+	pms405_l12: regulator-pms405-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l12";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2968000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	pms405_l13: regulator-pms405-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pms405_l13";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	/* VDD_APC supply */
+	apc_vreg_corner: regulator-apc-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "apc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+	};
+};

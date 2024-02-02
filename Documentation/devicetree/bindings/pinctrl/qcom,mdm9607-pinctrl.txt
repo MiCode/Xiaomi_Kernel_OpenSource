@@ -1,0 +1,191 @@
+Qualcomm Technologies, Inc. MDM9607 TLMM block
+
+This binding describes the Top Level Mode Multiplexer block found in the
+MDM9607 platform.
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,mdm9607-pinctrl"
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: the base address and size of the TLMM register space.
+
+- interrupts:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: should specify the TLMM summary IRQ.
+
+- interrupt-controller:
+	Usage: required
+	Value type: <none>
+	Definition: identifies this node as an interrupt controller
+
+- #interrupt-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: must be 2. Specifying the pin number and flags, as defined
+		    in <dt-bindings/interrupt-controller/irq.h>
+
+- gpio-controller:
+	Usage: required
+	Value type: <none>
+	Definition: identifies this node as a gpio controller
+
+- #gpio-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: must be 2. Specifying the pin number and flags, as defined
+		    in <dt-bindings/gpio/gpio.h>
+
+- qcom,tlmm-emmc-boot-select:
+	Usage: optional
+	Value type: <u32>
+	Definition: selects the bit-field position to set.
+
+Please refer to ../gpio/gpio.txt and ../interrupt-controller/interrupts.txt for
+a general description of GPIO and interrupt bindings.
+
+Please refer to pinctrl-bindings.txt in this directory for details of the
+common pinctrl bindings used by client devices, including the meaning of the
+phrase "pin configuration node".
+
+The pin configuration nodes act as a container for an arbitrary number of
+subnodes. Each of these subnodes represents some desired configuration for a
+pin, a group, or a list of pins or groups. This configuration can include the
+mux function to select on those pin(s)/group(s), and various pin configuration
+parameters, such as pull-up, drive strength, etc.
+
+
+PIN CONFIGURATION NODES:
+
+The name of each subnode is not important; all subnodes should be enumerated
+and processed purely based on their content.
+
+Each subnode only affects those parameters that are explicitly listed. In
+other words, a subnode that lists a mux function but no pin configuration
+parameters implies no information about any pin configuration parameters.
+Similarly, a pin subnode that describes a pullup parameter implies no
+information about e.g. the mux function.
+
+
+The following generic properties as defined in pinctrl-bindings.txt are valid
+to specify in a pin configuration subnode:
+
+- pins:
+	Usage: required
+	Value type: <string-array>
+	Definition: List of gpio pins affected by the properties specified in
+		    this subnode.  Valid pins are:
+		    gpio0-gpio79,
+		    sdc1_clk,
+		    sdc1_cmd,
+		    sdc1_data,
+		    sdc2_clk,
+		    sdc2_cmd,
+		    sdc2_data,
+		    qdsd_clk,
+		    qdsd_cmd,
+		    qdsd_data0,
+		    qdsd_data1,
+		    qdsd_data2,
+		    qdsd_data3
+
+- function:
+	Usage: required
+	Value type: <string>
+	Definition: Specify the alternative function to be configured for the
+		    specified pins. Functions are only valid for gpio pins.
+		    Valid values are:
+
+		blsp_spi3, blsp_uart3, qdss_tracedata_a, bimc_dte1, blsp_i2c3,
+		qdss_traceclk_a, bimc_dte0, qdss_cti_trig_in_a1, blsp_spi2,
+		blsp_uart2, blsp_uim2, blsp_i2c2, qdss_tracectl_a, sensor_int2,
+		blsp_spi5, blsp_uart5, ebi2_lcd, m_voc, sensor_int3, sensor_en,
+		blsp_i2c5, ebi2_a, qdss_tracedata_b, sensor_rst, blsp2_spi,
+		blsp_spi1, blsp_uart1, blsp_uim1, blsp3_spi, gcc_gp2_clk_b,
+		gcc_gp3_clk_b, blsp_i2c1, gcc_gp1_clk_b, blsp_spi4, blsp_uart4,
+		rcm_marker1, blsp_i2c4, qdss_cti_trig_out_a1, rcm_marker2,
+		qdss_cti_trig_out_a0, blsp_spi6, blsp_uart6, pri_mi2s_ws_a,
+		ebi2_lcd_te_b, blsp1_spi, backlight_en_b, pri_mi2s_data0_a,
+		pri_mi2s_data1_a, blsp_i2c6, ebi2_a_d_8_b, pri_mi2s_sck_a,
+		ebi2_lcd_cs_n_b, touch_rst, pri_mi2s_mclk_a, pwr_nav_enabled_a,
+		ts_int, sd_write, pwr_crypto_enabled_a, codec_rst, adsp_ext,
+		atest_combodac_to_gpio_native, uim2_data, gmac_mdio, gcc_gp1_clk_a,
+		uim2_clk, gcc_gp2_clk_a, eth_irq, uim2_reset, gcc_gp3_clk_a,
+		eth_rst, uim2_present, prng_rosc, uim1_data, uim1_clk,
+		uim1_reset, uim1_present, gcc_plltest, uim_batt, coex_uart,
+		codec_int, qdss_cti_trig_in_a0, atest_bbrx1, cri_trng0, atest_bbrx0,
+		cri_trng, qdss_cti_trig_in_b0, atest_gpsadc_dtest0_native,
+		qdss_cti_trig_out_b0, qdss_tracectl_b, qdss_traceclk_b, pa_indicator,
+		modem_tsync, nav_tsync_out_a, nav_ptp_pps_in_a, ptp_pps_out_a,
+		gsm0_tx, qdss_cti_trig_in_b1, cri_trng1, qdss_cti_trig_out_b1,
+		ssbi1, atest_gpsadc_dtest1_native, ssbi2, atest_char3, atest_char2,
+		atest_char1, atest_char0, atest_char, ebi0_wrcdc, ldo_update,
+		gcc_tlmm, ldo_en, dbg_out, atest_tsens, lcd_rst, wlan_en1,
+		nav_tsync_out_b, nav_ptp_pps_in_b, ptp_pps_out_b, pbs0, sec_mi2s,
+		pwr_modem_enabled_a, pbs1, pwr_modem_enabled_b, pbs2, pwr_nav_enabled_b,
+		pwr_crypto_enabled_b, gpio
+
+- bias-disable:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configued as no pull.
+
+- bias-pull-down:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configued as pull down.
+
+- bias-pull-up:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins should be configued as pull up.
+
+- output-high:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins are configured in output mode, driven
+		    high.
+		    Not valid for sdc pins.
+
+- output-low:
+	Usage: optional
+	Value type: <none>
+	Definition: The specified pins are configured in output mode, driven
+		    low.
+		    Not valid for sdc pins.
+
+- drive-strength:
+	Usage: optional
+	Value type: <u32>
+	Definition: Selects the drive strength for the specified pins, in mA.
+		    Valid values are: 2, 4, 6, 8, 10, 12, 14 and 16
+
+Example:
+
+	tlmm: pinctrl@01010000 {
+		compatible = "qcom,mdm9607-pinctrl";
+		reg = <0x01010000 0x300000>;
+		interrupts = <0 208 0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		qcom,tlmm-emmc-boot-select = <0x1>;
+
+		uart_console_active: uart_console_active {
+			mux {
+				pins = "gpio8", "gpio9";
+				function = "blsp_uart5";
+			};
+
+			config {
+				pins = "gpio8", "gpio9";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};

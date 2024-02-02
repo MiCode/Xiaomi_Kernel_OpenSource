@@ -1,0 +1,153 @@
+QTI Snapdragon Display Engine (SDE) shared display
+
+Snapdragon Display Engine shared display provids the capability to virtualize
+one physical connector to multiple virtual connectors sit at different blend
+stages. Each virtual connector can be attached to different CRTCs and commit
+independently.
+
+This device must be added to the connectors list of qcom,sde-kms device.
+
+Required properties:
+- compatible:		"qcom,shared-display"
+- qcom,shared-display-base: node handle of qcom,shared-display-base, see below.
+- qcom,blend-stage-range: A pair of u32 property <start size> defines the blend
+			stage start and size for the shared display. For example
+			<4 5> indicates this shared display's blending stage starts
+			from 4 and there are 5 stages in total. Different shared
+			display located on the same base display should not overlap
+			with their blend stages. The maximum stages should be within
+			the range of layer mixer hardware capability.
+
+Optional properties:
+- qcom,shared-display-src-mode: source resolution of the shared display, which is also
+			the framebuffer size. It contains two properties:
+			qcom,mode-h-active: A u32 property defines horizontal resolution.
+			qcom,mode-v-active: A u32 property defines vertical resolution.
+			If qcom,shared-display-src-mode is not defined, horizontal and
+			vertical resolution will be the same as base display, and
+			qcom,shared-display-dst-mode will be ignored.
+- qcom,shared-display-dst-mode: destination rectangle in the shared display, which also
+			includes the padding lines if line padding feature is enabled.
+			It contains 4 properties:
+			qcom,mode-x-offset: A u32 property of x offset.
+			qcom,mode-y-offset: A u32 property of y offset.
+			qcom,mode-width: A u32 property of width.
+			qcom,mode-height: A u32 property of height, including line padding.
+- qcom,shared-display-name:  A string used as a descriptive name of the shared display.
+			If qcom,shared-display-name is not defined, a system auto-generated
+			name will be used like DSI-X or DP-X.
+
+qcom,shared-display-base properties:
+
+Required properties:
+- qcom,shared-display-base-intf: A u32 property defines intf index of the base display.
+			If qcom,shared-display-base-intf is defined,
+			qcom,shared-display-base-connector will be ignored.
+- qcom,shared-display-base-connector: A string property defines connector name of the base
+			display. It is another way to identify the base connector when
+			qcom,shared-display-base-intf is not defined.
+
+Optional properties:
+- qcom,shared-display-base-mst: A u32 property defines the DP MST branch port, needed if
+			the base display sits on DP MST display. Only used when
+			qcom,shared-display-base-intf is defined.
+- qcom,shared-display-base-mode: timing of the physical base display, contains the
+			following properties:
+			qcom,mode-h-active: A u32 property defines the horizontal active size.
+			qcom,mode-h-front-porch: A u32 property defines the horizontal front porch.
+			qcom,mode-h-pulse-width: A u32 property defines the horizontal pulse.
+			qcom,mode-h-back-porch: A u32 property defines the horizontal back porch.
+			qcom,mode-h-active-high: A boolean property defines if horizontal polarity
+						is high.
+			qcom,mode-v-active: A u32 property defines the vertical active size.
+			qcom,mode-v-front-porch: A u32 property defines the vertical front portch.
+			qcom,mode-v-pulse-width: A u32 property defines the vertical pulse width.
+			qcom,mode-v-back-porch: A u32 property defines the vertical back porch.
+			qcom,mode-v-active-high: A boolean property defines if vertical polarity
+						is high.
+			qcom,mode-refresh-rate: A u32 property defines vertial refresh rate.
+			qcom,mode-clock-in-khz: A u32 property defines clock in kHz.
+			If qcom,shared-display-base-mode is not defined, auto-detected mode
+			from panel will be used as base mode.
+
+Example of static mode using intf to select base connector:
+
+/ {
+	...
+
+	sde_sh_base0: qcom,shared-display-base@0 {
+		qcom,shared-display-base-intf = <0>;
+		qcom,shared-display-base-mode {
+			qcom,mode-h-active = <3840>;
+			qcom,mode-h-front-porch = <176>;
+			qcom,mode-h-pulse-width = <88>;
+			qcom,mode-h-back-porch = <296>;
+			qcom,mode-h-active-high;
+			qcom,mode-v-active = <2160>;
+			qcom,mode-v-front-porch = <8>;
+			qcom,mode-v-pulse-width = <10>;
+			qcom,mode-v-back-porch = <72>;
+			qcom,mode-v-active-high;
+			qcom,mode-refresh-rate = <30>;
+			qcom,mode-clock-in-khz = <297000>;
+		};
+	};
+
+	sde_sh0: qcom,shared-display@0 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <0 5>;
+		qcom,shared-display-name = "shared-disp-0";
+		qcom,shared-display-src-mode {
+			qcom,mode-h-active = <1920>;
+			qcom,mode-v-active = <2160>;
+		};
+		qcom,shared-display-dst-mode {
+			qcom,mode-x-offset = <0>;
+			qcom,mode-y-offset = <0>;
+			qcom,mode-width = <1920>;
+			qcom,mode-height = <2160>;
+		};
+	};
+
+	sde_sh1: qcom,shared-display@1 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <5 5>;
+		qcom,shared-display-name = "shared-disp-1";
+		qcom,shared-display-src-mode {
+			qcom,mode-h-active = <1920>;
+			qcom,mode-v-active = <2160>;
+		};
+		qcom,shared-display-dst-mode {
+			qcom,mode-x-offset = <1920>;
+			qcom,mode-y-offset = <0>;
+			qcom,mode-width = <1920>;
+			qcom,mode-height = <2160>;
+		};
+	};
+};
+
+Example of dynamic mode using name to select base connector:
+
+/ {
+	...
+
+	sde_sh_base0: qcom,shared-display-base@0 {
+		qcom,shared-display-base-connector = "DSI-1";
+	};
+
+	sde_sh0: qcom,shared-display@0 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <0 5>;
+		qcom,shared-display-name = "shared-disp-0";
+	};
+
+	sde_sh1: qcom,shared-display@1 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <5 5>;
+		qcom,shared-display-name = "shared-disp-1";
+	};
+};

@@ -1,0 +1,280 @@
+* Low Power Management Levels
+
+The application processor in MSM can do a variety of C-States for low power
+management. The LPM module performs the System low power modes based on
+the latency/residency information of the individual CPUs and clusters.
+
+LPM-levels defines a hierarchy of low power modes that a cluster and
+clusters/cpus within that cluster can enter. The bottom hierarchy level
+represents the low power modes that a CPU can enter. The CPU low power nodes
+are associated with a cluster that defines the low power modes that a cluster
+can enter. For system involving a hierarchy of clusters, the cluster low power
+modes can be contained within another cluster.
+
+[Top Level Node]
+Required properties:
+
+- compatible: "qcom,lpm-levels"
+
+[Node bindings for qcom,pm-cluster]
+ Required properties:
+	- reg - The numeric cluster id
+	- label: Identifies the cluster name. The name is used when reporting
+	the stats for each low power mode.
+	- qcom,psci-mode-shift: The property is used to determine with bit
+	location of the cluster mode in the composite state ID used to define
+	cluster low power modes in PSCI.
+	- qcom,psci-mode-mask: The property is used to determine with bit
+	mask of the cluster mode in the composite state ID used to define
+	cluster low power modes in PSCI.
+
+Optional properties:
+	- qcom,disable-prediction: This property is used to indicate the LPM
+	governor will not use LPM prediction for this cluster.
+	- qcom,clstr-tmr-add: This property is used as correction timer for
+	wrong prediction by lpm prediction algorithm for cluster predictions.
+	This value should be between 100 to 1500. Higher values would mean
+	longer time staying in shallower state before waking up to select a
+	deeper state in case of wrong prediction.
+	qcom,pm-cluster contains qcom,pm-cluster-level nodes which identify
+	the various low power modes that the cluster can enter. The
+	qcom,pm-cluster node should also include another cluster node or a cpu
+	node that defines their respective low power modes.
+
+[Node bindings for qcom,pm-cluster-level]
+ Required properties:
+	- reg: The numeric cluster level id
+	- label: Name to identify the low power mode in stats
+	module.
+	- qcom,psci-mode: ID to be passed into the PSCI firmware.
+	- qcom,min-child-idx: The minimum level that a child CPU should be in
+	before this level can be chosen. This property is required for all
+        non-default level.
+	- qcom,entry-latency-us: The latency to enter LPM level, in uSec
+	- qcom,exit-latency-us: The latency to exit LPM level, in uSec
+	- qcom,min-residency-us: The minimum residency value from which entering
+	to low power mode is beneficial, in uSec
+
+ Optional properties:
+	- qcom,notify-rpm: When set, the driver configures the sleep and wake
+	sets. It also configures the next wakeup time for APPS.
+	- qcom,is-reset: This boolean property tells whether cluster level need
+	power management notifications to be sent out or not for the drivers to
+	prepare for cluster collapse.
+	- qcom,reset-level: This property is used to determine in this
+	low power mode only control logic power collapse happens or memory
+	logic power collapse aswell happens or retention state.
+	The accepted values for this property are:
+		"LPM_RESET_LVL_NONE" - No power collapse
+		"LPM_RESET_LVL_RET"  - Retention state
+		"LPM_RESET_LVL_GDHS" - Only control logic power collapse (GDHS)
+		"LPM_RESET_LVL_PC" - Control logic and memory logic
+					power collapse (PC)
+
+[Node bindings for qcom,pm-cpu]
+qcom,pm-cpu contains the low power modes that a cpu could enter and the CPUs
+that share the parameters.It contains the following properties.
+	- qcom,cpu: List of CPU phandles to identify the CPUs associated with
+	this cluster.
+	- qcom,psci-mode-shift: Same as cluster level fields.
+	- qcom,psci-mode-mask: Same as cluster level fields.
+	- qcom,pm-cpu-levels: The different low power modes that a CPU could
+	enter. The following section explains the required properties of this
+	node.
+
+Optional properties:
+	- qcom,disable-prediction: This property is used to indicate the
+	LPM governor is to disable sleep prediction to this cpu.
+	- qcom,ref-stddev: This property is used as reference standard deviation
+	in lpm prediction algorithm. This value should be between 100 to 1000.
+	Higher value would result in more predictions and thereby resulting in
+	shallower low power modes.
+	- qcom,tmr-add: This property is used as correction timer for wrong
+	prediction by lpm prediction algorithm. This value should be between
+	100 to 1500. Higher values would mean longer time staying in shallower
+	state before waking up to select a deeper state in case of wrong prediction.
+	- qcom,ref-premature-cnt: This property is used as reference premature
+	count to predict next sleep state by the prediction algorithm. This value
+	should be between 1 to 5. Higher value for this parameter would result in
+	less predictions to disallow deeper low power modes.
+
+[Node bindings for qcom,pm-cpu-levels]
+ Required properties:
+	- reg: The numeric cpu level id
+	- label: Name to identify the low power mode in stats
+	- qcom,psci-cpu-mode: ID to be passed into PSCI firmware.
+	- qcom,entry-latency-us: The latency to enter LPM level, in uSec
+	- qcom,exit-latency-us: The latency to exit LPM level, in uSec
+	- qcom,min-residency-us: The minimum residency value from which entering
+	to low power mode is beneficial, in uSec
+
+ Optional properties:
+	- qcom,is-reset: This boolean property maps to "power state" bit in PSCI
+	state_id configuration. This property will tell whether CPU get reset for
+	a particular LPM or not. This property is also used to notify the drivers
+	in case of cpu reset.
+	- qcom,use-broadcast-timer: Indicates that the timer gets reset during
+	power collapse and the cpu relies on Broadcast timer for scheduled wakeups.
+	Required only for states where the CPUs internal timer state is lost.
+
+[Example dts]
+
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			label = "L3";
+			qcom,psci-mode-shift = <4>;
+			qcom,psci-mode-mask = <0xfff>;
+
+			qcom,pm-cluster-level@0 { /* D1 */
+				reg = <0>;
+				label = "l3-wfi";
+				qcom,psci-mode = <0x1>;
+				qcom,entry-latency-us = <48>;
+				qcom,exit-latency-us = <51>;
+				qcom,min-residency-us = <99>;
+			};
+
+			qcom,pm-cluster-level@1 { /* D2 */
+				reg = <1>;
+				label = "l3-dyn-ret";
+				qcom,psci-mode = <0x2>;
+				qcom,entry-latency-us = <317>;
+				qcom,exit-latency-us = <659>;
+				qcom,min-residency-us = <4065>;
+			};
+
+			qcom,pm-cluster-level@2 { /* D4, D3 is not supported */
+				reg = <2>;
+				label = "l3-pc";
+				qcom,psci-mode = <0x4>;
+				qcom,entry-latency-us = <814>;
+				qcom,exit-latency-us = <4562>;
+				qcom,min-residency-us = <7085>;
+				qcom,min-child-idx = <2>;
+				qcom,is-reset;
+			};
+
+			qcom,pm-cluster-level@3 { /* Cx off */
+				reg = <3>;
+				label = "cx-off";
+				qcom,psci-mode = <0x224>;
+				qcom,entry-latency-us = <814>;
+				qcom,exit-latency-us = <5562>;
+				qcom,min-residency-us = <9987>;
+				qcom,min-child-idx = <3>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+			};
+
+			qcom,pm-cluster-level@4 { /* LLCC off, AOSS sleep */
+				reg = <4>;
+				label = "llcc-off";
+				qcom,psci-mode = <0xC24>;
+				qcom,entry-latency-us = <814>;
+				qcom,exit-latency-us = <6562>;
+				qcom,min-residency-us = <10100>;
+				qcom,min-child-idx = <3>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+			};
+
+			qcom,pm-cpu@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
+
+				qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					label = "wfi";
+					qcom,psci-cpu-mode = <0x1>;
+					qcom,entry-latency-us = <40>;
+					qcom,exit-latency-us = <43>;
+					qcom,min-residency-us = <100>;
+				};
+
+				qcom,pm-cpu-level@1 { /* C2D */
+					reg = <1>;
+					label = "ret";
+					qcom,psci-cpu-mode = <0x2>;
+					qcom,entry-latency-us = <81>;
+					qcom,exit-latency-us = <86>;
+					qcom,min-residency-us = <965>;
+				};
+
+				qcom,pm-cpu-level@2 {  /* C3 */
+					reg = <2>;
+					label = "pc";
+					qcom,psci-cpu-mode = <0x3>;
+					qcom,entry-latency-us = <273>;
+					qcom,exit-latency-us = <612>;
+					qcom,min-residency-us = <1890>;
+					qcom,is-reset;
+				};
+
+				qcom,pm-cpu-level@3 {  /* C4 */
+					reg = <3>;
+					label = "rail-pc";
+					qcom,psci-cpu-mode = <0x4>;
+					qcom,entry-latency-us = <300>;
+					qcom,exit-latency-us = <700>;
+					qcom,min-residency-us = <3934>;
+					qcom,is-reset;
+				};
+			};
+
+			qcom,pm-cpu@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
+
+				qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					label = "wfi";
+					qcom,psci-cpu-mode = <0x1>;
+					qcom,entry-latency-us = <40>;
+					qcom,exit-latency-us = <43>;
+					qcom,min-residency-us = <83>;
+				};
+
+				qcom,pm-cpu-level@1 { /* C2D */
+					reg = <1>;
+					label = "ret";
+					qcom,psci-cpu-mode = <0x2>;
+					qcom,entry-latency-us = <81>;
+					qcom,exit-latency-us = <86>;
+					qcom,min-residency-us = <637>;
+				};
+
+				qcom,pm-cpu-level@2 {  /* C3 */
+					reg = <2>;
+					label = "pc";
+					qcom,psci-cpu-mode = <0x3>;
+					qcom,entry-latency-us = <273>;
+					qcom,exit-latency-us = <612>;
+					qcom,min-residency-us = <952>;
+					qcom,is-reset;
+				};
+
+				qcom,pm-cpu-level@3 {  /* C4 */
+					reg = <3>;
+					label = "rail-pc";
+					qcom,psci-cpu-mode = <0x4>;
+					qcom,entry-latency-us = <300>;
+					qcom,exit-latency-us = <700>;
+					qcom,min-residency-us = <4488>;
+					qcom,is-reset;
+				};
+			};
+		};
+	};

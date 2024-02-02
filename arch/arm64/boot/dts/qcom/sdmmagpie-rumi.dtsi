@@ -1,0 +1,192 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	usb_emu_phy: usb_emu_phy@a720000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a720000 0x9500>,
+			<0x0a6f8800 0x100>;
+		reg-names = "base", "qcratch_base";
+
+		qcom,emu-init-seq = <0xfff0 0x4
+					0xfff3 0x4
+					0x40 0x4
+					0xfff3 0x4
+					0xfff0 0x4
+					0x100000 0x20
+					0x0 0x20
+					0x1a0 0x20
+					0x100000 0x3c
+					0x0 0x3c
+					0x10060 0x3c
+					0x0 0x4>;
+	};
+
+	timer {
+		clock-frequency = <1000000>;
+	};
+
+	timer@0x17c00000 {
+		clock-frequency = <1000000>;
+	};
+
+	wdog: qcom,wdt@17c10000{
+		status = "disabled";
+	};
+};
+
+&soc {
+	/delete-node/ rpmh-regulator-gfxlvl;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-smpc1;
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-smpc8;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa4;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-ldoa18;
+	/delete-node/ rpmh-regulator-ldoa19;
+	/delete-node/ rpmh-regulator-ldoc1;
+	/delete-node/ rpmh-regulator-ldoc2;
+	/delete-node/ rpmh-regulator-ldoc3;
+	/delete-node/ rpmh-regulator-ldoc4;
+	/delete-node/ rpmh-regulator-ldoc5;
+	/delete-node/ rpmh-regulator-ldoc6;
+	/delete-node/ rpmh-regulator-ldoc7;
+	/delete-node/ rpmh-regulator-ldoc8;
+	/delete-node/ rpmh-regulator-ldoc9;
+	/delete-node/ rpmh-regulator-ldoc10;
+	/delete-node/ rpmh-regulator-ldoc11;
+	/delete-node/ rpmh-regulator-bobc1;
+};
+
+&sdhc_1 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on
+					&sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+					&sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
+
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "disabled";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm6150_l4>; /* 0.88v */
+	vdda-pll-supply = <&pm6150l_l3>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	scsi-cmd-timeout = <300000>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm6150_l19>;
+	vccq2-supply = <&pm6150_l12>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm6150l_l3>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-min-uV = <1200000>;
+	qcom,vddp-ref-clk-max-uV = <1200000>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
+
+
+&qupv3_se8_2uart {
+	status = "ok";
+};
+
+&thermal_zones {
+	/delete-node/ aoss-0-lowf;
+	/delete-node/ cpu-0-0-lowf;
+	/delete-node/ cpu-1-0-lowf;
+	/delete-node/ gpuss-0-lowf;
+	/delete-node/ cwlan-lowf;
+	/delete-node/ audio-lowf;
+	/delete-node/ ddr-lowf;
+	/delete-node/ q6-hvx-lowf;
+	/delete-node/ camera-lowf;
+	/delete-node/ mdm-core-lowf;
+	/delete-node/ mdm-dsp-lowf;
+	/delete-node/ npu-lowf;
+	/delete-node/ video-lowf;
+};
+
+&usb0 {
+	/delete-property/ iommus;
+	/delete-property/ qcom,smmu-s1-bypass;
+	/delete-property/ USB3_GDSC-supply;
+	/delete-property/ extcon;
+	dwc3@a600000 {
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+	qcom,usbbam@a704000 {
+		status = "disabled";
+	};
+};
+
+&qusb_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+#include "sdmmagpie-stub-regulator.dtsi"

@@ -1,0 +1,172 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/sound/audio-codec-port-types.h>
+#include "trinket-wcd.dtsi"
+
+&soc {
+	cpe: qcom,msm-cpe-lsm {
+		compatible = "qcom,msm-cpe-lsm";
+	};
+
+	cpe3: qcom,msm-cpe-lsm@3 {
+		compatible = "qcom,msm-cpe-lsm";
+		qcom,msm-cpe-lsm-id = <3>;
+	};
+};
+
+&sm6150_snd {
+	qcom,model = "trinket-tashalite-snd-card";
+	qcom,tasha_codec = <1>;
+	asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+		<&loopback>, <&compress>, <&hostless>,
+		<&afe>, <&lsm>, <&routing>, <&compr>,
+		<&pcm_noirq>, <&cpe>, <&cpe3>;
+	asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+		"msm-pcm-dsp.2", "msm-voip-dsp",
+		"msm-pcm-voice", "msm-pcm-loopback",
+		"msm-compress-dsp", "msm-pcm-hostless",
+		"msm-pcm-afe", "msm-lsm-client",
+		"msm-pcm-routing",
+		"msm-compr-dsp", "msm-pcm-dsp-noirq",
+		"msm-cpe-lsm", "msm-cpe-lsm.3";
+	asoc-cpu = <&dai_dp>, <&dai_mi2s0>, <&dai_mi2s1>,
+		<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>,
+		<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+		<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
+		<&dai_quin_auxpcm>,
+		<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+		<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+		<&sb_4_rx>, <&sb_4_tx>, <&sb_5_rx>, <&sb_5_tx>,
+		<&sb_6_rx>, <&sb_7_rx>, <&sb_7_tx>,
+		<&sb_8_rx>, <&sb_8_tx>,
+		<&proxy_rx>, <&proxy_tx>,
+		<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+		<&afe_proxy_tx>, <&incall_record_rx>,
+		<&incall_record_tx>, <&incall_music_rx>,
+		<&incall_music_2_rx>,
+		<&usb_audio_rx>, <&usb_audio_tx>,
+		<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+		<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+		<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+		<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+		<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>;
+	asoc-cpu-names = "msm-dai-q6-dp.24608",
+		"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+		"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+		"msm-dai-q6-mi2s.4",
+		"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+		"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
+		"msm-dai-q6-auxpcm.5",
+		"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+		"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+		"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+		"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+		"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+		"msm-dai-q6-dev.16394", "msm-dai-q6-dev.16395",
+		"msm-dai-q6-dev.16396",
+		"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
+		"msm-dai-q6-dev.16400", "msm-dai-q6-dev.16401",
+		"msm-dai-q6-dev.8194", "msm-dai-q6-dev.8195",
+		"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+		"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+		"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+		"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+		"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+		"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+		"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+		"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+		"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+		"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"hifi amp", "LINEOUT1",
+		"hifi amp", "LINEOUT2",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"AMIC3", "MIC BIAS2",
+		"MIC BIAS2", "ANCRight Headset Mic",
+		"AMIC4", "MIC BIAS2",
+		"MIC BIAS2", "ANCLeft Headset Mic",
+		"AMIC5", "MIC BIAS3",
+		"MIC BIAS3", "Handset Mic",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic1",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"DMIC4", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic4",
+		"DMIC5", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic5",
+		"SpkrLeft IN", "SPK1 OUT",
+		"SpkrRight IN", "SPK2 OUT";
+
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,msm-mclk-freq = <9600000>;
+	asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-ext-disp-audio-codec-rx";
+	qcom,wsa-max-devs = <2>;
+	qcom,wsa-devs = <&wsa881x_70212>, <&wsa881x_70211>,
+		<&wsa881x_70214>, <&wsa881x_70213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+		"SpkrLeft", "SpkrRight";
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&wcd9335>,
+				<&q6core>;
+};
+
+&slim_aud {
+	tasha_codec {
+		swr3: swr_master {
+			compatible = "qcom,swr-mstr";
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,swr-num-ports = <8>;
+			qcom,swr-port-mapping = <1 SPKR_L 0x1>,
+				<2 SPKR_L_COMP 0xF>, <3 SPKR_L_BOOST 0x3>,
+				<4 SPKR_R 0x1>, <5 SPKR_R_COMP 0xF>,
+				<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
+				<8 SPKR_R_VI 0x3>;
+			qcom,swr_master_id = <1>;
+			wsa881x_70211: wsa881x@70211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd1>;
+			};
+
+			wsa881x_70212: wsa881x@70212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd2>;
+			};
+
+			wsa881x_70213: wsa881x@70213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170213>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd1>;
+			};
+
+			wsa881x_70214: wsa881x@70214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170214>;
+				qcom,spkr-sd-n-node = <&wsa_spk_wcd_sd2>;
+			};
+		};
+	};
+};

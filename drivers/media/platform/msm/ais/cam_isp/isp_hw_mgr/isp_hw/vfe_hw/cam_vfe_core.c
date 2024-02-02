@@ -1,0 +1,936 @@
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/delay.h>
+#include <linux/slab.h>
+#include <linux/list.h>
+#include <linux/timer.h>
+#include <linux/ratelimit.h>
+#include "cam_tasklet_util.h"
+#include "cam_isp_hw_mgr_intf.h"
+#include "cam_vfe_soc.h"
+#include "cam_vfe_core.h"
+#include "cam_vfe_bus.h"
+#include "cam_vfe_top.h"
+#include "cam_ife_hw_mgr.h"
+#include "cam_debug_util.h"
+
+static const char drv_name[] = "vfe";
+static uint32_t irq_reg_offset[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x0000006C,
+	0x00000070,
+	0x0000007C,
+};
+
+static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x00000017,
+	0x00000000,
+};
+
+static uint32_t camif_fe_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x10000056,
+	0x00000000,
+};
+
+static uint32_t camif_irq_err_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x0003FC00,
+	0xEFFF7EBC,
+};
+
+static uint32_t top_reset_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x80000000,
+	0x00000000,
+};
+
+static int cam_vfe_get_evt_payload(struct cam_vfe_hw_core_info *core_info,
+	struct cam_vfe_top_irq_evt_payload    **evt_payload)
+{
+	spin_lock(&core_info->spin_lock);
+	if (list_empty(&core_info->free_payload_list)) {
+		*evt_payload = NULL;
+		spin_unlock(&core_info->spin_lock);
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No free payload, core info 0x%x\n",
+			core_info->cpas_handle);
+		return -ENODEV;
+	}
+
+	*evt_payload = list_first_entry(&core_info->free_payload_list,
+		struct cam_vfe_top_irq_evt_payload, list);
+	list_del_init(&(*evt_payload)->list);
+	spin_unlock(&core_info->spin_lock);
+
+	return 0;
+}
+
+int cam_vfe_put_evt_payload(void             *core_info,
+	struct cam_vfe_top_irq_evt_payload  **evt_payload)
+{
+	struct cam_vfe_hw_core_info        *vfe_core_info = core_info;
+	unsigned long                       flags;
+
+	if (!core_info) {
+		CAM_ERR(CAM_ISP, "Invalid param core_info NULL");
+		return -EINVAL;
+	}
+	if (*evt_payload == NULL) {
+		CAM_ERR(CAM_ISP, "No payload to put");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&vfe_core_info->spin_lock, flags);
+	(*evt_payload)->error_type = 0;
+	list_add_tail(&(*evt_payload)->list, &vfe_core_info->free_payload_list);
+	*evt_payload = NULL;
+	spin_unlock_irqrestore(&vfe_core_info->spin_lock, flags);
+
+
+	return 0;
+}
+
+int cam_vfe_get_hw_caps(void *hw_priv, void *get_hw_cap_args, uint32_t arg_size)
+{
+	struct cam_hw_info                *vfe_dev = hw_priv;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	int rc = 0;
+
+	CAM_DBG(CAM_ISP, "Enter");
+	if (!hw_priv) {
+		CAM_ERR(CAM_ISP, "Invalid arguments");
+		return -EINVAL;
+	}
+
+	core_info = (struct cam_vfe_hw_core_info *)vfe_dev->core_info;
+
+	if (core_info->vfe_top->hw_ops.get_hw_caps)
+		core_info->vfe_top->hw_ops.get_hw_caps(
+			core_info->vfe_top->top_priv,
+			get_hw_cap_args, arg_size);
+
+	CAM_DBG(CAM_ISP, "Exit");
+	return rc;
+}
+
+int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
+	struct cam_irq_th_payload         *th_payload)
+{
+	int32_t                            rc = -EINVAL;
+	struct cam_vfe_irq_handler_priv   *handler_priv;
+
+	handler_priv = th_payload->handler_priv;
+
+	CAM_DBG(CAM_ISP, "Enter");
+	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
+
+	if (th_payload->evt_status_arr[0] & (1<<31)) {
+		/*
+		 * Clear All IRQs to avoid spurious IRQs immediately
+		 * after Reset Done.
+		 */
+		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x64);
+		cam_io_w(0xFFFFFFFF, handler_priv->mem_base + 0x68);
+		cam_io_w(0x1, handler_priv->mem_base + 0x58);
+		CAM_DBG(CAM_ISP, "Calling Complete for RESET CMD");
+		complete(handler_priv->reset_complete);
+
+
+		rc = 0;
+	}
+
+	CAM_DBG(CAM_ISP, "Exit");
+	return rc;
+}
+
+static int cam_vfe_irq_err_top_half(uint32_t    evt_id,
+	struct cam_irq_th_payload   *th_payload)
+{
+	int32_t                              rc;
+	int                                  i;
+	struct cam_vfe_irq_handler_priv     *handler_priv;
+	struct cam_vfe_top_irq_evt_payload  *evt_payload;
+	struct cam_vfe_hw_core_info         *core_info;
+	bool                                 error_flag = false;
+
+	CAM_DBG(CAM_ISP, "IRQ status_0 = %x, IRQ status_1 = %x",
+		th_payload->evt_status_arr[0], th_payload->evt_status_arr[1]);
+
+	handler_priv = th_payload->handler_priv;
+	core_info =  handler_priv->core_info;
+	/*
+	 *  need to handle overflow condition here, otherwise irq storm
+	 *  will block everything
+	 */
+	if (th_payload->evt_status_arr[1] ||
+		(th_payload->evt_status_arr[0] & camif_irq_err_reg_mask[0])) {
+		CAM_ERR(CAM_ISP,
+			"Encountered Error: vfe:%d:  Irq_status0=0x%x Status1=0x%x",
+			handler_priv->core_index, th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1]);
+		CAM_ERR(CAM_ISP,
+			"Stopping further IRQ processing from this HW index=%d",
+			handler_priv->core_index);
+		cam_irq_controller_disable_irq(core_info->vfe_irq_controller,
+			core_info->irq_err_handle);
+		cam_irq_controller_clear_and_mask(evt_id,
+			core_info->vfe_irq_controller);
+		error_flag = true;
+	}
+
+	rc  = cam_vfe_get_evt_payload(handler_priv->core_info, &evt_payload);
+	if (rc) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ status0=0x%x status1=0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1]);
+		return rc;
+	}
+
+	cam_isp_hw_get_timestamp(&evt_payload->ts);
+
+	evt_payload->core_index = handler_priv->core_index;
+	evt_payload->core_info  = handler_priv->core_info;
+	evt_payload->evt_id  = evt_id;
+
+	for (i = 0; i < th_payload->num_registers; i++)
+		evt_payload->irq_reg_val[i] = th_payload->evt_status_arr[i];
+
+	for (; i < CAM_IFE_IRQ_REGISTERS_MAX; i++) {
+		evt_payload->irq_reg_val[i] = cam_io_r(handler_priv->mem_base +
+			irq_reg_offset[i]);
+	}
+
+	if (error_flag)
+		CAM_INFO(CAM_ISP, "Violation status = %x",
+			evt_payload->irq_reg_val[2]);
+
+	th_payload->evt_payload_priv = evt_payload;
+
+	return rc;
+}
+
+int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
+{
+	struct cam_hw_info                *vfe_hw = hw_priv;
+	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_isp_resource_node      *isp_res = NULL;
+	int rc = 0;
+	uint32_t                           reset_core_args =
+					CAM_VFE_HW_RESET_HW_AND_REG;
+
+	CAM_DBG(CAM_ISP, "Enter");
+	if (!hw_priv) {
+		CAM_ERR(CAM_ISP, "Invalid arguments");
+		return -EINVAL;
+	}
+
+	mutex_lock(&vfe_hw->hw_mutex);
+	vfe_hw->open_count++;
+	if (vfe_hw->open_count > 1) {
+		mutex_unlock(&vfe_hw->hw_mutex);
+		CAM_DBG(CAM_ISP, "VFE has already been initialized cnt %d",
+			vfe_hw->open_count);
+		return 0;
+	}
+	mutex_unlock(&vfe_hw->hw_mutex);
+
+	soc_info = &vfe_hw->soc_info;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+
+	/* Turn ON Regulators, Clocks and other SOC resources */
+	rc = cam_vfe_enable_soc_resources(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Enable SOC failed");
+		rc = -EFAULT;
+		goto decrement_open_cnt;
+	}
+
+	isp_res   = (struct cam_isp_resource_node *)init_hw_args;
+	if (isp_res && isp_res->init) {
+		rc = isp_res->init(isp_res, NULL, 0);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "init Failed rc=%d", rc);
+			goto disable_soc;
+		}
+	}
+
+	CAM_DBG(CAM_ISP, "Enable soc done");
+
+	/* Do HW Reset */
+	rc = cam_vfe_reset(hw_priv, &reset_core_args, sizeof(uint32_t));
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Reset Failed rc=%d", rc);
+		goto deinint_vfe_res;
+	}
+
+	rc = core_info->vfe_bus->hw_ops.init(core_info->vfe_bus->bus_priv,
+		NULL, 0);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Bus HW init Failed rc=%d", rc);
+		goto deinint_vfe_res;
+	}
+
+	rc = core_info->vfe_top->hw_ops.init(core_info->vfe_top->top_priv,
+		NULL, 0);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Top HW init Failed rc=%d", rc);
+		goto deinint_vfe_res;
+	}
+
+	if (core_info->vfe_rd_bus) {
+		rc = core_info->vfe_rd_bus->hw_ops.init(
+			core_info->vfe_rd_bus->bus_priv,
+			NULL, 0);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Bus RD HW init Failed rc=%d", rc);
+			goto deinint_vfe_res;
+		}
+	}
+
+	vfe_hw->hw_state = CAM_HW_STATE_POWER_UP;
+	return rc;
+
+deinint_vfe_res:
+	if (isp_res && isp_res->deinit)
+		isp_res->deinit(isp_res, NULL, 0);
+disable_soc:
+	cam_vfe_disable_soc_resources(soc_info);
+decrement_open_cnt:
+	mutex_lock(&vfe_hw->hw_mutex);
+	vfe_hw->open_count--;
+	mutex_unlock(&vfe_hw->hw_mutex);
+	return rc;
+}
+
+int cam_vfe_deinit_hw(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
+{
+	struct cam_hw_info                *vfe_hw = hw_priv;
+	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_isp_resource_node      *isp_res = NULL;
+	int rc = 0;
+	uint32_t                           reset_core_args =
+					CAM_VFE_HW_RESET_HW_AND_REG;
+
+	CAM_DBG(CAM_ISP, "Enter");
+	if (!hw_priv) {
+		CAM_ERR(CAM_ISP, "Invalid arguments");
+		return -EINVAL;
+	}
+
+	mutex_lock(&vfe_hw->hw_mutex);
+	if (!vfe_hw->open_count) {
+		mutex_unlock(&vfe_hw->hw_mutex);
+		CAM_ERR(CAM_ISP, "Error! Unbalanced deinit");
+		return -EFAULT;
+	}
+	vfe_hw->open_count--;
+	if (vfe_hw->open_count) {
+		mutex_unlock(&vfe_hw->hw_mutex);
+		CAM_DBG(CAM_ISP, "open_cnt non-zero =%d", vfe_hw->open_count);
+		return 0;
+	}
+	mutex_unlock(&vfe_hw->hw_mutex);
+
+	soc_info = &vfe_hw->soc_info;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+
+	rc = core_info->vfe_bus->hw_ops.deinit(core_info->vfe_bus->bus_priv,
+		NULL, 0);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Bus HW deinit Failed rc=%d", rc);
+
+	if (core_info->vfe_rd_bus) {
+		rc = core_info->vfe_rd_bus->hw_ops.deinit(
+			core_info->vfe_rd_bus->bus_priv,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Bus HW deinit Failed rc=%d", rc);
+	}
+
+	isp_res   = (struct cam_isp_resource_node *)deinit_hw_args;
+	if (isp_res && isp_res->deinit) {
+		rc = isp_res->deinit(isp_res, NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_ISP, "deinit failed");
+	}
+
+	rc = cam_vfe_reset(hw_priv, &reset_core_args, sizeof(uint32_t));
+
+	/* Turn OFF Regulators, Clocks and other SOC resources */
+	CAM_DBG(CAM_ISP, "Disable SOC resource");
+	rc = cam_vfe_disable_soc_resources(soc_info);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Disable SOC failed");
+
+	vfe_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
+
+	CAM_DBG(CAM_ISP, "Exit");
+	return rc;
+}
+
+int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
+{
+	struct cam_hw_info                *vfe_hw  = hw_priv;
+	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	int rc;
+
+	CAM_DBG(CAM_ISP, "Enter");
+
+	if (!hw_priv) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	soc_info = &vfe_hw->soc_info;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+
+	core_info->irq_payload.core_index = soc_info->index;
+	core_info->irq_payload.mem_base =
+		vfe_hw->soc_info.reg_map[VFE_CORE_BASE_IDX].mem_base;
+	core_info->irq_payload.core_info = core_info;
+	core_info->irq_payload.reset_complete = &vfe_hw->hw_complete;
+
+	core_info->irq_handle = cam_irq_controller_subscribe_irq(
+		core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_0,
+		top_reset_irq_reg_mask, &core_info->irq_payload,
+		cam_vfe_reset_irq_top_half, NULL, NULL, NULL);
+	if (core_info->irq_handle < 0) {
+		CAM_ERR(CAM_ISP, "subscribe irq controller failed");
+		return -EFAULT;
+	}
+
+	reinit_completion(&vfe_hw->hw_complete);
+
+	CAM_DBG(CAM_ISP, "calling RESET on vfe %d", soc_info->index);
+	core_info->vfe_top->hw_ops.reset(core_info->vfe_top->top_priv,
+		reset_core_args, arg_size);
+	CAM_DBG(CAM_ISP, "waiting for vfe reset complete");
+	/* Wait for Completion or Timeout of 500ms */
+	rc = wait_for_completion_timeout(&vfe_hw->hw_complete,
+					msecs_to_jiffies(500));
+	if (!rc)
+		CAM_ERR(CAM_ISP, "Error! Reset Timeout");
+
+	CAM_DBG(CAM_ISP, "reset complete done (%d)", rc);
+
+	rc = cam_irq_controller_unsubscribe_irq(
+		core_info->vfe_irq_controller, core_info->irq_handle);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Error! Unsubscribe failed");
+
+	CAM_DBG(CAM_ISP, "Exit");
+	return rc;
+}
+
+void cam_isp_hw_get_timestamp(struct cam_isp_timestamp *time_stamp)
+{
+	struct timespec ts;
+
+	get_monotonic_boottime(&ts);
+	time_stamp->mono_time.tv_sec    = ts.tv_sec;
+	time_stamp->mono_time.tv_usec   = ts.tv_nsec/1000;
+	time_stamp->time_usecs =  ts.tv_sec * 1000000 +
+				time_stamp->mono_time.tv_usec;
+}
+
+static int cam_vfe_irq_top_half(uint32_t    evt_id,
+	struct cam_irq_th_payload   *th_payload)
+{
+	int32_t                              rc;
+	int                                  i;
+	struct cam_vfe_irq_handler_priv     *handler_priv;
+	struct cam_vfe_top_irq_evt_payload  *evt_payload;
+	struct cam_vfe_hw_core_info         *core_info;
+
+	handler_priv = th_payload->handler_priv;
+
+	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
+	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
+
+	rc  = cam_vfe_get_evt_payload(handler_priv->core_info, &evt_payload);
+	if (rc) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ status0=0x%x status1=0x%x",
+			th_payload->evt_status_arr[0],
+			th_payload->evt_status_arr[1]);
+		return rc;
+	}
+
+	core_info =  handler_priv->core_info;
+	cam_isp_hw_get_timestamp(&evt_payload->ts);
+
+	evt_payload->core_index = handler_priv->core_index;
+	evt_payload->core_info  = handler_priv->core_info;
+	evt_payload->evt_id  = evt_id;
+
+	for (i = 0; i < th_payload->num_registers; i++)
+		evt_payload->irq_reg_val[i] = th_payload->evt_status_arr[i];
+
+	for (; i < CAM_IFE_IRQ_REGISTERS_MAX; i++) {
+		evt_payload->irq_reg_val[i] = cam_io_r(handler_priv->mem_base +
+			irq_reg_offset[i]);
+	}
+	CAM_DBG(CAM_ISP, "Violation status = %x", evt_payload->irq_reg_val[2]);
+
+	th_payload->evt_payload_priv = evt_payload;
+
+	CAM_DBG(CAM_ISP, "Exit");
+	return rc;
+}
+
+int cam_vfe_reserve(void *hw_priv, void *reserve_args, uint32_t arg_size)
+{
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_hw_info                *vfe_hw  = hw_priv;
+	struct cam_vfe_acquire_args       *acquire;
+	int rc = -ENODEV;
+
+
+	if (!hw_priv || !reserve_args || (arg_size !=
+		sizeof(struct cam_vfe_acquire_args))) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	acquire = (struct cam_vfe_acquire_args   *)reserve_args;
+
+	CAM_DBG(CAM_ISP, "acq res type: %d", acquire->rsrc_type);
+	mutex_lock(&vfe_hw->hw_mutex);
+	if (acquire->rsrc_type == CAM_ISP_RESOURCE_VFE_IN) {
+		rc = core_info->vfe_top->hw_ops.reserve(
+			core_info->vfe_top->top_priv,
+			acquire,
+			sizeof(*acquire));
+	} else if (acquire->rsrc_type == CAM_ISP_RESOURCE_VFE_OUT) {
+		rc = core_info->vfe_bus->hw_ops.reserve(
+			core_info->vfe_bus->bus_priv, acquire,
+			sizeof(*acquire));
+	} else if (acquire->rsrc_type == CAM_ISP_RESOURCE_VFE_BUS_RD) {
+		if (core_info->vfe_rd_bus)
+			rc = core_info->vfe_rd_bus->hw_ops.reserve(
+				core_info->vfe_rd_bus->bus_priv, acquire,
+				sizeof(*acquire));
+	} else {
+		CAM_ERR(CAM_ISP, "Invalid res type:%d", acquire->rsrc_type);
+	}
+
+	mutex_unlock(&vfe_hw->hw_mutex);
+
+	return rc;
+}
+
+
+int cam_vfe_release(void *hw_priv, void *release_args, uint32_t arg_size)
+{
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_hw_info                *vfe_hw  = hw_priv;
+	struct cam_isp_resource_node      *isp_res;
+	int rc = -ENODEV;
+
+	if (!hw_priv || !release_args ||
+		(arg_size != sizeof(struct cam_isp_resource_node))) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	isp_res = (struct cam_isp_resource_node      *) release_args;
+
+	mutex_lock(&vfe_hw->hw_mutex);
+	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN)
+		rc = core_info->vfe_top->hw_ops.release(
+			core_info->vfe_top->top_priv, isp_res,
+			sizeof(*isp_res));
+	else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT)
+		rc = core_info->vfe_bus->hw_ops.release(
+			core_info->vfe_bus->bus_priv, isp_res,
+			sizeof(*isp_res));
+	else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_BUS_RD) {
+		if (core_info->vfe_rd_bus)
+			rc = core_info->vfe_rd_bus->hw_ops.release(
+				core_info->vfe_rd_bus->bus_priv, isp_res,
+				sizeof(*isp_res));
+	} else {
+		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);
+	}
+
+	mutex_unlock(&vfe_hw->hw_mutex);
+
+	return rc;
+}
+
+
+int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
+{
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_hw_info                *vfe_hw  = hw_priv;
+	struct cam_isp_resource_node      *isp_res;
+	struct cam_isp_hw_get_cmd_update   get_irq_mask;
+	int rc = 0;
+	uint32_t rdi_irq_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {0};
+
+	if (!hw_priv || !start_args ||
+		(arg_size != sizeof(struct cam_isp_resource_node))) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	isp_res = (struct cam_isp_resource_node  *)start_args;
+	core_info->tasklet_info = isp_res->tasklet_info;
+
+	mutex_lock(&vfe_hw->hw_mutex);
+	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN) {
+		if (isp_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) {
+			isp_res->irq_handle =
+				cam_irq_controller_subscribe_irq(
+					core_info->vfe_irq_controller,
+					CAM_IRQ_PRIORITY_1,
+					camif_irq_reg_mask,
+					&core_info->irq_payload,
+					cam_vfe_irq_top_half,
+					cam_ife_mgr_do_tasklet,
+					isp_res->tasklet_info,
+					&tasklet_bh_api);
+			if (isp_res->irq_handle < 1)
+				rc = -ENOMEM;
+		} else if (isp_res->res_id == CAM_ISP_HW_VFE_IN_RD) {
+			isp_res->irq_handle =
+				cam_irq_controller_subscribe_irq(
+					core_info->vfe_irq_controller,
+					CAM_IRQ_PRIORITY_1,
+					camif_fe_irq_reg_mask,
+					&core_info->irq_payload,
+					cam_vfe_irq_top_half,
+					cam_ife_mgr_do_tasklet,
+					isp_res->tasklet_info,
+					&tasklet_bh_api);
+			if (isp_res->irq_handle < 1)
+				rc = -ENOMEM;
+		} else if (isp_res->rdi_only_ctx) {
+
+			get_irq_mask.cmd_type = CAM_ISP_HW_CMD_GET_REG_UPDATE;
+			get_irq_mask.res =
+				(struct cam_isp_resource_node *)isp_res;
+			get_irq_mask.data = (void *)rdi_irq_mask;
+
+			cam_vfe_process_cmd(hw_priv,
+				CAM_ISP_HW_CMD_GET_RDI_IRQ_MASK,
+				&get_irq_mask,
+				sizeof(struct cam_isp_hw_get_cmd_update));
+
+			isp_res->irq_handle =
+				cam_irq_controller_subscribe_irq(
+					core_info->vfe_irq_controller,
+					CAM_IRQ_PRIORITY_1,
+					rdi_irq_mask,
+					&core_info->irq_payload,
+					cam_vfe_irq_top_half,
+					cam_ife_mgr_do_tasklet,
+					isp_res->tasklet_info,
+					&tasklet_bh_api);
+			if (isp_res->irq_handle < 1)
+				rc = -ENOMEM;
+		}
+
+		if (rc == 0) {
+			rc = core_info->vfe_top->hw_ops.start(
+				core_info->vfe_top->top_priv, isp_res,
+				sizeof(struct cam_isp_resource_node));
+			if (rc)
+				CAM_ERR(CAM_ISP, "Start failed. type:%d",
+					isp_res->res_type);
+		} else {
+			CAM_ERR(CAM_ISP,
+				"Error! subscribe irq controller failed");
+		}
+	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
+		rc = core_info->vfe_bus->hw_ops.start(isp_res, NULL, 0);
+	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_BUS_RD) {
+		if (core_info->vfe_rd_bus)
+			rc = core_info->vfe_rd_bus->hw_ops.start(isp_res,
+				NULL, 0);
+	} else {
+		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);
+		rc = -EFAULT;
+	}
+
+	if (!core_info->irq_err_handle) {
+		core_info->irq_err_handle =
+			cam_irq_controller_subscribe_irq(
+				core_info->vfe_irq_controller,
+				CAM_IRQ_PRIORITY_0,
+				camif_irq_err_reg_mask,
+				&core_info->irq_payload,
+				cam_vfe_irq_err_top_half,
+				cam_ife_mgr_do_tasklet,
+				core_info->tasklet_info,
+				&tasklet_bh_api);
+		if (core_info->irq_err_handle < 1) {
+			CAM_ERR(CAM_ISP, "Error handle subscribe failure");
+			rc = -ENOMEM;
+			core_info->irq_err_handle = 0;
+		}
+	}
+
+	mutex_unlock(&vfe_hw->hw_mutex);
+
+	return rc;
+}
+
+int cam_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
+{
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_hw_info                *vfe_hw  = hw_priv;
+	struct cam_isp_resource_node      *isp_res;
+	int rc = -EINVAL;
+
+	if (!hw_priv || !stop_args ||
+		(arg_size != sizeof(struct cam_isp_resource_node))) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	isp_res = (struct cam_isp_resource_node  *)stop_args;
+
+	mutex_lock(&vfe_hw->hw_mutex);
+	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN) {
+		cam_irq_controller_unsubscribe_irq(
+			core_info->vfe_irq_controller, isp_res->irq_handle);
+		isp_res->irq_handle = 0;
+
+		rc = core_info->vfe_top->hw_ops.stop(
+			core_info->vfe_top->top_priv, isp_res,
+			sizeof(struct cam_isp_resource_node));
+	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
+		rc = core_info->vfe_bus->hw_ops.stop(isp_res, NULL, 0);
+	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_BUS_RD) {
+		if (core_info->vfe_rd_bus)
+			rc = core_info->vfe_rd_bus->hw_ops.stop(isp_res,
+				NULL, 0);
+	} else {
+		CAM_ERR(CAM_ISP, "Invalid res type:%d", isp_res->res_type);
+	}
+
+	if (core_info->irq_err_handle) {
+		cam_irq_controller_unsubscribe_irq(
+			core_info->vfe_irq_controller,
+			core_info->irq_err_handle);
+		core_info->irq_err_handle = 0;
+	}
+
+	mutex_unlock(&vfe_hw->hw_mutex);
+
+	return rc;
+}
+
+int cam_vfe_read(void *hw_priv, void *read_args, uint32_t arg_size)
+{
+	return -EPERM;
+}
+
+int cam_vfe_write(void *hw_priv, void *write_args, uint32_t arg_size)
+{
+	return -EPERM;
+}
+
+int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
+	void *cmd_args, uint32_t arg_size)
+{
+	struct cam_hw_info                *vfe_hw = hw_priv;
+	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct cam_vfe_hw_info            *hw_info = NULL;
+	int rc = 0;
+
+	if (!hw_priv) {
+		CAM_ERR(CAM_ISP, "Invalid arguments");
+		return -EINVAL;
+	}
+
+	soc_info = &vfe_hw->soc_info;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	hw_info = core_info->vfe_hw_info;
+
+	switch (cmd_type) {
+	case CAM_ISP_HW_CMD_GET_CHANGE_BASE:
+	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
+	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
+	case CAM_ISP_HW_CMD_BW_UPDATE:
+	case CAM_ISP_HW_CMD_BW_CONTROL:
+	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
+	case CAM_ISP_HW_CMD_FPS_CONFIG:
+	case CAM_ISP_HW_CMD_DUMP_HW:
+	case CAM_ISP_HW_CMD_GET_RDI_IRQ_MASK:
+		rc = core_info->vfe_top->hw_ops.process_cmd(
+			core_info->vfe_top->top_priv, cmd_type, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_GET_BUF_UPDATE:
+	case CAM_ISP_HW_CMD_GET_HFR_UPDATE:
+	case CAM_ISP_HW_CMD_STRIPE_UPDATE:
+	case CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ:
+	case CAM_ISP_HW_CMD_UBWC_UPDATE:
+	case CAM_ISP_HW_CMD_SET_STATS_DMI_DUMP:
+		rc = core_info->vfe_bus->hw_ops.process_cmd(
+			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_GET_HFR_UPDATE_RM:
+	case CAM_ISP_HW_CMD_GET_BUF_UPDATE_RM:
+		if (core_info->vfe_rd_bus)
+			rc = core_info->vfe_rd_bus->hw_ops.process_cmd(
+				core_info->vfe_rd_bus->bus_priv, cmd_type,
+				cmd_args, arg_size);
+		break;
+
+	case CAM_ISP_HW_CMD_FE_UPDATE_IN_RD:
+		rc = core_info->vfe_top->hw_ops.process_cmd(
+			core_info->vfe_top->top_priv, cmd_type, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_FE_UPDATE_BUS_RD:
+		if (core_info->vfe_rd_bus) {
+			rc = core_info->vfe_rd_bus->hw_ops.process_cmd(
+				core_info->vfe_rd_bus->bus_priv, cmd_type,
+				cmd_args, arg_size);
+		}
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Invalid cmd type:%d", cmd_type);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
+irqreturn_t cam_vfe_irq(int irq_num, void *data)
+{
+	struct cam_hw_info            *vfe_hw;
+	struct cam_vfe_hw_core_info   *core_info;
+
+	if (!data)
+		return IRQ_NONE;
+
+	vfe_hw = (struct cam_hw_info *)data;
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+
+	return cam_irq_controller_handle_irq(irq_num,
+		core_info->vfe_irq_controller);
+}
+
+int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
+	struct cam_hw_soc_info                     *soc_info,
+	struct cam_hw_intf                         *hw_intf,
+	struct cam_vfe_hw_info                     *vfe_hw_info)
+{
+	int rc = -EINVAL;
+	int i;
+
+	CAM_DBG(CAM_ISP, "Enter");
+
+	rc = cam_irq_controller_init(drv_name,
+		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX),
+		vfe_hw_info->irq_reg_info, &core_info->vfe_irq_controller);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Error! cam_irq_controller_init failed");
+		return rc;
+	}
+
+	rc = cam_vfe_top_init(vfe_hw_info->top_version,
+		soc_info, hw_intf, vfe_hw_info->top_hw_info,
+		&core_info->vfe_top);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Error! cam_vfe_top_init failed");
+		goto deinit_controller;
+	}
+
+	rc = cam_vfe_bus_init(vfe_hw_info->bus_version, BUS_TYPE_WR,
+		soc_info, hw_intf,
+		vfe_hw_info->bus_hw_info, core_info->vfe_irq_controller,
+		&core_info->vfe_bus);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Error! cam_vfe_bus_init failed");
+		goto deinit_top;
+	}
+
+	/* Read Bus is not valid for vfe-lite */
+	if ((hw_intf->hw_idx == 0) || (hw_intf->hw_idx == 1)) {
+		rc = cam_vfe_bus_init(vfe_hw_info->bus_rd_version, BUS_TYPE_RD,
+			soc_info, hw_intf, vfe_hw_info->bus_rd_hw_info,
+			core_info->vfe_irq_controller, &core_info->vfe_rd_bus);
+		if (rc) {
+			/* failure expected as read bus is not used for now */
+			CAM_INFO(CAM_ISP, "RD cam_vfe_bus_init failed");
+			rc = 0;
+		}
+		CAM_DBG(CAM_ISP, "vfe_bus_rd %pK hw_idx %d",
+			core_info->vfe_rd_bus, hw_intf->hw_idx);
+	}
+
+	INIT_LIST_HEAD(&core_info->free_payload_list);
+	for (i = 0; i < CAM_VFE_EVT_MAX; i++) {
+		INIT_LIST_HEAD(&core_info->evt_payload[i].list);
+		list_add_tail(&core_info->evt_payload[i].list,
+			&core_info->free_payload_list);
+	}
+
+	spin_lock_init(&core_info->spin_lock);
+
+	return rc;
+
+deinit_top:
+	cam_vfe_top_deinit(vfe_hw_info->top_version,
+		&core_info->vfe_top);
+
+deinit_controller:
+	cam_irq_controller_deinit(&core_info->vfe_irq_controller);
+
+	return rc;
+}
+
+int cam_vfe_core_deinit(struct cam_vfe_hw_core_info  *core_info,
+	struct cam_vfe_hw_info                       *vfe_hw_info)
+{
+	int                rc = -EINVAL;
+	int                i;
+	unsigned long      flags;
+
+	spin_lock_irqsave(&core_info->spin_lock, flags);
+
+	INIT_LIST_HEAD(&core_info->free_payload_list);
+	for (i = 0; i < CAM_VFE_EVT_MAX; i++)
+		INIT_LIST_HEAD(&core_info->evt_payload[i].list);
+
+	rc = cam_vfe_bus_deinit(vfe_hw_info->bus_version,
+		&core_info->vfe_bus);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Error cam_vfe_bus_deinit failed rc=%d", rc);
+
+	rc = cam_vfe_top_deinit(vfe_hw_info->top_version,
+		&core_info->vfe_top);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Error cam_vfe_top_deinit failed rc=%d", rc);
+
+	rc = cam_irq_controller_deinit(&core_info->vfe_irq_controller);
+	if (rc)
+		CAM_ERR(CAM_ISP,
+			"Error cam_irq_controller_deinit failed rc=%d", rc);
+
+	spin_unlock_irqrestore(&core_info->spin_lock, flags);
+
+	return rc;
+}

@@ -1,0 +1,89 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sm6150-audio-overlay.dtsi"
+
+&bolero {
+	status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "disabled";
+};
+
+&wcd937x_rst_gpio {
+	status  = "disabled";
+};
+
+&cdc_dmic01_gpios {
+	status = "disabled";
+};
+
+&cdc_dmic23_gpios {
+	status = "disabled";
+};
+
+&wsa_swr_gpios {
+	status = "disabled";
+};
+
+&rx_swr_gpios {
+	status = "disabled";
+};
+
+&tx_swr_gpios {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&wsa_spkr_en2 {
+	status = "disabled";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};
+
+&qupv3_se4_spi {
+	status = "okay";
+};
+
+&tavil_wdsp {
+	status = "okay";
+};
+
+&tavil_glink {
+	status = "okay";
+};
+
+&slim_aud {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd934x_cdc {
+	status = "okay";
+};
+
+&clock_audio {
+	status = "okay";
+};
+
+&wcd934x_rst_gpio {
+	status = "okay";
+};

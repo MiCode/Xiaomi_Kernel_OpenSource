@@ -1,0 +1,134 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "qcs405.dtsi"
+
+&soc {
+	usb_emu_phy: usb_emu_phy@78ccd00 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x78ccd00 0x9500>,
+		      <0x79b8800 0x100>;
+		reg-names = "base", "qcratch_base";
+
+		qcom,emu-init-seq = <0xfff0 0x4
+				     0xfff3 0x4
+				     0x40 0x4
+				     0xfff3 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x1a0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	timer {
+		clock-frequency = <0x100000>;
+	};
+
+	timer@0xb020000{
+		clock-frequency = <0x100000>;
+	};
+};
+
+&usb3 {
+	/delete-property/ extcon;
+	status = "disabled";
+};
+
+&usb2s {
+	/delete-property/ extcon;
+	dwc3@78c0000 {
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};
+
+&rpm_bus {
+	/delete-node/ rpm-regulator-smpa1;
+	/delete-node/ rpm-regulator-smpa2;
+	/delete-node/ rpm-regulator-smpa4;
+	/delete-node/ rpm-regulator-ldoa1;
+	/delete-node/ rpm-regulator-ldoa2;
+	/delete-node/ rpm-regulator-ldoa3;
+	/delete-node/ rpm-regulator-ldoa4;
+	/delete-node/ rpm-regulator-ldoa5;
+	/delete-node/ rpm-regulator-ldoa6;
+	/delete-node/ rpm-regulator-ldoa7;
+	/delete-node/ rpm-regulator-ldoa8;
+	/delete-node/ rpm-regulator-ldoa9;
+	/delete-node/ rpm-regulator-ldoa10;
+	/delete-node/ rpm-regulator-ldoa11;
+	/delete-node/ rpm-regulator-ldoa12;
+	/delete-node/ rpm-regulator-ldoa13;
+};
+
+&soc {
+	/delete-node/ qcom,spmi@200f000;
+	/delete-node/ regulator@1942120;
+	/delete-node/ regulator@b018000;
+	/delete-node/ usb3_extcon;
+};
+
+&rpm_bus {
+	rpm-standalone;
+};
+
+&thermal_zones {
+	/delete-node/ aoss-lowf;
+	/delete-node/ xo-therm-usr;
+	/delete-node/ pa-therm1-usr;
+	/delete-node/ pa-therm3-usr;
+};
+
+#include "qcs405-stub-regulator.dtsi"
+
+&sdhc_1 {
+	/* VDD external regulator is enabled/disabled by pms405_l6 */
+	vdd-io-supply = <&pms405_l6>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1704000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	/* VDD is an external regulator eLDO5 */
+	vdd-io-supply = <&pms405_l11>;
+	qcom,vdd-io-voltage-level = <2696000 3304000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
+
+	status = "disabled";
+};
+
+&smb1351_otg_supply {
+	status = "disabled";
+};

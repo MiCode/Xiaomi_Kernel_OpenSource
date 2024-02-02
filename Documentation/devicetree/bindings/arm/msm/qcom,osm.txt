@@ -1,0 +1,51 @@
+Qualcomm Technologies, Inc. OSM Bindings
+
+Operating State Manager (OSM) is a hardware engine used by some Qualcomm
+Technologies, Inc. (QTI) SoCs to manage frequency and voltage scaling
+in hardware. OSM is capable of controlling frequency and voltage requests
+for multiple clusters via the existence of multiple OSM domains.
+
+Properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: must be "qcom,clk-cpu-osm" or "qcom,clk-cpu-osm-sdmshrike"
+			or "qcom,clk-cpu-osm-sm6150" or
+			"qcom,clk-cpu-osm-sdmmagpie" or
+			"qcom,clk-cpu-osm-trinket" or
+			"qcom,clk-cpu-osm-atoll".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the memory of the OSM controller.
+
+- reg-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Address names. Must be "osm_l3_base", "osm_pwrcl_base",
+		    and "osm_perfcl_base". Can optionally have
+		    "osm_perfpcl_base".
+		    Must be specified in the same order as the corresponding
+		    addresses are specified in the reg property.
+
+- l3-devs
+	Usage: optional
+	Value type: <phandle>
+	Definition: List of phandles to devices that the OPP tables with the L3
+		    frequency and voltage mappings are loaded for.
+
+Example:
+	clock_cpucc: qcom,cpucc {
+		compatible = "qcom,clk-cpu-osm";
+		reg = <0x18321000 0x1400>,
+			<0x18323000 0x1400>,
+			<0x18325800 0x1400>,
+			<0x18327800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base",
+			"osm_perfcl_base", "osm_perfpcl_base";
+
+		l3-devs = <&phandle0 &phandle1 &phandle2>;
+
+		#clock-cells = <1>;
+	};

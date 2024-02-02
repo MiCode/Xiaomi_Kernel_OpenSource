@@ -1,0 +1,27 @@
+Qualcomm Technologies, Inc. Interprocessor Communication Spinlock
+
+--Dedicated Hardware Implementation--
+Required properties:
+- compatible : should be "qcom,ipc-spinlock-sfpb"
+- reg : the location and size of the spinlock hardware
+- qcom,num-locks : the number of locks supported
+
+Example:
+
+	qcom,ipc-spinlock@fd484000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0xfd484000 0x1000>;
+		qcom,num-locks = <32>;
+	};
+
+--LDREX Implementation--
+Required properties:
+- compatible : should be "qcom,ipc-spinlock-ldrex"
+- reg : the location and size of the shared lock memory
+
+Example:
+
+	qcom,ipc-spinlock@fa00000 {
+		compatible = "qcom,ipc-spinlock-ldrex";
+		reg = <0xfa00000 0x200000>;
+	};
