@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
 
+qcom_wdt_core.ko
+gh_virt_wdt.ko
 qcom-scm.ko
 qcom-mpm.ko
 rpm-smd.ko
@@ -19,13 +21,14 @@ qti-regmap-debugfs.ko
 proxy-consumer.ko
 qti-fixed-regulator.ko
 rpm-smd-regulator.ko
+sched-walt.ko
 debug-regulator.ko
 qcom-i2c-pmic.ko
 qcom-spmi-pmic.ko
 pinctrl-spmi-gpio.ko
 nvmem_qcom-spmi-sdam.ko
 rtc-pm8xxx.ko
-qcom-reboot-reason.ko
+msm-poweroff.ko
 pmic-pon-log.ko
 qcom-ipcc.ko
 clk-dummy.ko
@@ -62,6 +65,7 @@ phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs-qmp-v4-waipio.ko
 sdhci-msm-scaling.ko
+crypto-qti.ko
 ufs_qcom.ko
 dispcc-pitti.ko
 qcom-cpufreq-hw.ko

@@ -548,6 +548,7 @@ struct dwc3_msm {
 	unsigned long		inputs;
 	enum dwc3_drd_state	drd_state;
 	enum usb_dr_mode	dr_mode;
+	bool                    otg_capable;
 	enum bus_vote		default_bus_vote;
 	enum bus_vote		override_bus_vote;
 	struct icc_path		*icc_paths[3];
@@ -5345,6 +5346,10 @@ static ssize_t enable_l1_suspend_show(struct device *dev,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3	 *dwc = platform_get_drvdata(mdwc->dwc3);
 
+	/* gadget lpm capability only when otg/gadget mode is supported */
+	if (!(mdwc->otg_capable) && (dwc->dr_mode == USB_DR_MODE_HOST))
+		return -EPERM;
+
 	return scnprintf(buf, PAGE_SIZE, "%d\n", dwc->gadget->lpm_capable);
 
 }
@@ -5357,6 +5362,10 @@ static ssize_t enable_l1_suspend_store(struct device *dev,
 	struct dwc3	 *dwc = platform_get_drvdata(mdwc->dwc3);
 	bool		 enable_l1;
 	int		 ret;
+
+	/* gadget lpm capability only when otg/gadget mode is supported */
+	if (!(mdwc->otg_capable) && (dwc->dr_mode == USB_DR_MODE_HOST))
+		return -EPERM;
 
 	ret = kstrtobool(buf, &enable_l1);
 	if (ret < 0) {
@@ -5652,6 +5661,16 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 	dbg_log_string("Set DP lanes:%d refcnt:%d\n", lanes, mdwc->refcnt_dp_usb);
 
 	if (lanes == 2) {
+		if (!mdwc->in_host_mode) {
+			msleep(20);
+			/*
+			 * There are scenarios where DP driver calls this API before dwc3-msm
+			 * gets the role information, hence return if host mode hasn't started.
+			 * DP Altmode driver has retry mechanism we return -EAGAIN or -EBUSY.
+			 */
+			return -EAGAIN;
+		}
+
 		mutex_lock(&mdwc->role_switch_mutex);
 		mdwc->dp_state = DP_2_LANE;
 		mdwc->refcnt_dp_usb++;
@@ -6342,6 +6361,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			.allow_userspace_control = true,
 		};
 
+		mdwc->otg_capable = true;
 		role_desc.fwnode = dev_fwnode(&pdev->dev);
 		mdwc->role_switch = usb_role_switch_register(mdwc->dev,
 								&role_desc);
@@ -6516,7 +6536,7 @@ static int dwc3_msm_host_ss_powerdown(struct dwc3_msm *mdwc)
 {
 	u32 reg;
 
-	if (mdwc->disable_host_ssphy_powerdown ||
+	if (mdwc->disable_host_ssphy_powerdown || mdwc->dp_state ||
 		dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
 		return 0;
 

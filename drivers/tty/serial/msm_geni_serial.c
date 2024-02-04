@@ -89,7 +89,7 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 
 /* SE_UART_RX_TRANS_CFG */
 #define UART_RX_INS_STATUS_BIT	(BIT(2))
-#define UART_RX_PAR_EN		(BIT(3))
+#define UART_RX_PAR_EN		(BIT(4))
 
 /* SE_UART_RX_WORD_LEN */
 #define RX_WORD_LEN_MASK	(GENMASK(9, 0))
@@ -2180,6 +2180,7 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 			for (k = i; k > 0; k--) {
 				geni_se_common_iommu_free_buf(rx_dev, &msm_port->dma_addr[k - 1],
 						msm_port->rx_gsi_buf[k - 1], DMA_RX_BUF_SIZE);
+				msm_port->rx_gsi_buf[k - 1] = NULL;
 			}
 			msm_geni_deallocate_chan(uport);
 			return -EIO;
@@ -2223,6 +2224,7 @@ exit_gsi_xfer_rx:
 	for (i = 0; i < NUM_RX_BUF; i++) {
 		geni_se_common_iommu_free_buf(rx_dev, &msm_port->dma_addr[i],
 					      msm_port->rx_gsi_buf[i], DMA_RX_BUF_SIZE);
+		msm_port->rx_gsi_buf[i] = NULL;
 	}
 	msm_geni_deallocate_chan(uport);
 	msm_port->gsi_rx_done = false;
@@ -3835,10 +3837,14 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 					     "%s:GSI DMA-Rx ch\n", __func__);
 				dma_release_channel(msm_port->gsi->rx_c);
 				for (i = 0; i < 4; i++) {
-					geni_se_common_iommu_free_buf(rx_dev,
-								      &msm_port->dma_addr[i],
-								      msm_port->rx_gsi_buf[i],
-								      DMA_RX_BUF_SIZE);
+					if (msm_port->dma_addr[i]) {
+						geni_se_common_iommu_free_buf(rx_dev,
+								&msm_port->dma_addr[i],
+								msm_port->rx_gsi_buf[i],
+								DMA_RX_BUF_SIZE);
+						msm_port->rx_gsi_buf[i] = NULL;
+					}
+
 				}
 				msm_port->gsi->rx_c = NULL;
 				UART_LOG_DBG(msm_port->ipc_log_misc,
@@ -4075,6 +4081,10 @@ static void msm_geni_serial_termios_cfg(struct uart_port *uport,
 		rx_trans_cfg |= UART_RX_PAR_EN;
 		tx_parity_cfg |= PAR_CALC_EN;
 		rx_parity_cfg |= PAR_CALC_EN;
+
+		tx_parity_cfg &= ~PAR_MODE_MSK;
+		rx_parity_cfg &= ~PAR_MODE_MSK;
+
 		if (termios->c_cflag & PARODD) {
 			tx_parity_cfg |= PAR_ODD << PAR_MODE_SHFT;
 			rx_parity_cfg |= PAR_ODD << PAR_MODE_SHFT;
