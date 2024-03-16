@@ -452,7 +452,7 @@ char reboot_cmd[POWEROFF_CMD_PATH_LEN] = "/system/bin/reboot";
 static int __orderly_reboot(bool force)
 {
 	char **argv;
-	static const char const *envp[] = {
+	static const char *envp[] = {
 		"HOME=/",
 		"PATH=/sbin:/bin:/usr/sbin:/usr/bin",
 		NULL
