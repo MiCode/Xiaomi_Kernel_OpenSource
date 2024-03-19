@@ -200,3 +200,4 @@
 | gold-s-oss  | Redmi Note 13 5G | Android T | t-alps-release-s0.mp1.tc8sp-cs2-V1 | [gold-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gold-s-oss) |
 | shennong-u-oss  | Xiaomi 14, Xiaomi 14 Pro | Android U | KERNEL.PLATFORM.3.0.r1-03200-kernel.0-1 | [shennong-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/shennong-u-oss) |
 | bsp-manet-u-oss  | Redmi K70Pro | Android U | LA.VENDOR.14.3.0.r1-04800-r1.0.r1_00016.0 | [bsp-manet-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-manet-u-oss) |
+| aurora-u-oss | Xiaomi 14 Ultra | Android U | LA.VENDOR.14.3.0.r1-06800-lanai.0-1 | [aurora-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/aurora-u-oss) |
