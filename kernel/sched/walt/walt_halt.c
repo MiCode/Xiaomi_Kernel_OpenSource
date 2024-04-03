@@ -552,7 +552,6 @@ static void android_rvh_get_nohz_timer_target(void *unused, int *cpu, bool *done
 			*cpu = cpumask_first(&cpus_paused_by_us);
 		else
 			*cpu = cpumask_first(cpu_halt_mask);
-
 		return;
 	}
 

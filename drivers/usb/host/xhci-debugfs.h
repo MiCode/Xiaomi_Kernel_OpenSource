@@ -15,6 +15,7 @@
 #define DEBUGFS_NAMELEN 32
 
 #define REG_CAPLENGTH					0x00
+#define REG_HCIVERSION					0x02
 #define REG_HCSPARAMS1					0x04
 #define REG_HCSPARAMS2					0x08
 #define REG_HCSPARAMS3					0x0c

@@ -12,6 +12,7 @@
 #include <linux/pm_qos.h>
 #include <linux/notifier.h>
 #include <linux/panic_notifier.h>
+
 #include <ufs/ufshcd.h>
 #include <ufs/unipro.h>
 
@@ -528,6 +529,7 @@ struct ufs_qcom_host {
 	struct ufs_hba *hba;
 	struct ufs_qcom_bus_vote bus_vote;
 	struct ufs_pa_layer_attr dev_req_params;
+
 	struct clk *rx_l0_sync_clk;
 	struct clk *tx_l0_sync_clk;
 	struct clk *rx_l1_sync_clk;

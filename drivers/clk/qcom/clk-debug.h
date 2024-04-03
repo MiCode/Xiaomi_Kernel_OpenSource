@@ -112,7 +112,7 @@ extern void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f);
 		if (m)						\
 			seq_printf(m, fmt, ##__VA_ARGS__);	\
 		else						\
-			pr_info(fmt, ##__VA_ARGS__);		\
+			pr_warn(fmt, ##__VA_ARGS__);		\
 	} while (0)
 
 #define clock_debug_output_cont(s, fmt, ...)			\

@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
-
+#include <linux/of.h>
 #include "phy-qcom-ufs-qmp-v4-pineapple.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_v4_pineapple"

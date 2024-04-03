@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Mi dump display
+#
+
+config MI_DUMP_DISPLAY
+	tristate "dump backtrace display"
+	default n
+	help
+	This adds support for mi dump display.

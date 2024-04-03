@@ -189,3 +189,7 @@ obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
 obj-$(CONFIG_PECI)		+= peci/
 obj-$(CONFIG_HTE)		+= hte/
+obj-y				+= xiaomi/
+# MIUI ADD: Power_ProcessFreeze
+obj-$(CONFIG_MIHW)		+= mihw/
+# END Power_ProcessFreeze

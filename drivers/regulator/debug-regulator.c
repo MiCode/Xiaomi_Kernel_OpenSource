@@ -648,6 +648,18 @@ static void regulator_debug_print_enabled(struct regulator_dev *rdev)
 	}
 }
 
+// MIUI ADD: Power_LogEnhance
+void regulator_debug_print_enable_regulators(void)
+{
+	struct debug_regulator *dreg;
+
+	pr_info("Enabled regulators:\n");
+	list_for_each_entry(dreg, &debug_reg_list, list)
+		regulator_debug_print_enabled(dreg->rdev);
+}
+EXPORT_SYMBOL(regulator_debug_print_enable_regulators);
+// END Power_LogEnhance
+
 static void regulator_debug_suspend_trace_probe(void *unused,
 					const char *action, int val, bool start)
 {

@@ -467,4 +467,9 @@ config RANDOM_TRUST_BOOTLOADER
 	  believe its RNG facilities may be faulty. This may also be configured
 	  at boot time with "random.trust_bootloader=on/off".
 
+config XLOGCHAR
+    tristate "xlogchar driver"
+    help
+      Implements a high performance log driver
+
 endmenu

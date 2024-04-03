@@ -1,5 +1,6 @@
 ################################################################################
 ## Inheriting configs from ACK
+#
 . ${ROOT_DIR}/msm-kernel/build.config.common
 . ${ROOT_DIR}/msm-kernel/build.config.aarch64
 

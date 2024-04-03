@@ -5,6 +5,10 @@ obj-$(CONFIG_SCSI_UFS_DWC_TC_PLATFORM) += tc-dwc-g210-pltfrm.o ufshcd-dwc.o tc-d
 obj-$(CONFIG_SCSI_UFS_CDNS_PLATFORM) += cdns-pltfrm.o
 obj-$(CONFIG_SCSI_UFS_QCOM) += ufs_qcom.o
 ufs_qcom-y += ufs-qcom.o
+ufs_qcom-$(CONFIG_MI_UFS_MODULE) += ../../mi_ufs/host/ufshcd-pltfrm.o \
+	../../mi_ufs/core/ufshcd.o ../../mi_ufs/core/ufs-sysfs.o \
+	../../mi_ufs/core/ufshcd-crypto.o ../../mi_ufs/core/ufs_bsg.o \
+	../../mi_ufs/core/ufs-debugfs.o ../../mi_ufs/core/ufs-mcq.o
 ufs_qcom-$(CONFIG_SCSI_UFS_CRYPTO) += ufs-qcom-ice.o
 obj-$(CONFIG_SCSI_UFS_EXYNOS) += ufs-exynos.o
 obj-$(CONFIG_SCSI_UFSHCD_PCI) += ufshcd-pci.o

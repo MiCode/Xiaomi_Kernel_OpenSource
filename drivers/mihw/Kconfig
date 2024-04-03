@@ -1,0 +1,4 @@
+config MI_PERFMGR
+	tristate "Frame Energy Aware Scheduling"
+	help
+	  More power saving while meeting performance

@@ -942,6 +942,8 @@ static int acc_hid_probe(struct hid_device *hdev,
 {
 	int ret;
 
+	pr_info("enter %s\n", __func__);
+
 	ret = hid_parse(hdev);
 	if (ret)
 		return ret;
@@ -1127,8 +1129,10 @@ __acc_function_bind(struct usb_configuration *c,
 		dev->cdev = c->cdev;
 	}
 	ret = hid_register_driver(&acc_hid_driver);
-	if (ret)
+	if (ret){
+		pr_err("register acc_hid_driver failed\n");
 		return ret;
+	}
 
 	dev->start_requested = 0;
 
@@ -1171,6 +1175,7 @@ __acc_function_bind(struct usb_configuration *c,
 static int
 acc_function_bind_configfs(struct usb_configuration *c,
 			struct usb_function *f) {
+	pr_info("enter %s\n", __func__);
 	return __acc_function_bind(c, f, true);
 }
 
@@ -1250,6 +1255,8 @@ static int acc_hid_init(struct acc_hid_dev *hdev)
 {
 	struct hid_device *hid;
 	int ret;
+
+	pr_info("enter %s\n", __func__);
 
 	hid = hid_allocate_device();
 	if (IS_ERR(hid))
@@ -1397,6 +1404,8 @@ static int acc_setup(void)
 	struct acc_dev *dev;
 	int ret;
 
+	pr_info("enter %s\n", __func__);
+
 	if (kref_read(&ref->kref))
 		return -EBUSY;
 
@@ -1424,8 +1433,10 @@ static int acc_setup(void)
 	}
 
 	ret = misc_register(&acc_device);
-	if (ret)
+	if (ret){
+		pr_err("register acc_device failed\n");
 		goto err_zap_ptr;
+	}
 
 	kref_init(&ref->kref);
 	return 0;
@@ -1519,6 +1530,8 @@ static struct usb_function_instance *acc_alloc_inst(void)
 	struct acc_instance *fi_acc;
 	int err;
 
+	pr_info("enter %s\n", __func__);
+
 	fi_acc = kzalloc(sizeof(*fi_acc), GFP_KERNEL);
 	if (!fi_acc)
 		return ERR_PTR(-ENOMEM);
@@ -1527,6 +1540,7 @@ static struct usb_function_instance *acc_alloc_inst(void)
 
 	err = acc_setup();
 	if (err) {
+		pr_err("acc_setup failed\n");
 		kfree(fi_acc);
 		return ERR_PTR(err);
 	}
@@ -1545,6 +1559,9 @@ static void acc_free(struct usb_function *f)
 
 int acc_ctrlrequest_configfs(struct usb_function *f,
 			const struct usb_ctrlrequest *ctrl) {
+
+	pr_info("enter %s\n", __func__);
+
 	if (f->config != NULL && f->config->cdev != NULL)
 		return acc_ctrlrequest(f->config->cdev, ctrl);
 	else
@@ -1554,6 +1571,8 @@ int acc_ctrlrequest_configfs(struct usb_function *f,
 static struct usb_function *acc_alloc(struct usb_function_instance *fi)
 {
 	struct acc_dev *dev = get_acc_dev();
+
+	pr_info("enter %s\n", __func__);
 
 	dev->function.name = "accessory";
 	dev->function.strings = acc_strings,
