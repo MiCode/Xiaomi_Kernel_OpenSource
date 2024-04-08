@@ -1,0 +1,3 @@
+config LOW_FREE_MEMORY_KILL
+	tristate "kill process in low free memory"
+	default m

@@ -17,6 +17,7 @@
 #include <linux/uaccess.h>
 #include <soc/qcom/soc_sleep_stats.h>
 #include <soc/qcom/subsystem_sleep_stats.h>
+#include <clocksource/arm_arch_timer.h>
 #include <asm/arch_timer.h>
 
 #define STATS_BASEMINOR				0
@@ -500,7 +501,7 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	subsystem_stats_debug_on = false;
+	subsystem_stats_debug_on = true;
 	b_subsystem_stats = devm_kcalloc(&pdev->dev, ARRAY_SIZE(subsystem_stats),
 					 sizeof(struct sleep_stats), GFP_KERNEL);
 	if (!b_subsystem_stats) {
@@ -570,6 +571,8 @@ static int subsytem_stats_suspend(struct device *dev)
 	int ret;
 	int i;
 
+	pr_err("subsytem_stats_suspend\n");
+
 	if (!subsystem_stats_debug_on)
 		return 0;
 
@@ -581,11 +584,30 @@ static int subsytem_stats_suspend(struct device *dev)
 			subsystem_stats[i].not_present = true;
 		else
 			subsystem_stats[i].not_present = false;
+
+		if ((b_subsystem_stats + i) != NULL){
+			struct sleep_stats *stats = (b_subsystem_stats + i);
+			u64 accumulated = stats->accumulated;
+			/*
+			 * If a subsystem is in sleep when reading the sleep stats adjust
+			 * the accumulated sleep duration to show actual sleep time.
+			 */
+			if (stats->last_entered_at > stats->last_exited_at)
+				accumulated += arch_timer_read_counter()
+				       - stats->last_entered_at;
+			pr_err("%s: %u, %llu\n", subsystem_stats[i].name, stats->count, accumulated);
+		}
 	}
 
-	for (i = 0; i < ARRAY_SIZE(system_stats); i++)
+	for (i = 0; i < ARRAY_SIZE(system_stats); i++){
 		subsystem_sleep_stats(stats_data, b_system_stats + i,
 					system_stats[i].pid, system_stats[i].smem_item);
+
+		if ((b_subsystem_stats + i) != NULL){
+			struct sleep_stats *stats = (b_system_stats + i);
+			pr_err("%s: %u, %llu\n", system_stats[i].name, stats->count, stats->accumulated);
+		}
+	}
 	mutex_unlock(&sleep_stats_mutex);
 
 	return 0;

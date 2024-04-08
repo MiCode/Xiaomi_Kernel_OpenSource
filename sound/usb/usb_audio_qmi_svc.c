@@ -1061,6 +1061,7 @@ static void uaudio_connect(void *unused, struct usb_interface *intf,
 	}
 
 	uadev[chip->card->number].chip = chip;
+	uadev[chip->card->number].chip->quirk_flags |= QUIRK_FLAG_CTL_MSG_DELAY_1M;
 }
 
 static void uaudio_disconnect(void *unused, struct usb_interface *intf)
@@ -1643,6 +1644,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 
 	uadev[pcm_card_num].ctrl_intf = chip->ctrl_intf;
 
+	atomic_inc(&chip->usage_count);
 	if (req_msg->enable) {
 		ret = enable_audio_stream(subs,
 				map_pcm_format(req_msg->audio_format),
@@ -1677,6 +1679,9 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 
 		disable_audio_stream(subs);
 	}
+
+	if (atomic_dec_and_test(&chip->usage_count) && atomic_read(&chip->shutdown))
+		wake_up(&chip->shutdown_wait); //--add this to handle the disconnect during enable_audio_stream not completed and prepare_qmi_response not executed.
 
 response:
 	if (!req_msg->enable && ret != -EINVAL && ret != -ENODEV) {

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config  PD_RT17XX
+	tristate "RT17XX PDPHY"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for rt17xx pdphy.
+
+config  WEINA_MCU8850
+	tristate "WEINA 8850 SYNC"
+	depends on SPI
+	default n
+	help
+	  Say Y or N to enable support for wena 8850 sync.
+
+

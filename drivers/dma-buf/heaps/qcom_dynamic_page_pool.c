@@ -22,9 +22,18 @@
 #include <uapi/linux/sched/types.h>
 
 #include "qcom_dynamic_page_pool.h"
+#include "reserve_dynamic_page_pool.h"
 
 static LIST_HEAD(pool_list);
 static DEFINE_MUTEX(pool_list_lock);
+
+#define DEFAULT_TOTAL_POOLS_MAX_PAGES 0UL
+
+int msm_total_pools_max = DEFAULT_TOTAL_POOLS_MAX_PAGES;
+EXPORT_SYMBOL(msm_total_pools_max);
+
+atomic_t msm_total_pools_size;
+EXPORT_SYMBOL(msm_total_pools_size);
 
 void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page)
 {
@@ -40,6 +49,7 @@ void dynamic_page_pool_add(struct dynamic_page_pool *pool, struct page *page)
 	}
 
 	atomic_inc(&pool->count);
+	atomic_add((1 << pool->order), &msm_total_pools_size);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    1 << pool->order);
 	spin_unlock_irqrestore(&pool->lock, flags);
@@ -60,6 +70,7 @@ struct page *dynamic_page_pool_remove(struct dynamic_page_pool *pool, bool high)
 	}
 
 	atomic_dec(&pool->count);
+	atomic_sub((1 << pool->order), &msm_total_pools_size);
 	list_del(&page->lru);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    -(1 << pool->order));
@@ -180,6 +191,8 @@ static int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp
 		spin_unlock_irqrestore(&pool->lock, flags);
 		list_add(&page->lru, &pages);
 		freed += (1 << pool->order);
+		if (!can_do_shrink(pool, high))
+			break;
 	}
 
 	if (freed && pool->prerelease_callback)
@@ -222,7 +235,6 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 	int nr_total = 0;
 	int nr_freed;
 	int only_scan = 0;
-
 	if (!nr_to_scan)
 		only_scan = 1;
 
@@ -278,11 +290,6 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 	for (i = 0; i < NUM_ORDERS; i++) {
 		pool_list[i] = dynamic_page_pool_create(order_flags[i],
 							orders[i]);
-		pool_list[i]->vmid = vmid;
-		pool_list[i]->prerelease_callback = callback;
-		atomic_set(&pool_list[i]->count, 0);
-		pool_list[i]->last_low_watermark_ktime = 0;
-
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;
 
@@ -293,6 +300,16 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 
 			ret = -ENOMEM;
 			goto free_pool_arr;
+		}
+
+		pool_list[i]->vmid = vmid;
+		pool_list[i]->prerelease_callback = callback;
+		atomic_set(&pool_list[i]->count, 0);
+		pool_list[i]->last_low_watermark_ktime = 0;
+		if (is_reserve_vmid(vmid)) {
+			mutex_lock(&pool_list_lock);
+			list_del(&pool_list[i]->list);
+			mutex_unlock(&pool_list_lock);
 		}
 	}
 
@@ -321,6 +338,61 @@ static struct shrinker pool_shrinker = {
 	.batch = 0,
 };
 
+static ssize_t
+msm_total_pools_max_show(struct kobject *kobj, struct kobj_attribute *attr,
+                    char *buf)
+{
+	return sprintf(buf, "%d\n",msm_total_pools_max);
+}
+
+static ssize_t
+msm_total_pools_max_store(struct kobject *kobj, struct kobj_attribute *attr,
+                    const char *buf, size_t count)
+{
+	int ret;
+	int val;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val < 0)
+		return -EINVAL;
+
+	msm_total_pools_max = val;
+	printk(KERN_EMERG "the dmabuf_heap_pool_max is %d\n", msm_total_pools_max);
+
+	return count;
+}
+
+static struct kobj_attribute msm_total_pools_max_attr =
+	__ATTR_RW(msm_total_pools_max);
+
+static struct attribute *dma_heap_sysfs_attrs[] = {
+	&msm_total_pools_max_attr.attr,
+	NULL,
+};
+
+ATTRIBUTE_GROUPS(dma_heap_sysfs);
+
+static struct kobject *dma_heap_pool_kobject;
+
+static int create_total_max_node(void) {
+	int ret;
+
+	dma_heap_pool_kobject = kobject_create_and_add("dma_mi_pool", kernel_kobj);
+	if (!dma_heap_pool_kobject)
+		return -ENOMEM;
+
+	ret = sysfs_create_groups(dma_heap_pool_kobject, dma_heap_sysfs_groups);
+	if (ret) {
+		kobject_put(dma_heap_pool_kobject);
+		return ret;
+	}
+
+	return 0;
+}
+
 int dynamic_page_pool_init_shrinker(void)
 {
 	int ret;
@@ -328,6 +400,8 @@ int dynamic_page_pool_init_shrinker(void)
 
 	if (registered)
 		return 0;
+
+	create_total_max_node();
 
 	ret = register_shrinker(&pool_shrinker);
 	if (ret)

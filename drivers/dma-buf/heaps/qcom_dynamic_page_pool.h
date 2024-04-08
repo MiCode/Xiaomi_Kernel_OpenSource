@@ -23,6 +23,9 @@
 #include <linux/shrinker.h>
 #include <linux/types.h>
 
+extern atomic_t msm_total_pools_size;
+extern int msm_total_pools_max;
+
 #define HIGH_ORDER_GFP  (((GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN \
 				| __GFP_NORETRY) & ~__GFP_RECLAIM) \
 				| __GFP_COMP)

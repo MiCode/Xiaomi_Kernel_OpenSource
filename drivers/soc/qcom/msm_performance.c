@@ -267,11 +267,10 @@ cleanup:
 static ssize_t set_cpu_min_freq(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	int i, j, ntokens = 0;
+	int i, ntokens = 0;
 	unsigned int val, cpu;
 	const char *cp = buf;
 	struct cpu_status *i_cpu_stats;
-	struct cpufreq_policy policy;
 	struct freq_qos_request *req;
 	int ret = 0;
 
@@ -322,17 +321,10 @@ static ssize_t set_cpu_min_freq(struct kobject *kobj,
 	for_each_cpu(i, limit_mask_min) {
 		i_cpu_stats = &per_cpu(msm_perf_cpu_stats, i);
 
-		if (cpufreq_get_policy(&policy, i))
+		req = &per_cpu(qos_req_min, i);
+		if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
 			continue;
 
-		if (cpu_online(i)) {
-			req = &per_cpu(qos_req_min, i);
-			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
-				break;
-		}
-
-		for_each_cpu(j, policy.related_cpus)
-			cpumask_clear_cpu(j, limit_mask_min);
 	}
 	cpus_read_unlock();
 
@@ -356,11 +348,10 @@ static ssize_t get_cpu_min_freq(struct kobject *kobj,
 static ssize_t set_cpu_max_freq(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	int i, j, ntokens = 0;
+	int i, ntokens = 0;
 	unsigned int val, cpu;
 	const char *cp = buf;
 	struct cpu_status *i_cpu_stats;
-	struct cpufreq_policy policy;
 	struct freq_qos_request *req;
 	int ret = 0;
 
@@ -404,17 +395,11 @@ static ssize_t set_cpu_max_freq(struct kobject *kobj,
 	cpus_read_lock();
 	for_each_cpu(i, limit_mask_max) {
 		i_cpu_stats = &per_cpu(msm_perf_cpu_stats, i);
-		if (cpufreq_get_policy(&policy, i))
+
+		req = &per_cpu(qos_req_max, i);
+		if (freq_qos_update_request(req, i_cpu_stats->max) < 0)
 			continue;
 
-		if (cpu_online(i)) {
-			req = &per_cpu(qos_req_max, i);
-			if (freq_qos_update_request(req, i_cpu_stats->max) < 0)
-				break;
-		}
-
-		for_each_cpu(j, policy.related_cpus)
-			cpumask_clear_cpu(j, limit_mask_max);
 	}
 	cpus_read_unlock();
 
@@ -572,6 +557,9 @@ static int set_event(struct event_data *ev, int cpu)
 static void free_pmu_counters(unsigned int cpu)
 {
 	int i = 0;
+
+	if (!cpu_possible(cpu))
+		return;
 
 	for (i = 0; i < NO_OF_EVENT; i++) {
 		pmu_events[i][cpu].prev_count = 0;
@@ -1142,6 +1130,22 @@ static int __init msm_performance_init(void)
 		free_cpumask_var(limit_mask_min);
 		return -ENOMEM;
 	}
+
+
+	msm_perf_kset = kset_create_and_add("msm_performance", NULL, kernel_kobj);
+
+	if (!msm_perf_kset) {
+		free_cpumask_var(limit_mask_min);
+		free_cpumask_var(limit_mask_max);
+
+		return -ENOMEM;
+	}
+
+	add_module_params();
+	init_events_group();
+	init_notify_group();
+	init_pmu_counter();
+
 	cpus_read_lock();
 	for_each_possible_cpu(cpu) {
 		if (!cpumask_test_cpu(cpu, cpu_online_mask))
@@ -1154,19 +1158,6 @@ static int __init msm_performance_init(void)
 		hotplug_notify_down);
 
 	cpus_read_unlock();
-
-	msm_perf_kset = kset_create_and_add("msm_performance", NULL, kernel_kobj);
-	if (!msm_perf_kset) {
-		free_cpumask_var(limit_mask_min);
-		free_cpumask_var(limit_mask_max);
-		return -ENOMEM;
-	}
-
-	add_module_params();
-
-	init_events_group();
-	init_notify_group();
-	init_pmu_counter();
 
 	return 0;
 }

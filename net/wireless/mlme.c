@@ -770,6 +770,16 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 	}
 
 	if (!cfg80211_allowed_address(wdev, mgmt->sa)) {
+		/* Allow random TA to be used with authentication frames if the
+		 * driver has indicated support for this. Otherwise, only allow
+		 * the local address to be used.
+		 */
+		if (ieee80211_is_auth(mgmt->frame_control) &&
+		    wiphy_ext_feature_isset(
+			   &rdev->wiphy,
+			   NL80211_EXT_FEATURE_AUTH_TX_RANDOM_TA))
+			goto out_tx;
+
 		/* Allow random TA to be used with Public Action frames if the
 		 * driver has indicated support for this. Otherwise, only allow
 		 * the local address to be used.
@@ -790,6 +800,7 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 	}
 
 	/* Transmit the management frame as requested by user space */
+out_tx:
 	return rdev_mgmt_tx(rdev, wdev, params, cookie);
 }
 

@@ -11,6 +11,10 @@
 
 enum battery_charger_prop {
 	BATTERY_RESISTANCE,
+#if defined(CONFIG_MI_ENABLE_DP)
+	USB_CC_ORIENTATION,
+	HAS_DP_PS5169,
+#endif
 	BATTERY_CHARGER_PROP_MAX,
 };
 

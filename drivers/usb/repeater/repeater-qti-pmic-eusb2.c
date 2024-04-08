@@ -8,11 +8,14 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
+#include "../../misc/hwid/hwid.h"
 
 #define EUSB2_3P0_VOL_MIN			3075000 /* uV */
 #define EUSB2_3P0_VOL_MAX			3300000 /* uV */
@@ -98,6 +101,12 @@ struct eusb2_repeater {
 	bool			power_enabled;
 
 	struct dentry		*root;
+	struct proc_dir_entry   *ms_root;
+	struct proc_dir_entry   *ms_enable;
+	u8			ms_flag;  /* for HDD ctl */
+	u8			en_ms_flag;  /* for project ctl */
+	u8			project_ID;  /* for project ctl */
+	u8			conutry_ID;  /* for project ctl */
 	u8			usb2_crossover;
 	u8			iusb2;
 	u8			res_fsdif;
@@ -112,12 +121,16 @@ struct eusb2_repeater {
 	u8			eusb_hs_comp_current;
 
 	u32			*param_override_seq;
-	u8			param_override_seq_cnt;
+	u32			param_override_seq_cnt;
+	u32			*param_override_seq_host;
+	u32			param_override_seq_cnt_host;
+	u32			*param_override_seq_host_ms;
+	u32			param_override_seq_cnt_host_ms;
 };
 
 /* Perform one or more register read */
 static int eusb2_repeater_reg_read(struct eusb2_repeater *er,
-			u8 *read_val, u16 reg_offset, size_t reg_count)
+			u8 *read_val, u32 reg_offset, size_t reg_count)
 {
 	int ret;
 
@@ -131,7 +144,7 @@ static int eusb2_repeater_reg_read(struct eusb2_repeater *er,
 
 /* Perform multiple registers write using given block of data */
 static int eusb2_repeater_bulk_reg_write(struct eusb2_repeater *er,
-			u16 reg_offset, const void *write_val, size_t reg_count)
+			u32 reg_offset, const void *write_val, size_t reg_count)
 {
 	int ret;
 
@@ -145,7 +158,7 @@ static int eusb2_repeater_bulk_reg_write(struct eusb2_repeater *er,
 
 /* Perform specific register write using given byte value */
 static inline int eusb2_repeater_reg_write(struct eusb2_repeater *er,
-					u16 reg_offset, u8 write_val)
+					u32 reg_offset, u32 write_val)
 {
 	return eusb2_repeater_bulk_reg_write(er, reg_offset, &write_val, 1);
 }
@@ -165,17 +178,102 @@ static int eusb2_repeater_masked_write(struct eusb2_repeater *er,
 }
 
 static void eusb2_repeater_update_seq(struct eusb2_repeater *er,
-						u32 *seq, u8 cnt)
+						u32 *seq, u32 cnt)
 {
 	int i;
 
-	dev_dbg(er->ur.dev, "param override seq count:%d\n", cnt);
 	for (i = 0; i < cnt; i = i+2) {
-		dev_dbg(er->ur.dev, "write 0x%02x to 0x%02x\n",
-						seq[i], seq[i+1]);
 		eusb2_repeater_reg_write(er, seq[i+1], seq[i]);
 	}
 }
+
+static int proc_msflag_show(struct seq_file *s, void *unused)
+{
+	char str[4];
+	struct eusb2_repeater *er = s->private;
+
+	str[1] = '\0';
+
+	if (er->ms_flag) str[0] = '1';
+	else str[0] = '0';
+
+	seq_printf(s, "%s\n", str);
+	return 0;
+}
+
+static int proc_en_msflag_show(struct seq_file *s, void *unused)
+{
+	char str[4];
+	struct eusb2_repeater *er = s->private;
+
+	str[1] = '\0';
+
+	if (er->en_ms_flag) str[0] = '1';
+	else str[0] = '0';
+
+	seq_printf(s, "%s\n", str);
+	return 0;
+}
+
+static int proc_msflag_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_msflag_show, PDE_DATA(inode));
+}
+
+static int proc_en_msflag_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_en_msflag_show, PDE_DATA(inode));
+}
+
+static ssize_t msflag_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	char buf[10];
+	u32 val;
+	struct seq_file *s = file->private_data;
+	struct eusb2_repeater *er = s->private;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	er->ms_flag = val;
+	pr_info("miusb msflag is:%d\n", er->ms_flag);
+	return count;
+}
+
+static const struct proc_ops usb_msflag_proc_ops = {
+	.proc_open 	= proc_msflag_open,
+	.proc_write	= msflag_write,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= seq_release,
+};
+
+static const struct proc_ops enable_msflag_proc_ops = {
+	.proc_open 	= proc_en_msflag_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+
+static void eusb2_ms_create_procfs(struct eusb2_repeater *er)
+{
+	er->ms_root = proc_create_data("usb_msflag", 0644, NULL,
+		       &usb_msflag_proc_ops, er);
+	if (!er->ms_root) {
+		pr_info("proc root not exist\n");
+	}
+	er->ms_enable = proc_create_data("enable_msflag", 0444, NULL,
+		       &enable_msflag_proc_ops, er);
+	if (!er->ms_enable) {
+		pr_info("proc enable not exist\n");
+	}
+}
+
 
 static void eusb2_repeater_create_debugfs(struct eusb2_repeater *er)
 {
@@ -312,7 +410,7 @@ err_vdd18:
 }
 
 #define INIT_MAX_CNT 5
-static int eusb2_repeater_init(struct usb_repeater *ur)
+static int eusb2_repeater_init(struct usb_repeater *ur, unsigned int flags)
 {
 	u8 status;
 	struct eusb2_repeater *er =
@@ -320,8 +418,22 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	unsigned int rptr_init_cnt = INIT_MAX_CNT;
 
 	/* override init sequence using devicetree based values */
-	eusb2_repeater_update_seq(er, er->param_override_seq,
+	if (flags & PHY_HOST_MODE) {
+		if (!er->ms_flag) {
+			eusb2_repeater_update_seq(er, er->param_override_seq_host,
+				er->param_override_seq_cnt_host);
+        		pr_info("miusb init normal host!\n");
+		} else {
+			eusb2_repeater_update_seq(er, er->param_override_seq_host_ms,
+				er->param_override_seq_cnt_host_ms);
+        		pr_info("miusb init ms host!\n");
+		}
+	} else {
+
+		eusb2_repeater_update_seq(er, er->param_override_seq,
 			er->param_override_seq_cnt);
+        	pr_info("miusb init device!\n");
+	}
 
 	/* override tune params using debugfs based values */
 	if (er->usb2_crossover <= 0x7)
@@ -436,11 +548,44 @@ static int eusb2_repeater_powerdown(struct usb_repeater *ur)
 	return eusb2_repeater_power(er, false);
 }
 
+static bool eusb2_read_dt_params(struct device *dev, 
+	       const char *node, u32 **seq, u32 *seq_cnt)
+{
+	bool ret = false;
+	int num_elem = -1, read_ret = 0;
+        num_elem = of_property_count_elems_of_size(dev->of_node,
+                                node, sizeof(**seq));
+        if (num_elem > 0) {
+                if (num_elem % 2) {
+                        dev_err(dev, "invalid param_override_seq_len\n");
+			return ret;
+                }
+
+                *seq_cnt = num_elem;
+                *seq = devm_kcalloc(dev, *seq_cnt, sizeof(**seq), GFP_KERNEL);
+                if (!*seq) {
+                        dev_err(dev, "No memory\n");
+			return ret;
+                }
+
+                read_ret = of_property_read_u32_array(dev->of_node,
+                                node, *seq, *seq_cnt);
+                if (read_ret) {
+                        dev_err(dev, "qcom,param-override-seq read failed %d\n",
+                                                                        read_ret);
+			return ret;
+                }
+        }
+	pr_info("mi parse %s OK\n", node);
+	return true;
+}
+
 static int eusb2_repeater_probe(struct platform_device *pdev)
 {
 	struct eusb2_repeater *er;
 	struct device *dev = &pdev->dev;
-	int ret = 0, num_elem, base;
+	int ret = 0, base;
+	bool parse_ret = false;
 
 	er = devm_kzalloc(dev, sizeof(*er), GFP_KERNEL);
 	if (!er) {
@@ -476,37 +621,44 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	num_elem = of_property_count_elems_of_size(dev->of_node,
-				"qcom,param-override-seq",
-				sizeof(*er->param_override_seq));
-	if (num_elem > 0) {
-		if (num_elem % 2) {
-			dev_err(dev, "invalid param_override_seq_len\n");
-			ret = -EINVAL;
-			goto err_probe;
-		}
+	 parse_ret = eusb2_read_dt_params(dev, "qcom,param-override-seq",
+			&er->param_override_seq,
+			&er->param_override_seq_cnt);
+	 if (!parse_ret)
+		 goto err_probe;
 
-		er->param_override_seq_cnt = num_elem;
-		er->param_override_seq = devm_kcalloc(dev,
-				er->param_override_seq_cnt,
-				sizeof(*er->param_override_seq), GFP_KERNEL);
-		if (!er->param_override_seq) {
-			ret = -ENOMEM;
-			goto err_probe;
-		}
+	er-> project_ID = get_hw_version_platform();
+	er->conutry_ID = get_hw_country_version();
+	er->en_ms_flag = 0;
 
-		ret = of_property_read_u32_array(dev->of_node,
-				"qcom,param-override-seq",
-				er->param_override_seq,
-				er->param_override_seq_cnt);
-		if (ret) {
-			dev_err(dev, "qcom,param-override-seq read failed %d\n",
-									ret);
-			goto err_probe;
-		}
+	if (er->conutry_ID == CountryCN &&
+		(er->project_ID == HARDWARE_PROJECT_M2 || er->project_ID == HARDWARE_PROJECT_M3 || er->project_ID == HARDWARE_PROJECT_N11)) {
+		 parse_ret = eusb2_read_dt_params(dev, "qcom,param-override-seq-host-ms",
+			&er->param_override_seq_host,
+			&er->param_override_seq_cnt_host);
+	} else {
+		 parse_ret = eusb2_read_dt_params(dev, "qcom,param-override-seq-host",
+			&er->param_override_seq_host,
+			&er->param_override_seq_cnt_host);
 	}
+	if (!parse_ret)
+		 goto err_probe;
+
+	if (er->conutry_ID != CountryCN &&
+		(er->project_ID == HARDWARE_PROJECT_M2 || er->project_ID == HARDWARE_PROJECT_M3 || er->project_ID == HARDWARE_PROJECT_N11)) {
+	 	parse_ret = eusb2_read_dt_params(dev, "qcom,param-override-seq-host-ms",
+			&er->param_override_seq_host_ms,
+			&er->param_override_seq_cnt_host_ms);
+	 	if (!parse_ret)
+			 goto err_probe;
+		er->en_ms_flag = 1;
+		pr_info("miusb enable ms scheme\n");
+	} else
+		pr_info("miusb disable ms scheme\n");
+
 
 	er->ur.dev = dev;
+	er->ms_flag = 0;
 	platform_set_drvdata(pdev, er);
 
 	er->ur.init		= eusb2_repeater_init;
@@ -519,6 +671,7 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 
 	eusb2_repeater_create_debugfs(er);
+	eusb2_ms_create_procfs(er);
 	return 0;
 
 err_probe:
@@ -533,6 +686,7 @@ static int eusb2_repeater_remove(struct platform_device *pdev)
 		return 0;
 
 	debugfs_remove_recursive(er->root);
+	proc_remove(er->ms_root);
 	usb_remove_repeater_dev(&er->ur);
 	eusb2_repeater_power(er, false);
 	return 0;

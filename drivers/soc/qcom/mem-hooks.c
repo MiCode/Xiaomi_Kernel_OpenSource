@@ -74,7 +74,10 @@ out:
 
 static void balance_reclaim(void *unused, bool *balance_anon_file_reclaim)
 {
-	*balance_anon_file_reclaim = true;
+	// MIUI MOD:
+	// *balance_anon_file_reclaim = true;
+	*balance_anon_file_reclaim = false;
+	// END
 }
 
 static int kswapd_per_node_run(int nid, unsigned int kswapd_threads)

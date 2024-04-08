@@ -9,7 +9,6 @@
 
 #ifdef __GENKSYMS__
 #include <../kernel/cgroup/cgroup-internal.h>
-#include <linux/cgroup-defs.h>
 #include <linux/sched.h>
 #endif
 

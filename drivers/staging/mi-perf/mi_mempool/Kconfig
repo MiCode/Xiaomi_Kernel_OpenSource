@@ -1,0 +1,4 @@
+config MI_MEMPOOL
+	tristate "a preserved page pool can be  used before core apps try to make direct memory reclamation during  memory allocation"
+	default n
+

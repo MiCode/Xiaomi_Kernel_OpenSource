@@ -1557,6 +1557,24 @@ config REGULATOR_QTI_OCP_NOTIFIER
 	  providing a more graceful recovery mechanism than resetting the entire
 	  system.
 
+config REGULATOR_WL2866D
+	tristate "Xiaomi WL2866D regulator Driver"
+	help
+	  This driver provides support for the pmic regulator WL2866.
+
+config REGULATOR_WillSemi_WL2866D
+	tristate "WILL Semi Technologies Inc. WL2866D regulator driver"
+	depends on I2C
+	help
+	  This driver controls WL2866D PMIC chip and the voltage
+	  regulators found in WILL Semi Technologies Inc. WL2866D
+	  PMIC.
+
+config I2C_RETRY
+	bool "Stub Regulator"
+	help
+	  This help control I2C retry functions
+
 config VIRTIO_REGULATOR
 	tristate "Virtio regulator driver"
 	depends on VIRTIO
@@ -1565,5 +1583,15 @@ config VIRTIO_REGULATOR
 	  Qualcomm Technologies Inc. virtual machine. Virtio regulator can vote
 	  regulator for pass through peripheral devices via regulator backend in
 	  host.
+
+config REGULATOR_WL2868C
+	tristate "Fairchild WL2868C Regulator"
+	depends on I2C && (OF || COMPILE_TEST)
+	select REGMAP_I2C
+	help
+		This driver supports Fairchild (WILL Semiconductor) WL2868C
+		regulator. The regulator is a programmable power management IC
+		(PMIC), it is controlled by I2C and provides one BUCK, one BOOST
+		and four LDO outputs.
 
 endif

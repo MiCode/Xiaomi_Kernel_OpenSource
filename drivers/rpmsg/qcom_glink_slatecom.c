@@ -1705,9 +1705,18 @@ static int glink_slatecom_rx_data(struct glink_slatecom *glink,
 
 	if (intent->size - intent->offset < chunk_size) {
 		dev_err(glink->dev, "Insufficient space in intent\n");
+		glink_slatecom_free_intent(channel, intent);
 		mutex_unlock(&channel->intent_lock);
 
 		/* The packet header lied, drop payload */
+		return msglen;
+	}
+
+	if (chunk_size % WORD_SIZE) {
+		dev_err(glink->dev, "For chunk_size %d use short packet\n",
+					chunk_size);
+		glink_slatecom_free_intent(channel, intent);
+		mutex_unlock(&channel->intent_lock);
 		return msglen;
 	}
 

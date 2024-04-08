@@ -335,10 +335,11 @@ config USB_CONFIGFS_ECM_SUBSET
 	  a simple CDC subset is used, placing fewer demands on USB.
 
 config USB_CONFIGFS_RNDIS
-	bool "RNDIS"
+	tristate "USB RNDIS function"
 	depends on USB_CONFIGFS
 	depends on NET
 	select USB_U_ETHER
+	select USB_RNDIS
 	select USB_F_RNDIS
 	help
 	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,

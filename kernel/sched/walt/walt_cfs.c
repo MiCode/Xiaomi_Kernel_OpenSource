@@ -13,6 +13,15 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+// MIUI ADD:
+typedef struct binder_transaction_extra {
+	int from_pid;
+	int from_tid;
+	u64 times_record;
+	u64 boost;
+}transaction_extra;
+// END
+
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
 	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
@@ -162,7 +171,18 @@ static inline bool walt_target_ok(int target_cpu, int order_index)
 		 (target_cpu == cpumask_first(&cpu_array[order_index][0])));
 }
 
+static inline bool task_is_roottg(struct task_struct *p)
+{
+	struct cgroup_subsys_state *css;
+	struct cgroup_subsys_state *top_css = &root_task_group.css;
+	rcu_read_lock();
+	css = task_css(p, cpu_cgrp_id);
+	rcu_read_unlock();
+	return css==top_css;
+}
+
 #define MIN_UTIL_FOR_ENERGY_EVAL	52
+#define SCHED_ROOT_TG_CTRL_NUM	3
 static void walt_get_indicies(struct task_struct *p, int *order_index,
 		int *end_index, int per_task_boost, bool is_uclamp_boosted,
 		bool *energy_eval_needed)
@@ -178,6 +198,11 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 	if (per_task_boost > TASK_BOOST_ON_MID) {
 		*order_index = num_sched_clusters - 1;
 		*energy_eval_needed = false;
+		return;
+	}
+
+	if (sysctl_sched_roottg_control && sysctl_sched_roottg_control <= SCHED_ROOT_TG_CTRL_NUM && task_is_roottg(p)) {
+		*end_index = SCHED_ROOT_TG_CTRL_NUM - sysctl_sched_roottg_control;
 		return;
 	}
 
@@ -1017,6 +1042,72 @@ static void walt_binder_low_latency_set(void *unused, struct task_struct *task,
 
 }
 
+
+// MIUI ADD:
+static void binder_transaction_init_hook(void *data, struct binder_transaction *t)
+{
+	transaction_extra *te = kzalloc(sizeof(*te), GFP_ATOMIC);
+	if (!te)
+		return;
+	te->times_record = trace_clock_local();
+	te->from_pid = current->tgid;
+	te->from_tid = current->pid;
+	t->android_vendor_data1 = (u64)te;
+}
+
+static void binder_txn_latency_free_hook(void *data,
+					struct binder_transaction *t,
+					int from_proc,
+					int from_thread,
+					int to_proc,
+					int to_thread)
+{
+	transaction_extra *te = (transaction_extra *)t->android_vendor_data1;
+	if (te)  {
+		kfree(te);
+		t->android_vendor_data1 = 0;
+	}
+}
+
+static void binder_print_transaction_info_hook(void *data,
+						struct seq_file *m,
+						struct binder_proc *proc,
+						const char *prefix,
+						struct binder_transaction *t)
+{
+	transaction_extra *te = NULL;
+	struct binder_proc *to_proc = NULL;
+	int from_pid = 0;
+	int from_tid = 0;
+	int to_pid = 0;
+	int to_tid = 0;
+	u64 now;
+	u64 duration = 0;
+
+	te = (transaction_extra *)t->android_vendor_data1;
+	if (!te)
+		return;
+	to_proc = t->to_proc;
+	from_pid = t->from ? (t->from->proc ? t->from->proc->pid : 0) : te->from_pid;
+	from_tid = t->from ? t->from->pid : te->from_tid;
+	to_pid = to_proc ? to_proc->pid : 0;
+	to_tid = t->to_thread ? t->to_thread->pid : 0;
+	now = trace_clock_local();
+	if (te->times_record > 0)
+		duration = now > te->times_record ? (now - te->times_record) : 0;
+	seq_printf(m,
+		"MIUI%s: from %5d:%5d to %5d:%5d context:%s code:%3d duration:%6lld.%02lld s\n",
+		prefix,
+		from_pid, from_tid,
+		to_pid, to_tid,
+		proc->context->name,
+		t->code,
+		duration / 1000000000,
+		duration % 1000000000 / 10000000
+	);
+}
+// END
+
 static void binder_set_priority_hook(void *data,
 				struct binder_transaction *bndrtrans, struct task_struct *task)
 {
@@ -1028,7 +1119,13 @@ static void binder_set_priority_hook(void *data,
 		return;
 
 	if (bndrtrans && bndrtrans->need_reply && current_wts->boost == TASK_BOOST_STRICT_MAX) {
-		bndrtrans->android_vendor_data1  = wts->boost;
+		// MIUI MOD:
+		//bndrtrans->android_vendor_data1  = wts->boost;
+		transaction_extra *te = (transaction_extra *)bndrtrans->android_vendor_data1;
+		if (!te)
+			return;
+		te->boost = wts->boost;
+		// END
 		wts->boost = TASK_BOOST_STRICT_MAX;
 	}
 }
@@ -1041,8 +1138,15 @@ static void binder_restore_priority_hook(void *data,
 	if (unlikely(walt_disabled))
 		return;
 
-	if (bndrtrans && wts->boost == TASK_BOOST_STRICT_MAX)
-		wts->boost = bndrtrans->android_vendor_data1;
+	// MIUI MOD:
+	if (bndrtrans && wts->boost == TASK_BOOST_STRICT_MAX) {
+		//wts->boost = bndrtrans->android_vendor_data1;
+		transaction_extra *te = (transaction_extra *)bndrtrans->android_vendor_data1;
+		if (!te)
+			return;
+		wts->boost = te->boost;
+	}
+	// END
 }
 
 /*
@@ -1225,6 +1329,37 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p)
 		wts->total_exec = 0;
 }
 
+void mi_cfs_enqueue_runnable_task(struct rq *rq, struct task_struct *p)
+{
+	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	wts->runnable_start = sched_clock();
+	list_add_tail(&wts->runnable_list, &wrq->runnable_tasks);
+}
+
+void mi_cfs_dequeue_runnable_task(struct task_struct *p)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	if (!list_empty(&wts->runnable_list) && wts->runnable_list.next) {
+		wts->runnable_start = 0;
+		list_del_init(&wts->runnable_list);
+	}
+}
+
+void mi_cfs_reenqueue_runnable_task(struct rq *rq, struct task_struct *p)
+{
+	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	if (!list_empty(&wts->runnable_list) && wts->runnable_list.next) {
+		wts->runnable_start = sched_clock();
+		list_del_init(&wts->runnable_list);
+		list_add_tail(&wts->runnable_list, &wrq->runnable_tasks);
+	}
+}
+
 void walt_cfs_tick(struct rq *rq)
 {
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
@@ -1326,6 +1461,9 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	struct walt_task_struct *wts;
 	struct task_struct *mvp;
 	struct cfs_rq *cfs_rq;
+	u64 now = 0;
+	s64 delta = 0;
+	s64 disable_mvp_thres = sysctl_disable_mvp_thres * 1000 * 1000;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -1342,6 +1480,13 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	if (list_empty(&wrq->mvp_tasks))
 		return;
 
+	if (!list_empty(&wrq->runnable_tasks)) {
+		wts = list_first_entry(&wrq->runnable_tasks, struct walt_task_struct, runnable_list);
+		now = sched_clock();
+		delta = now - wts->runnable_start;
+		if (delta > disable_mvp_thres && wts->runnable_start != 0)
+			return;
+	}
 	/* Return the first task from MVP queue */
 	wts = list_first_entry(&wrq->mvp_tasks, struct walt_task_struct, mvp_list);
 	mvp = wts_to_ts(wts);
@@ -1383,4 +1528,10 @@ void walt_cfs_init(void)
 
 	register_trace_android_rvh_check_preempt_wakeup(walt_cfs_check_preempt_wakeup, NULL);
 	register_trace_android_rvh_replace_next_task_fair(walt_cfs_replace_next_task_fair, NULL);
+
+	// MIUI ADD:
+	register_trace_android_vh_binder_transaction_init(binder_transaction_init_hook, NULL);
+	register_trace_android_vh_binder_print_transaction_info(binder_print_transaction_info_hook, NULL);
+	register_trace_binder_txn_latency_free(binder_txn_latency_free_hook, NULL);
+	// END
 }

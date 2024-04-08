@@ -92,6 +92,9 @@
 /* Set FastRPC session ID to 1 */
 #define FASTRPC_MODE_SESSION     4
 
+/* Retrieves method index from the scalars parameter */
+#define REMOTE_SCALARS_METHOD(sc)        (((sc) >> 24) & 0x1f)
+
 /* Retrives number of input buffers from the scalars parameter */
 #define REMOTE_SCALARS_INBUFS(sc)        (((sc) >> 16) & 0x0ff)
 
@@ -972,9 +975,9 @@ struct fastrpc_mmap {
 	bool in_use;				/* Indicates if persistent map is in use*/
 	struct timespec64 map_start_time;
 	struct timespec64 map_end_time;
-	/* Mapping for fastrpc shell */
-	bool is_filemap;
+	bool is_filemap;			/*flag to indicate map used in process init*/
 	char *servloc_name;			/* Indicate which daemon mapped this */
+	unsigned int ctx_refs; /* Indicates reference count for context map */
 };
 
 enum fastrpc_perfkeys {
@@ -1095,6 +1098,8 @@ struct fastrpc_file {
 	spinlock_t dspsignals_lock;
 	struct mutex signal_create_mutex;
 	struct completion shutdown;
+	/* Flag to indicate Notif feature to be enabled or no */
+	bool init_notif;
 	/* Flag to indicate notif thread exit requested*/
 	bool exit_notif;
 	/* Flag to indicate async thread exit requested*/

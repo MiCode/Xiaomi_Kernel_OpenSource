@@ -29,3 +29,35 @@ obj-$(CONFIG_INPUT_MISC)	+= misc/
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+obj-$(CONFIG_STMVL53L5)		+= stmvl53l5/
+obj-$(CONFIG_INPUT_FINGERPRINT) += fingerprint/
+
+ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), nuwa))
+	KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_NUWA
+	KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), fuxi))
+	KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_FUXI
+	KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), vermeer))
+        KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_VERMEER
+        KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), socrates))
+	KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_SOCRATES
+	KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), ishtar))
+	KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_ISHTAR
+	KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+
+ifneq (, $(filter $(word 2,$(subst _, ,$(TARGET_PRODUCT))), babylon))
+	KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_BABYLON
+	KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif

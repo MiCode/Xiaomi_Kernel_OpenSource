@@ -745,7 +745,6 @@ static void calculate_sampling_stats(void)
 			delta->common_ctrs[i] = stats->curr.common_ctrs[i] -
 						stats->prev.common_ctrs[i];
 		}
-
 		for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 			memlat_grp = memlat_data->groups[grp];
 			if (!memlat_grp)
@@ -758,7 +757,6 @@ static void calculate_sampling_stats(void)
 					    stats->prev.grp_ctrs[grp][i];
 			}
 		}
-
 		stats->freq_mhz = delta->common_ctrs[CYC_IDX] / delta_us;
 		if (!memlat_data->common_ev_ids[FE_STALL_IDX])
 			stats->fe_stall_pct = 100;
@@ -799,7 +797,6 @@ static void calculate_sampling_stats(void)
 					stats->freq_mhz, stats->be_stall_pct,
 					stats->wb_pct[grp], stats->ipm[grp],
 					stats->fe_stall_pct);
-
 		}
 		memcpy(&stats->prev, &stats->curr, sizeof(stats->curr));
 	}
@@ -1096,6 +1093,7 @@ static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
 	delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
+
 	if (delta_ns < ms_to_ktime(memlat_data->sample_ms))
 		goto out;
 	stats->sample_ts = now;

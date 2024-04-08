@@ -2146,3 +2146,17 @@ source "arch/arm64/gunyah/Kconfig"
 if CRYPTO
 source "arch/arm64/crypto/Kconfig"
 endif
+
+config FACTORY_BUILD
+	bool "distiguish factory version from dev version"
+	default n
+	help
+	  This macro will be defined when build factory version. It is used to
+	  distinguish factory and dev codes in kernel.
+
+config FOLD_BUILD
+	bool "Distinguish between fold/flip projects"
+	default n
+	help
+	  This macro takes effect when compiling fold/flip devices to distinguish
+	  between different GPU dtsi files.

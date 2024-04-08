@@ -9,6 +9,8 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
+/* struct ufs_hba, struct ufshcd_lrb, struct uic_command */
+/* struct request */
 #ifdef __GENKSYMS__
 #include <../drivers/scsi/ufs/ufshcd.h>
 #include <linux/blkdev.h>

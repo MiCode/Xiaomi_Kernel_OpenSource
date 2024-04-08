@@ -905,8 +905,10 @@ static int adspsleepmon_driver_probe(struct platform_device *pdev)
 	of_property_read_u32(dev->of_node, "qcom,min_required_resumes",
 						 &g_adspsleepmon.min_required_resumes);
 
-	g_adspsleepmon.b_panic_lpm = g_adspsleepmon.b_config_panic_lpm;
-	g_adspsleepmon.b_panic_lpi = g_adspsleepmon.b_config_panic_lpi;
+	//g_adspsleepmon.b_panic_lpm = g_adspsleepmon.b_config_panic_lpm;
+	//g_adspsleepmon.b_panic_lpi = g_adspsleepmon.b_config_panic_lpi;
+	g_adspsleepmon.b_panic_lpm = false;
+	g_adspsleepmon.b_panic_lpi = false;
 
 	if (g_adspsleepmon.b_config_panic_lpm ||
 			g_adspsleepmon.b_config_panic_lpi) {
@@ -1435,6 +1437,14 @@ static long adspsleepmon_device_ioctl(struct file *file,
 		case ADSPSLEEPMON_RESET_PANIC_LPI:
 			g_adspsleepmon.b_panic_lpi =
 						g_adspsleepmon.b_config_panic_lpi;
+		break;
+
+		case ADSPSLEEPMON_ENABLE_PANIC_LPM:
+			g_adspsleepmon.b_panic_lpm = true;
+		break;
+
+		case ADSPSLEEPMON_ENABLE_PANIC_LPI:
+			g_adspsleepmon.b_panic_lpi = true;
 		break;
 		}
 	}

@@ -152,6 +152,51 @@ static ssize_t store_boost_freq(struct kobject *kobj,
 	return count;
 }
 
+//add +{
+int boost_dcvs_freq(int freq,u32 hw_type)
+{
+	int ret;
+	unsigned int val = freq;
+	struct dcvs_hw *hw;
+	struct dcvs_path *path;
+	struct dcvs_voter *voter;
+	struct dcvs_freq new_freq;
+	hw = dcvs_data->hw_devs[hw_type];
+	if (hw == NULL)
+		return -ENOMEM;
+	if (val > hw->hw_max_freq)
+		return -EINVAL;
+	/* boost_freq only supported on hw with slow path */
+	path = hw->dcvs_paths[DCVS_SLOW_PATH];
+	if (!path)
+		return -EPERM;
+
+	val = max(val, hw->hw_min_freq);
+	hw->boost_freq = val;
+
+	/* must re-aggregate votes to get new freq after boost update */
+	mutex_lock(&path->voter_lock);
+	new_freq.ib = new_freq.ab = 0;
+	new_freq.hw_type = hw->type;
+	list_for_each_entry(voter, &path->voter_list, node) {
+		new_freq.ib = max(voter->freq.ib, new_freq.ib);
+		new_freq.ab += voter->freq.ab;
+	}
+	new_freq.ib = get_target_freq(path, new_freq.ib);
+	if (new_freq.ib != path->cur_freq.ib) {
+		ret = path->commit_dcvs_freqs(path, &new_freq, 1);
+		if (ret < 0)
+			pr_err("Error setting boost freq: %d\n", ret);
+	}
+	mutex_unlock(&path->voter_lock);
+
+	trace_qcom_dcvs_boost(hw->type, path->type, hw->boost_freq,
+				new_freq.ib, new_freq.ab);
+	return 0;
+}
+EXPORT_SYMBOL(boost_dcvs_freq);
+//add +}
+
 static ssize_t show_cur_freq(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {

@@ -1,0 +1,13 @@
+config SEPARATE_SCHED
+	tristate "feas separate sched"
+	help
+	  feas separate sched function
+
+
+config MI_FREQ_QOS
+	tristate "mi freq qos monitor"
+	depends on MIHW
+	help
+	  The case is used to monitor abnormol freq
+
+

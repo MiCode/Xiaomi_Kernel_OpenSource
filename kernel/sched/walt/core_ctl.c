@@ -987,7 +987,7 @@ static bool eval_need_32bit(struct cluster_data *cluster)
 
 	now = ktime_to_ms(ktime_get());
 
-	if (need_cpus > cluster->active_32bit_cpus) {
+	if (new_need > cluster->active_32bit_cpus) {
 		adj_now = true;
 	} else {
 		/*

@@ -10,9 +10,28 @@
 #include <linux/err.h>
 #include "qcom_dynamic_page_pool.h"
 
+struct reserve_extend {
+	bool use_reserve_pool;
+	int debug;
+	int use_reserve_pool_max_time;
+	int start_service_alloc_time;
+	int scene;
+	atomic_t slowpath;
+	atomic_t reserve_slowpath;
+	atomic_t reserve_long_slowpath;
+	atomic_t use_order[NUM_ORDERS];
+	atomic_t reserve_order[NUM_ORDERS];
+	atomic_t refill_count[NUM_ORDERS];
+	atomic_t refill_amount[NUM_ORDERS];
+	atomic_t refill_amount_last[NUM_ORDERS];
+	atomic64_t use_reserve_pool_start;
+};
+
 struct qcom_system_heap {
 	int uncached;
 	struct dynamic_page_pool **pool_list;
+	struct dynamic_page_pool **reserve_pool_list;
+	struct reserve_extend reserve_extend_info;
 };
 
 #ifdef CONFIG_QCOM_DMABUF_HEAPS_SYSTEM

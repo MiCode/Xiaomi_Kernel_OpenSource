@@ -442,6 +442,16 @@ config QTI_BATTERY_CHARGER
 	  To compile the driver as a module, choose M here: the module will be
 	  called qti_battery_charger.
 
+config XM_POGO_DRIVER
+	tristate "Xiaomi pogo power supply config"
+	help
+	  Say Y or M here to enable xiaomi power supply
+
+config QTI_POGO_CHG
+	tristate "Xiaomi pogo power supply config"
+	help
+	  Say Y or M here to enable xiaomi power supply
+
 config CHARGER_88PM860X
 	tristate "Marvell 88PM860x Charger driver"
 	depends on MFD_88PM860X && BATTERY_88PM860X
@@ -831,6 +841,26 @@ config RN5T618_POWER
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
 
+config MI_WIRELESS
+	tristate "mi wirless config"
+	help
+	  Say Y here to enable mi wireless
+
+config MI_PEN_WIRELESS
+	tristate "mi pen wirless config"
+	help
+	  Say Y here to enable mi pen wireless
+
+config MI_ENABLE_DP
+	tristate "enable or disable displayPort config"
+	help
+	  Say Y here to enable create node to support dp function
+
+config WIRELESS_REVERSE_CLOSE
+	tristate "mi wirless reverse close"
+	help
+	  Say Y here to disable mi wireless reverse charge
+
 config BATTERY_ACER_A500
 	tristate "Acer Iconia Tab A500 battery driver"
 	depends on MFD_ACER_A500_EC
@@ -868,6 +898,21 @@ config CHARGER_SURFACE
 	  Say M or Y here to include AC status support for 7th-generation
 	  Microsoft Surface devices, i.e. Surface Pro 7, Surface Laptop 3,
 	  Surface Book 3, and Surface Laptop Go.
+
+config MI_DTPT
+	tristate "mi dtpt config"
+        help
+          Say Y here to enable mi dtpt
+
+config DUAL_FUEL_GAUGE
+	tristate "BQ fuel gauge config"
+	help
+	  Say Y here to enable Bq fuel gauge
+
+config MI_ENABLE_DP
+	tristate "enable or disable displayPort config"
+	help
+	  Say Y here to enable create node to support dp function
 
 source "drivers/power/supply/qcom/Kconfig"
 

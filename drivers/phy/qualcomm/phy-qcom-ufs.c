@@ -19,6 +19,7 @@
 
 #define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
 
+
 /**
  * struct ufs_qcom_phy_regs - record the info of ufs qcom phy register domain.
  * @list_head: the list to find all ufs phy register domins.
@@ -584,6 +585,7 @@ out:
 
 static void ufs_qcom_phy_disable_ref_clk(struct ufs_qcom_phy *phy)
 {
+
 	if (phy->is_ref_clk_enabled) {
 		/*
 		 * "ref_aux_clk" is optional clock and only supported by

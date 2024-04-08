@@ -19,8 +19,8 @@ static int __maybe_unused two = 2;
 static int __maybe_unused four = 4;
 static int one_hundred = 100;
 static int one_thousand = 1000;
+static int three_thousand = 3000;
 static int one_thousand_twenty_four = 1024;
-static int two_thousand = 2000;
 
 /*
  * CFS task prio range is [100 ... 139]
@@ -48,6 +48,9 @@ unsigned int sysctl_sched_wake_up_idle[2];
 unsigned int sysctl_input_boost_ms;
 unsigned int sysctl_input_boost_freq[8];
 unsigned int sysctl_sched_boost_on_input;
+unsigned int sysctl_powerkey_input_boost_ms;
+unsigned int sysctl_powerkey_input_boost_freq[8];
+unsigned int sysctl_powerkey_sched_boost_on_input;
 unsigned int sysctl_sched_early_up[MAX_MARGIN_LEVELS];
 unsigned int sysctl_sched_early_down[MAX_MARGIN_LEVELS];
 
@@ -78,8 +81,10 @@ unsigned int sysctl_sched_long_running_rt_task_ms;
 unsigned int sysctl_sched_idle_enough;
 unsigned int sysctl_sched_cluster_util_thres_pct;
 unsigned int sysctl_ed_boost_pct;
+unsigned int sysctl_sched_roottg_control = 0;
 unsigned int sysctl_em_inflate_pct = 100;
 unsigned int sysctl_em_inflate_thres = 1024;
+unsigned int sysctl_disable_mvp_thres = 60000;
 
 /* range is [1 .. INT_MAX] */
 static int sysctl_task_read_pid = 1;
@@ -533,6 +538,33 @@ unlock_mutex:
 #endif /* CONFIG_PROC_SYSCTL */
 
 struct ctl_table input_boost_sysctls[] = {
+	{
+		.procname	= "powerkey_input_boost_ms",
+		.data		= &sysctl_powerkey_input_boost_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_hundred_thousand,
+	},
+	{
+		.procname	= "powerkey_input_boost_freq",
+		.data		= &sysctl_powerkey_input_boost_freq,
+		.maxlen		= sizeof(unsigned int) * 8,
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "powerkey_sched_boost_on_input",
+		.data		= &sysctl_powerkey_sched_boost_on_input,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
 	{
 		.procname	= "input_boost_ms",
 		.data		= &sysctl_input_boost_ms,
@@ -1003,7 +1035,7 @@ struct ctl_table walt_table[] = {
 		.mode		= 0644,
 		.proc_handler	= sched_long_running_rt_task_ms_handler,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= &two_thousand,
+		.extra2		= &three_thousand,
 	},
 	{
 		.procname	= "sched_ed_boost",
@@ -1015,6 +1047,15 @@ struct ctl_table walt_table[] = {
 		.extra2		= &one_hundred,
 	},
 	{
+		.procname	= "sched_roottg_control",
+		.data		= &sysctl_sched_roottg_control,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &three,
+	},
+    {
 		.procname	= "sched_em_inflate_pct",
 		.data		= &sysctl_em_inflate_pct,
 		.maxlen		= sizeof(unsigned int),
@@ -1031,6 +1072,15 @@ struct ctl_table walt_table[] = {
 		.proc_handler	= proc_douintvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &one_thousand_twenty_four,
+	},
+	{
+		.procname	= "sched_disable_mvp_thres",
+		.data		= &sysctl_disable_mvp_thres,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
 	},
 	{ }
 };
@@ -1086,6 +1136,13 @@ void walt_tunables(void)
 
 	sysctl_input_boost_ms = 40;
 
+	sysctl_powerkey_input_boost_ms = 40;
+
+	sysctl_powerkey_sched_boost_on_input = true;
+
 	for (i = 0; i < 8; i++)
 		sysctl_input_boost_freq[i] = 0;
+
+	for (i = 0; i < 8; i++)
+		sysctl_powerkey_input_boost_freq[i] = 0;
 }

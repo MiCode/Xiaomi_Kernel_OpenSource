@@ -126,6 +126,7 @@ struct walt_rq {
 	u64			util;
 	struct list_head	mvp_tasks;
 	int                     num_mvp_tasks;
+	struct list_head	runnable_tasks;
 	u64			latest_clock;
 	u32			enqueue_counter;
 };
@@ -218,6 +219,9 @@ extern enum sched_boost_policy boost_policy;
 extern unsigned int sysctl_input_boost_ms;
 extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
+extern unsigned int sysctl_powerkey_input_boost_ms;
+extern unsigned int sysctl_powerkey_input_boost_freq[8];
+extern unsigned int sysctl_powerkey_sched_boost_on_input;
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 extern unsigned int sysctl_sched_hyst_min_coloc_ns;
@@ -225,6 +229,7 @@ extern unsigned int sysctl_sched_long_running_rt_task_ms;
 extern unsigned int sysctl_ed_boost_pct;
 extern unsigned int sysctl_em_inflate_pct;
 extern unsigned int sysctl_em_inflate_thres;
+extern unsigned int sysctl_disable_mvp_thres;
 
 extern int cpufreq_walt_set_adaptive_freq(unsigned int cpu, unsigned int adaptive_low_freq,
 					  unsigned int adaptive_high_freq);
@@ -297,6 +302,7 @@ extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_suppress_region2;
 extern unsigned int sysctl_sched_skip_sp_newly_idle_lb;
 extern unsigned int sysctl_sched_asymcap_boost;
+extern unsigned int sysctl_sched_roottg_control;
 extern struct ctl_table walt_table[];
 extern struct ctl_table walt_base_table[];
 extern void walt_tunables(void);
@@ -973,6 +979,9 @@ void walt_cfs_enqueue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_tick(struct rq *rq);
 void walt_lb_tick(struct rq *rq);
+void mi_cfs_enqueue_runnable_task(struct rq *rq, struct task_struct *p);
+void mi_cfs_dequeue_runnable_task(struct task_struct *p);
+void mi_cfs_reenqueue_runnable_task(struct rq *rq, struct task_struct *p);
 
 extern __read_mostly unsigned int walt_scale_demand_divisor;
 

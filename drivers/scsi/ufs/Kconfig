@@ -220,6 +220,9 @@ config SCSI_UFS_FAULT_INJECTION
 	  Enable fault injection support in the UFS driver. This makes it easier
 	  to test the UFS error handler and abort handler.
 
+
+
+
 config SCSI_UFS_HWMON
 	bool "UFS Temperature Notification"
 	depends on SCSI_UFSHCD=HWMON || HWMON=y
@@ -228,3 +231,7 @@ config SCSI_UFS_HWMON
 	  a hardware monitoring device will be created for the UFS device.
 
 	  If unsure, say N.
+
+
+
+
