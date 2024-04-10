@@ -320,6 +320,9 @@ extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 extern struct mtk_drm_disp_mtee_cb disp_mtee_cb;
 
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
 void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,
@@ -342,6 +345,7 @@ int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
+int dsi_check_hbm_status (size_t status, size_t hbm_cmd);
 bool mtk_drm_lcm_is_connect(struct mtk_drm_crtc *mtk_crtc);
 size_t mtk_gce_get_dummy_table(unsigned int mmsys_id, struct dummy_mapping **table);
 

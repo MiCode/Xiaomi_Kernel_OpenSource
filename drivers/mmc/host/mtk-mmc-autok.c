@@ -282,10 +282,6 @@ static void msdc_reset_hw(struct msdc_host *host)
 	writel(val, host->base + MSDC_INT);
 }
 
-/**********************************************************
- * AutoK Basic Interface Implenment                       *
- **********************************************************/
-
 /* define the function to shrink code's column */
 static void rx_read(struct msdc_host *host, unsigned int value)
 {
@@ -4129,6 +4125,7 @@ int autok_vcore_merge_sel(struct msdc_host *host, unsigned int merge_cap)
 			    host->autok_res[AUTOK_VCORE_MERGE]);
 		uCmdEdge ^= 0x1;
 	} while (uCmdEdge);
+
 	if (max_win[0] >= max_win[1]) {
 		pInfo->opt_edge_sel = 0;
 		pInfo->opt_dly_cnt = dly_sel[0];

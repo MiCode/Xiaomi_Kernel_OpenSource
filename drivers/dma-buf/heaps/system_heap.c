@@ -66,7 +66,8 @@ struct system_heap_buffer {
 };
 
 #define LOW_ORDER_GFP (GFP_HIGHUSER | __GFP_ZERO | __GFP_COMP)
-#define MID_ORDER_GFP (LOW_ORDER_GFP | __GFP_NOWARN)
+//#define MID_ORDER_GFP (LOW_ORDER_GFP | __GFP_NOWARN)
+#define MID_ORDER_GFP ((LOW_ORDER_GFP | __GFP_NOWARN) & ~__GFP_RECLAIM)
 #define HIGH_ORDER_GFP  (((GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN \
 				| __GFP_NORETRY) & ~__GFP_RECLAIM) \
 				| __GFP_COMP)

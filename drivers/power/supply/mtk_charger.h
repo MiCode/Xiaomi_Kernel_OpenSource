@@ -12,7 +12,8 @@
 #include "mtk_charger_algorithm_class.h"
 #include <linux/power_supply.h>
 #include "mtk_smartcharging.h"
-
+#include "tcpm.h"
+#include "pd_core.h"
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
 
@@ -86,6 +87,23 @@ struct charger_data;
 
 #define MAX_ALG_NO 10
 
+#define FFC_CV_1 4400000
+#define FFC_CV_2 4392000
+#define FFC_CV_3 4384000
+#define FFC_CV_4 4376000
+#define CHG_CYCLE_COUNT_LEVEL1 1
+#define CHG_CYCLE_COUNT_LEVEL2 100
+#define CHG_CYCLE_COUNT_LEVEL3 200
+#define CHG_CYCLE_COUNT_LEVEL4 300
+#define ENABLE_SW_FFC  1
+
+enum percent_98_rechg{
+	EVENT_RECHG_INIT = 0,
+	EVENT_RECHG_FULL,
+	EVENT_RECHG_START,
+	EVENT_RECHG_BLOCK
+};
+
 enum bat_temp_state_enum {
 	BAT_TEMP_LOW = 0,
 	BAT_TEMP_NORMAL,
@@ -108,31 +126,40 @@ struct battery_thermal_protection_data {
 };
 
 /* sw jeita */
-#define JEITA_TEMP_ABOVE_T4_CV	4240000
-#define JEITA_TEMP_T3_TO_T4_CV	4240000
-#define JEITA_TEMP_T2_TO_T3_CV	4340000
-#define JEITA_TEMP_T1_TO_T2_CV	4240000
-#define JEITA_TEMP_T0_TO_T1_CV	4040000
-#define JEITA_TEMP_BELOW_T0_CV	4040000
-#define TEMP_T4_THRES  50
-#define TEMP_T4_THRES_MINUS_X_DEGREE 47
-#define TEMP_T3_THRES  45
-#define TEMP_T3_THRES_MINUS_X_DEGREE 39
-#define TEMP_T2_THRES  10
-#define TEMP_T2_THRES_PLUS_X_DEGREE 16
-#define TEMP_T1_THRES  0
-#define TEMP_T1_THRES_PLUS_X_DEGREE 6
+#define JEITA_TEMP_ABOVE_T5_CV	4100000
+#define JEITA_TEMP_T4_TO_T5_CV  4100000
+#define JEITA_TEMP_T3_TO_T4_CV	4400000
+#define JEITA_TEMP_T2_TO_T3_CV	4400000
+#define JEITA_TEMP_T1_TO_T2_CV	4400000
+#define JEITA_TEMP_T0_TO_T1_CV	4400000
+#define JEITA_TEMP_BELOW_T0_CV	4400000
+#define TEMP_T5_THRES  60
+#define TEMP_T5_THRES_MINUS_X_DEGREE 58
+#define TEMP_T4_THRES  45
+#define TEMP_T4_THRES_MINUS_X_DEGREE 43
+#define TEMP_T3_THRES  20
+#define TEMP_T3_THRES_MINUS_X_DEGREE 22
+#define TEMP_T2_THRES  15
+#define TEMP_T2_THRES_PLUS_X_DEGREE 17
+#define TEMP_T1_THRES  10
+#define TEMP_T1_THRES_PLUS_X_DEGREE 12
 #define TEMP_T0_THRES  0
-#define TEMP_T0_THRES_PLUS_X_DEGREE  0
-#define TEMP_NEG_10_THRES 0
+#define TEMP_T0_THRES_PLUS_X_DEGREE  2
+
+#define JEITA_CURRENT_T0_TO_T1   490000
+#define JEITA_CURRENT_T1_TO_T2   1440000
+#define JEITA_CURRENT_T2_TO_T3   1980000
+#define JEITA_CURRENT_T3_TO_T4   1980000
+#define JEITA_CURRENT_T4_TO_T5   1980000
 
 /*
  * Software JEITA
- * T0: -10 degree Celsius
- * T1: 0 degree Celsius
- * T2: 10 degree Celsius
- * T3: 45 degree Celsius
- * T4: 50 degree Celsius
+ * T0: 0 degree Celsius
+ * T1: 10 degree Celsius
+ * T2: 15 degree Celsius
+ * T3: 20 degree Celsius
+ * T4: 45 degree Celsius
+ * T4: 60 degree Celsius
  */
 enum sw_jeita_state_enum {
 	TEMP_BELOW_T0 = 0,
@@ -140,7 +167,8 @@ enum sw_jeita_state_enum {
 	TEMP_T1_TO_T2,
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
-	TEMP_ABOVE_T4
+	TEMP_T4_TO_T5,
+	TEMP_ABOVE_T5,
 };
 
 struct sw_jeita_data {
@@ -176,12 +204,15 @@ struct charger_custom_data {
 	int charging_host_charger_current;
 
 	/* sw jeita */
-	int jeita_temp_above_t4_cv;
+	int jeita_temp_above_t5_cv;
+	int jeita_temp_t4_to_t5_cv;
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
 	int jeita_temp_t1_to_t2_cv;
 	int jeita_temp_t0_to_t1_cv;
 	int jeita_temp_below_t0_cv;
+	int temp_t5_thres;
+	int temp_t5_thres_minus_x_degree;
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
 	int temp_t3_thres;
@@ -193,6 +224,13 @@ struct charger_custom_data {
 	int temp_t0_thres;
 	int temp_t0_thres_plus_x_degree;
 	int temp_neg_10_thres;
+
+	int jeita_current_t4_to_t5;
+	int jeita_current_t3_to_t4;
+	int jeita_current_t2_to_t3;
+	int jeita_current_t1_to_t2;
+	int jeita_current_t0_to_t1;
+
 
 	/* battery temperature protection */
 	int mtk_temperature_recharge_support;
@@ -231,6 +269,7 @@ enum chg_data_idx_enum {
 };
 
 struct mtk_charger {
+	struct tcpc_device *tcpc;
 	struct platform_device *pdev;
 	struct charger_device *chg1_dev;
 	struct notifier_block chg1_nb;
@@ -315,6 +354,13 @@ struct mtk_charger {
 	/* ATM */
 	bool atm_enabled;
 
+	//input_suspend flag
+	bool input_suspend;
+
+	//jeita current limit
+	int jeita_input_current_limit;
+	int jeita_charging_current_limit;
+
 	const char *algorithm_name;
 	struct mtk_charger_algorithm algo;
 
@@ -377,6 +423,15 @@ struct mtk_charger {
 	bool force_disable_pp[CHG2_SETTING + 1];
 	bool enable_pp[CHG2_SETTING + 1];
 	struct mutex pp_lock[CHG2_SETTING + 1];
+	bool enable_sw_ffc;
+	int ffc_cv_1;
+	int ffc_cv_2;
+	int ffc_cv_3;
+	int ffc_cv_4;
+	int chg_cycle_count_level1;
+	int chg_cycle_count_level2;
+	int chg_cycle_count_level3;
+	int chg_cycle_count_level4;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,
@@ -424,5 +479,19 @@ extern void _wake_up_charger(struct mtk_charger *info);
 /* functions for other */
 extern int mtk_chg_enable_vbus_ovp(bool enable);
 
+enum attach_type {
+	ATTACH_TYPE_NONE,
+	ATTACH_TYPE_PWR_RDY,
+	ATTACH_TYPE_TYPEC,
+	ATTACH_TYPE_PD,
+	ATTACH_TYPE_PD_SDP,
+	ATTACH_TYPE_PD_DCP,
+	ATTACH_TYPE_PD_NONSTD,
+	ATTACH_TYPE_MAX,
+};
+
+#define ONLINE(idx, attach)		((idx & 0xf) << 4 | (attach & 0xf))
+#define ONLINE_GET_IDX(online)		((online >> 4) & 0xf)
+#define ONLINE_GET_ATTACH(online)	(online & 0xf)
 
 #endif /* __MTK_CHARGER_H */

@@ -23,4 +23,6 @@ aee_aed-y	+= \
 	slog.o \
 	reboot-reason.o
 
+aee_aed-$(CONFIG_MTK_LAST_KMSG) += last_kmsg.o
+
 obj-$(CONFIG_DRM_MEDIATEK)	+= aee_rs.o

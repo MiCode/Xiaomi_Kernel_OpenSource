@@ -70,6 +70,7 @@
 #define MT6357_PWRKEY_RST_SHIFT			9
 #define MT6357_HOMEKEY_RST_SHIFT		8
 #define MT6357_RST_DU_SHIFT			12
+struct input_dev *kpd_input_dev; // add longcheer 259976 2022/9/26
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
 	u32 deb_mask;
@@ -330,7 +331,14 @@ static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-
+#define KPD_EVENT 116
+void kpd_pmic_pwrkey_hal(unsigned long pressed) //begin longcheer 259976 2022/9/26
+{
+	input_report_key(kpd_input_dev, KPD_EVENT, pressed);
+	input_sync(kpd_input_dev);
+	pr_err("kpd using PMIC, pressed = %d\n",pressed);
+} //end longcheer 259976 2022/9/26
+EXPORT_SYMBOL(kpd_pmic_pwrkey_hal);
 static int mtk_pmic_key_setup(struct mtk_pmic_keys *keys,
 		struct mtk_pmic_keys_info *info)
 {
@@ -524,6 +532,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	mtk_pmic_keys_lp_reset_setup(keys, mtk_pmic_regs);
 
 	platform_set_drvdata(pdev, keys);
+	kpd_input_dev = input_dev; //add longcheer 259976 2022/9/26
 
 	return 0;
 }

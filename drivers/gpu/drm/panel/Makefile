@@ -109,6 +109,10 @@ obj-$(CONFIG_DRM_PANEL_TIANMA_HX83102J_VDO) += panel-tianma-hx83102j-vdo.o
 obj-$(CONFIG_BACKLIGHT_KTZ8866)         += ktz8866.o
 obj-$(CONFIG_DRM_PANEL_EDO_HX5329_CMD_120) += panel-edo-hx5329-cmd-120hz.o
 obj-$(CONFIG_DRM_MTK_GENERAL_PANEL_DRV) += mtk-drm-general-panel-driver.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3Y_NULL_HD_VDO) += dsi_panel_c3y_null_hd_vdo.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3Y_43_02_0A_HD_VIDEO) += dsi_panel_c3y_43_02_0a_hd_video.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3Y_35_03_0B_HD_VIDEO) += dsi_panel_c3y_35_03_0b_hd_video.o
+obj-$(CONFIG_DRM_PANEL_DSI_PANEL_C3Y_42_0F_0C_HD_VIDEO) += dsi_panel_c3y_42_0f_0c_hd_video.o
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \

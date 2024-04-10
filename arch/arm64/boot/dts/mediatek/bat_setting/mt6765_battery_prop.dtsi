@@ -6,14 +6,15 @@
  */
 
 &mtk_gauge {
-	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	DIFFERENCE_FULLOCV_ITH = <(290)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(30)>;
 	/* If ui_soc shows 1% more than X minites, system will shutdown */
-	KEEP_100_PERCENT = <(1)>;
-	R_FG_VALUE = <(10)>;
+	/*2022.9.20 longcheer by 331150 modify keep_100_percent*/
+	KEEP_100_PERCENT = <(3)>;
+	R_FG_VALUE = <(5)>;
 	/* R_sense resistance */
-	EMBEDDED_SEL = <(0)>;
+	EMBEDDED_SEL = <(1)>;
 	/* Configures whether using embedded battery or not */
 	PMIC_SHUTDOWN_CURRENT = <(20)>;
 	/* System shutdown current */
@@ -35,7 +36,7 @@
 	/* Battery temperature T2 */
 	TEMPERATURE_T3 = <(0)>;
 	/* Battery temperature T3 */
-	TEMPERATURE_T4 = <(-6)>;
+	TEMPERATURE_T4 = <(-10)>;
 	/* Battery temperature T4 */
 	TEMPERATURE_T5 = <(-10)>;
 	/* Battery temperature T5 */
@@ -59,15 +60,17 @@
 	/* Pseudo1 for hide percentage */
 	COM_FG_METER_RESISTANCE = <(100)>;
 	/* compensate The resistance of PCB */
-	COM_R_FG_VALUE = <(0)>;
+        /*longcheer 2022/9/20 by 331150 begin*/
+	//COM_R_FG_VALUE = <(0)>;
 	/* compensate R_sense resistance */
-	enable_tmp_intr_suspend = <(0)>;
+	//enable_tmp_intr_suspend = <(0)>;
 	/* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+	//ACTIVE_TABLE = <(6)>;
 	/* Table numbers per battery */
-	MULTI_TEMP_GAUGE0 = <(1)>;
+	//MULTI_TEMP_GAUGE0 = <(1)>;
+        /*longcheer 2022/9/20 by 331150 end*/
 	/* Multi gauge0 enable */
-	RBAT_PULL_UP_R = <(16900)>;
+	RBAT_PULL_UP_R = <(100000)>;
 	RBAT_PULL_UP_VOLT = <(1800)>;
 
 #include "mt6765_battery_table_ext.dtsi"

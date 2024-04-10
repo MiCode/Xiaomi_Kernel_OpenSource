@@ -36,6 +36,10 @@
 
 #define BMLOG_DEFAULT_LEVEL BMLOG_DEBUG_LEVEL
 
+#define MIN_SHUTDOWN_VOL	3250
+
+#define FULL_CHARGE_CAPACITY  (5000*1000)  // uAh
+
 #define bm_err(fmt, args...)   \
 do {\
 	if (bat_get_debug_level() >= BMLOG_ERROR_LEVEL) {\
@@ -113,6 +117,15 @@ enum battery_property {
 	BAT_PROP_FG_RESET,
 	BAT_PROP_LOG_LEVEL,
 	BAT_PROP_TEMP_TH_GAP,
+	BAT_PROP_REAL_TYPE,
+	BAT_PROP_INPUT_SUSPEND,
+	BAT_PROP_SHIP_MODE,
+	BAT_PROP_TYPEC_CC_ORIENTATION,
+	BAT_PROP_MTBF_CURRENT,
+	BAT_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	BAT_PROP_BATTERY_ID,
+	BAT_PROP_TYPEC_MODE,
 };
 
 struct battery_data {
@@ -129,6 +142,7 @@ struct battery_data {
 	/* Add for Battery Service */
 	int bat_batt_vol;
 	int bat_batt_temp;
+	int fake_soc;
 };
 
 struct VersionControl {
@@ -709,6 +723,31 @@ enum Fg_interrupt_flags {
 	FG_INTR_BAT_INT2_CHECK = 0x4000000,
 };
 
+enum mtk_typec_mode {
+	PSY_TYPEC_NONE = 0,
+
+	/* Acting as source */
+	PSY_TYPEC_SINK,		/* Rd only */
+	PSY_TYPEC_SINK_POWERED_CABLE,	/* Rd/Ra */
+	PSY_TYPEC_SINK_DEBUG_ACCESSORY,/* Rd/Rd */
+	PSY_TYPEC_SINK_AUDIO_ADAPTER,	/* Ra/Ra */
+	PSY_TYPEC_POWERED_CABLE_ONLY,	/* Ra only */
+
+	/* Acting as sink */
+	PSY_TYPEC_SOURCE_DEFAULT,	/* Rp default */
+	PSY_TYPEC_SOURCE_MEDIUM,	/* Rp 1.5A */
+	PSY_TYPEC_SOURCE_HIGH,		/* Rp 3A */
+	PSY_TYPEC_DAM_DEFAULT,		/* Rp-1.5A/Rp-3A */
+	PSY_TYPEC_DAM_MEDIUM,		/* Rp-Default/Rp-1.5A */
+	PSY_TYPEC_DAM_HIGH,		/* Rp-Default/Rp-3A */
+
+	/* Non Compliant */
+	PSY_TYPEC_NON_COMPLIANT,
+	PSY_TYPEC_RP_STD_STD,		/* Rp-Default/Rp-Default */
+	PSY_TYPEC_RP_MED_MED,		/* Rp-1.5A/Rp-1.5A */
+	PSY_TYPEC_RP_HIGH_HIGH,	/* Rp-3A/Rp-3A */
+};
+
 struct mtk_battery_algo {
 	bool active;
 	int last_temp;
@@ -811,7 +850,7 @@ struct simulator_log {
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
-#define BATTERY_SHUTDOWN_TEMPERATURE 60
+#define BATTERY_SHUTDOWN_TEMPERATURE 70
 
 struct shutdown_condition {
 	bool is_overheat;
@@ -1076,6 +1115,9 @@ struct mtk_battery {
 	int (*resume)(struct mtk_battery *gm);
 
 	int log_level;
+
+	/* Add for pmic shipmode */
+	bool ship_mode;
 };
 
 struct mtk_battery_sysfs_field_info {
@@ -1134,7 +1176,7 @@ extern void set_shutdown_vbat_lt(struct mtk_battery *gm,
 	int vbat_lt, int vbat_lt_lv1);
 extern void fg_sw_bat_cycle_accu(struct mtk_battery *gm);
 extern void notify_fg_chr_full(struct mtk_battery *gm);
-extern int fgauge_get_profile_id(void);
+extern int fgauge_get_profile_id(struct mtk_battery *gm);
 extern void disable_fg(struct mtk_battery *gm);
 extern int get_shutdown_cond(struct mtk_battery *gm);
 extern int get_shutdown_cond_flag(struct mtk_battery *gm);
@@ -1149,5 +1191,25 @@ extern void do_fg_algo(struct mtk_battery *gm, unsigned int intr_num);
 extern void fg_bat_temp_int_internal(struct mtk_battery *gm);
 /* mtk_battery_algo.c end */
 extern void disable_all_irq(struct mtk_battery *gm);
+
+//functions for input suppend
+extern int input_suspend_get_flag(void);
+extern int input_suspend_set_flag(int val);
+
+extern int typec_cc_orientation;
+
+/* add for mtbf_current*/
+extern int mtbf_current;
+/* add for gmsoc*/
+extern int gmsoc;
+/*add for battery_type*/
+static int battery_type_flag = 0;
+
+/*add for battery_id*/
+static int battery_id_flag = 0;
+
+/* add for typec_mode*/
+extern int typec_mode;
+static int typec_mode_flag = 0;
 
 #endif /* __MTK_BATTERY_INTF_H__ */

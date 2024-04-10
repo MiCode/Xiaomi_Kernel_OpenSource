@@ -1,0 +1,7 @@
+EXTRA_CFLAGS += -Wall -Werror
+MODFLAGS = -fno-pic
+CFLAGS_MODULE = $(MODFLAGS)
+AFLAGS_MODULE = $(MODFLAGS)
+
+obj-$(CONFIG_LCT_AUDIO_INFO) += lct_audio_info.o
+

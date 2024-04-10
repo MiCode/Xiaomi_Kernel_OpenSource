@@ -2351,6 +2351,22 @@ static void musb_gadget_set_ready(struct usb_gadget *gadget)
 	musb->is_gadget_ready = 1;
 }
 
+/* default value 0 */
+static int usb_rdy;
+void set_usb_rdy(void)
+{
+	DBG(0, "set usb_rdy, wake up bat\n");
+	usb_rdy = 1;
+}
+bool is_usb_rdy(void)
+{
+	if (usb_rdy)
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(is_usb_rdy);
+
 static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct musb *musb = gadget_to_musb(gadget);
@@ -2376,6 +2392,7 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 		musb_pullup(musb, is_on, usb_in);
 	}
 
+	set_usb_rdy();
 	if (!musb->is_ready && is_on) {
 		musb->is_ready = true;
 		/* direct issue connection work if usb is forced on */
@@ -2387,6 +2404,9 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 			mt_usb_reconnect();
 		}
 	}
+
+	if (!is_usb_rdy() && is_on)
+		set_usb_rdy();
 
 	spin_unlock_irqrestore(&musb->lock, flags);
 

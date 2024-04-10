@@ -4218,7 +4218,6 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 #include "bat_setting/mt6761_battery_prop.dtsi"
 #include "mt6370.dtsi"
 #include "mt6761-disable-unused.dtsi"
-//#include "mt6370_pd.dtsi"
 
 &mddriver {
 	/* for md pmic voltage setting*/

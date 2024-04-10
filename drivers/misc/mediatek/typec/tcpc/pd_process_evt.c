@@ -32,11 +32,14 @@ static const char * const pd_ctrl_msg_name[] = {
 	"ctrlF",
 #if CONFIG_USB_PD_REV30
 	"no_support",
-	"get_src_cap_ex",
+	"get_src_cap_ext",
 	"get_status",
 	"fr_swap",
 	"get_pps",
 	"get_cc",
+	"get_snk_cap_ext",
+	"ctrl17",
+	"get_rev",
 #endif	/* CONFIG_USB_PD_REV30 */
 };
 
@@ -65,7 +68,7 @@ static const char * const pd_data_msg_name[] = {
 	"data9",
 	"dataA",
 	"dataB",
-	"dataC",
+	"rev",
 	"dataD",
 	"dataE",
 	"vdm",
@@ -81,7 +84,7 @@ static inline void print_data_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 
 static const char *const pd_ext_msg_name[] = {
 	"ext0",
-	"src_cap_ex",
+	"src_cap_ext",
 	"status",
 	"get_bat_cap",
 	"get_bat_status",
@@ -95,6 +98,7 @@ static const char *const pd_ext_msg_name[] = {
 	"pps_status",
 	"ci",
 	"cc",
+	"snk_cap_ext",
 };
 
 static inline void print_ext_msg_event(struct tcpc_device *tcpc, uint8_t msg)
@@ -115,11 +119,13 @@ static const char *const pd_hw_msg_name[] = {
 	"vbus_stable",
 	"tx_err",
 	"discard",
-	"retry_vdm",
 
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
 	"sink_tx_change",
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
+#if CONFIG_USB_PD_RETRY_CRC_DISCARD
+	"tx_retransmit",
+#endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 };
 
 static inline void print_hw_msg_event(struct tcpc_device *tcpc, uint8_t msg)
@@ -157,7 +163,7 @@ static inline void print_dpm_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 }
 
 static const char *const tcp_dpm_evt_name[] = {
-	/* TCP_DPM_EVT_UNKONW */
+	/* TCP_DPM_EVT_UNKNOWN */
 	"unknown",
 
 	/* TCP_DPM_EVT_PD_COMMAND */
@@ -172,6 +178,7 @@ static const char *const tcp_dpm_evt_name[] = {
 	"cable_soft_reset",
 	"get_src_cap",
 	"get_snk_cap",
+	"src_cap",
 	"request",
 	"request_ex",
 	"request_again",
@@ -180,6 +187,7 @@ static const char *const tcp_dpm_evt_name[] = {
 
 #if CONFIG_USB_PD_REV30
 	"get_src_cap_ext",
+	"get_sink_cap_ext",
 	"get_status",
 	"fr_swap_snk",
 	"fr_swap_src",
@@ -191,6 +199,7 @@ static const char *const tcp_dpm_evt_name[] = {
 	"get_bat_cap",
 	"get_bat_status",
 	"get_mfrs_info",
+	"get_revision",
 #endif	/* CONFIG_USB_PD_REV30 */
 
 	/* TCP_DPM_EVT_VDM_COMMAND */
@@ -643,6 +652,18 @@ static inline bool pe_is_valid_pd_msg_id(struct pd_port *pd_port,
 		return false;
 	}
 
+	if (((pd_port->pe_data.msg_id_rx[sop_type] + 2) % PD_MSG_ID_MAX)
+						== msg_id) {
+		PE_INFO("Miss Msg!!!\n");
+		pd_port->miss_msg = true;
+	}
+	
+	if (pd_port->pe_pd_state == PE_SNK_SEND_SOFT_RESET && 
+						pd_port->pe_data.msg_id_rx[sop_type] == 1) {
+		PE_INFO("Miss Msg!!!\n");
+		pd_port->miss_msg = true;
+	}
+
 	pd_port->pe_data.msg_id_rx[sop_type] = msg_id;
 	return true;
 }
@@ -653,9 +674,6 @@ static inline bool pe_is_valid_pd_msg_role(struct pd_port *pd_port,
 	bool ret = true;
 	uint8_t msg_pr, msg_dr;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
-
-	if (pd_msg == NULL)	/* Good-CRC */
-		return true;
 
 	if (pd_msg->frame_type != TCPC_TX_SOP)
 		return true;
@@ -841,6 +859,8 @@ bool pd_process_event(
 	bool ret = false;
 	struct pd_msg *pd_msg = pd_event->pd_msg;
 	uint8_t tii = pe_check_trap_in_idle_state(pd_port, pd_event);
+	int rv = 0;
+	uint32_t chip_id = 0;
 
 	if (tii < TII_PE_RUNNING)
 		return tii;
@@ -855,6 +875,8 @@ bool pd_process_event(
 #endif
 		print_event(pd_port, pd_event);
 
+	pd_copy_msg_data_from_evt(pd_port, pd_event);
+
 	if ((pd_event->event_type < PD_EVT_PD_MSG_END) && (pd_msg != NULL)) {
 
 		if (!pe_is_valid_pd_msg_id(pd_port, pd_event, pd_msg))
@@ -864,9 +886,34 @@ bool pd_process_event(
 			PE_TRANSIT_STATE(pd_port, PE_ERROR_RECOVERY);
 			return true;
 		}
+		rv = tcpci_get_chip_id(pd_port->tcpc, &chip_id);
+		if (!rv && (SC2150A_DID == chip_id) &&pd_port->miss_msg) {
+			pd_port->miss_msg = false;
+			if (pd_port->pe_pd_state == PE_SNK_TRANSITION_SINK) {
+				if (!(pd_event->msg == PD_CTRL_PS_RDY && 
+							pd_event->event_type == PD_EVT_CTRL_MSG)) {
+					pd_add_miss_msg(pd_port,pd_event,PD_CTRL_PS_RDY);
+					return false;
+				}
+			} else if (pd_port->pe_pd_state == PE_SNK_SELECT_CAPABILITY){
+				if (pd_event->msg == PD_CTRL_PS_RDY &&
+						pd_event->event_type == PD_EVT_CTRL_MSG) {
+					pd_add_miss_msg(pd_port,pd_event,PD_CTRL_ACCEPT);
+					return false;		
+				} else if (pd_event->msg == PD_DATA_SOURCE_CAP &&
+						pd_event->event_type == PD_EVT_DATA_MSG) {
+					pd_add_miss_msg(pd_port,pd_event,PD_CTRL_REJECT);
+					return false;		
+				}
+			} else if (pd_port->pe_pd_state == PE_SNK_SEND_SOFT_RESET) {
+				if (pd_event->msg == PD_DATA_SOURCE_CAP &&
+						pd_event->event_type == PD_EVT_DATA_MSG) {
+					pd_add_miss_msg(pd_port,pd_event,PD_CTRL_ACCEPT);
+					return false;
+				}
+			}
+		}
 	}
-
-	pd_copy_msg_data_from_evt(pd_port, pd_event);
 
 	if (pd_curr_is_vdm_evt(pd_port))
 		return pd_process_event_vdm(pd_port, pd_event);

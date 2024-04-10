@@ -1967,6 +1967,11 @@ static int __init scp_init(void)
 		pr_err("[SCP] CM4 A require irq failed\n");
 		goto err_3;
 	}
+	ret = enable_irq_wake(scpreg.irq);
+	if (ret < 0) {
+		pr_err("[SCP] CM4 A register wakeup irq failed\n");
+		goto err_3;
+	}
 
 #if SCP_LOGGER_ENABLE
 	/* scp logger initialise */

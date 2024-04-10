@@ -84,6 +84,14 @@ MUINT32 last_id;
 /*prevent imgsensor race condition in vulunerbility test*/
 struct mutex imgsensor_mutex;
 
+#define SENSOR_NUM 2
+#define SENSOR_LENGTH 40
+
+unsigned char fusion_id_main[96] = {0};
+unsigned char sn_main[96] = {0};
+unsigned char fusion_id_front[96] = {0};
+unsigned char sn_front[96] = {0};
+char imgsensor_name[SENSOR_NUM][SENSOR_LENGTH] = {0};
 
 DEFINE_MUTEX(pinctrl_mutex);
 DEFINE_MUTEX(oc_mutex);
@@ -599,6 +607,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 					    psensor_inst->psensor_name);
 
 					ret = drv_idx;
+					strcpy(imgsensor_name[psensor->inst.sensor_idx], psensor_inst->psensor_name);
 					break;
 				}
 			} else {
@@ -2905,9 +2914,83 @@ static const struct file_operations gimgsensor_file_operations = {
 	.compat_ioctl = imgsensor_compat_ioctl
 #endif
 };
+static ssize_t imgsensor_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	int num1 = 0;
+	int num2 = 0;
+	unsigned int i = 0;
 
+	for (i = 0; i < SENSOR_NUM; i++) {
+		if (!strcmp("sc820cs_truly_main_i_mipi_raw", imgsensor_name[i]) ||
+		    !strcmp("s5k4h7yx03_aac_main_ii_mipi_raw", imgsensor_name[i]) ||
+		    !strcmp("s5k4h7_ofilm_main_iii_mipi_raw", imgsensor_name[i])) {
+			num1 = sprintf(buf, "WIDE=%s\n", imgsensor_name[i]);
+			pr_err("[zengx] WIDE=%s\n", imgsensor_name[i]);
+			continue;
+		}
+
+		if (!strcmp("sc520cs_truly_front_i_mipi_raw", imgsensor_name[i]) ||
+		    !strcmp("gc05a2_qtech_front_ii_mipi_raw", imgsensor_name[i]) ||
+		    !strcmp("s5k5e9_ofilm_front_iii_mipi_raw", imgsensor_name[i])) {
+			num2 = sprintf(buf + num1, "FRONT=%s\n", imgsensor_name[i]);
+			pr_err("[zengx] FRONT=%s\n", imgsensor_name[i]);
+			continue;
+		}
+
+	}
+	ret = strlen(buf) + 1;
+	return ret;
+}
+  static DEVICE_ATTR(sensor, 0664, imgsensor_name_show, NULL);
+
+  static ssize_t sensorid_show(struct device *dev, struct device_attribute *attr, char *buf)
+  {
+  	int i;
+  	ssize_t size = 0;
+  
+  	//main
+  	for (i = 0; i < 16; i++) {
+  		sprintf(buf + 2*i, "%02x", fusion_id_main[i]);
+  	}
+  	size = strlen(buf);
+  	pr_err("[zengx] size=%s\n", size);
+  	//front
+  	for (i = 0; i < 16; i++) {
+  		sprintf(buf + 32 + 2*i, "%02x", fusion_id_front[i]);
+  	}
+  	return 100;
+  
+  }
+  static DEVICE_ATTR(sensorid, 0664, sensorid_show, NULL);
+  static ssize_t sensorsn_show(struct device *dev, struct device_attribute *attr, char *buf)
+  {
+      int i;
+      ssize_t size = 0;
+  	//main
+  	//pr_err("[wpc] NULL sensor main3 =%02x.\n",sn_main[i]);
+  
+      //strncpy(buf, "main:", 5);
+      for (i = 0; i < 14; i++) {
+  		sprintf(buf + i, "%1c", sn_main[i]);
+		pr_err(" zengx sn_main[%d] = %02x = %1c", i, sn_main[i], sn_main[i]);
+      }
+      size = strlen(buf);
+      pr_err("[zengx] size=%s\n", size);
+  	//front
+      //strncpy(buf + size, "1", 1);
+      for (i = 0; i < 14; i++) {
+  		sprintf(buf + size + i, "%1cx", sn_front[i]);
+		pr_err(" zengx sn_front[%d] = %02x = %1c", i, sn_front[i], sn_front[i]);
+      }
+  	return 179;
+  
+  }
+  
+  static DEVICE_ATTR(sensorsn, 0664, sensorsn_show, NULL);
 static inline int imgsensor_driver_register(void)
 {
+	int ret1;
 	dev_t dev_no = MKDEV(IMGSENSOR_DEVICE_NNUMBER, 0);
 
 	if (alloc_chrdev_region(&dev_no, 0, 1, IMGSENSOR_DEV_NAME)) {
@@ -2951,6 +3034,9 @@ static inline int imgsensor_driver_register(void)
 		    dev_no,
 		    NULL,
 		    IMGSENSOR_DEV_NAME);
+	ret1 = sysfs_create_file(&gimgsensor_device->kobj, &dev_attr_sensor.attr);
+  		ret1 = sysfs_create_file(&gimgsensor_device->kobj, &dev_attr_sensorid.attr);
+  		ret1= sysfs_create_file(&gimgsensor_device->kobj, &dev_attr_sensorsn.attr);
 
 	return 0;
 }

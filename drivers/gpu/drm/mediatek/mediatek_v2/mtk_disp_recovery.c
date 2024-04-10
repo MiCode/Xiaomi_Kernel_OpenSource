@@ -34,10 +34,18 @@
 #include "mtk_dump.h"
 #include "mtk_disp_bdg.h"
 #include "mtk_dsi.h"
+#include "mi_disp_esd_check.h"
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+#define esd_timer_to_mtk_crtc(x) container_of(x, struct mtk_drm_crtc, esd_timer)
+static atomic_t panel_dead;
 static DEFINE_MUTEX(pinctrl_lock);
+
+bool nvt_ts_esd_resume_probe = false;
+EXPORT_SYMBOL(nvt_ts_esd_resume_probe);
+int (*lcd_nvt_ts_esd_resume)(void)=NULL;
+EXPORT_SYMBOL(lcd_nvt_ts_esd_resume);
 
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
@@ -601,6 +609,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	cmdq_pkt_destroy(cmdq_handle);
 done:
 	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), esd_recovery, 0, ret);
+	mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_RESTORE_BACKLIGHT, NULL);
 
 	return 0;
 }
@@ -617,7 +626,6 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	int recovery_flg = 0;
 	bool check_te = false, te_timeout = false;
 	unsigned int crtc_idx;
-
 	sched_setscheduler(current, SCHED_RR, &param);
 
 	if (!crtc) {
@@ -632,6 +640,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	crtc_idx = drm_crtc_index(crtc);
 
 	while (1) {
+		DDPPR_ERR("2s_check_esd_mtk6765\n");
 		msleep(ESD_CHECK_PERIOD);
 		if (esd_ctx->chk_en == 0)
 			continue;
@@ -751,7 +760,6 @@ void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable)
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
-
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_ESD_CHECK_RECOVERY))
 		return;
@@ -785,7 +793,6 @@ static void mtk_disp_esd_chk_deinit(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
-
 	if (unlikely(!esd_ctx)) {
 		DDPPR_ERR("%s:invalid ESD context\n", __func__);
 		return;
@@ -805,7 +812,6 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
-
 	panel_ext = mtk_crtc->panel_ext;
 	if (!(panel_ext && panel_ext->params)) {
 		DDPMSG("can't find panel_ext handle\n");
@@ -873,3 +879,15 @@ void mtk_disp_chk_recover_init(struct drm_crtc *crtc)
 			output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI)
 		mtk_disp_esd_chk_init(crtc);
 }
+
+int get_panel_dead_flag(void)
+{
+	return atomic_read(&panel_dead);
+}
+EXPORT_SYMBOL(get_panel_dead_flag);
+
+void set_panel_dead_flag(int value)
+{
+	return atomic_set(&panel_dead, value);
+}
+EXPORT_SYMBOL(set_panel_dead_flag);

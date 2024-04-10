@@ -84,6 +84,17 @@ config MTK_PLAT_POWER_MT6833
 	  If the macro is enabled, compile the mt6833 related code.
 	  If unsure, say N.
 
+config SC_SC080CS_I
+        tristate "camera QVGA module 1"
+        default n
+		help
+        Say 'm' here to support camera QVGA module 1
+config OFILM_BF30A2_II
+        tristate "camera QVGA module 2"
+        default n
+		help
+        Say 'm' here to support camera QVGA module 2
+
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
@@ -203,6 +214,10 @@ source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
 source "drivers/misc/mediatek/gate_ic/Kconfig"
+# BSP.System - 2023.9.6 - add simtray status
+source "drivers/misc/mediatek/simtray/Kconfig"
+# Cpumaxfreq support
+source "drivers/misc/mediatek/cpumaxfreq/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"

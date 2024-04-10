@@ -3100,6 +3100,7 @@ static void usb_spm_dpidle_request(int mode)
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
 }
 
+#if 0
 /* default value 0 */
 static int usb_rdy;
 bool is_usb_rdy(void)
@@ -3115,6 +3116,7 @@ bool is_usb_rdy(void)
 		return false;
 }
 EXPORT_SYMBOL(is_usb_rdy);
+#endif
 
 /* BC1.2 */
 /* Duplicate define in phy-mtk-tphy */
@@ -3961,6 +3963,33 @@ static bool cmode_effect_on(void)
 	return effect;
 }
 
+void set_usb_phy_mode(int mode)
+{
+	switch (mode) {
+	case PHY_MODE_USB_DEVICE:
+	/* VBUSVALID=1, AVALID=1, BVALID=1, SESSEND=0, IDDIG=1, IDPULLUP=1 */
+		USBPHY_CLR32(0x6C, (0x10<<0));
+		USBPHY_SET32(0x6C, (0x2F<<0));
+		USBPHY_SET32(0x6C, (0x3F<<8));
+		break;
+	case PHY_MODE_USB_HOST:
+	/* VBUSVALID=1, AVALID=1, BVALID=1, SESSEND=0, IDDIG=0, IDPULLUP=1 */
+		USBPHY_CLR32(0x6c, (0x12<<0));
+		USBPHY_SET32(0x6c, (0x2d<<0));
+		USBPHY_SET32(0x6c, (0x3f<<8));
+		break;
+	case PHY_MODE_INVALID:
+	/* VBUSVALID=0, AVALID=0, BVALID=0, SESSEND=1, IDDIG=0, IDPULLUP=1 */
+		USBPHY_SET32(0x6c, (0x11<<0));
+		USBPHY_CLR32(0x6c, (0x2e<<0));
+		USBPHY_SET32(0x6c, (0x3f<<8));
+		break;
+	default:
+		DBG(0, "mode error %d\n", mode);
+	}
+	DBG(0, "force PHY to mode %d, 0x6c=%x\n", mode, USBPHY_READ32(0x6c));
+}
+
 void do_connection_work(struct work_struct *data)
 {
 	unsigned long flags = 0;
@@ -3968,6 +3997,7 @@ void do_connection_work(struct work_struct *data)
 	bool usb_on, usb_connected;
 	struct mt_usb_work *work =
 		container_of(data, struct mt_usb_work, dwork.work);
+	struct mt_usb_glue *glue = mtk_musb->glue;
 
 	DBG(0, "is_host<%d>, power<%d>, ops<%d>\n",
 		mtk_musb->is_host, mtk_musb->power, work->ops);
@@ -4011,10 +4041,12 @@ void do_connection_work(struct work_struct *data)
 		musb_start(mtk_musb);
 		usb_clk_state = OFF_TO_ON;
 		/* Set USB phy mode here. */
-		set_usb_phy_mode(PHY_MODE_USB_DEVICE);
+		phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
+		//set_usb_phy_mode(PHY_MODE_USB_DEVICE);
 
 	} else if (mtk_musb->power && (usb_on == false)) {
 		/* Set USB phy mode to INVALID */
+		//phy_set_mode(glue->phy, PHY_MODE_INVALID);
 		set_usb_phy_mode(PHY_MODE_INVALID);
 		/* disable usb */
 		musb_stop(mtk_musb);

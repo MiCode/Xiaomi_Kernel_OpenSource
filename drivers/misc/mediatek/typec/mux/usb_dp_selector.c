@@ -52,13 +52,13 @@ static int usb_dp_selector_switch_set(struct typec_switch *sw,
 		break;
 	case TYPEC_ORIENTATION_NORMAL:
 		/* USB NORMAL TX1, DP TX2 */
-		uds_setbits(uds->selector_reg_address, (1 << 11));
-		mtk_dp_aux_swap_enable(false);
+		uds_clrbits(uds->selector_reg_address, (1 << 11));
+		mtk_dp_aux_swap_enable(true);
 		break;
 	case TYPEC_ORIENTATION_REVERSE:
 		/* USB FLIP TX2, DP TX1 */
-		uds_clrbits(uds->selector_reg_address, (1 << 11));
-		mtk_dp_aux_swap_enable(true);
+		uds_setbits(uds->selector_reg_address, (1 << 11));
+		mtk_dp_aux_swap_enable(false);
 		break;
 	default:
 		break;

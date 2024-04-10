@@ -88,6 +88,21 @@ static void mt_usb_gadget_disconnect(struct musb *musb)
 	usb_gadget_set_state(&musb->g, USB_STATE_NOTATTACHED);
 }
 
+static bool usb_host = false;
+void set_usb_host(bool is_host)
+{
+	DBG(0, "set usb_host %d\n", is_host);
+	usb_host = is_host;
+}
+bool is_usb_host(void)
+{
+	if (usb_host)
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(is_usb_host);
+
 /*
  * switch to host: -> MUSB_VBUS_OFF --> MUSB_ID_GROUND
  * switch to device: -> MUSB_ID_FLOAT --> MUSB_VBUS_VALID
@@ -103,12 +118,14 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	dev_info(musb->controller, "mailbox %s\n", mailbox_state_string(status));
 	switch (status) {
 	case MUSB_ID_GROUND:
+		set_usb_host(true);
 		mt_usb_set_vbus(otg_sx, 1);
 		musb->is_ready = true;
 		otg_sx->sw_state |= MUSB_ID_GROUND;
 		mt_usb_host_connect(0);
 		break;
 	case MUSB_ID_FLOAT:
+		set_usb_host(false);
 		mt_usb_host_disconnect(0);
 		musb->is_ready = false;
 		/* turn off VBUS until do_host_work switch to DEV mode */

@@ -430,6 +430,8 @@ static int __maybe_unused mt6375_suspend(struct device *dev)
 {
 	struct i2c_client *i2c = to_i2c_client(dev);
 
+	dev_info(dev, "%s\n", __func__);
+
 	if (device_may_wakeup(dev))
 		enable_irq_wake(i2c->irq);
 	disable_irq(i2c->irq);
@@ -439,6 +441,8 @@ static int __maybe_unused mt6375_suspend(struct device *dev)
 static int __maybe_unused mt6375_resume(struct device *dev)
 {
 	struct i2c_client *i2c = to_i2c_client(dev);
+
+	dev_info(dev, "%s\n", __func__);
 
 	enable_irq(i2c->irq);
 	if (device_may_wakeup(dev))

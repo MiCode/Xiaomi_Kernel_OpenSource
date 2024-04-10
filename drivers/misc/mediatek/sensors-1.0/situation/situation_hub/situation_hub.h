@@ -52,4 +52,7 @@
 #include "sar/sarhub.h"
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SAR_UNIFY_HUB)
+#include "sar_unify/sarunify.h"
+#endif
 #endif

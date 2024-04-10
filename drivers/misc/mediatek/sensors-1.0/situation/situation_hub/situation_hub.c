@@ -50,6 +50,9 @@ static int __init situation_hub_init(void)
 #if IS_ENABLED(CONFIG_MTK_SAR_HUB)
 	sarhub_init();
 #endif
+#if IS_ENABLED(CONFIG_MTK_SAR_UNIFY_HUB)
+	sar_unify_init();
+#endif
 
 	return 0;
 }
@@ -98,6 +101,10 @@ static void __exit situation_hub_exit(void)
 
 #if IS_ENABLED(CONFIG_MTK_SAR_HUB)
 	sarhub_exit();
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_SAR_UNIFY_HUB)
+	sar_unify_exit();
 #endif
 }
 

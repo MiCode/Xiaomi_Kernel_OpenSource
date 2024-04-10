@@ -448,9 +448,14 @@ struct mtk_panel_params {
 	unsigned int cmd_null_pkt_len;
 	unsigned int set_area_before_trigger;
 
-//Settings for LFR Function:
+	//Settings for LFR Function:
 	unsigned int lfr_enable;
 	unsigned int lfr_minimum_fps;
+
+	int err_flag_irq_gpio;
+	int err_flag_irq_flags;
+	int mi_esd_check_enable;
+
 	/*Msync 2.0*/
 	unsigned int msync2_enable;
 	unsigned int max_vfp_for_msync;
@@ -574,6 +579,7 @@ struct mtk_panel_funcs {
 
 	int (*send_ddic_cmd_pack)(struct drm_panel *panel,
 		void *dsi_drv, dcs_write_gce_pack cb, void *handle);
+	void (*esd_restore_backlight)(struct drm_panel *panel);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

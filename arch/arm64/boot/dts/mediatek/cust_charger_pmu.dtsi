@@ -1,0 +1,45 @@
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+	sc8960x_charger@6B {
+	        compatible = "southchip,sc89601d";
+        	reg = <0x6B>;
+        	sc8960x,intr-gpio = <&pio 5 IRQ_TYPE_EDGE_FALLING>;
+
+        	sc8960x,charger_name = "primary_chg";
+        	sc8960x,pfm-dis = <0>; /*0: enable, 1: disable*/
+       		sc8960x,vsys-min = <5>; /*0: 2.6V, 1: 2.8V, 2: 3.0V, 
+                    	3: 3.2V, 4: 3.4V, 5: 3.5V, 6:3.6V, 7: 3.7V*/
+        	sc8960x,vbat-low-otg = <0>; /*0: 2.8V, 1: 2.5V*/
+       		sc8960x,ipre-chg = <3>; /*60 + val * 60, unit:mA*/
+        	sc8960x,itermination = <3>; /*60 + val * 60, unit:mA*/
+        	sc8960x,vbat-volt = <68>; /*3848 + val * 8, unit:mV*/
+        	sc8960x,top-off-timer = <0>; /*0: dis, 1: 15min, 2: 20min 3: 45min*/
+        	sc8960x,vrechg-volt = <0>; /*0: 100mV, 1: 200mV*/
+        	sc8960x,en-termination = <1>; /*0: disable, 1: enable*/
+        	sc8960x,wdt-timer = <0>; /*0: disable, 1: 40s, 2: 80s, 3：160s*/
+        	sc8960x,en-chg-saft-timer = <1>; /*0: disable, 1: enable*/
+        	sc8960x,charge-timer = <1>; /*0: 5hrs, 1: 10hrs*/
+        	sc8960x,vac-ovp = <3>; /*0: 5.8V, 1: 6.4V, 2: 11V, 3: 14.2V*/
+        	sc8960x,iboost = <1>; /*0: 0.5A, 1: 1.2A*/
+        	sc8960x,vboost = <12>; /*3900 + val * 100, unit:mV*/
+        	sc8960x,vindpm-track = <0>; /*0: disable, 1:200mV, 2:250mV, 3:300mV*/
+        	sc8960x,vindpm-int-mask = <1>; /*0: not mask, 1: mask*/
+        	sc8960x,iindpm-int-mask = <1>; /*0: not mask, 1: mask*/
+        	sc8960x,vpre-to-cc = <0>; /*0: 3V, 1: 2.8V*/
+        	sc8960x,auto-dpdm-en = <0>; /*0: disale, 1: enable*/
+        	sc8960x,ntc-pin-dis = <1>; /*0: enable, 1: disable*/
+			status = "okay";
+    };
+
+	sgm4154x@1A {
+	 	compatible = "sgm,sgm41513";  
+	 	reg = <0x1A>;
+	 	interrupt-parent = <&pio>;
+	 	interrupts = <5 0>;              
+	        sgm,irq-gpio = <&pio 5 IRQ_TYPE_EDGE_FALLING>;     
+	        sgm,chg-en-gpio = <&pio 171 0>;
+		status = "okay";	
+	};
+};

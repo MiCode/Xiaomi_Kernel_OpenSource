@@ -75,3 +75,21 @@ void pe_dr_src_get_source_cap_ext_exit(struct pd_port *pd_port)
 	pd_dpm_inform_source_cap_ext(pd_port);
 }
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_REMOTE */
+
+void pe_dr_src_give_sink_cap_ext_entry(struct pd_port *pd_port)
+{
+	PE_STATE_WAIT_TX_SUCCESS(pd_port);
+
+	pd_dpm_send_sink_cap_ext(pd_port);
+}
+
+void pe_dr_snk_get_sink_cap_ext_entry(struct pd_port *pd_port)
+{
+	PE_STATE_WAIT_MSG(pd_port);
+	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_GET_SINK_CAP_EXT);
+}
+
+void pe_dr_snk_get_sink_cap_ext_exit(struct pd_port *pd_port)
+{
+	pd_dpm_inform_sink_cap_ext(pd_port);
+}

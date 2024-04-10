@@ -21,17 +21,16 @@
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
-#if CONFIG_TCPC_NOTIFIER_LATE_SYNC
 #if CONFIG_RECV_BAT_ABSENT_NOTIFY && CONFIG_MTK_BATTERY
 static int fg_bat_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct pd_port *pd_port = container_of(nb, struct pd_port, fg_bat_nb);
-	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
+	struct tcpc_device *tcpc = pd_port->tcpc;
 
 	switch (event) {
 	case EVT_INT_BAT_PLUGOUT:
-		dev_info(&tcpc_dev->dev, "%s: fg battery absent\n", __func__);
+		dev_info(&tcpc->dev, "%s: fg battery absent\n", __func__);
 		schedule_work(&pd_port->fg_bat_work);
 		break;
 	default:
@@ -40,10 +39,8 @@ static int fg_bat_notifier_call(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY && CONFIG_MTK_BATTERY */
-#endif /* CONFIG_TCPC_NOTIFIER_LATE_SYNC */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#if CONFIG_TCPC_NOTIFIER_LATE_SYNC
 static int __tcpc_class_complete_work(struct device *dev, void *data)
 {
 	struct tcpc_device *tcpc = dev_get_drvdata(dev);
@@ -81,7 +78,6 @@ static int __init tcpc_class_complete_init(void)
 	return 0;
 }
 late_initcall_sync(tcpc_class_complete_init);
-#endif /* CONFIG_TCPC_NOTIFIER_LATE_SYNC */
 
 MODULE_DESCRIPTION("Richtek TypeC Port Late Sync Driver");
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");

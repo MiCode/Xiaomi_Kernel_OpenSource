@@ -46,12 +46,14 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_merge.o \
 		  mtk_dmdp_aal.o \
 		  mtk_fbconfig_kdebug.o \
+		  mi_disp_esd_check.o \
 		  mtk_disp_y2r0.o \
 		  mtk_disp_dlo_async.o \
 		  mtk_disp_dli_async.o \
 		  mtk_disp_inlinerotate.o \
 		  mtk_mmlsys_bypass_mode.o \
 		  platform/mtk_drm_6789.o \
+		  drm_notifier_odm.o
 
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o

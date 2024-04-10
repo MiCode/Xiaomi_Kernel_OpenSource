@@ -11,7 +11,7 @@
 
 /* VDM reactions */
 
-#define VDM_CMD_FLAG_CABLE_CMD			(1<<0)
+#define VDM_CMD_FLAG_CABLE_CMD				(1<<0)
 #define VDM_CMD_FLAG_SEND_BY_UFP			(1<<1)
 #define VDM_CMD_FLAG_SEND_BY_DFP			(1<<2)
 #define VDM_CMD_FLAG_RECV_BY_UFP			(1<<3)
@@ -204,8 +204,10 @@ static bool pd_vdm_state_transit(
 
 	if (vdm_cmdt == CMDT_INIT) {	/* Recv */
 		if (!vdm_is_state_transition_available(
-			pd_port, true, state_transition))
-			return false;
+			pd_port, true, state_transition)) {
+			PE_TRANSIT_STATE(pd_port, PE_UFP_VDM_SEND_NAK);
+			return true;
+		}
 
 		return pd_vdm_state_transit_rx(pd_port, state_transition);
 	}
@@ -280,14 +282,10 @@ static bool pd_make_vdm_state_transit(
 	uint8_t vdm_cmdt;
 	const struct vdm_state_transition *state_transition;
 
-	uint8_t nr_transition = ARRAY_SIZE(pe_vdm_state_reactions);
-	const struct vdm_state_transition *state_reaction =
-						pe_vdm_state_reactions;
-
 	check_tx = transit_type >= VDM_STATE_TRANSIT_CHECK_TX;
 
-	for (i = 0; i < nr_transition; i++) {
-		state_transition = &state_reaction[i];
+	for (i = 0; i < ARRAY_SIZE(pe_vdm_state_reactions); i++) {
+		state_transition = &pe_vdm_state_reactions[i];
 
 		if (!pe_check_vdm_state_transit_valid(
 			pd_port, transit_type, &vdm_cmdt, state_transition))
@@ -345,7 +343,7 @@ DECL_PE_STATE_REACTION(PD_DPM_MSG_DISCOVER_CABLE);
 #endif	/* CONFIG_PD_DISCOVER_CABLE_ID */
 
 /*
- * [BLOCK] Porcess Ctrl MSG
+ * [BLOCK] Process Ctrl MSG
  */
 
 #if CONFIG_USB_PD_ALT_MODE
@@ -387,12 +385,12 @@ static inline bool pd_process_ctrl_msg(
 			return true;
 		break;
 #endif	/* CONFIG_USB_PD_DBG_DP_UFP_U_AUTO_ATTENTION */
+#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 	case PE_UFP_VDM_ATTENTION_REQUEST:
 		pd_notify_tcp_vdm_event_2nd_result(
 			pd_port, TCP_DPM_RET_VDM_ACK);
 		break;
-#endif	/* CONFIG_USB_PD_ALT_MODE */
 
 #if CONFIG_USB_PD_SRC_STARTUP_DISCOVER_ID
 	case PE_SRC_VDM_IDENTITY_REQUEST:
@@ -426,7 +424,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess Custom MSG (SVDM/UVDM)
+ * [BLOCK] Process Custom MSG (SVDM/UVDM)
  */
 
 #if CONFIG_USB_PD_CUSTOM_VDM
@@ -479,14 +477,14 @@ static inline bool pd_process_uvdm(
 }
 
 /*
- * [BLOCK] Porcess Data MSG (VDM)
+ * [BLOCK] Process Data MSG (VDM)
  */
 
 #if (PE_EVT_INFO_VDM_DIS == 0)
 static const char * const pe_vdm_cmd_name[] = {
 	"DiscoverID",
-	"DiscoverSVID",
-	"DiscoverMode",
+	"DiscoverSVIDs",
+	"DiscoverModes",
 	"EnterMode",
 	"ExitMode",
 	"Attention",
@@ -536,14 +534,18 @@ static inline void print_vdm_msg(
 {
 #if (PE_EVT_INFO_VDM_DIS == 0)
 	uint8_t cmd;
+#if PE_INFO_ENABLE
 	uint8_t cmd_type;
+#endif /* PE_INFO_ENABLE */
 	uint16_t svid;
 	const char *name = NULL;
 	uint32_t vdm_hdr = pd_port->curr_vdm_hdr;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	cmd = PD_VDO_CMD(vdm_hdr);
+#if PE_INFO_ENABLE
 	cmd_type = PD_VDO_CMDT(vdm_hdr);
+#endif /* PE_INFO_ENABLE */
 	svid = PD_VDO_VID(vdm_hdr);
 
 	name = assign_vdm_cmd_name(cmd);
@@ -589,6 +591,17 @@ static inline bool pd_process_sop_prime_vdm(
 	return pd_make_vdm_state_transit_cable(pd_port);
 }
 
+static inline bool pd_check_svid_valid(struct pd_port *pd_port, uint16_t svid)
+{
+	switch (svid) {
+	case USB_SID_PD:
+	case USB_VID_MQP:
+		return true;
+	default:
+		return !!dpm_get_svdm_svid_data(pd_port, svid);
+	}
+}
+
 static inline bool pd_process_data_msg(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
@@ -619,8 +632,7 @@ static inline bool pd_process_data_msg(
 
 	print_vdm_msg(pd_port, pd_event);
 
-	if (pd_port->curr_vdm_svid != USB_SID_PD &&
-		!dpm_get_svdm_svid_data(pd_port, pd_port->curr_vdm_svid)) {
+	if (!pd_check_svid_valid(pd_port, pd_port->curr_vdm_svid)) {
 		PE_TRANSIT_STATE(pd_port, PE_UFP_VDM_SEND_NAK);
 		ret = true;
 	} else if (pd_msg->frame_type == TCPC_TX_SOP_PRIME) {
@@ -633,7 +645,7 @@ static inline bool pd_process_data_msg(
 }
 
 /*
- * [BLOCK] Porcess PDM MSG
+ * [BLOCK] Process PDM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -652,7 +664,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess HW MSG
+ * [BLOCK] Process HW MSG
  */
 
 static inline bool pd_process_hw_msg(
@@ -671,20 +683,18 @@ static inline bool pd_process_hw_msg(
 	switch (pd_event->msg) {
 	case PD_HW_TX_FAILED:
 	case PD_HW_TX_DISCARD:
-		return pd_make_vdm_state_transit_nak(pd_port);
+		if (pd_make_vdm_state_transit_nak(pd_port))
+			return true;
 
-	case PD_HW_RETRY_VDM:
-		if (pd_port->pe_data.vdm_state_timer)
-			return pd_make_vdm_state_transit_nak(pd_port);
-		PE_DBG("RetryVDM\n");
-		return pd_process_sop_vdm(pd_port, pd_event);
+		pe_transit_ready_state(pd_port);
+		return true;
 	}
 
 	return false;
 }
 
 /*
- * [BLOCK] Porcess PE MSG
+ * [BLOCK] Process PE MSG
  */
 
 static inline bool pd_process_pe_msg(
@@ -706,7 +716,7 @@ static inline bool pd_process_pe_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 
 static inline bool pd_process_timer_msg(
@@ -725,7 +735,7 @@ static inline bool pd_process_timer_msg(
 }
 
 /*
- * [BLOCK] Porcess TCP MSG
+ * [BLOCK] Process TCP MSG
  */
 
 const uint8_t tcp_vdm_evt_init_state[] = {
@@ -755,12 +765,7 @@ static inline bool pd_process_tcp_cable_event(
 	bool ret;
 	int tcp_ret;
 #if CONFIG_PD_DISCOVER_CABLE_ID
-	bool role_check = true;
-
-	if (pd_check_rev30(pd_port))
-		role_check = pd_port->vconn_role;
-
-	if (role_check) {
+	if (pd_is_cable_communication_available(pd_port)) {
 		ret = PE_MAKE_STATE_TRANSIT(PD_DPM_MSG_DISCOVER_CABLE);
 		tcp_ret = ret ? TCP_DPM_RET_SENT : TCP_DPM_RET_DENIED_NOT_READY;
 	} else {

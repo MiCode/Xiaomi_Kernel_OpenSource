@@ -6,17 +6,7 @@
 #ifndef PD_DPM_PDO_SELECT_H
 #define PD_DPM_PDO_SELECT_H
 
-#include "inc/tcpci.h"
-
-struct dpm_pdo_info_t {
-	uint8_t type;
-	uint8_t apdo_type;
-	uint8_t pwr_limit;
-	int vmin;
-	int vmax;
-	int uw;
-	int ma;
-};
+#include "tcpci.h"
 
 struct dpm_rdo_info_t {
 	uint8_t pos;
@@ -48,8 +38,9 @@ struct dpm_rdo_info_t {
 extern void dpm_extract_pdo_info(
 			uint32_t pdo, struct dpm_pdo_info_t *info);
 
-extern bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
+extern bool dpm_find_match_req_info(struct pd_port *pd_port,
+	struct dpm_rdo_info_t *req_info,
 	struct dpm_pdo_info_t *sink, int cnt, uint32_t *src_pdos,
-	int min_uw, uint32_t select_rule);
+	int max_uw, uint32_t select_rule);
 
 #endif	/* PD_DPM_PDO_SELECT_H */

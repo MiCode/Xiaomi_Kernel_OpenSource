@@ -11,7 +11,6 @@
 
 #include <linux/ioctl.h>
 
-
 /*ALSPS related driver tag macro*/
 #define ALSPS_SUCCESS						0
 #define ALSPS_ERR_I2C						-1
@@ -24,6 +23,5 @@
 enum ALSPS_NOTIFY_TYPE {
 	ALSPS_NOTIFY_PROXIMITY_CHANGE = 0,
 };
-
 #endif
 

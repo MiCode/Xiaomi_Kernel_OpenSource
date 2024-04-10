@@ -395,7 +395,7 @@ int pd_get_status(struct adapter_device *dev,
 	tcpm_ret = tcpm_dpm_pd_get_status(info->tcpc, NULL, &TAstatus);
 
 	sta->temperature = TAstatus.internal_temp;
-	sta->ocp = TAstatus.event_flags & PD_STASUS_EVENT_OCP;
+	sta->ocp = TAstatus.event_flags & PD_STATUS_EVENT_OCP;
 	sta->otp = TAstatus.event_flags & PD_STATUS_EVENT_OTP;
 	sta->ovp = TAstatus.event_flags & PD_STATUS_EVENT_OVP;
 

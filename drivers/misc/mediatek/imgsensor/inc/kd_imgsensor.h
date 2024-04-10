@@ -114,6 +114,24 @@
  *
  ************************************************************************/
 /* SENSOR CHIP VERSION */
+#define SC820CS_TRULY_MAIN_I_SENSOR_ID 0xd154
+#define SENSOR_DRVNAME_SC820CS_TRULY_MAIN_I_MIPI_RAW "sc820cs_truly_main_i_mipi_raw"
+
+#define S5K4H7YX03_AAC_MAIN_II_SENSOR_ID 0x487B
+#define SENSOR_DRVNAME_S5K4H7YX03_AAC_MAIN_II_MIPI_RAW "s5k4h7yx03_aac_main_ii_mipi_raw"
+
+#define S5K4H7_OFILM_MAIN_III_SENSOR_ID (0x487B + 1)
+#define SENSOR_DRVNAME_S5K4H7_OFILM_MAIN_III_MIPI_RAW "s5k4h7_ofilm_main_iii_mipi_raw"
+
+#define SC520CS_TRULY_FRONT_I_SENSOR_ID 0xee4b
+#define SENSOR_DRVNAME_SC520CS_TRULY_FRONT_I_MIPI_RAW "sc520cs_truly_front_i_mipi_raw"
+
+#define GC05A2_QTECH_FRONT_II_SENSOR_ID 0x05a2
+#define SENSOR_DRVNAME_GC05A2_QTECH_FRONT_II_MIPI_RAW "gc05a2_qtech_front_ii_mipi_raw"
+
+#define S5K5E9_OFILM_FRONT_III_SENSOR_ID 0x559b
+#define SENSOR_DRVNAME_S5K5E9_OFILM_FRONT_III_MIPI_RAW "s5k5e9_ofilm_front_iii_mipi_raw"
+
 /*IMX*/
 #define IMX499_SENSOR_ID                        0x0499
 #define IMX481_SENSOR_ID                        0x0481

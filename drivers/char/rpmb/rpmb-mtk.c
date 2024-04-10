@@ -132,6 +132,9 @@ static struct nl_rpmb_send_req nl_rpmb_req;
 #define RPMB_IOCTL_PROGRAM_KEY  1
 #define RPMB_IOCTL_WRITE_DATA   3
 #define RPMB_IOCTL_READ_DATA    4
+#ifdef USE_MITEE_MTKDEV
+#define RPMB_IOCTL_GET_WC    	5
+#endif
 
 struct rpmb_ioc_param {
 	unsigned char *keybytes;
@@ -141,6 +144,19 @@ struct rpmb_ioc_param {
 	unsigned char *hmac;
 	unsigned int hmac_len;
 };
+
+#ifdef USE_MITEE_MTKDEV
+struct mitee_rpmb_frame {
+	__u64 req_cnt;
+	__u64 req_ptr;
+	__u64 rsp_cnt;
+	__u64 rsp_ptr;
+};
+
+#define RPMB_DATA_BUFF_SIZE (1024 * 24)
+#define RPMB_FRAME_SIZE (512)
+static unsigned char *rpmb_buffer;
+#endif
 
 #define RPMB_SZ_MAC   32U
 #define RPMB_SZ_DATA  256U
@@ -190,18 +206,20 @@ enum {
 #define MAX_OPEN_SESSIONS (0xffffffffU - 1)
 
 /* Debug message event */
-#define DBG_EVT_NONE (0) /* No event */
-#define DBG_EVT_CMD  (1U << 0)/* SEC CMD related event */
-#define DBG_EVT_FUNC (1U << 1U)/* SEC function event */
-#define DBG_EVT_INFO (1U << 2U)/* SEC information event */
-#define DBG_EVT_WRN  (1U << 30U) /* Warning event */
-#define DBG_EVT_ERR  (0x80000000U) /* Error event, 1 << 31 */
+#define DBG_EVT_NONE (0)             /* No event */
+#define DBG_EVT_CMD  (1U << 0)       /* SEC CMD related event */
+#define DBG_EVT_FUNC DBG_EVT_CMD     /* SEC function event */
+#define DBG_EVT_DBG  (1U << 1U)      /* SEC function event */
+
+#define DBG_EVT_INFO (1U << 2U)      /* SEC information event */
+#define DBG_EVT_WRN  (1U << 30U)     /* Warning event */
+#define DBG_EVT_ERR  (0x80000000U)   /* Error event, 1 << 31 */
+
 #ifdef __RPMB_MTK_DEBUG_MSG
-#define DBG_EVT_DBG_INFO  (DBG_EVT_ERR) /* Error event */
+#define DBG_EVT_ALL (0xffffffffU)
 #else
-#define DBG_EVT_DBG_INFO  (1U << 2U) /* Information event */
+#define DBG_EVT_ALL (DBG_EVT_INFO|DBG_EVT_WRN|DBG_EVT_ERR)
 #endif
-#define DBG_EVT_ALL  (0xffffffffU)
 
 static u32 dbg_evt = DBG_EVT_ALL;
 #define DBG_EVT_MASK (dbg_evt)
@@ -358,27 +376,27 @@ static int rpmb_cal_hmac(struct rpmb_frame *frame, int blk_cnt,
 
 static void rpmb_dump_frame(u8 *data_frame)
 {
-	MSG(DBG_INFO, "mac, frame[196] = 0x%x\n", data_frame[196]);
-	MSG(DBG_INFO, "mac, frame[197] = 0x%x\n", data_frame[197]);
-	MSG(DBG_INFO, "mac, frame[198] = 0x%x\n", data_frame[198]);
-	MSG(DBG_INFO, "data,frame[228] = 0x%x\n", data_frame[228]);
-	MSG(DBG_INFO, "data,frame[229] = 0x%x\n", data_frame[229]);
-	MSG(DBG_INFO, "nonce, frame[484] = 0x%x\n", data_frame[484]);
-	MSG(DBG_INFO, "nonce, frame[485] = 0x%x\n", data_frame[485]);
-	MSG(DBG_INFO, "nonce, frame[486] = 0x%x\n", data_frame[486]);
-	MSG(DBG_INFO, "nonce, frame[487] = 0x%x\n", data_frame[487]);
-	MSG(DBG_INFO, "wc, frame[500] = 0x%x\n", data_frame[500]);
-	MSG(DBG_INFO, "wc, frame[501] = 0x%x\n", data_frame[501]);
-	MSG(DBG_INFO, "wc, frame[502] = 0x%x\n", data_frame[502]);
-	MSG(DBG_INFO, "wc, frame[503] = 0x%x\n", data_frame[503]);
-	MSG(DBG_INFO, "addr, frame[504] = 0x%x\n", data_frame[504]);
-	MSG(DBG_INFO, "addr, frame[505] = 0x%x\n", data_frame[505]);
-	MSG(DBG_INFO, "blkcnt,frame[506] = 0x%x\n", data_frame[506]);
-	MSG(DBG_INFO, "blkcnt,frame[507] = 0x%x\n", data_frame[507]);
-	MSG(DBG_INFO, "result, frame[508] = 0x%x\n", data_frame[508]);
-	MSG(DBG_INFO, "result, frame[509] = 0x%x\n", data_frame[509]);
-	MSG(DBG_INFO, "type, frame[510] = 0x%x\n", data_frame[510]);
-	MSG(DBG_INFO, "type, frame[511] = 0x%x\n", data_frame[511]);
+	MSG(DBG, "mac, frame[196] = 0x%x\n", data_frame[196]);
+	MSG(DBG, "mac, frame[197] = 0x%x\n", data_frame[197]);
+	MSG(DBG, "mac, frame[198] = 0x%x\n", data_frame[198]);
+	MSG(DBG, "data,frame[228] = 0x%x\n", data_frame[228]);
+	MSG(DBG, "data,frame[229] = 0x%x\n", data_frame[229]);
+	MSG(DBG, "nonce, frame[484] = 0x%x\n", data_frame[484]);
+	MSG(DBG, "nonce, frame[485] = 0x%x\n", data_frame[485]);
+	MSG(DBG, "nonce, frame[486] = 0x%x\n", data_frame[486]);
+	MSG(DBG, "nonce, frame[487] = 0x%x\n", data_frame[487]);
+	MSG(DBG, "wc, frame[500] = 0x%x\n", data_frame[500]);
+	MSG(DBG, "wc, frame[501] = 0x%x\n", data_frame[501]);
+	MSG(DBG, "wc, frame[502] = 0x%x\n", data_frame[502]);
+	MSG(DBG, "wc, frame[503] = 0x%x\n", data_frame[503]);
+	MSG(DBG, "addr, frame[504] = 0x%x\n", data_frame[504]);
+	MSG(DBG, "addr, frame[505] = 0x%x\n", data_frame[505]);
+	MSG(DBG, "blkcnt,frame[506] = 0x%x\n", data_frame[506]);
+	MSG(DBG, "blkcnt,frame[507] = 0x%x\n", data_frame[507]);
+	MSG(DBG, "result, frame[508] = 0x%x\n", data_frame[508]);
+	MSG(DBG, "result, frame[509] = 0x%x\n", data_frame[509]);
+	MSG(DBG, "type, frame[510] = 0x%x\n", data_frame[510]);
+	MSG(DBG, "type, frame[511] = 0x%x\n", data_frame[511]);
 }
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK)
@@ -630,12 +648,12 @@ static int rpmb_req_get_wc_ufs(u8 *keybytes, u32 *wc, u8 *frame)
 
 		if (wc) {
 			*wc = cpu_to_be32(rpmbdata.ocmd.frames->write_counter);
-			MSG(DBG_INFO, "%s: wc = %d (0x%x)\n",
+			MSG(DBG, "%s: wc = %d (0x%x)\n",
 				__func__, *wc, *wc);
 		}
 	} while (false);
 
-	MSG(DBG_INFO, "%s: end\n", __func__);
+	MSG(DBG, "%s: end\n", __func__);
 
 	if (!frame) {
 		kfree(rpmbdata.icmd.frames);
@@ -654,7 +672,7 @@ static int rpmb_req_read_data_ufs(u8 *frame, u32 blk_cnt)
 
 	rawdev_ufs_rpmb = ufs_mtk_rpmb_get_raw_dev();
 
-	MSG(DBG_INFO, "%s: blk_cnt: %d\n", __func__, blk_cnt);
+	MSG(DBG, "%s: blk_cnt: %d\n", __func__, blk_cnt);
 
 	rpmbdata.req_type = RPMB_READ_DATA;
 	rpmbdata.icmd.nframes = 1;
@@ -679,10 +697,10 @@ static int rpmb_req_read_data_ufs(u8 *frame, u32 blk_cnt)
 		MSG(ERR, "%s: nl_rpmb_cmd_req IO error, ret %d (0x%x)\n",
 			__func__, ret, ret);
 
-	MSG(DBG_INFO, "%s: result 0x%x\n", __func__,
+	MSG(DBG, "%s: result 0x%x\n", __func__,
 		rpmbdata.ocmd.frames->result);
 
-	MSG(DBG_INFO, "%s: ret 0x%x\n", __func__, ret);
+	MSG(DBG, "%s: ret 0x%x\n", __func__, ret);
 
 	return ret;
 }
@@ -698,7 +716,7 @@ static int rpmb_req_write_data_ufs(u8 *frame, u32 blk_cnt)
 
 	rawdev_ufs_rpmb = ufs_mtk_rpmb_get_raw_dev();
 
-	MSG(DBG_INFO, "%s: blk_cnt: %d\n", __func__, blk_cnt);
+	MSG(DBG, "%s: blk_cnt: %d\n", __func__, blk_cnt);
 
 	/*
 	 * Alloc output frame to avoid overwriting input frame buffer
@@ -752,10 +770,10 @@ static int rpmb_req_write_data_ufs(u8 *frame, u32 blk_cnt)
 	 */
 	memcpy(frame, rpmbdata.ocmd.frames, RPMB_SZ_FRAME);
 
-	MSG(DBG_INFO, "%s: result 0x%x\n", __func__,
+	MSG(DBG, "%s: result 0x%x\n", __func__,
 		rpmbdata.ocmd.frames->result);
 
-	MSG(DBG_INFO, "%s: ret 0x%x\n", __func__, ret);
+	MSG(DBG, "%s: ret 0x%x\n", __func__, ret);
 
 #ifdef __RPMB_MTK_DEBUG_HMAC_VERIFY
 out:
@@ -772,7 +790,7 @@ int rpmb_req_program_key_ufs(u8 *frame, u32 blk_cnt)
 
 	rawdev_ufs_rpmb = ufs_mtk_rpmb_get_raw_dev();
 
-	MSG(DBG_INFO, "%s: blk_cnt: %d\n", __func__, blk_cnt);
+	MSG(DBG, "%s: blk_cnt: %d\n", __func__, blk_cnt);
 
 	/*
 	 * Alloc output frame to avoid overwriting input frame
@@ -809,7 +827,7 @@ int rpmb_req_program_key_ufs(u8 *frame, u32 blk_cnt)
 
 	kfree(data.ocmd.frames);
 
-	MSG(DBG_INFO, "%s: ret 0x%x\n", __func__, ret);
+	MSG(DBG, "%s: ret 0x%x\n", __func__, ret);
 
 	return ret;
 }
@@ -829,7 +847,7 @@ static int rpmb_req_ioctl_write_data_ufs(struct rpmb_ioc_param *param)
 	int ret = 0;
 	u8 user_param_data;
 
-	MSG(DBG_INFO, "%s start!!!\n", __func__);
+	MSG(DBG, "%s start!!!\n", __func__);
 
 	ret = get_user(user_param_data, param->databytes);
 	if (ret != 0)
@@ -873,7 +891,7 @@ static int rpmb_req_ioctl_write_data_ufs(struct rpmb_ioc_param *param)
 		else
 			tran_blkcnt = left_blkcnt;
 
-		MSG(DBG_INFO, "%s, total_blkcnt = 0x%x, tran_blkcnt = 0x%x\n",
+		MSG(DBG, "%s, total_blkcnt = 0x%x, tran_blkcnt = 0x%x\n",
 		    __func__, left_blkcnt, tran_blkcnt);
 
 		ret = rpmb_req_get_wc_ufs(rpmb_key, &wc, NULL);
@@ -1055,7 +1073,7 @@ out:
 		return RPMB_TRANSFER_NOT_COMPLETE;
 	}
 
-	MSG(DBG_INFO, "%s end!!!\n", __func__);
+	MSG(DBG, "%s end!!!\n", __func__);
 
 	return ret;
 }
@@ -1074,7 +1092,7 @@ static int rpmb_req_ioctl_read_data_ufs(struct rpmb_ioc_param *param)
 	int ret = 0;
 	u8 user_param_data;
 
-	MSG(DBG_INFO, "%s start!!!\n", __func__);
+	MSG(DBG, "%s start!!!\n", __func__);
 
 	ret = get_user(user_param_data, param->databytes);
 	if (ret != 0)
@@ -1109,7 +1127,7 @@ static int rpmb_req_ioctl_read_data_ufs(struct rpmb_ioc_param *param)
 		else
 			tran_blkcnt = left_blkcnt;
 
-		MSG(DBG_INFO, "%s, left_blkcnt = 0x%x, tran_blkcnt = 0x%x\n",
+		MSG(DBG, "%s, left_blkcnt = 0x%x, tran_blkcnt = 0x%x\n",
 			__func__, left_blkcnt, tran_blkcnt);
 
 		/*
@@ -1265,7 +1283,7 @@ out:
 		return RPMB_TRANSFER_NOT_COMPLETE;
 	}
 
-	MSG(DBG_INFO, "%s end!!!\n", __func__);
+	MSG(DBG, "%s end!!!\n", __func__);
 
 	return ret;
 }
@@ -1285,7 +1303,7 @@ static enum mc_result rpmb_gp_execute_ufs(u32 cmdId)
 
 	case DCI_RPMB_CMD_READ_DATA:
 
-		MSG(DBG_INFO, "%s: DCI_RPMB_CMD_READ_DATA\n", __func__);
+		MSG(DBG, "%s: DCI_RPMB_CMD_READ_DATA\n", __func__);
 
 		ret = rpmb_req_read_data_ufs(rpmb_gp_dci->request.frame,
 					rpmb_gp_dci->request.blks);
@@ -1294,7 +1312,7 @@ static enum mc_result rpmb_gp_execute_ufs(u32 cmdId)
 
 	case DCI_RPMB_CMD_GET_WCNT:
 
-		MSG(DBG_INFO, "%s: DCI_RPMB_CMD_GET_WCNT\n", __func__);
+		MSG(DBG, "%s: DCI_RPMB_CMD_GET_WCNT\n", __func__);
 
 		ret = rpmb_req_get_wc_ufs(NULL, NULL, rpmb_gp_dci->request.frame);
 
@@ -1302,7 +1320,7 @@ static enum mc_result rpmb_gp_execute_ufs(u32 cmdId)
 
 	case DCI_RPMB_CMD_WRITE_DATA:
 
-		MSG(DBG_INFO, "%s: DCI_RPMB_CMD_WRITE_DATA\n", __func__);
+		MSG(DBG, "%s: DCI_RPMB_CMD_WRITE_DATA\n", __func__);
 
 		ret = rpmb_req_write_data_ufs(rpmb_gp_dci->request.frame,
 					rpmb_gp_dci->request.blks);
@@ -1443,7 +1461,7 @@ static int emmc_rpmb_send_command(
 	struct mmc_command sbc = {0};
 	struct mmc_data data = {0};
 	struct scatterlist sg;
-	u8 *transfer_buf = NULL;
+	/* u8 *transfer_buf = NULL; */
 
 	if (blks == 0) {
 		MSG(ERR, "%s: Invalid blks: 0\n", __func__);
@@ -1454,9 +1472,11 @@ static int emmc_rpmb_send_command(
 	mrq.cmd = &cmd;
 	mrq.data = &data;
 	mrq.stop = NULL;
+	/* removed, use buf instead
 	transfer_buf = kzalloc(512 * blks, GFP_KERNEL);
 	if (!transfer_buf)
 		return -ENOMEM;
+	*/
 
 	/*
 	 * set CMD23
@@ -1471,10 +1491,10 @@ static int emmc_rpmb_send_command(
 	/*
 	 * set CMD25/18
 	 */
-	sg_init_one(&sg, transfer_buf, 512 * blks);
+	sg_init_one(&sg, buf, 512 * blks);
 	if (req_type == RPMB_REQ) {
 		cmd.opcode = MMC_WRITE_MULTIPLE_BLOCK;
-		sg_copy_from_buffer(&sg, 1, buf, 512 * blks);
+		/* sg_copy_from_buffer(&sg, 1, buf, 512 * blks); */
 		data.flags |= MMC_DATA_WRITE;
 	} else {
 		cmd.opcode = MMC_READ_MULTIPLE_BLOCK;
@@ -1492,10 +1512,12 @@ static int emmc_rpmb_send_command(
 
 	mmc_wait_for_req(card->host, &mrq);
 
+	/* Do not need copy
 	if (req_type != RPMB_REQ)
 		sg_copy_to_buffer(&sg, 1, buf, 512 * blks);
+	*/
 
-	kfree(transfer_buf);
+	/* kfree(transfer_buf); */
 
 	if (cmd.error)
 		return cmd.error;
@@ -2478,6 +2500,12 @@ static int rpmb_thread(void *context)
 
 static int rpmb_open(struct inode *pinode, struct file *pfile)
 {
+#ifdef USE_MITEE_MTKDEV
+	if (rpmb_buffer == NULL) {
+		MSG(ERR, "%s, rpmb buffer is null!!!\n", __func__);
+		return -EFAULT;
+	}
+#endif
 	return 0;
 }
 
@@ -2499,14 +2527,14 @@ static long rpmb_ioctl_ufs(struct file *pfile, unsigned int cmd, unsigned long a
 
 	case RPMB_IOCTL_PROGRAM_KEY:
 
-		MSG(DBG_INFO, "%s, cmd = RPMB_IOCTL_PROGRAM_KEY not support\n",
+		MSG(DBG, "%s, cmd = RPMB_IOCTL_PROGRAM_KEY not support\n",
 		    __func__);
 
 		break;
 
 	case RPMB_IOCTL_READ_DATA:
 
-		MSG(DBG_INFO, "%s, cmd = RPMB_IOCTL_READ_DATA!!!!\n", __func__);
+		MSG(DBG, "%s, cmd = RPMB_IOCTL_READ_DATA!!!!\n", __func__);
 
 		err = rpmb_req_ioctl_read_data_ufs(&param);
 
@@ -2529,7 +2557,7 @@ static long rpmb_ioctl_ufs(struct file *pfile, unsigned int cmd, unsigned long a
 
 	case RPMB_IOCTL_WRITE_DATA:
 
-		MSG(DBG_INFO, "%s, cmd = RPMB_IOCTL_WRITE_DATA!!!\n", __func__);
+		MSG(DBG, "%s, cmd = RPMB_IOCTL_WRITE_DATA!!!\n", __func__);
 
 		err = rpmb_req_ioctl_write_data_ufs(&param);
 
@@ -2550,6 +2578,209 @@ static long rpmb_ioctl_ufs(struct file *pfile, unsigned int cmd, unsigned long a
 #endif
 
 #if IS_ENABLED(CONFIG_MMC_MTK_PRO)
+
+#ifdef USE_MITEE_MTKDEV
+
+int mitee_rpmb_program_key_emmc( struct mmc_card *card,
+		struct s_rpmb *rpmb_frames, uint32_t blk_cnt)
+{
+	int result = 0;
+	struct emmc_rpmb_req req_rpmb;
+
+	req_rpmb.type = RPMB_PROGRAM_KEY;
+	req_rpmb.blk_cnt = 1;
+	req_rpmb.data_frame = (uint8_t*)rpmb_frames;
+
+	result = emmc_rpmb_req_handle(card, &req_rpmb);
+	if (result) {
+		MSG(ERR, "%s, emmc_rpmb_req_handle IO error, error=%x\n",
+				__func__, result);
+	}
+	return result;
+}
+
+int mitee_rpmb_get_wc_emmc( struct mmc_card *card,
+		struct s_rpmb *rpmb_frames, uint32_t blk_cnt)
+{
+	int result = 0;
+	struct emmc_rpmb_req req_rpmb;
+
+	req_rpmb.type = RPMB_GET_WRITE_COUNTER;
+	req_rpmb.blk_cnt = 1;
+	req_rpmb.data_frame = (uint8_t*)rpmb_frames;
+
+	result = emmc_rpmb_req_handle(card, &req_rpmb);
+	if (result) {
+		MSG(ERR, "%s, emmc_rpmb_req_handle IO error, error=%x\n",
+				__func__, result);
+	}
+	return result;
+}
+
+int mitee_rpmb_read_data_emmc( struct mmc_card *card,
+		struct s_rpmb *rpmb_frames, uint32_t blk_cnt)
+{
+	int result = 0;
+	struct emmc_rpmb_req req_rpmb;
+
+	req_rpmb.type = RPMB_READ_DATA;
+	req_rpmb.blk_cnt = blk_cnt;
+	req_rpmb.data_frame = (uint8_t*)rpmb_frames;
+
+	result = emmc_rpmb_req_handle(card, &req_rpmb);
+	if (result) {
+		MSG(ERR, "%s, emmc_rpmb_req_handle IO error, error=%x\n",
+				__func__, result);
+	}
+	return result;
+}
+
+int mitee_rpmb_write_data_emmc( struct mmc_card *card,
+		struct s_rpmb *rpmb_frames, uint32_t blk_cnt)
+{
+	int result = 0;
+	struct emmc_rpmb_req req_rpmb;
+
+	req_rpmb.type = RPMB_WRITE_DATA;
+	req_rpmb.blk_cnt = blk_cnt;
+	req_rpmb.data_frame = (uint8_t*)rpmb_frames;
+
+	result = emmc_rpmb_req_handle(card, &req_rpmb);
+	if (result) {
+		MSG(ERR, "%s, emmc_rpmb_req_handle IO error, error=%x\n",
+				__func__, result);
+	}
+	return result;
+}
+long mitee_rpmb_ioctl_emmc(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+	int err = 0;
+	struct mmc_card *card;
+	struct mitee_rpmb_frame frames;
+
+	__u64 ureq_cnt = 0L;
+	__u64 ursp_cnt = 0L;
+	__u64 ureq_ptr = 0L;
+	__u64 ursp_ptr = 0L;
+
+	if (rpmb_buffer) {
+		memset(rpmb_buffer, 0x0, RPMB_DATA_BUFF_SIZE);
+	} else {
+		MSG(ERR, "%s, rpmb buffer not alloc ready!\n", __func__);
+		return -EFAULT;
+	}
+	memset(&frames, 0, sizeof(struct mitee_rpmb_frame));
+
+	if (!mtk_mmc_host[0] || !mtk_mmc_host[0]->card) {
+		MSG(ERR, "%s, failed to connect mmc host\n", __func__);
+		return -EFAULT;
+	}
+	card = mtk_mmc_host[0]->card;
+	if (card == NULL) {
+		MSG(ERR, "%s, failed to connect mmc card\n", __func__);
+		return -EFAULT;
+	}
+
+	err = copy_from_user(&frames, (void __user *)(uintptr_t)arg, sizeof(frames));
+	if (err) {
+		MSG(ERR, "%s, copy from user faile(arg): %x\n", __func__, err);
+		return -EFAULT;
+	}
+
+	ureq_cnt = frames.req_cnt;
+	ursp_cnt = frames.rsp_cnt;
+
+	ureq_ptr = frames.req_ptr;
+	ursp_ptr = frames.rsp_ptr;
+
+	MSG(DBG, "%s, userspace req_ptr=0x%llx, rsp_ptr=0x%llx\n",
+			__func__, ureq_ptr, ursp_ptr);
+
+	err = copy_from_user((void*)rpmb_buffer, (void __user *)(uintptr_t)ureq_ptr,
+			ureq_cnt*RPMB_FRAME_SIZE);
+	if (err) {
+		MSG(ERR, "%s, copy from user failed(uintptr): %x\n", __func__, err);
+		return -EFAULT;
+	}
+	switch (cmd) {
+	case RPMB_IOCTL_PROGRAM_KEY:
+
+		MSG(DBG, "%s, command=RPMB_IOCTL_PROGRAM_KEY\n", __func__);
+
+		ret = mitee_rpmb_program_key_emmc(card, (struct s_rpmb *)rpmb_buffer,
+				ureq_cnt);
+
+		err = copy_to_user((void __user *)(uintptr_t)ursp_ptr, (void *)rpmb_buffer,
+				ursp_cnt*RPMB_FRAME_SIZE);
+		if (err) {
+			MSG(ERR, "%s, copy to user failed(program), ret=%x, err=%x\n",
+					__func__, ret, err);
+			return -EFAULT;
+		}
+
+		break;
+	case RPMB_IOCTL_GET_WC:
+
+		MSG(DBG, "%s, command=RPMB_IOCTL_GET_WC\n", __func__);
+
+		ret = mitee_rpmb_get_wc_emmc(card, (struct s_rpmb *)rpmb_buffer,
+				ursp_cnt);
+
+		err = copy_to_user((void __user *)(uintptr_t)ursp_ptr, (void *)rpmb_buffer,
+				ursp_cnt*RPMB_FRAME_SIZE);
+		if (err) {
+			MSG(ERR, "%s, copy to user failed(wc), ret=%x, err=%x\n",
+					__func__, ret, err);
+			return -EFAULT;
+		}
+		break;
+	case RPMB_IOCTL_READ_DATA:
+
+		MSG(DBG, "%s, cmd = RPMB_IOCTL_READ_DATA\n", __func__);
+
+		ret = mitee_rpmb_read_data_emmc(card, (struct s_rpmb *)rpmb_buffer,
+				ursp_cnt);
+
+		err = copy_to_user((void __user *)(uintptr_t)ursp_ptr, (void *)rpmb_buffer,
+				ursp_cnt*RPMB_FRAME_SIZE);
+		if (err) {
+			MSG(ERR, "%s, copy to user failed(read), ret=%x, err=%x\n",
+					__func__, ret, err);
+			return -EFAULT;
+		}
+		break;
+	case RPMB_IOCTL_WRITE_DATA:
+
+		MSG(DBG, "%s, cmd = RPMB_IOCTL_WRITE_DATA\n", __func__);
+
+		ret = mitee_rpmb_write_data_emmc(card, (struct s_rpmb *)rpmb_buffer,
+				ureq_cnt);
+
+		err = copy_to_user((void __user *)(uintptr_t)ursp_ptr, (void *)rpmb_buffer,
+				ursp_cnt*RPMB_FRAME_SIZE);
+		if (err) {
+			MSG(ERR, "%s, copy to user failed(write), ret=%x, err=%x\n",
+					__func__, ret, err);
+			return -EFAULT;
+		}
+		break;
+	default:
+		MSG(ERR, "%s, wrong ioctl code (%d)!!!\n", __func__, cmd);
+		ret = -ENOTTY;
+	}
+	return ret;
+}
+#ifdef CONFIG_COMPAT
+static long mitee_rpmb_compat_ioctl_emmc(struct file *fp, unsigned int cmd,
+		unsigned long arg)
+{
+	return mitee_rpmb_ioctl_emmc(fp, cmd, arg);
+}
+#endif /* CONFIG_COMPAT */
+
+#endif
+
 long rpmb_ioctl_emmc(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct mmc_host *mmc = mtk_mmc_host[0];
@@ -2669,7 +2900,11 @@ static int rpmb_close(struct inode *pinode, struct file *pfile)
 	int ret = 0;
 
 	MSG(INFO, "%s, !!!!!!!!!!!!\n", __func__);
-
+#ifdef USE_MITEE_MTKDEV
+	if (rpmb_buffer) {
+		memset(rpmb_buffer, 0x0, RPMB_DATA_BUFF_SIZE);
+	}
+#endif
 	return ret;
 }
 
@@ -2772,6 +3007,19 @@ static const struct file_operations rpmb_fops_ufs = {
 #endif
 
 #if IS_ENABLED(CONFIG_MMC_MTK_PRO)
+#if USE_MITEE_MTKDEV
+static const struct file_operations rpmb_fops_emmc = {
+	.owner = THIS_MODULE,
+	.open = rpmb_open,
+	.release = rpmb_close,
+	.unlocked_ioctl = mitee_rpmb_ioctl_emmc,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = mitee_rpmb_compat_ioctl_emmc,
+#endif
+	.write = NULL,
+	.read = NULL,
+};
+#else
 static const struct file_operations rpmb_fops_emmc = {
 	.owner = THIS_MODULE,
 	.open = rpmb_open,
@@ -2780,6 +3028,8 @@ static const struct file_operations rpmb_fops_emmc = {
 	.write = NULL,
 	.read = NULL,
 };
+#endif
+
 
 static int dt_get_boot_type(void)
 {
@@ -2816,9 +3066,10 @@ int mmc_rpmb_register(struct mmc_host *mmc)
 	if (!mmc)
 		return -EINVAL;
 
-	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC)) {
+		MSG(INFO, "%s, success to register mmc\n", __func__);
 		mtk_mmc_host[0] = mmc;
-	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
+	} else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
 		return ret;
 	else
 		return -EINVAL;
@@ -2917,6 +3168,15 @@ static int __init rpmb_init(void)
 #endif
 
 fake_out:
+#endif
+
+#ifdef USE_MITEE_MTKDEV
+	rpmb_buffer = kmalloc(RPMB_DATA_BUFF_SIZE, GFP_KERNEL);
+	if (rpmb_buffer == NULL) {
+		MSG(ERR, "%s, rpmb kzalloc memory fail!!!\n", __func__);
+		return -EFAULT;
+	}
+	MSG(INFO, "%s, rpmb kzalloc memory done!!!\n", __func__);
 #endif
 
 	MSG(INFO, "%s end!!!!\n", __func__);

@@ -63,6 +63,15 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+static bool tp_earphone_status = false;
+typedef struct touchscreen_earphone_piugin_data {
+        bool valid;
+        bool earphone_plugged_in;
+        void (*event_callback)(void);
+} touchscreen_earphone_piugin_data_t;
+
+touchscreen_earphone_piugin_data_t g_touchscreen_earphone_pulgin = {0};
+EXPORT_SYMBOL(g_touchscreen_earphone_pulgin);
 
 struct mt63xx_accdet_data {
 	u32 base;
@@ -782,6 +791,13 @@ static void send_status_event(u32 cable_type, u32 status)
 
 	switch (cable_type) {
 	case HEADSET_NO_MIC:
+	g_touchscreen_earphone_pulgin.earphone_plugged_in = status;
+        if(g_touchscreen_earphone_pulgin.valid) {
+          if(tp_earphone_status != status)
+                g_touchscreen_earphone_pulgin.event_callback();
+        }
+            tp_earphone_status = status;
+              pr_info("xx=%",g_touchscreen_earphone_pulgin.earphone_plugged_in);
 		if (status)
 			report = SND_JACK_HEADPHONE;
 		else
@@ -805,6 +821,13 @@ static void send_status_event(u32 cable_type, u32 status)
 		/* when plug 4-pole out, 3-pole plug out should also be
 		 * reported for slow plug-in case
 		 */
+		g_touchscreen_earphone_pulgin.earphone_plugged_in = status;
+        if(g_touchscreen_earphone_pulgin.valid) {
+          if(tp_earphone_status != status)
+                g_touchscreen_earphone_pulgin.event_callback();
+        }
+             tp_earphone_status = status;
+             pr_info("xx=%",g_touchscreen_earphone_pulgin.earphone_plugged_in);
 		if (status == 0) {
 			report = 0;
 			snd_soc_jack_report(&accdet->jack, report,

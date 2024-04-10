@@ -461,6 +461,7 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 
 	// FIXME
 	//max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
+	max_backlight = 2047;
 	AALAPI_LOG("max_backlight = %d", max_backlight);
 
 	if (trans_backlight > max_backlight)

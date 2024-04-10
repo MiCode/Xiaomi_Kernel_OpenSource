@@ -1627,6 +1627,8 @@ static int thermal_pm_notify(struct notifier_block *nb,
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
+		//modify change from https://online.mediatek.com/apps/quickstart/QS00121#QSS01270
+		mutex_lock(&thermal_list_lock); /* 加锁保护 */
 		atomic_set(&in_suspend, 0);
 		list_for_each_entry(tz, &thermal_tz_list, node) {
 			if (!thermal_zone_device_is_enabled(tz))
@@ -1640,6 +1642,8 @@ static int thermal_pm_notify(struct notifier_block *nb,
 			thermal_zone_device_update(tz,
 						   THERMAL_EVENT_UNSPECIFIED);
 		}
+		//modify change from https://online.mediatek.com/apps/quickstart/QS00121#QSS01270
+		mutex_unlock(&thermal_list_lock); /* 加锁保护 */
 		break;
 	default:
 		break;

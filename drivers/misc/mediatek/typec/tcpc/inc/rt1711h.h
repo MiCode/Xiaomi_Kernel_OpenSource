@@ -10,7 +10,7 @@
 #include "pd_dbg_info.h"
 
 /*show debug message or not */
-#define ENABLE_RT1711_DBG	0
+#define ENABLE_RT1711_DBG	1
 
 /* RT1711H Private RegMap */
 
@@ -25,7 +25,6 @@
 
 #define RT1711H_REG_BMC_CTRL				(0x90)
 #define RT1711H_REG_BMCIO_RXDZSEL			(0x93)
-#define RT1711H_REG_VCONN_CLIMITEN			(0x95)
 
 #define RT1711H_REG_RT_STATUS				(0x97)
 #define RT1711H_REG_RT_INT					(0x98)
@@ -45,6 +44,7 @@
 #define RT1711H_REG_UNLOCK_PW_2				(0xF0)
 #define RT1711H_REG_UNLOCK_PW_1				(0xF1)
 #define RT1711H_REG_EFUSE5				(0xF6)
+#define HUSB311_REG_CF					(0xcf)
 
 /*
  * Device ID
@@ -55,6 +55,7 @@
 #define RT1711H_DID_C		0x2172
 
 #define RT1715_DID_D			0x2173
+#define HUSB311_DID             0x0311
 
 /*
  * RT1711H_REG_PHY_CTRL1			(0x80)
@@ -106,14 +107,12 @@
  * RT1711H_REG_RT_STATUS				(0x97)
  */
 
-#define RT1711H_REG_RA_DETACH				(1<<5)
 #define RT1711H_REG_VBUS_80				(1<<1)
 
 /*
  * RT1711H_REG_RT_INT				(0x98)
  */
 
-#define RT1711H_REG_INT_RA_DETACH			(1<<5)
 #define RT1711H_REG_INT_WATCHDOG			(1<<2)
 #define RT1711H_REG_INT_VBUS_80				(1<<1)
 #define RT1711H_REG_INT_WAKEUP				(1<<0)
@@ -122,7 +121,6 @@
  * RT1711H_REG_RT_MASK				(0x99)
  */
 
-#define RT1711H_REG_M_RA_DETACH				(1<<5)
 #define RT1711H_REG_M_WATCHDOG				(1<<2)
 #define RT1711H_REG_M_VBUS_80				(1<<1)
 #define RT1711H_REG_M_WAKEUP				(1<<0)
@@ -194,3 +192,8 @@
 #endif
 
 #endif /* #ifndef __LINUX_RT1711H_H */
+
+enum husb311_version {
+	HUSB311_B,
+	HUSB311_C,
+};

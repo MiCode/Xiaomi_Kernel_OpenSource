@@ -652,11 +652,13 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned long long consume_rate = 0; /* 100 times */
 	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	unsigned long long temp = 0;
+
 #ifdef SHARE_WROT_SRAM
 	/* Share MDP WROT SRAM. */
 	if (comp->id == DDP_COMPONENT_RDMA0 && can_use_wrot_sram()) {
 		unsigned int fifo_off_ultra = 0; /* 10 times */
 
+		DDPINFO("%s can use wrot sram", __func__);
 		if (height > 2340)
 			fifo_off_ultra = 400;
 		else
@@ -676,7 +678,10 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_SRAM_SEL] = 1;
 		set_share_sram(1);
 	} else {
-		if (priv->data->mmsys_id == MMSYS_MT6768 && if_fps == 90) {
+		DDPINFO("%s cannot use wrot sram", __func__);
+		if ((priv->data->mmsys_id == MMSYS_MT6768 ||
+			 priv->data->mmsys_id == MMSYS_MT6765) && if_fps == 90) {
+			DDPINFO("%s modify values for wrot sram 90hz", __func__);
 			pre_ultra_low_us = 55;
 			pre_ultra_high_us = 65;
 			ultra_low_us = 45;
@@ -1947,12 +1952,12 @@ const struct mtk_disp_rdma_data mt6739_rdma_driver_data = {
 
 const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
 	.fifo_size = SZ_1K * 6,
-	.pre_ultra_low_us = 60,
-	.pre_ultra_high_us = 70,
-	.ultra_low_us = 40,
-	.ultra_high_us = 60,
-	.urgent_low_us = 30,
-	.urgent_high_us = 35,
+	.pre_ultra_low_us = 80,
+	.pre_ultra_high_us = 90,
+	.ultra_low_us = 60,
+	.ultra_high_us = 80,
+	.urgent_low_us = 43,
+	.urgent_high_us = 58,
 	.sodi_config = mt6765_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,

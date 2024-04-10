@@ -4,6 +4,7 @@
 
 flashlight-y := flashlight-core.o
 flashlight-y += flashlight-device.o
+flashlight-y += flashlights-ocp8132.o
 
 obj-$(CONFIG_MTK_FLASHLIGHT)             += flashlight.o
 obj-$(CONFIG_MTK_V4L2_FLASHLIGHT)        += mtk-composite.o

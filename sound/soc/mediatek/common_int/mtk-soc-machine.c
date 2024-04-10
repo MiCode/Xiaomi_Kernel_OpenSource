@@ -96,6 +96,10 @@
       #include "../../codecs/mt6357-accdet.h"
 #endif
 
+#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+#include "../../codecs/sia81xx/sipa_aux_dev_if.h"
+#endif
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
 
@@ -833,6 +837,13 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
+
+#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+	ret = soc_aux_init_only_sia81xx(pdev, card);
+	if (ret)
+		dev_err(&pdev->dev, "%s soc_aux_init_only_sia81xx fail %d\n",
+			__func__, ret);
+#endif
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)

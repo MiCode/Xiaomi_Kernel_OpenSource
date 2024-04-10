@@ -1,35 +1,30 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (c) 2023 MediaTek Inc.
  */
 
-#include "inc/pd_core.h"
 #include "inc/pd_dpm_core.h"
-#include "inc/tcpci.h"
 #include "inc/pd_policy_engine.h"
 
 /*
- * [PD2.0] Figure 8-51:
+ * [PD3.1] Figure 8-179:
  *      Dual-Role Port in Source to Sink Power Role Swap State Diagram
  */
 
-void pe_prs_src_snk_evaluate_pr_swap_entry(struct pd_port *pd_port)
+void pe_prs_src_snk_evaluate_swap_entry(struct pd_port *pd_port)
 {
 	pd_dpm_prs_evaluate_swap(pd_port, PD_ROLE_SINK);
 }
 
-void pe_prs_src_snk_accept_pr_swap_entry(struct pd_port *pd_port)
+void pe_prs_src_snk_accept_swap_entry(struct pd_port *pd_port)
 {
-	pd_notify_pe_execute_pr_swap(pd_port, true);
-
+	pd_port->pe_data.during_swap = true;
 	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_ACCEPT);
 }
 
 void pe_prs_src_snk_transition_to_off_entry(struct pd_port *pd_port)
 {
-	pd_lock_msg_output(pd_port);	/* for tSRCTransition */
-	pd_notify_pe_execute_pr_swap(pd_port, true);
-
+	pd_port->pe_data.during_swap = true;
 	pd_enable_timer(pd_port, PD_TIMER_SOURCE_TRANSITION);
 }
 
@@ -48,25 +43,25 @@ void pe_prs_src_snk_send_swap_entry(struct pd_port *pd_port)
 	pe_send_swap_request_entry(pd_port, PD_CTRL_PR_SWAP);
 }
 
-void pe_prs_src_snk_reject_pr_swap_entry(struct pd_port *pd_port)
+void pe_prs_src_snk_reject_swap_entry(struct pd_port *pd_port)
 {
 	pd_reply_wait_reject_msg(pd_port);
 }
 
 /*
- * [PD2.0] Figure 8-52:
+ * [PD3.1] Figure 8-180:
  *      Dual-role Port in Sink to Source Power Role Swap State Diagram
  */
 
-void pe_prs_snk_src_evaluate_pr_swap_entry(struct pd_port *pd_port)
+void pe_prs_snk_src_evaluate_swap_entry(struct pd_port *pd_port)
 {
 	pd_dpm_prs_evaluate_swap(pd_port, PD_ROLE_SOURCE);
 }
 
-void pe_prs_snk_src_accept_pr_swap_entry(
-			struct pd_port *pd_port)
+void pe_prs_snk_src_accept_swap_entry(struct pd_port *pd_port)
 {
-	pd_notify_pe_execute_pr_swap(pd_port, true);
+	pd_port->pe_data.during_swap = true;
+	pd_notify_pe_execute_pr_swap(pd_port);
 	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_ACCEPT);
 }
 
@@ -102,7 +97,7 @@ void pe_prs_snk_src_source_on_entry(struct pd_port *pd_port)
 
 void pe_prs_snk_src_send_swap_entry(struct pd_port *pd_port)
 {
-	pd_notify_pe_execute_pr_swap(pd_port, false);
+	pd_notify_pe_execute_pr_swap(pd_port);
 	pe_send_swap_request_entry(pd_port, PD_CTRL_PR_SWAP);
 }
 

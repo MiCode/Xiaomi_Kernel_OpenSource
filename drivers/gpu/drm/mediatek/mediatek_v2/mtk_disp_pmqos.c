@@ -68,7 +68,7 @@ struct hrt_mmclk_request hrt_req_level_fhdp_mt6768[] = {
 	{50, 700000},
 	{60, 800000},
 };
-
+/* aspect ratio <= 18 : 9 */
 struct hrt_mmclk_request hrt_req_level_mt6761[] = {
 	{40, 650000},
 	{60, 700000},
@@ -76,12 +76,14 @@ struct hrt_mmclk_request hrt_req_level_mt6761[] = {
 };
 
 //LPDDR3
+/* aspect ratio <= 18 : 9 */
 struct hrt_mmclk_request hrt_req_level_ddr3_hd_mt6765[] = {
 	{75, 650000},
 	{75, 700000},
 	{75, 800000},
 };
 
+/* aspect ratio > 18 : 9 */
 struct hrt_mmclk_request hrt_req_level_ddr3_fhd_mt6765[] = {
 	{35, 650000},
 	{35, 700000},
@@ -89,16 +91,32 @@ struct hrt_mmclk_request hrt_req_level_ddr3_fhd_mt6765[] = {
 };
 
 //LPDDR4
+/* aspect ratio <= 18 : 9 */
 struct hrt_mmclk_request hrt_req_level_ddr4_hd_mt6765[] = {
-	{110, 650000},
-	{135, 700000},
-	{155, 800000},
-};
-
-struct hrt_mmclk_request hrt_req_level_ddr4_fhd_mt6765[] = {
-	{50, 650000},
+	{35, 650000},
 	{60, 700000},
 	{70, 800000},
+};
+
+/* aspect ratio > 18 : 9 */
+struct hrt_mmclk_request hrt_req_level_ddr4_fhd_mt6765[] = {
+	{30, 650000},
+	{50, 700000},
+	{60, 800000},
+};
+
+//LPDDR4 and high fps
+struct hrt_mmclk_request hrt_req_level_ddr4_hd_hfps_mt6765[] = {
+	{20, 650000},
+	{35, 700000},
+	{40, 800000},
+};
+
+/* aspect ratio > 18 : 9 */
+struct hrt_mmclk_request hrt_req_level_ddr4_fhd_hfps_mt6765[] = {
+	{20, 650000},
+	{30, 700000},
+	{40, 800000},
 };
 #endif
 
@@ -358,6 +376,12 @@ void mtk_disp_hrt_mmclk_request_mt6765(struct mtk_drm_crtc *mtk_crtc, unsigned i
 #else
 	struct hrt_mmclk_request *req_level = hrt_req_level_ddr4_fhd_mt6765;
 #endif
+	struct mtk_ddp_comp *output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct drm_display_mode *mode = NULL;
+	unsigned int max_fps = 0;
+	bool is_tall_aspect_ratio = (mtk_crtc->base.mode.vdisplay /
+					mtk_crtc->base.mode.hdisplay) > (18 / 9);
+
 	bw_base = mtk_drm_primary_frame_bw(crtc);
 	if (bw_base != 0)
 		layer_num = bw * 10 / bw_base;
@@ -365,21 +389,46 @@ void mtk_disp_hrt_mmclk_request_mt6765(struct mtk_drm_crtc *mtk_crtc, unsigned i
 		DDPINFO("%s-error: frame_bw is zero, skip request mmclk\n", __func__);
 		return;
 	}
-
+	mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
+	if (mode)
+		max_fps = drm_mode_vrefresh(mode);
+	if (max_fps >= 90) {
+		if (is_tall_aspect_ratio ||
+			(mtk_crtc->base.mode.hdisplay > 800)/*fhdp*/) {
+			DDPINFO("%s DDR4, fhd@90, h:%d", __func__, mtk_crtc->base.mode.hdisplay);
+			req_level = hrt_req_level_ddr4_fhd_hfps_mt6765;
+		} else {
+			DDPINFO("%s DDR4, hd@90, h:%d", __func__, mtk_crtc->base.mode.hdisplay);
+			req_level = hrt_req_level_ddr4_hd_hfps_mt6765;
+		}
+	} else { /*(max_fps < 90)*/
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
-	ddr_type = mtk_dramc_get_ddr_type();
-	if (ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X) {
-		if (mtk_crtc->base.mode.hdisplay > 800 /*fhdp*/)
-			req_level = hrt_req_level_ddr4_fhd_mt6765;
-		else
-			req_level = hrt_req_level_ddr4_hd_mt6765;
-	} else { /*ddr3*/
-		if (mtk_crtc->base.mode.hdisplay > 800 /*fhdp*/)
-			req_level = hrt_req_level_ddr3_fhd_mt6765;
-		else
-			req_level = hrt_req_level_ddr3_hd_mt6765;
-	}
+		ddr_type = mtk_dramc_get_ddr_type();
+		if (ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X) {
+			if (is_tall_aspect_ratio ||
+				(mtk_crtc->base.mode.hdisplay > 800)/*fhdp*/) {
+				DDPINFO("%s DDR4, fhd, h:%d",
+					__func__, mtk_crtc->base.mode.hdisplay);
+				req_level = hrt_req_level_ddr4_fhd_mt6765;
+			} else {
+				DDPINFO("%s DDR4, hd, h:%d",
+					__func__, mtk_crtc->base.mode.hdisplay);
+				req_level = hrt_req_level_ddr4_hd_mt6765;
+			}
+		} else { /*ddr3*/
+			if (is_tall_aspect_ratio ||
+				(mtk_crtc->base.mode.hdisplay > 800)/*fhdp*/) {
+				DDPINFO("%s DDR3, fhd, h:%d",
+					__func__, mtk_crtc->base.mode.hdisplay);
+				req_level = hrt_req_level_ddr3_fhd_mt6765;
+			} else {
+				DDPINFO("%s DDR3, hd, h:%d",
+					__func__, mtk_crtc->base.mode.hdisplay);
+				req_level = hrt_req_level_ddr3_hd_mt6765;
+			}
+		}
 #endif
+	} /*(max_fps >= 90)*/
 
 	if (layer_num <= req_level[0].layer_num) {
 		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);

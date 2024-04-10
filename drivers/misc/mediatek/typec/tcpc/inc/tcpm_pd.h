@@ -31,9 +31,10 @@
 
 /* PD30 Data Message Data Object */
 
-#define PD_BSDO_SIZE	1
-#define PD_CCDO_SIZE	1
+#define PD_BSDO_SIZE		1
+#define PD_CCDO_SIZE		1
 #define PD_ADO_SIZE		1
+#define PD_RMDO_SIZE		1
 
 /*
  * Battery Status Data Object (BSDO)
@@ -95,10 +96,6 @@
 #define ADO(type, fixed, swap)	\
 	(((type) << 24) | ((fixed) << 20) | ((swap) << 16))
 
-#define ADO_GET_STATUS_ONCE_MASK    ADO(\
-		ADO_ALERT_BAT_CHANGED|ADO_ALERT_SRC_IN_CHANGED,\
-		0xff, 0xff)
-
 /* PD30 Extend Message Data Object */
 
 enum pd_present_temperature_flag {
@@ -127,7 +124,7 @@ enum pd_battery_reference {
 
 /* SCEDB, Source_Capabilities_Extended */
 
-#define PD_SCEDB_SIZE	24
+#define PD_SCEDB_SIZE	25
 
 #define PD_SCEDB_VR(load_step, ioc)	\
 	((load_step) | (ioc << 2))
@@ -179,6 +176,35 @@ struct pd_source_cap_ext {
 	uint8_t	source_inputs;	/* bit field */
 	uint8_t	batteries;
 	uint8_t	source_pdp;
+	uint8_t	epr_source_pdp;
+};
+
+/* SKEDB, Sink_Capabilities_Extended */
+
+#define PD_SKEDB_SIZE	24
+
+#define PD_SKEDB_BATTERIES(swap_nr, fixed_nr)	\
+	(swap_nr << 4 | fixed_nr)
+
+struct pd_sink_cap_ext {
+	uint16_t vid;
+	uint16_t pid;
+	uint32_t xid;
+	uint8_t	fw_ver;
+	uint8_t	hw_ver;
+	uint8_t	skedb_ver;
+	uint8_t	load_step;
+	uint16_t load_char;
+	uint8_t compliance;
+	uint8_t touch_temp;
+	uint8_t battery_info;
+	uint8_t sink_modes;
+	uint8_t min_pdp;
+	uint8_t oper_pdp;
+	uint8_t max_pdp;
+	uint8_t epr_min_pdp;
+	uint8_t epr_oper_pdp;
+	uint8_t epr_max_pdp;
 };
 
 /* GBSDB, Get_Battery_Status */
@@ -202,7 +228,7 @@ struct pd_get_battery_capabilities {
 #define PD_BCDB_SIZE		9
 
 #define PD_BCDB_BAT_CAP_NOT_PRESENT	0x0000
-#define PD_BCDB_BAT_CAP_UNKNOWN		0Xffff
+#define PD_BCDB_BAT_CAP_UNKNOWN		0xffff
 #define PD_BCDB_BAT_CAP_RAW(cap_wh)	(cap_wh*10)
 #define PD_BCDB_BAT_CAP_VAL(raw)	(raw/10)
 
@@ -266,21 +292,23 @@ struct pd_country_info {
 
 /* SDB, Status */
 
+#define PD_SDB_SIZE	7
+
 #define PD_STATUS_INPUT_EXT_POWER	(1<<1)
 #define PD_STATUS_INPUT_EXT_POWER_FROM_AC	(1<<2)
 #define PD_STATUS_INPUT_INT_POWER_BAT		(1<<3)
 #define PD_STATUS_INPUT_INT_POWER_NOT_BAT	(1<<4)
 
-#define PD_STASUS_EVENT_OCP	(1<<1)
+#define PD_STATUS_EVENT_OCP	(1<<1)
 #define PD_STATUS_EVENT_OTP	(1<<2)
 #define PD_STATUS_EVENT_OVP	(1<<3)
 #define PD_STATUS_EVENT_CF_MODE	(1<<4)
 
 #define PD_STASUS_EVENT_READ_CLEAR (\
-	PD_STASUS_EVENT_OCP|PD_STATUS_EVENT_OTP|PD_STATUS_EVENT_OVP)
+	PD_STATUS_EVENT_OCP|PD_STATUS_EVENT_OTP|PD_STATUS_EVENT_OVP)
 
 #define PD_STASUS_EVENT_MASK (\
-	PD_STASUS_EVENT_OCP|PD_STATUS_EVENT_OTP|PD_STATUS_EVENT_OVP|\
+	PD_STATUS_EVENT_OCP|PD_STATUS_EVENT_OTP|PD_STATUS_EVENT_OVP|\
 	PD_STATUS_EVENT_CF_MODE)
 
 #define PD_STATUS_TEMP_PTF(raw)	((raw & 0x06) >> 1)
@@ -295,8 +323,6 @@ struct pd_status {
 	uint8_t power_status;	/* bit filed */
 	uint8_t power_state_change;
 };
-
-#define PD_SDB_SIZE	sizeof(struct pd_status)
 
 /* PPSSDB, PPSStatus */
 
@@ -324,4 +350,22 @@ struct pd_pps_status {
 	int output_ma;
 	uint8_t real_time_flags;
 };
+
+/*
+ * Revision Message Data Object (RMDO)
+ * ----------
+ * <31:28>  :: Revision.major
+ * <27:24>  :: Revision.minor
+ * <23:20>  :: Version.major
+ * <19:16>  :: Version.minor
+ * <15:0>   :: Reserved and Shall be set to zero
+ */
+
+#define RMDO(rev_maj, rev_min, ver_maj, ver_min)		\
+	((((rev_maj) & 0xf) << 28) | (((rev_min) & 0xf) << 24) |\
+	 (((ver_maj) & 0xf) << 20) | (((ver_min) & 0xf) << 16))
+#define RMDO_REV_MAJ(rmdo)		(((rmdo) >> 28) & 0xf)
+#define RMDO_REV_MIN(rmdo)		(((rmdo) >> 24) & 0xf)
+#define RMDO_VER_MAJ(rmdo)		(((rmdo) >> 20) & 0xf)
+#define RMDO_VER_MIN(rmdo)		(((rmdo) >> 16) & 0xf)
 #endif /* TCPM_PD_H_ */

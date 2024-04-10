@@ -55,12 +55,14 @@ thermal_monitor-y += common/thermal_zones/mtk_ts_battery.o
 ifneq ($(CONFIG_POWER_EXT),y)
 thermal_monitor-y += common/thermal_zones/mtk_ts_bts.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_btsmdpa.o
+# /* display add ntc node -s */
+thermal_monitor-y += common/thermal_zones/mtk_ts_lcm.o
+# /* display add ntc node -e */
 endif
 
 thermal_monitor-y += common/thermal_zones/mtk_ts_pa.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_pa_thput.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_charger.o
-
 
 
 thermal_monitor-y += common/thermal_zones/mtk_ts_wmt.o
@@ -148,10 +150,10 @@ ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
 thermal_monitor-y += common/coolers/mtk_cooler_mutt.o
 endif
 thermal_monitor-y += common/coolers/mtk_cooler_bcct_v1.o
+thermal_monitor-y += common/coolers/mtk_cooler_bcct_2nd.o
 thermal_monitor-y += v2/src/mtk_pmic_efuse.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_charger2.o
 endif
-
 
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
 include $(srctree)/drivers/misc/mediatek/thermal/v1/src/Makefile

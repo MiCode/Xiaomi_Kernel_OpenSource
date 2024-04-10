@@ -1720,6 +1720,9 @@ static int fl_uninit(void)
 	return 0;
 }
 
+extern void flashlights_ocp8132_init_robe(void);
+extern void flashlights_ocp8132_exit_robe(void);
+
 static int flashlight_probe(struct platform_device *dev)
 {
 	pr_debug("Probe start\n");
@@ -1811,6 +1814,8 @@ static int flashlight_probe(struct platform_device *dev)
 
 	pr_debug("Probe done\n");
 
+	flashlights_ocp8132_init_robe();
+
 	return 0;
 
 err_create_torch_device_file:
@@ -1842,6 +1847,8 @@ err_allocate_chrdev:
 
 static int flashlight_remove(struct platform_device *dev)
 {
+	flashlights_ocp8132_exit_robe();
+
 	fl_uninit();
 
 	/* remove device file */

@@ -3475,12 +3475,9 @@ static inline void Prepare_Enable_ccf_clock(void)
 	/* No need to use pm_runtime to control other dev,
 	 * because everything is described in imgsys in dts.
 	 */
-	LOG_INF("pm_runtime_get_sync +, G_u4EnableClockCount(%d), UserCount(%d)\n",
-			G_u4EnableClockCount, IspInfo.UserCount);
 	ret = pm_runtime_get_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
 	if (ret < 0)
 		LOG_INF("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
-	LOG_INF("pm_runtime_get_sync -\n");
 
 	ret = clk_prepare_enable(isp_clk.ISP_IMG_DIP);
 	if (ret)
@@ -3526,12 +3523,9 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.ISP_IMG_DIP);
 
-	LOG_INF("pm_runtime_put_sync +, G_u4EnableClockCount(%d), UserCount(%d)\n",
-			G_u4EnableClockCount, IspInfo.UserCount);
 	ret = pm_runtime_put_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
 	if (ret < 0)
 		LOG_INF("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
-	LOG_INF("pm_runtime_put_sync -\n");
 }
 #endif
 
@@ -12690,6 +12684,7 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			/*SW p1_don is not reliable*/
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
+		                #if 0		
 				IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 					"CAMA P1_DON_%d(0x%x_0x%x,0x%x_0x%x)\n",
 					(sof_count[module]) ?
@@ -12699,7 +12694,9 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 					(unsigned int)(fbc_ctrl2[0].Raw),
 					(unsigned int)(fbc_ctrl1[1].Raw),
 					(unsigned int)(fbc_ctrl2[1].Raw));
+                              #endif
 			}
+
 		}
 
 		#if (TSTMP_SUBSAMPLE_INTPL == 1)
@@ -12995,7 +12992,8 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 
 			}
 			#endif /* (TIMESTAMP_QUEUE_EN == 1) */
-
+                        
+                        #if 0
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 				"CAMA P1_SOF_%d_%d(0x%x_0x%x,0x%x_0x%x,0x%x,0x%x,0x%x),int_us:%d,cq:0x%x\n",
 				   sof_count[module], cur_v_cnt,
@@ -13011,6 +13009,7 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 				   ISP_RD32(
 				       CAM_REG_CQ_THR0_BASEADDR(reg_module)));
 
+                        #endif
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr*/
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 				"CAMA_aa(0x%x_0x%x_0x%x)af(0x%x_0x%x_0x%x),pd(0x%x_0x%x_0x%x),ps(0x%x_0x%x_0x%x)\n",

@@ -14,7 +14,7 @@
 #define IRQTag "KEEPER"
 #define pr_fmt(fmt) MyTag "[%s] " fmt, __func__
 
-#define ISP_DEBUG
+//#define ISP_DEBUG
 #ifdef ISP_DEBUG
 #define LOG_DBG(format, args...)    pr_info(MyTag "[%s] " format, \
 	 __func__, ##args)
@@ -7988,7 +7988,8 @@ for (i = 0; i < ISP_IRQ_TYPE_AMOUNT; i++) {
 	memset(g_BkReg, 0, sizeof(struct _isp_bk_reg_t) * ISP_IRQ_TYPE_AMOUNT);
 
 #ifdef KERNEL_LOG
-	IspInfo.DebugMask = (ISP_DBG_INT);
+        IspInfo.DebugMask = (ISP_DBG_INT);
+
 #endif
 	/*  */
 EXIT:
@@ -11427,6 +11428,7 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			/*SW p1_don is not reliable*/
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
+                                #if 0
 				IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 					"CAMA P1_DON_%d(0x%x_0x%x,0x%x_0x%x)\n",
 					(sof_count[module]) ?
@@ -11436,6 +11438,7 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 					(unsigned int)(fbc_ctrl2[0].Raw),
 					(unsigned int)(fbc_ctrl1[1].Raw),
 					(unsigned int)(fbc_ctrl2[1].Raw));
+                                #endif
 			}
 		}
 
@@ -11731,7 +11734,7 @@ if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 
 			}
 			#endif /* (TIMESTAMP_QUEUE_EN == 1) */
-
+                        #if  0
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 				"CAMA P1_SOF_%d_%d(0x%x_0x%x,0x%x_0x%x,0x%x,0x%x,0x%x),int_us:%d,cq:0x%x\n",
 				   sof_count[module], cur_v_cnt,
@@ -11747,6 +11750,7 @@ if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				   ISP_RD32(
 				       CAM_REG_CQ_THR0_BASEADDR(reg_module)));
 
+                         #endif
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr*/
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 				"CAMA_aa(0x%x_0x%x_0x%x)af(0x%x_0x%x_0x%x),pd(0x%x_0x%x_0x%x),ps(0x%x_0x%x_0x%x)\n",

@@ -72,6 +72,9 @@ static int handle_to_index(int handle)
 	case ID_SAR:
 		index = sar;
 		break;
+        case ID_SAR_UNIFY:
+                index = sarunify;
+                break;
 	default:
 		index = -1;
 		pr_err("%s invalid handle:%d,index:%d\n", __func__,
@@ -138,6 +141,30 @@ int sar_data_report_t(int32_t value[3], int64_t time_stamp)
 		__pm_wakeup_event(cxt->ws[index], 250);
 	return err;
 }
+EXPORT_SYMBOL(sar_data_report_t);
+
+int sarunify_data_report_t(int32_t value[3], int64_t time_stamp)
+{
+        int err = 0, index = -1;
+        struct sensor_event event;
+        struct situation_context *cxt = situation_context_obj;
+        memset(&event, 0, sizeof(struct sensor_event));
+        index = handle_to_index(ID_SAR_UNIFY);
+        if (index < 0) {
+                pr_err("[%s] invalid index\n", __func__);
+                return -1;
+        }
+        event.time_stamp = time_stamp;
+        event.handle = ID_SAR_UNIFY;
+        event.flush_action = DATA_ACTION;
+        event.word[0] = value[0];
+        err = sensor_input_event(situation_context_obj->mdev.minor, &event);
+        if (cxt->ctl_context[index].situation_ctl.open_report_data != NULL &&
+                cxt->ctl_context[index].situation_ctl.is_support_wake_lock)
+                __pm_wakeup_event(cxt->ws[index], 250);
+        return err;
+}
+EXPORT_SYMBOL(sarunify_data_report_t);
 int sar_data_report(int32_t value[3])
 {
 	return sar_data_report_t(value, 0);

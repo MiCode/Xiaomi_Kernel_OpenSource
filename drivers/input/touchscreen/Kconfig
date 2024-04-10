@@ -1368,6 +1368,11 @@ config TOUCHSCREEN_MTK_TOUCH
 
          To compile this dirver for used touch IC.
 
+source "drivers/input/touchscreen/ft8057p_spi/Kconfig"
+source "drivers/input/touchscreen/nt36525_spi/Kconfig"
+source "drivers/input/touchscreen/icnl9916_spi/Kconfig"
+source "drivers/input/touchscreen/lct_tp/Kconfig"
+
 config TOUCHSCREEN_MT6983_ALPHA_SUPPORT
 	tristate "Specify Alpha Touch Platform is mt6983"
 	help

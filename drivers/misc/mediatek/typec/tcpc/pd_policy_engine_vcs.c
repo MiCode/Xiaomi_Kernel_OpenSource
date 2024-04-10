@@ -44,11 +44,9 @@ void pe_vcs_turn_off_vconn_entry(struct pd_port *pd_port)
 
 void pe_vcs_turn_on_vconn_entry(struct pd_port *pd_port)
 {
-#if CONFIG_USB_PD_REV30
 #if CONFIG_USB_PD_RESET_CABLE
 	dpm_reaction_set(pd_port, DPM_REACTION_CAP_RESET_CABLE);
 #endif	/* CONFIG_USB_PD_RESET_CABLE */
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	pd_dpm_vcs_enable_vconn(pd_port, PD_ROLE_VCONN_DYNAMIC_ON);
 }

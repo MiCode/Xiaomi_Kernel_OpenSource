@@ -16,3 +16,4 @@ situationhub-$(CONFIG_MTK_MOTION_DETECT_HUB) += motion_detect/motion_detect.o
 situationhub-$(CONFIG_MTK_TILTDETECTHUB) += tilt_detector/tiltdetecthub.o
 situationhub-$(CONFIG_MTK_FLAT_HUB) += flat/flat.o
 situationhub-$(CONFIG_MTK_SAR_HUB) += sar/sarhub.o sar/sar_factory.o
+situationhub-$(CONFIG_MTK_SAR_UNIFY_HUB) += sar_unify/sarunify.o

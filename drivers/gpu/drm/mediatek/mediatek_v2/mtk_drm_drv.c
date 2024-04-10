@@ -89,6 +89,9 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
+
 void disp_dbg_deinit(void);
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *dev);
@@ -96,6 +99,9 @@ void disp_dbg_init(struct drm_device *dev);
 #ifdef CONFIG_MTK_FB_MMDVFS_SUPPORT
 u32 *disp_perfs;
 #endif
+
+int is_hbm_on = 0;
+EXPORT_SYMBOL(is_hbm_on);
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -6471,6 +6477,475 @@ static bool init_secure_static_path_switch(struct device *dev, struct mtk_drm_pr
 	return false;
 }
 
+extern int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg);
+extern int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
+			bool blocking,bool queueing);
+static char lockdown_info[32] = {"NULL"};
+int get_lockdown_info_for_xinli(void) {
+	int ret = 0;
+	/* CMD Page */
+	char select_page_cmd[] = {0xFF, 0x20};
+	char select_page_cmd1[] = {0xFB, 0x01};
+
+	char select_page_cmd2[] = {0xFF, 0x10};
+ 	char select_page_cmd3[] = {0xFB, 0x01};
+
+	u8 tx[10] = {0};
+
+	struct mtk_ddic_dsi_msg *cmd_msg;
+
+	pr_info("%s start_get_lockdown_info_for_xinli \n", __func__);
+
+	cmd_msg = vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	if (!cmd_msg)
+		goto NOMEM;
+	cmd_msg->channel = 1;
+	cmd_msg->flags = 2;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x15;
+	cmd_msg->tx_buf[0] = select_page_cmd;
+	cmd_msg->tx_len[0] = 2;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd error\n", __func__);
+		goto DONE2;
+	}
+	cmd_msg->tx_buf[0] = select_page_cmd1;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd1 error\n", __func__);
+		goto DONE2;
+	}
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+	/* Read reg */
+	cmd_msg->channel = 0;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x06;
+	cmd_msg->tx_buf[0] = tx;
+	cmd_msg->tx_len[0] = 1;
+	cmd_msg->rx_cmd_num = 1;
+	cmd_msg->rx_buf[0] = kzalloc(8 * sizeof(unsigned char), GFP_KERNEL);
+	if (!cmd_msg->rx_buf[0]) {
+		pr_err("%s:  memory allocation failed\n", __func__);
+		ret = -ENOMEM;
+		goto DONE2;
+	}
+	cmd_msg->rx_len[0] = 8;
+	tx[0] = 0xF5;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd1 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[0] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+
+	tx[0] = 0xF6;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd2 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[1] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	tx[0] = 0xF7;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd3 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[2] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	tx[0] = 0x26;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd4 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[3] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	tx[0] = 0xF8;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd5 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[4] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	tx[0] = 0xF9;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd6 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[5] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	tx[0] = 0x27;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd7 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[6] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	tx[0] = 0x28;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s mtk_ddic_dsi_read_cmd8 error\n", __func__);
+		goto DONE1;
+	}
+	lockdown_info[7] = *(unsigned char *)(cmd_msg->rx_buf[0]);
+	/*for (i = 0; i < 8; i++) {
+		pr_err("read full lcm lockdown[%d]:0x%x--val:%s\n",
+			i,	lockdown_info[i]);
+	}*/
+
+/* CMD Page Back*/
+	cmd_msg->channel = 1;
+	cmd_msg->flags = 2;
+	cmd_msg->tx_cmd_num = 1;
+
+	cmd_msg->type[0] = 0x15;
+	cmd_msg->tx_buf[0] = select_page_cmd2;
+	cmd_msg->tx_len[0] = 2;
+
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd2 error\n", __func__);
+		goto DONE2;
+	}
+
+	cmd_msg->tx_buf[0] = select_page_cmd3;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd3 error\n", __func__);
+		goto DONE2;
+	}
+
+DONE1:
+	kfree(cmd_msg->rx_buf[0]);
+DONE2:
+	vfree(cmd_msg);
+	pr_info("%s end -\n", __func__);
+	return ret;
+NOMEM:
+	pr_err("%s:  memory allocation failed\n", __func__);
+	return -ENOMEM;
+}
+int get_lockdown_info_for_boe(void) {
+	int ret = 0;
+	int i = 0;
+	/* CMD Page */
+	char select_page_cmd1[] = {0x00, 0x00};
+	char select_page_cmd2[] = {0xFF, 0x80, 0x57, 0x01};
+	char select_page_cmd3[] = {0x00, 0x80};
+	char select_page_cmd4[] = {0xFF, 0x80, 0x57};
+	char select_page_cmd5[] = {0x00, 0x10};
+	u8 tx[10] = {0};
+	struct mtk_ddic_dsi_msg *cmd_msg;
+	pr_info("%s start_get_lockdown_info_for_boe \n", __func__);
+	cmd_msg = vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	if (!cmd_msg)
+		goto NOMEM;
+	cmd_msg->channel = 1;
+	cmd_msg->flags = 2;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x15;
+	cmd_msg->tx_buf[0] = select_page_cmd1;
+	cmd_msg->tx_len[0] = 2;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd1 error\n", __func__);
+		goto DONE2;
+	}
+	cmd_msg->tx_buf[0] = select_page_cmd2;
+	cmd_msg->tx_len[0] = 4;
+	cmd_msg->type[0] = 0x39;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd2 error\n", __func__);
+		goto DONE2;
+	}
+	cmd_msg->tx_buf[0] = select_page_cmd3;
+	cmd_msg->tx_len[0] = 2;
+	cmd_msg->type[0] = 0x15;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd3 error\n", __func__);
+		goto DONE2;
+	}
+	cmd_msg->tx_buf[0] = select_page_cmd4;
+	cmd_msg->tx_len[0] = 3;
+	cmd_msg->type[0] = 0x39;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd4 error\n", __func__);
+		goto DONE2;
+	}
+	cmd_msg->tx_buf[0] = select_page_cmd5;
+	cmd_msg->tx_len[0] = 2;
+	cmd_msg->type[0] = 0x15;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd5 error\n", __func__);
+		goto DONE2;
+	}
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+	/* Read reg */
+	cmd_msg->channel = 0;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x06;
+	tx[0] = 0xF4;
+	cmd_msg->tx_buf[0] = tx;
+	cmd_msg->tx_len[0] = 1;
+	cmd_msg->rx_cmd_num = 1;
+	cmd_msg->rx_buf[0] = kzalloc(8 * sizeof(unsigned char), GFP_KERNEL);
+	if (!cmd_msg->rx_buf[0]) {
+		pr_err("%s: memory allocation failed\n", __func__);
+		ret = -ENOMEM;
+		goto DONE2;
+	}
+	cmd_msg->rx_len[0] = 8;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s error\n", __func__);
+		goto DONE1;
+	}
+	for (i = 0; i < 8; i++) {
+		pr_info(" read full lcm lockdown [0x%x]--byte:%d,val:0x%02hhx\n",
+				*(unsigned char *)(cmd_msg->tx_buf[0]), i,
+				*(unsigned char *)(cmd_msg->rx_buf[0] + i));
+		lockdown_info[i] = *(unsigned char *)(cmd_msg->rx_buf[0] + i);
+	}
+DONE1:
+	kfree(cmd_msg->rx_buf[0]);
+DONE2:
+	vfree(cmd_msg);
+	pr_info("%s end -\n", __func__);
+	return ret;
+NOMEM:
+	pr_err("%s: memory allocation failed\n", __func__);
+	return -ENOMEM;
+}
+
+int get_lockdown_info_for_huaxin(void) {
+	int ret = 0;
+	int i = 0;
+	/* CMD Page */
+	char select_page_cmd1[] = {0xF0, 0x5A, 0x59};
+	char select_page_cmd2[] = {0xF1, 0xA5, 0xA6};
+	u8 tx[10] = {0};
+	struct mtk_ddic_dsi_msg *cmd_msg;
+	pr_info("%s start_get_lockdown_info_for_huaxin \n", __func__);
+	cmd_msg = vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	if (!cmd_msg)
+		goto NOMEM;
+	cmd_msg->channel = 1;
+	cmd_msg->flags = 2;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x39;
+	cmd_msg->tx_buf[0] = select_page_cmd1;
+	cmd_msg->tx_len[0] = 3;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd1 error\n", __func__);
+		goto DONE2;
+	}
+	cmd_msg->tx_buf[0] = select_page_cmd2;
+	cmd_msg->tx_len[0] = 3;
+	cmd_msg->type[0] = 0x39;
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	if (ret != 0) {
+		pr_err("%s select_page_cmd2 error\n", __func__);
+		goto DONE2;
+	}
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+
+	/* Read reg */
+	cmd_msg->channel = 0;
+	cmd_msg->tx_cmd_num = 1;
+	cmd_msg->type[0] = 0x06;
+	tx[0] = 0x92;
+	cmd_msg->tx_buf[0] = tx;
+	cmd_msg->tx_len[0] = 1;
+	cmd_msg->rx_cmd_num = 1;
+	cmd_msg->rx_buf[0] = kzalloc(8 * sizeof(unsigned char), GFP_KERNEL);
+	if (!cmd_msg->rx_buf[0]) {
+		pr_err("%s: memory allocation failed\n", __func__);
+		ret = -ENOMEM;
+		goto DONE2;
+	}
+	cmd_msg->rx_len[0] = 8;
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		pr_err("%s error\n", __func__);
+		goto DONE1;
+	}
+	for (i = 0; i < 8; i++) {
+		pr_info(" read full lcm lockdown [0x%x]--byte:%d,val:0x%02hhx\n",
+				*(unsigned char *)(cmd_msg->tx_buf[0]), i,
+				*(unsigned char *)(cmd_msg->rx_buf[0] + i));
+		lockdown_info[i] = *(unsigned char *)(cmd_msg->rx_buf[0] + i);
+	}
+DONE1:
+	kfree(cmd_msg->rx_buf[0]);
+DONE2:
+	vfree(cmd_msg);
+	pr_info("%s end -\n", __func__);
+	return ret;
+NOMEM:
+	pr_err("%s: memory allocation failed\n", __func__);
+	return -ENOMEM;
+}
+
+static ssize_t lcd_name_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	char *temp = NULL;
+	int ret;
+	struct device_node *chosen;
+	unsigned long size = 0;
+	chosen = of_find_node_by_path("/chosen");
+	if (chosen) {
+		temp = (char *)of_get_property(chosen, "lcd_name", (int *)&size);
+	}
+	DDPPR_ERR("%s lcd_name \n", __func__);
+	ret = scnprintf(buf, PAGE_SIZE, "panel_name=%s\n", temp);
+	return ret;
+}
+static ssize_t tp_lockdown_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	int ret;
+	char *temp = NULL;
+	struct device_node *chosen;
+	unsigned long size = 0;
+	chosen = of_find_node_by_path("/chosen");
+	DDPPR_ERR("%s tp_lockdown_chosen \n", __func__);
+	if (chosen) {
+		temp = (char *)of_get_property(chosen, "lcd_name", (int *)&size);
+	}
+	ret = scnprintf(buf, PAGE_SIZE, "%s\n", temp);
+	if(!strcmp(temp, "dsi_panel_c3y_43_02_0a_hd_video")){
+		DDPPR_ERR("%s  0a_tp_lockdown  \n", __func__);
+		get_lockdown_info_for_xinli();
+	} else if(!strcmp(temp, "dsi_panel_c3y_35_03_0b_hd_video")){
+		DDPPR_ERR("%s 0b_tp_lockdown \n", __func__);
+		get_lockdown_info_for_boe();
+	} else if(!strcmp(temp, "dsi_panel_c3y_42_0f_0c_hd_video")){
+		DDPPR_ERR("%s 0c_tp_lockdown \n", __func__);
+		get_lockdown_info_for_huaxin();
+	} else{
+		DDPPR_ERR("%s null_tp_lockdown  \n", __func__);
+	}
+	ret = sprintf(buf, "%02x%02x%02x%02x%02x%02x%02x%02x\n", 
+		lockdown_info[0],lockdown_info[1],lockdown_info[2],lockdown_info[3],
+		lockdown_info[4],lockdown_info[5],lockdown_info[6],lockdown_info[7]);
+	return ret;
+}
+static struct kobj_attribute dev_attr_lcd_name =
+		__ATTR(lcd_name, 0644, lcd_name_show, NULL);
+static struct kobj_attribute dev_attr_tp_lockdown =
+		__ATTR(tp_lockdown, 0644, tp_lockdown_show, NULL);
+static struct kobject *lcd_node;
+static int lcd_info_create_sysfs(void)
+{
+	int ret;
+	lcd_node = kobject_create_and_add("android_lcd", NULL);
+	if(lcd_node == NULL) {
+		pr_info(" lcd_name_create_sysfs_ failed\n");
+		ret=-ENOMEM;
+		return ret;
+   }
+	ret=sysfs_create_file(lcd_node, &dev_attr_lcd_name.attr);
+	if(ret) {
+		pr_info("%s failed \n", __func__);
+		kobject_del(lcd_node);
+   }
+	ret=sysfs_create_file(lcd_node, &dev_attr_tp_lockdown.attr);
+	if(ret) {
+		pr_info("%s, dev_attr_lcd_lockdown failed \n", __func__);
+		kobject_del(lcd_node);
+	}
+   return 0;
+}
+
+static void dsi_display_set_hbm_cmd(size_t hbm_cmd)
+{
+    	pr_info("hbm:_###_%s,set_hbm_cmd: %d\n",__func__, hbm_cmd);
+	DDPPR_ERR("%s set_hbm_cmd: %d\n", __func__, hbm_cmd);
+    	switch(hbm_cmd) {
+        	case 0x1: //hbm1 on
+			is_hbm_on = 1;
+			break;
+        	case 0x2: //hbm2 on
+			is_hbm_on = 1;
+			break;
+        	case 0x3://hbm off for thermal
+			is_hbm_on = 0;
+			break;
+        	case 0x0://hbm off
+			is_hbm_on = 0;
+			break;
+        	default:
+			pr_err("unknow cmds: %d\n", hbm_cmd);
+			break;
+        }
+
+}
+
+static ssize_t dsi_display_set_hbm_store(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+    int rc = 0;
+    int param = 0;
+
+    rc = kstrtoint(buf, 10, &param);
+    if (rc) {
+        pr_err("kstrtoint failed. rc=%d\n", rc);
+        return rc;
+    }
+
+    dsi_display_set_hbm_cmd(param);
+    DDPPR_ERR("%s rc=%d\n", __func__, rc);
+    return len;
+}
+
+int dsi_check_hbm_status (size_t status, size_t hbm_cmd)
+{
+    int rc = 0;
+    DDPPR_ERR("%s status=%d hbm_cmd= %d\n", __func__, status, hbm_cmd);
+    if (status == 0){ //read hbm status
+        if (is_hbm_on == 0){
+            return 2; // hbm off
+        }else if (is_hbm_on == 1){
+            return 3; //hbm on
+        }
+    }
+    else if (status == 1){ //wirite hbm
+      dsi_display_set_hbm_cmd(hbm_cmd);
+      pr_err("check hbm and write cmd!\n");
+    }
+
+   return rc ;
+}
+EXPORT_SYMBOL(dsi_check_hbm_status);
+
+static DEVICE_ATTR(hbm_mode, 0644, NULL,dsi_display_set_hbm_store);
+/*
+static struct kobject *dsi_display_hbm;
+
+static int display_feature_create_sysfs(void)
+{
+   int ret;
+   dsi_display_hbm = kobject_create_and_add("display_hbm", NULL);
+   if(dsi_display_hbm == NULL) {
+     pr_info(" temp_create_sysfs_ failed\n");
+     ret=-ENOMEM;
+     return ret;
+   }
+   ret=sysfs_create_file(dsi_display_hbm, &dev_attr_hbm_mode.attr);
+   if(ret) {
+    pr_info("%s failed \n", __func__);
+    kobject_del(dsi_display_hbm);
+   }
+   return 0;
+}
+*/
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -6491,6 +6966,10 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	PanelMaster_probe();
 	DDPINFO("%s+\n", __func__);
 
+	lcd_info_create_sysfs();
+	ret = device_create_file(dev, &dev_attr_hbm_mode);
+
+  
 	//drm_debug = 0x1F; /* DRIVER messages */
 	private = devm_kzalloc(dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
@@ -6809,6 +7288,19 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -6871,8 +7363,12 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",

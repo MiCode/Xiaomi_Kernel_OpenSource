@@ -24,7 +24,7 @@ void pd_dpm_dynamic_disable_vconn(struct pd_port *pd_port);
 /* ---- SNK ---- */
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
-void pd_dpm_start_pps_request_thread(struct pd_port *pd_port, bool en);
+void pd_dpm_start_pps_request(struct pd_port *pd_port, bool en);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
 int pd_dpm_update_tcp_request(struct pd_port *pd_port,
@@ -190,7 +190,13 @@ void pd_dpm_inform_status(struct pd_port *pd_port);
 void pd_dpm_inform_pps_status(struct pd_port *pd_port);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
+void pd_dpm_inform_sink_cap_ext(struct pd_port *pd_port);
+int pd_dpm_send_sink_cap_ext(struct pd_port *pd_port);
+
 void pd_dpm_inform_not_support(struct pd_port *pd_port);
+
+void pd_dpm_inform_revision(struct pd_port *pd_port);
+int pd_dpm_send_revision(struct pd_port *pd_port);
 
 #endif	/* CONFIG_USB_PD_REV30 */
 
@@ -282,41 +288,6 @@ extern bool richtek_ufp_notify_uvdm(struct pd_port *pd_port,
 #endif	/* CONFIG_USB_PD_RICHTEK_UVDM */
 
 
-#if CONFIG_USB_PD_ALT_MODE_RTDC
-extern bool dc_dfp_notify_discover_id(struct pd_port *pd_port,
-		struct svdm_svid_data *svid_data, bool ack);
-
-extern bool dc_dfp_notify_discover_svid(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, bool ack);
-
-extern bool dc_dfp_notify_discover_modes(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, bool ack);
-
-extern bool dc_dfp_notify_enter_mode(struct pd_port *pd_port,
-		struct svdm_svid_data *svid_data, uint8_t ops, bool ack);
-
-extern bool dc_dfp_notify_exit_mode(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, uint8_t ops);
-
-extern bool dc_dfp_notify_pe_startup(
-		struct pd_port *pd_port, struct svdm_svid_data *svid_data);
-
-extern int dc_dfp_notify_pe_ready(struct pd_port *pd_port,
-		struct svdm_svid_data *svid_data);
-
-extern bool dc_dfp_notify_uvdm(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data, bool ack);
-extern bool dc_ufp_notify_uvdm(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data);
-
-extern bool dc_reset_state(struct pd_port *pd_port,
-	struct svdm_svid_data *svid_data);
-
-extern bool dc_parse_svid_data(struct pd_port *pd_port,
-			struct svdm_svid_data *svid_data);
-#endif /* CONFIG_USB_PD_ALT_MODE_RTDC */
-
-
 /**
  * pd_dpm_get_ready_reaction
  *
@@ -336,23 +307,23 @@ extern uint8_t pd_dpm_get_ready_reaction(struct pd_port *pd_port);
 
 
 /* If receive reject/wait, cancel reaction */
-#define DPM_REACTION_REQUEST_PR_SWAP			(1<<0)
-#define DPM_REACTION_REQUEST_DR_SWAP			(1<<1)
-#define DPM_REACTION_GET_SINK_CAP				(1<<2)
-#define DPM_REACTION_GET_SOURCE_CAP			(1<<3)
-#define DPM_REACTION_ATTEMPT_GET_FLAG			(1<<4)
-#define DPM_REACTION_REQUEST_VCONN_SRC		(1<<5)
-#define DPM_REACTION_RETURN_VCONN_SRC		(1<<6)
-#define DPM_REACTION_REJECT_CANCEL		(1<<7)	/* FLAG ONLY */
+#define DPM_REACTION_REQUEST_PR_SWAP		BIT(0)
+#define DPM_REACTION_REQUEST_DR_SWAP		BIT(1)
+#define DPM_REACTION_GET_SINK_CAP		BIT(2)
+#define DPM_REACTION_GET_SOURCE_CAP		BIT(3)
+#define DPM_REACTION_ATTEMPT_GET_FLAG		BIT(4)
+#define DPM_REACTION_REQUEST_VCONN_SRC		BIT(5)
+#define DPM_REACTION_RETURN_VCONN_SRC		BIT(6)
+#define DPM_REACTION_REJECT_CANCEL		BIT(7)	/* FLAG ONLY */
 
-#define DPM_REACTION_DFP_FLOW_DELAY			(1<<10)
-#define DPM_REACTION_UFP_FLOW_DELAY			(1<<11)
-#define DPM_REACTION_VCONN_STABLE_DELAY		(1<<12)
+#define DPM_REACTION_DFP_FLOW_DELAY		BIT(8)
+#define DPM_REACTION_UFP_FLOW_DELAY		BIT(9)
+#define DPM_REACTION_VCONN_STABLE_DELAY		BIT(10)
 
-#define DPM_REACTION_DISCOVER_ID				(1<<16)
-#define DPM_REACTION_DISCOVER_SVID			(1<<17)
-#define DPM_REACTION_DISCOVER_CABLE			(1<<18)
-#define DPM_REACTION_DYNAMIC_VCONN			(1<<19)
+#define DPM_REACTION_DISCOVER_ID		BIT(11)
+#define DPM_REACTION_DISCOVER_SVIDS		BIT(12)
+#define DPM_REACTION_DISCOVER_CABLE		BIT(13)
+#define DPM_REACTION_DYNAMIC_VCONN		BIT(14)
 
 #define DPM_REACTION_DISCOVER_CABLE_FLOW	(\
 	DPM_REACTION_DISCOVER_CABLE | \
@@ -360,12 +331,12 @@ extern uint8_t pd_dpm_get_ready_reaction(struct pd_port *pd_port);
 	DPM_REACTION_VCONN_STABLE_DELAY |\
 	DPM_REACTION_DYNAMIC_VCONN)
 
-#define DPM_REACTION_GET_SOURCE_CAP_EXT		(1<<24)
+#define DPM_REACTION_GET_SOURCE_CAP_EXT		BIT(15)
 
-#define DPM_REACTION_CAP_RESET_CABLE			(1<<28)
-#define DPM_REACTION_CAP_READY_ONCE			(1<<29)
-#define DPM_REACTION_CAP_DISCOVER_CABLE		(1<<30)
-#define DPM_REACTION_CAP_ALWAYS				(1<<31)
+#define DPM_REACTION_CAP_RESET_CABLE		BIT(28)
+#define DPM_REACTION_CAP_READY_ONCE		BIT(29)
+#define DPM_REACTION_CAP_DISCOVER_CABLE		BIT(30)
+#define DPM_REACTION_CAP_ALWAYS			BIT(31)
 
 static inline void dpm_reaction_clear(struct pd_port *pd_port, uint32_t mask)
 {
@@ -374,7 +345,11 @@ static inline void dpm_reaction_clear(struct pd_port *pd_port, uint32_t mask)
 
 static inline void dpm_reaction_set(struct pd_port *pd_port, uint32_t mask)
 {
+	struct tcpc_device *tcpc = pd_port->tcpc;
+
 	pd_port->pe_data.dpm_ready_reactions |= mask;
+	atomic_inc(&tcpc->pending_event);
+	wake_up(&tcpc->event_wait_que);
 }
 
 static inline void dpm_reaction_set_ready_once(struct pd_port *pd_port)
@@ -386,9 +361,12 @@ static inline void dpm_reaction_set_ready_once(struct pd_port *pd_port)
 static inline void dpm_reaction_set_clear(
 	struct pd_port *pd_port, uint32_t set, uint32_t clear)
 {
+	struct tcpc_device *tcpc = pd_port->tcpc;
 	uint32_t val = pd_port->pe_data.dpm_ready_reactions | set;
 
 	pd_port->pe_data.dpm_ready_reactions = val & (~clear);
+	atomic_inc(&tcpc->pending_event);
+	wake_up(&tcpc->event_wait_que);
 }
 
 static inline uint32_t dpm_reaction_check(

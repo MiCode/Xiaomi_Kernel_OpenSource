@@ -9,6 +9,12 @@
 #include "kd_imgsensor.h"
 
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
+	{SC820CS_TRULY_MAIN_I_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K4H7YX03_AAC_MAIN_II_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K4H7_OFILM_MAIN_III_SENSOR_ID, 0xA2, Common_read_region},
+	{SC520CS_TRULY_FRONT_I_SENSOR_ID, 0xA2, Common_read_region},
+	{GC05A2_QTECH_FRONT_II_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K5E9_OFILM_FRONT_III_SENSOR_ID, 0xA2, Common_read_region},
 	/*Below is commom sensor */
 	{IMX230_SENSOR_ID, 0xA0, Common_read_region},
 	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},

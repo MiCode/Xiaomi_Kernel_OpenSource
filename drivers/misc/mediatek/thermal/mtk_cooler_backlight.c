@@ -43,22 +43,22 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 		switch (g_backlight_level) {
 		case 0:
 			/* 100% */
-			setMaxBrightness("lcd-backlight", 100, 0);
+			setMaxBrightness("lcd-backlight", 2047, 0);
 			break;
 		case 1:
 			/* 70% */
-			setMaxBrightness("lcd-backlight", 70, 0);
+			setMaxBrightness("lcd-backlight", 1433, 0);
 			break;
 		case 2:
 			/* 40% */
-			setMaxBrightness("lcd-backlight", 40, 1);
+			setMaxBrightness("lcd-backlight", 819, 1);
 			break;
 		case 3:
 			/* 10% */
-			setMaxBrightness("lcd-backlight", 10, 1);
+			setMaxBrightness("lcd-backlight", 205, 1);
 			break;
 		default:
-			setMaxBrightness("lcd-backlight", 100, 0);
+			setMaxBrightness("lcd-backlight", 2047, 0);
 			break;
 		}
 	}

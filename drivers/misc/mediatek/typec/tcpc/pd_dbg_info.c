@@ -1,176 +1,148 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (c) 2023 MediaTek Inc.
  */
 
-#include <linux/kernel.h>
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 #include <linux/module.h>
-#include <linux/version.h>
-#include <linux/delay.h>
-#include <linux/platform_device.h>
-#include <linux/sched.h>
-#include <linux/sched/clock.h>
 #include <linux/mutex.h>
-#include <linux/kthread.h>
+#include <linux/sched/clock.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
 #include "inc/pd_dbg_info.h"
 
-#if IS_ENABLED(CONFIG_PD_DBG_INFO)
+struct msg_node {
+	struct list_head list;
+	char msg[];
+};
 
-#define PD_INFO_BUF_SIZE	(2048*256)
-#define MSG_POLLING_MS		20
+/* line limits per second, 0: no limit, 1: disable dbg log */
+static unsigned int dbg_log_limit = 200;
+module_param(dbg_log_limit, uint, 0644);
 
-#define OUT_BUF_MAX (128)
-static struct {
-	int used;
-	int cnt;
-	char buf[PD_INFO_BUF_SIZE + 1 + OUT_BUF_MAX];
-} pd_dbg_buffer[2];
+static DEFINE_MUTEX(list_lock);
+static LIST_HEAD(msg_list);
+static void print_out_dwork_fn(struct work_struct *work);
+static DECLARE_DELAYED_WORK(print_out_dwork, print_out_dwork_fn);
 
-static bool dbg_log_en;
-module_param(dbg_log_en, bool, 0644);
-
-static struct mutex buff_lock;
-static unsigned int using_buf;
-static bool event_loop_thread_stop;
-static wait_queue_head_t event_loop_wait_que;
-static atomic_t busy = ATOMIC_INIT(0);
-static atomic_t pending_event = ATOMIC_INIT(0);
-
-void pd_dbg_info_lock(void)
+static void clean_up_list(void)
 {
-	atomic_inc(&busy);
+	struct msg_node *mn = NULL;
+
+	mutex_lock(&list_lock);
+	list_for_each_entry(mn, &msg_list, list) {
+		list_del(&mn->list);
+		kfree(mn);
+	}
+	mutex_unlock(&list_lock);
 }
-EXPORT_SYMBOL(pd_dbg_info_lock);
 
-void pd_dbg_info_unlock(void)
+static void print_out_dwork_fn(struct work_struct *work)
 {
-	atomic_dec_if_positive(&busy);
-}
-EXPORT_SYMBOL(pd_dbg_info_unlock);
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct msg_node *mn = NULL;
+	unsigned long j = jiffies;
+	bool empty = false;
+	static unsigned long begin;
+	static int printed;
 
-static inline bool pd_dbg_print_out(void)
-{
-	int used, cnt;
-	unsigned int index, i;
-	char *str;
-
-	mutex_lock(&buff_lock);
-	index = using_buf;
-	using_buf ^= 0x01; /* exchange buffer */
-	mutex_unlock(&buff_lock);
-
-	used = pd_dbg_buffer[index].used;
-
-	if (used == 0)
-		return false;
-	cnt = pd_dbg_buffer[index].cnt;
-
-	pr_info("///PD dbg info %d %d\n", used, cnt);
-
-	str = pd_dbg_buffer[index].buf;
-	for (i = 0; i < cnt; i++) {
-		while (atomic_read(&busy))
-			usleep_range(1000, 2000);
-
-		pr_info("%s", str);
-		str += strlen(str) + 1;
+	if (dbg_log_limit == 1) {
+		clean_up_list();
+		return;
 	}
 
-	/* pr_info("PD dbg info///\n"); */
-	pd_dbg_buffer[index].used = 0;
-	pd_dbg_buffer[index].cnt = 0;
-	msleep(MSG_POLLING_MS);
-	return true;
-}
+	if (!begin)
+		begin = j;
 
-static int print_out_thread_fn(void *arg)
-{
-	int ret = 0;
-	while (true) {
-		ret = wait_event_interruptible(event_loop_wait_que,
-					       atomic_read(&pending_event) |
-					       event_loop_thread_stop);
-		if (kthread_should_stop() || event_loop_thread_stop || ret) {
-			pr_notice("%s exits(%d)\n", __func__, ret);
-			break;
-		}
-		do {
-			atomic_dec_if_positive(&pending_event);
-		} while (pd_dbg_print_out());
+	if (time_after(j, begin + HZ)) {
+		begin = j;
+		printed = 0;
 	}
 
-	return 0;
+	if (dbg_log_limit && printed >= dbg_log_limit) {
+		mod_delayed_work(system_wq, dwork, begin + HZ - j + 1);
+		return;
+	}
+
+	mutex_lock(&list_lock);
+	if (list_empty(&msg_list))
+		goto list_unlock;
+	mn = list_first_entry(&msg_list, struct msg_node, list);
+	list_del(&mn->list);
+	empty = list_empty(&msg_list);
+list_unlock:
+	mutex_unlock(&list_lock);
+	if (!mn)
+		return;
+	if (!empty)
+		schedule_delayed_work(dwork, 0);
+
+	pr_notice("%s", mn->msg);
+	printed++;
+	kfree(mn);
 }
 
 int pd_dbg_info(const char *fmt, ...)
 {
-	unsigned int index;
+	size_t ts_size = 0, msg_size = 0, size = 0;
+	struct msg_node *mn = NULL;
+	u64 ts = 0;
+	unsigned long rem_msec = 0;
 	va_list args;
-	int r1, r2 = 0, used, left_size;
-	u64 ts;
-	unsigned long rem_usec;
 
-	if (!dbg_log_en)
-		return 0;
-
-	ts = local_clock();
-	rem_usec = do_div(ts, 1000000000) / 1000 / 1000;
-	va_start(args, fmt);
-	mutex_lock(&buff_lock);
-	index = using_buf;
-	used = pd_dbg_buffer[index].used;
-	left_size = PD_INFO_BUF_SIZE - used;
-	r1 = snprintf(pd_dbg_buffer[index].buf + used, left_size, "<%5lu.%03lu>",
-		(unsigned long)ts, rem_usec);
-	if (r1 <= 0 || r1 == left_size)
-		goto out;
-	left_size = PD_INFO_BUF_SIZE - (used + r1);
-	r2 = vsnprintf(pd_dbg_buffer[index].buf + used + r1, left_size, fmt, args);
-	if (r2 <= 0 || r2 == left_size)
-		goto out;
-	used += r1 + r2 + 1;
-
-	if (pd_dbg_buffer[index].used == 0) {
-		atomic_inc(&pending_event);
-		wake_up_interruptible(&event_loop_wait_que);
+	if (dbg_log_limit == 1) {
+		clean_up_list();
+		return -EPERM;
 	}
 
-	pd_dbg_buffer[index].used = used;
-	pd_dbg_buffer[index].cnt++;
-out:
-	mutex_unlock(&buff_lock);
+	ts = local_clock();
+	rem_msec = do_div(ts, NSEC_PER_SEC) / NSEC_PER_MSEC;
+	ts_size = snprintf(NULL, 0, "<%5lu.%03lu>", (unsigned long)ts, rem_msec);
+	va_start(args, fmt);
+	msg_size = vsnprintf(NULL, 0, fmt, args);
 	va_end(args);
-	return r2;
+
+	mn = kzalloc(sizeof(*mn) + ts_size + msg_size + 1, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(mn))
+		return -ENOMEM;
+
+	size = snprintf(mn->msg, ts_size + 1, "<%5lu.%03lu>", (unsigned long)ts, rem_msec);
+	WARN(ts_size != size, "different return values (%lu and %lu) from pd_dbg_info()",
+	     ts_size, size);
+
+	va_start(args, fmt);
+	size = vsnprintf(mn->msg + ts_size, msg_size + 1, fmt, args);
+	va_end(args);
+	WARN(msg_size != size,
+	     "different return values (%lu and %lu) from pd_dbg_info(\"%s\", ...)",
+	     msg_size, size, fmt);
+
+	mutex_lock(&list_lock);
+	list_add_tail(&mn->list, &msg_list);
+	mutex_unlock(&list_lock);
+	schedule_delayed_work(&print_out_dwork, 0);
+
+	return ts_size + msg_size;
 }
 EXPORT_SYMBOL(pd_dbg_info);
 
-static struct task_struct *print_out_tsk;
-
-int pd_dbg_info_init(void)
+static int __init pd_dbg_info_init(void)
 {
-	pr_info("%s\n", __func__);
-	mutex_init(&buff_lock);
-	print_out_tsk = kthread_create(
-			print_out_thread_fn, NULL, "pd_dbg_info");
-	init_waitqueue_head(&event_loop_wait_que);
-	atomic_set(&pending_event, 0);
-	wake_up_process(print_out_tsk);
+	pr_info("%s ++\n", __func__);
 	return 0;
 }
 
-void pd_dbg_info_exit(void)
+static void __exit pd_dbg_info_exit(void)
 {
-	event_loop_thread_stop = true;
-	wake_up_interruptible(&event_loop_wait_que);
-	kthread_stop(print_out_tsk);
-	mutex_destroy(&buff_lock);
+	pr_info("%s --\n", __func__);
+	flush_delayed_work(&print_out_dwork);
+	clean_up_list();
 }
 
 subsys_initcall(pd_dbg_info_init);
 module_exit(pd_dbg_info_exit);
 
 MODULE_DESCRIPTION("PD Debug Info Module");
-MODULE_AUTHOR("Patrick Chang <patrick_chang@richtek.com>");
+MODULE_AUTHOR("Lucas Tsai <lucas_tsai@richtek.com>");
 MODULE_LICENSE("GPL");
-
 #endif	/* CONFIG_PD_DBG_INFO */

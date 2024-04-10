@@ -106,6 +106,8 @@ obj-y += sensors-1.0/
 else
 obj-y += sensor/
 endif
+obj-$(CONFIG_SC_SC080CS_I) += imgsensor/src/common/v1/sc_sc080cs_i/
+obj-$(CONFIG_OFILM_BF30A2_II) += imgsensor/src/common/v1/ofilm_bf30a2_ii/
 obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_PRINTK) += mtprintk/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
@@ -135,3 +137,7 @@ obj-$(CONFIG_MTK_POWER_GS_LEGACY_V2) += power_gs_v1/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_LEGACY_THERMAL) += thermal/
 obj-$(CONFIG_MTK_MT6382_BDG) += spi_slave_drv/
+# BSP.System - 2023.9.6 - add simtray status
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/
+# Add cpumaxfreq
+obj-$(CONFIG_CPUMAXFREQ_SUPPORT) += cpumaxfreq/

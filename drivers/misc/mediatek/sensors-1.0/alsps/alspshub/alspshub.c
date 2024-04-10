@@ -39,7 +39,11 @@ struct alspshub_ipi_data {
 	bool ps_android_enable;
 	struct wakeup_source *ps_wake_lock;
 };
-
+extern int tp_proximity(void);
+extern void set_lct_tp_proximity_switch_status(bool en);
+extern bool ps_send_touch_event_probe;
+extern int (*tp_ps_send_touch_event)(int32_t data);
+static int ps_send_touch_event(int32_t data);
 static struct alspshub_ipi_data *obj_ipi_data;
 static int ps_get_data(int *value, int *status);
 
@@ -736,16 +740,30 @@ static int ps_open_report_data(int open)
 	return 0;
 }
 
+static int ps_send_touch_event(int32_t data){
+	int32_t touch_event = data;
+	int err = sensor_cfg_to_hub(ID_PROXIMITY,(uint8_t *)&touch_event,sizeof(touch_event));
+	pr_notice("ps_send_touch_event = %d",touch_event);
+	if (err < 0)
+		pr_err("sensor_cfg_to_hub fail\n");
+	return err;
+}
+
 static int ps_enable_nodata(int en)
 {
 	int res = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
-
-	pr_debug("obj_ipi_data als enable value = %d\n", en);
-	if (en == true)
+	ps_send_touch_event_probe = true;
+        tp_ps_send_touch_event = ps_send_touch_event;
+	if (en == true){
 		WRITE_ONCE(obj->ps_android_enable, true);
-	else
+			set_lct_tp_proximity_switch_status(1);
+			pr_err("enable proximity");
+	} else {
 		WRITE_ONCE(obj->ps_android_enable, false);
+			set_lct_tp_proximity_switch_status(0);
+			pr_err("disable proximity");
+		}
 
 	res = sensor_enable_to_hub(ID_PROXIMITY, en);
 	if (res < 0) {

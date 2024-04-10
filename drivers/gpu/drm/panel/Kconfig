@@ -40,6 +40,50 @@ config DRM_MTK_GENERAL_PANEL_DRV
 	  24 bit RGB per pixel and uses MIPI DSI interface to host
 	  add it to project then can used it
 
+config DRM_PANEL_DSI_PANEL_C3Y_NULL_HD_VDO
+	tristate "dsi panel c3y null HD VDO"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_NULL_HD_VDO
+	  Plus panel. The panel has a 720x1650
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_DSI_PANEL_C3Y_42_0F_0C_HD_VIDEO
+	tristate "dsi panel c3y 42 0f 0c hd video"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_42_0F_0C_FHDP_VIDEO
+	  Plus panel. The panel has a 1650x720
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_DSI_PANEL_C3Y_35_03_0B_HD_VIDEO
+	tristate "dsi panel c3y 35 03 0b hd video"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_35_03_0B_FHDP_VIDEO
+	  Plus panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_DSI_PANEL_C3Y_43_02_0A_HD_VIDEO
+	tristate "dsi panel c3y 43 02 0b hd video"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for CSOT,M12_43_02_0A_FHDP_VIDEO
+	  Plus panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+	  
 config DRM_PANEL_BOE_HIMAX8279D
 	tristate "Boe Himax8279d panel"
 	depends on OF

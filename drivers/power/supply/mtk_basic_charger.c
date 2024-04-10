@@ -58,7 +58,22 @@
 #include <linux/reboot.h>
 
 #include "mtk_charger.h"
+#include "mtk_battery.h"
 
+#define recharger_val  97
+#define wait_time      5          //5 seconds each time
+
+int recharger_flag = EVENT_RECHG_INIT;
+
+/* add for mtbf_current*/
+int mtbf_current = -1;
+EXPORT_SYMBOL(mtbf_current);
+
+int real_type = 0;
+EXPORT_SYMBOL(real_type);
+
+int gmsoc = -1;
+EXPORT_SYMBOL(gmsoc);
 static int _uA_to_mA(int uA)
 {
 	if (uA == -1)
@@ -67,12 +82,56 @@ static int _uA_to_mA(int uA)
 		return uA / 1000;
 }
 
+/* add cycle count*/
+static u32 get_charge_cycle_count_level(struct mtk_charger *info)
+{
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int ret;
+	u32 ffc_constant_voltage = 0;
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL || IS_ERR(psy)) {
+		pr_err("%s: failed to get battery psy\n", __func__);
+		return PTR_ERR(psy);
+	}
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &val);
+	if (ret) {
+		pr_err("%s: failed to read prop cycle count\n", __func__);
+		return ret;
+	}
+	pr_err("%s: prop cycle count = %d\n", __func__, val.intval);
+	if ((val.intval >= info->chg_cycle_count_level1) &&
+		(val.intval < info->chg_cycle_count_level2))
+			ffc_constant_voltage = info->ffc_cv_1;
+	else if ((val.intval >= info->chg_cycle_count_level2) &&
+		(val.intval < info->chg_cycle_count_level3))
+			ffc_constant_voltage = info->ffc_cv_2;
+	else if ((val.intval >= info->chg_cycle_count_level3) &&
+		(val.intval < info->chg_cycle_count_level4))
+			ffc_constant_voltage = info->ffc_cv_3;
+	else if (val.intval >= info->chg_cycle_count_level4)
+			ffc_constant_voltage = info->ffc_cv_4;
+	return ffc_constant_voltage;
+}
+
 static void select_cv(struct mtk_charger *info)
 {
 	u32 constant_voltage;
+	u32 ffc_constant_voltage = get_charge_cycle_count_level(info);
+	if (info->enable_sw_ffc) {
+		if (ffc_constant_voltage != 0) {
+			if ((info->enable_sw_jeita) && ( info->sw_jeita.cv != 0))
+				ffc_constant_voltage = (ffc_constant_voltage < info->sw_jeita.cv) ? 
+							ffc_constant_voltage : info->sw_jeita.cv;
+			pr_err("%s: constant voltage = %d\n", __func__, ffc_constant_voltage);
+			info->setting.cv = ffc_constant_voltage;
+			return;
+		}
+	}
 
 	if (info->enable_sw_jeita)
 		if (info->sw_jeita.cv != 0) {
+			pr_err("%s: sw_jeita.cv = %d\n", __func__, info->sw_jeita.cv);
 			info->setting.cv = info->sw_jeita.cv;
 			return;
 		}
@@ -123,6 +182,51 @@ static bool support_fast_charging(struct mtk_charger *info)
 	return ret;
 }
 
+#ifndef MIN
+#define MIN(x, y)   ((x) <= (y))? (x): (y)
+#endif  // MIN
+int jeita_current_limit(struct mtk_charger *info)
+{
+	if(IS_ERR_OR_NULL(info)) {
+		return false;
+	}
+
+	if (info->enable_sw_jeita) {
+		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
+			&& info->chr_type == POWER_SUPPLY_TYPE_USB) {
+			chr_debug("USBIF & STAND_HOST skip current check\n");
+		} else {
+			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
+				info->jeita_input_current_limit = info->data.ac_charger_input_current;
+				info->jeita_charging_current_limit = info->data.jeita_current_t0_to_t1;
+			} else if (info->sw_jeita.sm == TEMP_T1_TO_T2) {
+				info->jeita_input_current_limit = info->data.ac_charger_input_current;
+				info->jeita_charging_current_limit = info->data.jeita_current_t1_to_t2;
+			} else if (info->sw_jeita.sm == TEMP_T2_TO_T3) {
+				info->jeita_input_current_limit = info->data.ac_charger_input_current;
+				info->jeita_charging_current_limit = info->data.jeita_current_t2_to_t3;
+			} else if (info->sw_jeita.sm == TEMP_T3_TO_T4) {
+				info->jeita_input_current_limit = info->data.ac_charger_input_current;
+				info->jeita_charging_current_limit = info->data.jeita_current_t3_to_t4;
+			} else if (info->sw_jeita.sm == TEMP_T4_TO_T5) {
+				info->jeita_input_current_limit = info->data.ac_charger_input_current;
+				info->jeita_charging_current_limit = info->data.jeita_current_t4_to_t5;
+			} else {
+				info->jeita_input_current_limit = info->data.ac_charger_input_current;
+				info->jeita_charging_current_limit = 0;
+			}
+		}
+	}
+
+	chr_info("%s: jeita_input_current_limit: %d, jeita_charging_current_limit: %d\n",
+				__func__,
+				info->jeita_input_current_limit,
+				info->jeita_charging_current_limit);
+
+	return true;
+}
+
+extern int charger_manager_pd_is_online(void);
 static bool select_charging_current_limit(struct mtk_charger *info,
 	struct chg_limit_setting *setting)
 {
@@ -130,7 +234,17 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	bool is_basic = false;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret;
+	bool is_powerpath_en = true;
+	bool is_chg_suspend = true;
+	bool is_online_pd = false;
+	struct tcpm_power_cap cap;
+	struct tcpm_power_cap_val capv;
 
+	if(!info->tcpc) {
+		info->tcpc = tcpc_dev_get_by_name("type_c_port0");
+	}
+	
+	is_online_pd = charger_manager_pd_is_online();
 	select_cv(info);
 
 	pdata = &info->chg_data[CHG1_SETTING];
@@ -164,13 +278,34 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		&& (info->chr_type == POWER_SUPPLY_TYPE_USB ||
 		info->chr_type == POWER_SUPPLY_TYPE_USB_CDP)
 		) {
-		pdata->input_current_limit = 100000; /* 100mA */
-		is_basic = true;
-		goto done;
+		if(info->usb_type == POWER_SUPPLY_USB_TYPE_DCP){
+			pdata->input_current_limit = 1000000;
+			pdata->charging_current_limit = 1000000;
+		    is_basic = true;
+			goto done;
+		} else {	
+			pdata->input_current_limit = 500000; /* 500mA */
+			is_basic = true;
+			goto done;
+		}
 	}
 
-	if (info->chr_type == POWER_SUPPLY_TYPE_USB &&
+	if (is_online_pd) {
+		if(info->tcpc) {
+			ret = tcpm_inquire_pd_source_cap(info->tcpc, &cap);
+			tcpm_extract_power_cap_val(cap.pdos[0],	&capv);
+		}
+		if((cap.cnt == 1) && (cap.pdos[0] & PDO_FIXED_DUAL_ROLE)){
+			pdata->input_current_limit = 1500000;//capv.ma*1000;
+			pdata->charging_current_limit = 3500000;
+		} else {
+			pdata->input_current_limit = 2000000;
+			pdata->charging_current_limit = 3500000;
+		}
+		is_basic = false;
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB &&
 	    info->usb_type == POWER_SUPPLY_USB_TYPE_SDP) {
+		real_type = 1;
 		pdata->input_current_limit =
 				info->data.usb_charger_current;
 		/* it can be larger */
@@ -178,6 +313,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 				info->data.usb_charger_current;
 		is_basic = true;
 	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_CDP) {
+		real_type = 2;
 		pdata->input_current_limit =
 			info->data.charging_host_charger_current;
 		pdata->charging_current_limit =
@@ -185,6 +321,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		is_basic = true;
 
 	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_DCP) {
+		real_type = 3;
 		pdata->input_current_limit =
 			info->data.ac_charger_input_current;
 		pdata->charging_current_limit =
@@ -194,22 +331,25 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 				pdata->input_current_limit;
 			pdata2->charging_current_limit = 2000000;
 		}
+
 	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB &&
 	    info->usb_type == POWER_SUPPLY_USB_TYPE_DCP) {
 		/* NONSTANDARD_CHARGER */
-		pdata->input_current_limit =
-			info->data.usb_charger_current;
-		pdata->charging_current_limit =
-			info->data.usb_charger_current;
+		real_type = 5;
+		pdata->input_current_limit = 1000000;
+		pdata->charging_current_limit = 1000000;
 		is_basic = true;
 	} else {
 		/*chr_type && usb_type cannot match above, set 500mA*/
+		real_type = 5;
 		pdata->input_current_limit =
 				info->data.usb_charger_current;
 		pdata->charging_current_limit =
 				info->data.usb_charger_current;
 		is_basic = true;
 	}
+
+	pr_info("real_type2:%d  info->chr_type:%d info->usb_type:%d capv.ma:%d\n", real_type, info->chr_type, info->usb_type,capv.ma);
 
 	if (support_fast_charging(info))
 		is_basic = false;
@@ -225,6 +365,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 				pdata->input_current_limit_by_aicl =
 					info->data.max_dmivr_charger_current;
 		}
+
 		if (is_typec_adapter(info)) {
 			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
 				== 3000) {
@@ -246,18 +387,18 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 					TYPEC_RP_LEVEL));
 		}
 	}
+	chr_info("%s: pdata->input_current_limit: %d, pdata->charging_current_limit: %d\n",
+					__func__,
+					pdata->input_current_limit,
+					pdata->charging_current_limit);
 
-	if (info->enable_sw_jeita) {
-		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
-			&& info->chr_type == POWER_SUPPLY_TYPE_USB)
-			chr_debug("USBIF & STAND_HOST skip current check\n");
-		else {
-			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 350000;
-			}
-		}
+	ret = jeita_current_limit(info);
+	if (!ret) {
+		chr_err("%s: jeita_current_limit FAIL\n", __func__);
 	}
+
+	pdata->input_current_limit = MIN(pdata->input_current_limit, info->jeita_input_current_limit);
+	pdata->charging_current_limit = MIN(pdata->charging_current_limit, info->jeita_charging_current_limit);
 
 	sc_select_charging_current(info, pdata);
 
@@ -318,6 +459,30 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	info->setting.input_current_limit_dvchg1 =
 		pdata_dvchg->thermal_input_current_limit;
 
+		/* add mtbf */
+	if ((info->chr_type == POWER_SUPPLY_TYPE_USB_CDP) || (info->chr_type == POWER_SUPPLY_TYPE_USB)) {
+		if (mtbf_current >= 1500) {
+			pdata->charging_current_limit = 1500000;
+			pdata->input_current_limit = mtbf_current * 1000;
+		}
+
+		ret = charger_dev_is_powerpath_enabled(info->chg1_dev, &is_powerpath_en);
+		if (ret < 0)
+			{
+				chr_info("%s: mtbf get is power path enabled failed\n", __func__);
+			}
+
+			is_chg_suspend = input_suspend_get_flag();
+
+			chr_info("%s: mtbf before is_powerpath_en = %d, is_chg_suspend = %d\n", __func__, is_powerpath_en, is_chg_suspend);
+
+			if(0 == is_chg_suspend)
+			{
+				charger_dev_enable_powerpath(info->chg1_dev, true); //charging status: force open power path
+			}
+			chr_info("%s: mtbf after is_powerpath_en = %d, is_chg_suspend = %d\n", __func__, is_powerpath_en, is_chg_suspend);
+	}
+
 done:
 
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
@@ -361,30 +526,106 @@ done:
 	return is_basic;
 }
 
+int get_fg_batt_info(struct mtk_charger *info){
+	return gmsoc;
+}
+
+static int wait_fg_update_soc (bool flag, struct mtk_charger *info){
+	int loop;
+	int gauge_soc = 0;
+	if(flag == true){
+		for (loop = 0;loop < wait_time;loop++){
+			gauge_soc = get_fg_batt_info(info);
+			if (gauge_soc != 100){
+				msleep(5000);
+			}else return true;
+		}
+		return false;
+	} else return false;
+}
+
 static int do_algorithm(struct mtk_charger *info)
 {
 	struct chg_alg_device *alg;
 	struct charger_data *pdata;
 	struct chg_alg_notify notify;
 	bool is_basic = true;
-	bool chg_done = false;
+	bool chg_done = false,block_flag = false;
 	int i;
 	int ret;
 	int val = 0;
+	int real_soc = 0;
+	int current_bat_temp = 0;
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
 	is_basic = select_charging_current_limit(info, &info->setting);
+	current_bat_temp = get_battery_temperature(info);
 
+	real_soc = get_fg_batt_info(info);
+	chr_err("do_algorithm info->is_chg_done:%d,chg_done:%d,recharger_flag:%d,real_soc:%d\n",
+				info->is_chg_done,chg_done,recharger_flag,real_soc);
+
+	if (current_bat_temp < info->data.temp_t4_thres) {
 	if (info->is_chg_done != chg_done) {
 		if (chg_done) {
 			charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
-			info->polling_interval = CHARGING_FULL_INTERVAL;
-			chr_err("%s battery full\n", __func__);
-		} else {
-			charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
-			info->polling_interval = CHARGING_INTERVAL;
-			chr_err("%s battery recharge\n", __func__);
+				recharger_flag = EVENT_RECHG_FULL;
+				block_flag = true;
+				chr_err("%s %d  battery full\n", __func__,__LINE__);
+			} else {
+				if (recharger_flag == EVENT_RECHG_FULL && real_soc <= recharger_val) {
+					charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+					recharger_flag = EVENT_RECHG_START;
+					chr_err("%s %d  battery recharge\n", __func__,__LINE__);
+				} else if (recharger_flag == EVENT_RECHG_BLOCK && real_soc <= recharger_val) {
+					charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+					recharger_flag = EVENT_RECHG_START;
+					chr_err("%s %d real_soc:%d  <= recharger_val:%d ,battery recharge is success\n",
+						__func__,__LINE__,real_soc,recharger_val);
+				} else if(recharger_flag == EVENT_RECHG_FULL && real_soc > recharger_val) {
+					recharger_flag = EVENT_RECHG_BLOCK;
+					chr_err("%s %dreal_soc:%d  > recharger_val:%d ,battery recharge is block\n",
+							__func__,__LINE__,real_soc,recharger_val);
+				} else if (recharger_flag == EVENT_RECHG_BLOCK && real_soc > recharger_val) {
+					chr_err("%s %d real_soc:%d  > recharger_val:%d ,battery recharge is block\n",
+							__func__,__LINE__,real_soc,recharger_val);
+				}
+			}
+		}
+		chr_err("%s %d :block_flag = %d\n", __func__,__LINE__,block_flag);
+
+		switch (recharger_flag) {
+		case EVENT_RECHG_FULL:
+			if (real_soc <= recharger_val && block_flag == false) {
+				charger_dev_enable(info->chg1_dev, false);
+				charger_dev_enable(info->chg1_dev, true);
+				charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+				recharger_flag = EVENT_RECHG_START;
+				chg_done = false;
+				chr_err("%s %d battery recharge\n", __func__,__LINE__);
+				break;
+			} else break;
+		case EVENT_RECHG_START:
+			break;
+		case EVENT_RECHG_BLOCK:
+			chg_done = info->is_chg_done;
+			break;
+		default:
+			break;
+		}
+	} else {
+		if (info->is_chg_done != chg_done) {
+			if (chg_done) {
+				charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
+				recharger_flag = EVENT_RECHG_FULL;
+				block_flag = true;
+				chr_err("%s battery full\n", __func__);
+			} else {
+				charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+				recharger_flag = EVENT_RECHG_START;
+				chr_err("%s battery recharge\n", __func__);
+			}
 		}
 	}
 
@@ -475,7 +716,7 @@ static int do_algorithm(struct mtk_charger *info)
 		charger_dev_set_charging_current(info->chg1_dev,
 			pdata->charging_current_limit);
 
-		chr_debug("%s:old_cv=%d,cv=%d, vbat_mon_en=%d\n",
+		chr_err("%s:old_cv=%d,cv=%d, vbat_mon_en=%d\n",
 			__func__,
 			info->old_cv,
 			info->setting.cv,
@@ -499,8 +740,9 @@ static int do_algorithm(struct mtk_charger *info)
 		}
 	}
 
+	chr_info("%s recharger_flag = %d\n",__func__,recharger_flag);
 	if (pdata->input_current_limit == 0 ||
-	    pdata->charging_current_limit == 0)
+	    pdata->charging_current_limit == 0 || recharger_flag == EVENT_RECHG_BLOCK)
 		charger_dev_enable(info->chg1_dev, false);
 	else {
 		alg = get_chg_alg_by_name("pe5");
@@ -515,6 +757,10 @@ static int do_algorithm(struct mtk_charger *info)
 	if (info->chg2_dev != NULL)
 		charger_dev_dump_registers(info->chg2_dev);
 
+	wait_fg_update_soc(block_flag, info);
+
+	chr_err("algo end  info->is_chg_done:%d,chg_done:%d,recharger_flag:%d\n",
+                                info->is_chg_done,chg_done,recharger_flag);
 	return 0;
 }
 

@@ -2569,7 +2569,9 @@ static int __init aed_init(void)
 	pr_notice("aee kernel api ready");
 
 	mtk_slog_init();
-
+#if IS_ENABLED(CONFIG_MTK_LAST_KMSG)
+	last_kmsg_driver_init();
+#endif
 	return err;
 }
 

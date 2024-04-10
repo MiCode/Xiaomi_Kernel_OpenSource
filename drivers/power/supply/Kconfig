@@ -902,6 +902,18 @@ config MTK_CHARGER
 	  maintains charging status.
 	  Say no if not using MediaTek charging driver.
 
+config SC8960X_CHARGER
+        tristate "SC8960X Charger driver"
+        help
+          If you say yes here you will get support for the SC8960X Charge.
+          This driver can give support for SC8960X Interface.
+
+config CHARGER_SGM415xx
+        tristate "SGM415xx Charger driver"
+        help
+          If you say yes here you will get support for the SGM415xx Charge.
+          This driver can give support for SGM415xx Interface.
+
 config MT6357_DO_CTD
 	tristate "MT6370 get charger online from MT6357"
 	help

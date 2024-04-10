@@ -15,8 +15,13 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <tcpm.h>
+#include <mtk_battery.h>
 
 #define MTK_CTD_DRV_VERSION	"1.0.0_MTK"
+
+/* Add for typec_mode */
+int typec_mode = -1;
+EXPORT_SYMBOL(typec_mode);
 
 struct mtk_ctd_info {
 	struct device *dev;
@@ -154,7 +159,7 @@ static void handle_pd_rdy_attach(struct mtk_ctd_info *mci, struct tcp_notify *no
 		mci->pd_rdy = true;
 		mutex_unlock(&mci->attach_lock);
 
-		usb_comm = tcpm_is_comm_capable(mci->tcpc_dev);
+		usb_comm = tcpm_inquire_usb_comm(mci->tcpc_dev);
 		tcpm_get_remote_power_cap(mci->tcpc_dev, &cap);
 		watt = cap.max_mv[0] * cap.ma[0];
 		dev_info(mci->dev, "%s: mv:%d, ma:%d, watt: %d\n",
@@ -184,6 +189,25 @@ static void handle_audio_attach(struct mtk_ctd_info *mci, struct tcp_notify *not
 	}
 }
 
+static int get_source_mode(struct tcp_notify *noti)
+{
+	if (noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC || noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)
+		return PSY_TYPEC_SOURCE_DEFAULT;
+
+	switch (noti->typec_state.rp_level) {
+	case TYPEC_CC_VOLT_SNK_1_5:
+		return PSY_TYPEC_SOURCE_MEDIUM;
+	case TYPEC_CC_VOLT_SNK_3_0:
+		return PSY_TYPEC_SOURCE_HIGH;
+	case TYPEC_CC_VOLT_SNK_DFT:
+		return PSY_TYPEC_SOURCE_DEFAULT;
+	default:
+		break;
+	}
+
+	return PSY_TYPEC_NONE;
+}
+
 static int pd_tcp_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
@@ -206,6 +230,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
 			pr_info("%s USB Plug in, pol = %d\n", __func__,
 					noti->typec_state.polarity);
+			typec_mode = get_source_mode(noti);
 			handle_typec_pd_attach(mci, ATTACH_TYPE_TYPEC);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
@@ -213,6 +238,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			pr_info("%s USB Plug out\n", __func__);
+			typec_mode = PSY_TYPEC_NONE;
 			if (mci->tcpc_kpoc) {
 				pr_info("%s: typec unattached, power off\n",
 					__func__);
@@ -235,10 +261,25 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			pr_info("%s Source_to_Sink, turn to PD Flow\n", __func__);
+			typec_mode = PSY_TYPEC_SINK;
 		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			pr_info("%s Sink_to_Source\n", __func__);
+			typec_mode = get_source_mode(noti);
 			handle_typec_pd_attach(mci, ATTACH_TYPE_NONE);
+		}  else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		    	noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
+			pr_info("%s None_to_Sink\n", __func__);
+			typec_mode = PSY_TYPEC_SINK;
+		}  else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		    	noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			pr_info("%s None_to_AUDIO\n", __func__);
+			typec_mode = PSY_TYPEC_SINK_AUDIO_ADAPTER;
+		}  else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
+				noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO) &&
+		    	noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			pr_info("%s otg plug out\n", __func__);
+			typec_mode = PSY_TYPEC_NONE;
 		}
 		break;
 	case TCP_NOTIFY_EXT_DISCHARGE:

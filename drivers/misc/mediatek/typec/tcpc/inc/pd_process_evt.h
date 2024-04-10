@@ -68,9 +68,9 @@ static inline uint8_t pe_get_curr_evaluate_pr_swap_state(
 	struct pd_port *pd_port)
 {
 	if (pd_port->power_role == PD_ROLE_SINK)
-		return PE_PRS_SNK_SRC_EVALUATE_PR_SWAP;
+		return PE_PRS_SNK_SRC_EVALUATE_SWAP;
 
-	return PE_PRS_SRC_SNK_EVALUATE_PR_SWAP;
+	return PE_PRS_SRC_SNK_EVALUATE_SWAP;
 }
 
 static inline uint8_t pe_get_curr_send_pr_swap_state(

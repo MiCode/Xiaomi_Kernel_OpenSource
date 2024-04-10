@@ -17,13 +17,13 @@ DECL_PE_STATE_TRANSITION(PD_DPM_MSG_ACK) = {
 DECL_PE_STATE_REACTION(PD_DPM_MSG_ACK);
 
 /*
- * [BLOCK] Porcess PD Ctrl MSG
+ * [BLOCK] Process PD Ctrl MSG
  */
 
 static inline bool pd_process_ctrl_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
-	uint8_t vconn_state = pd_port->vconn_role ?
+	uint8_t vconn_state = tcpm_inquire_pd_vconn_role(pd_port->tcpc) ?
 		PE_VCS_WAIT_FOR_VCONN : PE_VCS_TURN_ON_VCONN;
 
 	switch (pd_event->msg) {
@@ -50,7 +50,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess DPM MSG
+ * [BLOCK] Process DPM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -71,7 +71,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 
 static inline bool pd_process_timer_msg(
@@ -83,7 +83,7 @@ static inline bool pd_process_timer_msg(
 			return true;
 		break;
 
-#if CONFIG_USB_PD_VCONN_READY_TOUT != 0
+#if CONFIG_USB_PD_VCONN_READY_TOUT
 	case PD_TIMER_VCONN_READY:
 		PE_STATE_DPM_ACK_IMMEDIATELY(pd_port);
 		break;

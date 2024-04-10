@@ -1653,6 +1653,24 @@ static void u2_phy_instance_exit(struct mtk_tphy *tphy,
 	}
 }
 
+#define PHY_PARAM_SELECT "dsi_panel_c3y_null_hd_vdo"
+static bool is_lcmconnected = true;
+
+static void get_panel_info(void)
+{
+	struct device_node *of_chosen;
+	unsigned long size = 0;
+	char *bootargs;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(of_chosen,
+			"lcd_name", (int *)&size);
+		if (bootargs && strstr(bootargs, PHY_PARAM_SELECT))
+			is_lcmconnected = false;
+	}
+}
+
 static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 				     struct mtk_phy_instance *instance,
 				     enum phy_mode mode,
@@ -1668,10 +1686,26 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 		tmp = readl(u2_banks->com + U3P_U2PHYDTM1);
 		switch (mode) {
 		case PHY_MODE_USB_DEVICE:
+			if (is_lcmconnected == 0)
+			{
+				instance->eye_vrt = 5;
+				instance->eye_term = 5;
+				instance->rev6 = 3;
+			}
+			else if (is_lcmconnected == 1)
+			{
+				dev_info(tphy->dev, "this case has lcm\n");
+				instance->eye_vrt = 6;
+				instance->eye_term = 5;
+				instance->rev6 = 3;
+			}
 			u2_phy_props_set(tphy, instance);
 			tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
 			break;
 		case PHY_MODE_USB_HOST:
+			instance->eye_vrt_host = 3;
+			instance->eye_term_host = 2;
+			instance->rev6_host = 1;
 			u2_phy_host_props_set(tphy, instance);
 			tmp |= P2C_FORCE_IDDIG;
 			tmp &= ~P2C_RG_IDDIG;
@@ -2698,6 +2732,7 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 
 	mtk_phy_procfs_init(tphy);
 
+	get_panel_info();  /* parse panel info */
 	provider = devm_of_phy_provider_register(dev, mtk_phy_xlate);
 
 	return PTR_ERR_OR_ZERO(provider);

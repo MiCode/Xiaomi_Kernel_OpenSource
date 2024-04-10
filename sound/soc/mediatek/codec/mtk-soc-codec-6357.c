@@ -62,6 +62,26 @@
 #include <linux/nvmem-consumer.h>
 
 #include "mtk-soc-speaker-amp.h"
+#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+#include "../../codecs/fs15xx/fs15xx.h"
+extern int fs15xx_set_mode(int mode);
+#endif
+#if IS_ENABLED(CONFIG_LCT_AUDIO_INFO)
+extern int lct_audio_info_create_sysfs(void);
+#endif
+#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+enum {
+	AUDIO_SCENE_PLAYBACK = 0,
+	AUDIO_SCENE_VOICE,
+	AUDIO_SCENE_VOIP,
+	AUDIO_SCENE_RECEIVER,
+	AUDIO_SCENE_FACTORY,
+	AUDIO_SCENE_FM,
+	AUDIO_SCENE_NUM
+};
+extern int sipa_multi_channel_power_on_and_set_scene(uint32_t scene, uint8_t pa_idx);
+extern int sipa_multi_channel_power_off(uint8_t pa_idx);
+#endif
 
 /* Use analog setting to do dc compensation */
 #define ANALOG_HPTRIM
@@ -3417,6 +3437,41 @@ static int PMIC_REG_CLEAR_Get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+enum {
+	AUDIO_AMP_SCENE_PLAYBACK = 0,
+	AUDIO_AMP_SCENE_RECEIVER,
+	AUDIO_AMP_SCENE_FM,
+	AUDIO_AMP_SCENE_VOICE,
+	AUDIO_AMP_SCENE_VOIP,
+	AUDIO_AMP_SCENE_BYPASS,
+	AUDIO_AMP_SCENE_NUM
+};
+static int spk_amp_mode;
+static const char *spk_amp_type_str[] = {"PLAYBACK", "RECIEVER", "FM", "VOICE", "VOIP", "BYPASS"};
+static const struct soc_enum spk_amp_type_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(spk_amp_type_str), spk_amp_type_str);
+
+static int mt6357_spk_amp_mode_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	pr_info("%s() = %d\n", __func__, spk_amp_mode);
+	ucontrol->value.integer.value[0] = spk_amp_mode;
+	return 0;
+}
+
+static int mt6357_spk_amp_mode_set(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+
+	if (ucontrol->value.enumerated.item[0] >= e->items)
+		return -EINVAL;
+
+	spk_amp_mode = ucontrol->value.integer.value[0];
+	pr_info("%s() = %d\n", __func__, spk_amp_mode);
+	return 0;
+}
+
 static void Voice_Amp_Change(bool enable)
 {
 	if (enable) {
@@ -3615,12 +3670,75 @@ static void Speaker_Amp_Change(bool enable)
 		Ana_Set_Reg(AUDDEC_ANA_CON4, 0x011b, 0xffff);
 		/* disable Pull-down HPL/R to AVSS28_AUD */
 		hp_pull_down(false);
-
+		if (AUDIO_AMP_SCENE_PLAYBACK == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kplayback()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			/* mode0->off mode1->receiver mode4->spk refer to fs15xx_mode_text */
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_PLAYBACK, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_RECEIVER == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kreceiver()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(1);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_RECEIVER, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_FM == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kfm()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_FM, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_VOICE == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kvoice()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_VOICE, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_VOIP == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kvoip()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_VOIP, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_BYPASS == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kbypass()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_FACTORY, 1);
+			#endif
+		} else {
+			pr_info("%s(), spk_amp_audio_kplayback()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_PLAYBACK, 1);
+			#endif
+		}
 	} else {
 		pr_debug("%s(), enable %d\n", __func__, enable);
 		/* LOL mux to open */
 		Ana_Set_Reg(AUDDEC_ANA_CON4, 0x0000, 0x3 << 2);
 		if (GetDLStatus() == false) {
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(0);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_off(1);
+			#endif
 			/* Pull-down HPL/R to AVSS28_AUD */
 			hp_pull_down(true);
 
@@ -3901,7 +4019,64 @@ static void Headset_Speaker_Amp_Change(bool enable)
 #endif
 		/* disable Pull-down HPL/R to AVSS28_AUD */
 		hp_pull_down(false);
-
+		if (AUDIO_AMP_SCENE_PLAYBACK == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kplayback()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			/* mode0->off mode1->receiver mode4->spk refer to fs15xx_mode_text */
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_PLAYBACK, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_RECEIVER == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kreceiver()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(1);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_RECEIVER, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_FM == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kfm()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_FM, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_VOICE == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kvoice()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_VOICE, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_VOIP == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kvoip()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_VOIP, 1);
+			#endif
+		} else if (AUDIO_AMP_SCENE_BYPASS == spk_amp_mode) {
+			pr_info("%s(), spk_amp_audio_kbypass()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_FACTORY, 1);
+			#endif
+		} else {
+			pr_info("%s(), spk_amp_audio_kplayback()\n", __func__);
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(4);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_on_and_set_scene(AUDIO_SCENE_PLAYBACK, 1);
+			#endif
+		}
 	} else {
 		/* Pull-down HPL/R to AVSS28_AUD */
 		hp_pull_down(true);
@@ -3911,6 +4086,12 @@ static void Headset_Speaker_Amp_Change(bool enable)
 		/* Audio left headphone input selection (00) open / open */
 		set_input_mux(0);
 		if (GetDLStatus() == false) {
+			#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+			fs15xx_set_mode(0);
+			#endif
+			#if IS_ENABLED(CONFIG_SND_SOC_SIA81XX)
+			sipa_multi_channel_power_off(1);
+			#endif
 			Ana_Set_Reg(AUDDEC_ANA_CON6, 0x0000, 0x0001);
 			/* Disable Audio DAC */
 			Ana_Set_Reg(AUDDEC_ANA_CON0, 0x0000, 0x000f);
@@ -4428,6 +4609,8 @@ static const struct snd_kcontrol_new mt6357_snd_controls[] = {
 		     Audio_AmpR_Set),
 	SOC_ENUM_EXT("Audio_Amp_L_Switch", Audio_DL_Enum[1], Audio_AmpL_Get,
 		     Audio_AmpL_Set),
+	SOC_ENUM_EXT("SPK_AMP_MODE", spk_amp_type_enum,
+		     mt6357_spk_amp_mode_get, mt6357_spk_amp_mode_set),
 	SOC_ENUM_EXT("Voice_Amp_Switch", Audio_DL_Enum[2], Voice_Amp_Get,
 		     Voice_Amp_Set),
 	SOC_ENUM_EXT("Speaker_Amp_Switch", Audio_DL_Enum[3],
@@ -5973,6 +6156,8 @@ static void mt6357_codec_init_reg(struct snd_soc_component *component)
 	/* disable LO buffer left short circuit protection */
 	Ana_Set_Reg(AUDDEC_ANA_CON4, 0x1 << 4, 0x1 << 4);
 	/* set gpio */
+	/* AUDENC_ANA_CON10 bit12 EINTHIRENB 0:2M 1:500k */
+	Ana_Set_Reg(AUDENC_ANA_CON10, 0x1c07, 0xffff);
 	set_playback_gpio(false);
 	set_capture_gpio(false);
 	audckbufEnable(false);
@@ -6039,6 +6224,9 @@ static int mt6357_component_probe(struct snd_soc_component *component)
 				   ARRAY_SIZE(mt6357_pmic_Test_controls));
 	snd_soc_add_component_controls(component, Audio_snd_auxadc_controls,
 				   ARRAY_SIZE(Audio_snd_auxadc_controls));
+	#if IS_ENABLED(CONFIG_SND_SOC_FS15XX)
+	fs15xx_add_codec_kcontrol(component);
+	#endif
 	/* here to set  private data */
 	mCodec_data = kzalloc(sizeof(struct mt6357_codec_priv), GFP_KERNEL);
 	if (!mCodec_data) {
@@ -6096,6 +6284,10 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 
 	pr_info("%s: ++\n", __func__);
 	InitGlobalVarDefault();
+
+#if IS_ENABLED(CONFIG_LCT_AUDIO_INFO)
+	lct_audio_info_create_sysfs();
+#endif
 
 	mCodec_priv = devm_kzalloc(&pdev->dev,
 			    sizeof(struct mt6357_priv),

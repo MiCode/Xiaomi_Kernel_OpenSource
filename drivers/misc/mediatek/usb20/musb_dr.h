@@ -15,6 +15,7 @@
 #include <mtk_musb.h>
 #include <usb20.h>
 
+extern bool is_usb_host(void);
 #if IS_ENABLED(CONFIG_USB_MTK_OTG) || IS_ENABLED(CONFIG_MTK_MUSB_DUAL_ROLE)
 int musb_host_init(struct musb *musb, struct device_node *parent_dn);
 void musb_host_exit(struct musb *musb);

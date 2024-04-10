@@ -19,6 +19,13 @@ config MTK_AEE_AED
 	  aed main: aed main function and ioctl for user space aee
 	  monitor hang: detect hang feature...
 
+
+config MTK_LAST_KMSG
+	bool "export /proc/last_kmsg"
+	depends on MTK_AEE_AED
+	help
+	  LASG KMSG support
+
 config MTK_AEE_IPANIC
 	tristate "Enable AEE Kernel Panic Dump"
 	depends on MTK_AEE_FEATURE
