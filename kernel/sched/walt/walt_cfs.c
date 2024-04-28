@@ -119,6 +119,7 @@ struct find_best_target_env {
  * utilization of the specified task, whenever the task is currently
  * contributing to the CPU utilization.
  */
+
 static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	unsigned int util;
@@ -331,7 +332,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 	cpumask_t visit_cpus;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	int packing_cpu;
-
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
@@ -348,7 +348,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 		stop_index = 0;
 		most_spare_wake_cap = LONG_MIN;
 	}
-
 	/* fast path for packing_cpu */
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(start_cpu, p);
 	if (packing_cpu >= 0) {
@@ -373,7 +372,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 		target_max_spare_cap = 0;
 		min_exit_latency = INT_MAX;
 		best_idle_cuml_util = ULONG_MAX;
-
 		cpumask_and(&visit_cpus, p->cpus_ptr,
 				&cpu_array[order_index][cluster]);
 		for_each_cpu(i, &visit_cpus) {
@@ -863,12 +861,14 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 
 	wts = (struct walt_task_struct *) p->android_vendor_data1;
 	pipeline_cpu = wts->pipeline_cpu;
+
 	if ((wts->low_latency & WALT_LOW_LATENCY_MASK) &&
 			(pipeline_cpu != -1) &&
 			walt_task_skip_min_cpu(p) &&
 			cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
 			cpu_active(pipeline_cpu) &&
-			!cpu_halted(pipeline_cpu)) {
+			!cpu_halted(pipeline_cpu))
+	{
 		if (!walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr)) {
 			best_energy_cpu = pipeline_cpu;
 			fbt_env.fastpath = PIPELINE_FASTPATH;

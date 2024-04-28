@@ -282,7 +282,7 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 		pool_list[i]->prerelease_callback = callback;
 		atomic_set(&pool_list[i]->count, 0);
 		pool_list[i]->last_low_watermark_ktime = 0;
-
+						
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;
 

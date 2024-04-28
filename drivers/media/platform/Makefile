@@ -26,6 +26,7 @@ obj-y += sunxi/
 obj-y += ti/
 obj-y += verisilicon/
 obj-y += via/
+obj-y += xiaomi/
 obj-y += xilinx/
 
 # Please place here only ancillary drivers that aren't SoC-specific

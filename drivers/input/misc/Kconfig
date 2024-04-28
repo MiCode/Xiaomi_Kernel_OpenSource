@@ -949,4 +949,7 @@ config INPUT_STPMIC1_ONKEY
 	  To compile this driver as a module, choose M here: the
 	  module will be called stpmic1_onkey.
 
+source "drivers/input/misc/aw8622x_haptic/Kconfig"
+source "drivers/input/misc/aw86927_haptic/Kconfig"
+source "drivers/input/misc/si_haptic/Kconfig"
 endif

@@ -269,9 +269,6 @@
 #required by touch module
   power_supply_is_system_supplied
 
-#required by mi-power.ko
-  class_create_file_ns
-
 #required by mi_mempool.ko
   __traceiter_android_vh_alloc_pages_reclaim_bypass
   __traceiter_android_vh_alloc_pages_failure_bypass
@@ -332,6 +329,16 @@
 #required by xm_ispv4_pcie.ko
   pci_ioremap_bar
   pci_disable_pcie_error_reporting
+
+#required by brcm_xgbe.ko
+  cpumask_local_spread
+  udp_tunnel_nic_ops
+  netdev_reset_tc
+  netdev_set_num_tc
+  netdev_set_tc_queue
+  pci_select_bars
+  pci_sriov_set_totalvfs
+  pci_num_vf
 
 #required by lock_optimization module
   __traceiter_android_vh_record_pcpu_rwsem_time_early

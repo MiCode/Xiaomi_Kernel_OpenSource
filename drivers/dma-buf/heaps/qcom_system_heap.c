@@ -397,7 +397,6 @@ void qcom_system_heap_free(struct qcom_sg_buffer *buffer)
 			PAGE_ALIGN(buffer->len) / PAGE_SIZE);
 }
 
-
 struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **pools,
 						   unsigned long size,
 						   unsigned int max_order,
@@ -470,9 +469,9 @@ int system_qcom_sg_buffer_alloc(struct dma_heap *heap,
 			goto free_mem;
 
 		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
-							     size_remaining,
-							     max_order,
-							     movable);
+									size_remaining,
+									max_order,
+									movable);
 		if (!page)
 			goto free_mem;
 

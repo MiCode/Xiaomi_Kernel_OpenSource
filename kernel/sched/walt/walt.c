@@ -22,6 +22,7 @@
 #include <trace/hooks/cgroup.h>
 #include "walt.h"
 #include "trace.h"
+#include "penalty.h"
 
 const char *task_event_names[] = {
 	"PUT_PREV_TASK",
@@ -50,8 +51,8 @@ const char *migrate_type_names[] = {
 cpumask_t walt_cpus_taken_mask = { CPU_BITS_NONE };
 DEFINE_SPINLOCK(cpus_taken_lock);
 DEFINE_PER_CPU(int, cpus_taken_refcount);
-
 DEFINE_PER_CPU(struct walt_rq, walt_rq);
+
 unsigned int sysctl_sched_user_hint;
 static u64 sched_clock_last;
 static bool walt_clock_suspended;
@@ -79,6 +80,9 @@ unsigned int __read_mostly sched_init_task_load_windows;
  * sched_load_granule.
  */
 unsigned int __read_mostly sched_load_granule;
+static u64 penalize_yield(u64 delta, struct walt_task_struct *wts);
+struct sched_opt opts;
+static bool opts_init = false;
 
 unsigned int enable_pipeline_boost;
 
@@ -519,6 +523,7 @@ static bool is_ed_task_present(struct rq *rq, u64 wallclock, struct task_struct 
 
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+
 /*
  * Return total number of tasks "eligible" to run on higher capacity cpus
  */
@@ -655,6 +660,7 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 	unsigned long capacity = capacity_orig_of(cpu);
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
 
+	struct walt_sched_cluster *cluster = wrq->cluster;
 	util = scale_time_to_util(freq_policy_load(rq, reason));
 
 	/*
@@ -670,7 +676,10 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 
 		wrq->old_busy_time = util;
 		wrq->old_estimated_time = pl;
-
+		/* sched_opt */
+		if(opts_init && opts.policy_load) {
+			opts.policy_load(cluster, &util, &pl);
+		}
 		nl = scale_time_to_util(nl);
 		walt_load->nl = nl;
 		walt_load->pl = pl;
@@ -1051,6 +1060,7 @@ static inline bool is_new_task(struct task_struct *p)
 
 	return wts->active_time < NEW_TASK_ACTIVE_TIME;
 }
+
 static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *rq);
 
 static void migrate_busy_time_subtraction(struct task_struct *p, int new_cpu)
@@ -1605,7 +1615,15 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq, struct walt_task_str
 
 	if (wts->load_boost && wts->grp && wts->grp->skip_min)
 		delta = (delta * (1024 + wts->boosted_task_load) >> 10);
+	/* sched_opt */
+	delta = penalize_yield(delta, wts);
+	return delta;
+}
 
+static u64 penalize_yield(u64 delta, struct walt_task_struct *wts)
+{
+	if (opts_init && opts.penalize_yield)
+		opts.penalize_yield(&delta, wts);
 	return delta;
 }
 
@@ -1659,6 +1677,13 @@ static void rollover_cpu_window(struct rq *rq, bool full_window)
 	wrq->nt_curr_runnable_sum = 0;
 	wrq->grp_time.curr_runnable_sum = 0;
 	wrq->grp_time.nt_curr_runnable_sum = 0;
+}
+
+/* sched_opt normalized yield time */
+static void update_yield_time(struct walt_rq *wrq, struct walt_task_struct *wts)
+{
+	if (opts_init && opts.update_yield_util)
+		opts.update_yield_util(wrq, wts);
 }
 
 /*
@@ -1729,6 +1754,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	int cpu = rq->cpu;
 	u32 old_curr_window = wts->curr_window;
 
+	update_yield_time(wrq, wts);
 	walt_lockdep_assert_rq(rq, p);
 
 	new_window = mark_start < window_start;
@@ -1951,9 +1977,12 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	}
 
 done:
-	if (!is_idle_task(p))
+	if (!is_idle_task(p)) {
+		if (new_window && opts_init && opts.rollover_task_window)
+			opts.rollover_task_window(wrq, rq, p);
 		update_top_tasks(p, rq, old_curr_window,
 					new_window, full_window);
+	}
 }
 
 static inline u16 predict_and_update_buckets(
@@ -2203,6 +2232,8 @@ static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 	u32 window_size = sched_ravg_window;
 	u64 runtime;
 
+	walt_lockdep_assert_rq(rq, p);
+
 	new_window = mark_start < window_start;
 	if (!account_busy_for_task_demand(rq, p, event)) {
 		if (new_window)
@@ -2390,6 +2421,12 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	if (event == PUT_PREV_TASK && READ_ONCE(p->__state))
 		wts->iowaited = p->in_iowait;
 
+	/* sched_opt */
+	if (old_window_start != wrq->window_start) {
+		if(opts_init && opts.rollover_cpu_window)
+			opts.rollover_cpu_window(wrq, rq, 0);
+	}
+
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				&wrq->grp_time, wrq, wts, atomic64_read(&walt_irq_work_lastq_ws));
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
@@ -2501,17 +2538,17 @@ static void walt_task_dead(struct task_struct *p)
 
 static void mark_task_starting(struct task_struct *p)
 {
-	struct rq *rq = task_rq(p);
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-	u64 wallclock = walt_rq_clock(rq);
+        struct rq *rq = task_rq(p);
+        struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+        u64 wallclock = walt_rq_clock(rq);
 
-	wts->last_wake_ts = wallclock;
-	wts->last_enqueued_ts = wallclock;
-	wts->mark_start_birth_ts = wallclock;
+        wts->last_wake_ts = wallclock;
+        wts->last_enqueued_ts = wallclock;
+        wts->mark_start_birth_ts = wallclock;
 
-	if (wts->mark_start)
-		return;
-	walt_update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
+        if (wts->mark_start)
+                return;
+        walt_update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
 }
 
 /*
@@ -2541,7 +2578,6 @@ void walt_update_group_thresholds(void)
 
 struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
 __read_mostly int num_sched_clusters;
-
 struct list_head cluster_head;
 
 static struct walt_sched_cluster init_cluster = {
@@ -3997,6 +4033,9 @@ bool find_heaviest_topapp(u64 window_start)
 		}
 	}
 
+	/* sched_opt */
+	if(opts_init && opts.update_heavy && have_heavy_list > 0)
+		opts.update_heavy(heavy_wts, have_heavy_list);
 	raw_spin_unlock(&heavy_lock);
 	raw_spin_unlock_irqrestore(&grp->lock, flags);
 	return true;
@@ -4274,7 +4313,9 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 		walt_load_reported_window = atomic64_read(&walt_irq_work_lastq_ws);
 	for_each_sched_cluster(cluster) {
 		u64 aggr_grp_load = 0;
-
+		/* sched_opt */
+		if(opts_init && opts.cluster_init)
+			opts.cluster_init(cluster);
 		raw_spin_lock(&cluster->load_lock);
 		for_each_cpu(cpu, &cluster->cpus) {
 			rq = cpu_rq(cpu);
@@ -4299,6 +4340,8 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 				aggr_grp_load +=
 					wrq->grp_time.prev_runnable_sum;
 			}
+		if (opts_init)
+			opts.cluster_update(cluster, rq);
 		}
 		raw_spin_unlock(&cluster->load_lock);
 
@@ -4344,7 +4387,6 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 			} else {
 				wflag |= WALT_CPUFREQ_ROLLOVER;
 			}
-
 			if (i == num_cpus)
 				waltgov_run_callback(cpu_rq(cpu), wflag);
 			else
@@ -4914,12 +4956,14 @@ static void android_rvh_set_task_cpu(void *unused, struct task_struct *p, unsign
 		WALT_BUG(WALT_BUG_WALT, p, "selecting unaffined cpu=%d comm=%s(%d) affinity=0x%x",
 			 new_cpu, p->comm, p->pid, (*(cpumask_bits(p->cpus_ptr))));
 
-	if (!p->in_execve &&
-	    is_compat_thread(task_thread_info(p)) &&
-	    !cpumask_test_cpu(new_cpu, system_32bit_el0_cpumask()))
-		WALT_BUG(WALT_BUG_WALT, p,
-			 "selecting non 32 bit cpu=%d comm=%s(%d) 32bit_cpus=0x%x",
-			 new_cpu, p->comm, p->pid, (*(cpumask_bits(system_32bit_el0_cpumask()))));
+	if (!cpumask_empty(system_32bit_el0_cpumask())) {
+		if (!p->in_execve &&
+			is_compat_thread(task_thread_info(p)) &&
+			!cpumask_test_cpu(new_cpu, system_32bit_el0_cpumask()))
+			WALT_BUG(WALT_BUG_WALT, p,
+				 "selecting non 32 bit cpu=%d comm=%s(%d) 32bit_cpus=0x%x",
+				 new_cpu, p->comm, p->pid, (*(cpumask_bits(system_32bit_el0_cpumask()))));
+	}
 }
 
 static void android_rvh_new_task_stats(void *unused, struct task_struct *p)
@@ -5021,7 +5065,6 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq,
 
 	if (!double_enqueue)
 		walt_inc_cumulative_runnable_avg(rq, p);
-
 	if ((flags & ENQUEUE_WAKEUP) && do_pl_notif(rq))
 		waltgov_run_callback(rq, WALT_CPUFREQ_PL);
 
@@ -5115,6 +5158,12 @@ static void android_rvh_update_misfit_status(void *unused, struct task_struct *p
 	}
 }
 
+static void account_wakeup(struct task_struct *p)
+{
+	if(opts_init && opts.account_wakeup)
+		 opts.account_wakeup(p);
+}
+
 /* utility function to update walt signals at wakeup */
 static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 {
@@ -5123,7 +5172,6 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 	u64 wallclock;
 	unsigned int old_load;
 	struct walt_related_thread_group *grp = NULL;
-
 	if (unlikely(walt_disabled))
 		return;
 	rq_lock_irqsave(rq, &rf);
@@ -5132,6 +5180,7 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 
 	if (is_idle_task(rq->curr) && p->in_iowait)
 		walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+	account_wakeup(p);
 	walt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	note_task_waking(p, wallclock);
 	rq_unlock_irqrestore(rq, &rf);
@@ -5208,6 +5257,9 @@ static void android_rvh_schedule(void *unused, unsigned int sched_mode, struct t
 			wts->last_sleep_ts = wallclock;
 		walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+
+		if (opts_init && opts.update_yield_ts)
+			opts.update_yield_ts(wts, 0);
 	} else {
 		walt_update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 	}
@@ -5217,7 +5269,6 @@ static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
 {
 	if (unlikely(walt_disabled))
 		return;
-
 	__sched_fork_init(p);
 }
 
@@ -5290,6 +5341,9 @@ static void walt_do_sched_yield(void *unused, struct rq *rq)
 
 	if (unlikely(walt_disabled))
 		return;
+	/* sched_opt */
+	if (opts_init && opts.update_yield_ts)
+		opts.update_yield_ts(wts, walt_sched_clock());
 
 	walt_lockdep_assert_rq(rq, NULL);
 	if (!list_empty(&wts->mvp_list) && wts->mvp_list.next)
@@ -5550,6 +5604,19 @@ static void android_vh_update_topology_flags_workfn(void *unused, void *unused2)
 {
 	schedule_work(&walt_init_work);
 }
+int update_sched_opt(struct sched_opt  *popt, bool opts_init_)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&sched_ravg_window_lock, flags);
+	memcpy(&opts, popt, sizeof(opts));
+	popt->waltgov_run_callback = &waltgov_run_callback;
+	smp_mb();
+	opts_init = opts_init_;
+	spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
+	printk("update_sched_opt opts_init=%d\n", opts_init_);
+	return 0;
+}
+EXPORT_SYMBOL(update_sched_opt);
 
 #define WALT_VENDOR_DATA_SIZE_TEST(wstruct, kstruct)		\
 	BUILD_BUG_ON(sizeof(wstruct) > (sizeof(u64) *		\

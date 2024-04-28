@@ -434,6 +434,14 @@ config CROSS_MEMORY_ATTACH
 	  to directly read from or write to another process' address space.
 	  See the man page for more details.
 
+# MIUI ADD: Camera_CamSched
+config MI_CAM_WALT
+    bool "cam sched"
+	default n
+	help
+	  cam dyn
+# END Camera_CamSched
+
 config USELIB
 	bool "uselib syscall (for libc5 and earlier)"
 	default ALPHA || M68K || SPARC
@@ -2028,6 +2036,10 @@ config ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
 
 config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
 	bool
+
+config PSI_IO_PRESSURE
+	tristate "get io pressure form psi"
+	default n
 
 # It may be useful for an architecture to override the definitions of the
 # SYSCALL_DEFINE() and __SYSCALL_DEFINEx() macros in <linux/syscalls.h>

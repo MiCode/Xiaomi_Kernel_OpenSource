@@ -3,6 +3,7 @@ load(":msm_kernel_la.bzl", "define_msm_la")
 load(":image_opts.bzl", "boot_image_opts")
 
 target_name = "pitti"
+target_arch = "pitti"
 
 def define_pitti():
     _pitti_in_tree_modules = [
@@ -221,6 +222,7 @@ def define_pitti():
 
         define_msm_la(
             msm_target = target_name,
+            msm_arch = target_arch,
             variant = variant,
             in_tree_module_list = mod_list,
             boot_image_opts = boot_image_opts(

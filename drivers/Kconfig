@@ -239,4 +239,6 @@ source "drivers/peci/Kconfig"
 
 source "drivers/hte/Kconfig"
 
+source "drivers/xiaomi/Kconfig"
+
 endmenu

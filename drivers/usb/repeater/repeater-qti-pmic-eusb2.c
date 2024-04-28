@@ -13,6 +13,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
+#include "../../misc/hwid/hwid.h"
 
 #define EUSB2_3P0_VOL_MIN			3075000 /* uV */
 #define EUSB2_3P0_VOL_MAX			3300000 /* uV */
@@ -115,8 +116,8 @@ struct eusb2_repeater {
 	u8			eusb_hs_comp_current;
 
 	u32			*param_override_seq;
-	u32			*host_param_override_seq;
 	u8			param_override_seq_cnt;
+	u32			*host_param_override_seq;
 	u8			host_param_override_seq_cnt;
 };
 
@@ -336,8 +337,15 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	unsigned int rptr_init_cnt = INIT_MAX_CNT;
 
 	/* override init sequence using devicetree based values */
-	eusb2_repeater_update_seq(er, er->param_override_seq,
+	if (ur->flags & PHY_HOST_MODE) {
+		eusb2_repeater_update_seq(er, er->host_param_override_seq,
+			er->host_param_override_seq_cnt);
+		dev_info(er->ur.dev, "HI MI init host!\n");
+	} else {
+		eusb2_repeater_update_seq(er, er->param_override_seq,
 			er->param_override_seq_cnt);
+		dev_info(er->ur.dev, "HI MI init device!\n");
+	}
 
 	if (ur->flags & PHY_HOST_MODE)
 		eusb2_repeater_update_seq(er, er->host_param_override_seq,
@@ -522,14 +530,14 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		ret = PTR_ERR(er->vdd18);
 		goto err_probe;
 	}
-
+	/*This is the device parameters.*/
 	ret = eusb2_repeater_read_overrides(dev, "qcom,param-override-seq",
-			&er->param_override_seq, &er->param_override_seq_cnt);
+					&er->param_override_seq, &er->param_override_seq_cnt);
+
 	if (ret < 0)
 		goto err_probe;
-
-	ret = eusb2_repeater_read_overrides(dev, "qcom,host-param-override-seq",
-			&er->host_param_override_seq, &er->host_param_override_seq_cnt);
+	ret = eusb2_repeater_read_overrides(dev, "qcom,param-override-seq-host",
+		&er->host_param_override_seq, &er->host_param_override_seq_cnt);
 	if (ret < 0)
 		goto err_probe;
 

@@ -47,6 +47,7 @@ append_cmd POST_DEFCONFIG_CMDS 'sanity_check_abi'
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_GKI.config vendor/${MSM_ARCH}-gki_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_TARGET}_GKI.config vendor/${MSM_TARGET}-gki_defconfig
 		if [ "${VARIANT}" = gki ]; then
 			return
 		fi
@@ -56,6 +57,7 @@ function build_defconfig_fragments() {
 		unset ABI_DEFINITION
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/consolidate.fragment consolidate_defconfig
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_TARGET}_consolidate.config vendor/${MSM_TARGET}-consolidate_defconfig
 	elif [ "${VARIANT}" = gki-ack ]; then
 		# In gki-only, then using ACK's GKI config directly
 		. ${KERNEL_DIR}/build.config.gki

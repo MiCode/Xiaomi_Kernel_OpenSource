@@ -4,6 +4,7 @@
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
@@ -43,6 +44,7 @@ struct fsa4480_priv {
 	struct blocking_notifier_head fsa4480_notifier;
 	struct mutex notification_lock;
 	u32 use_powersupply;
+	u32 lpd_use;
 };
 
 struct fsa4480_reg_val {
@@ -211,7 +213,10 @@ static int fsa4480_usbc_analog_setup_switches_psupply(
 				TYPEC_ACCESSORY_NONE, NULL);
 
 		/* deactivate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+                if (fsa_priv->lpd_use)
+                	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+                else
+                	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 		break;
 	default:
 		/* ignore other usb connection modes */
@@ -259,7 +264,10 @@ static int fsa4480_usbc_analog_setup_switches_ucsi(
 				TYPEC_ACCESSORY_NONE, NULL);
 
 		/* deactivate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+                if (fsa_priv->lpd_use)
+                        fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+                else
+                        fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 		break;
 	default:
 		/* ignore other usb connection modes */
@@ -362,13 +370,20 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 			return rc;
 		}
 		/* Do not reset switch settings for usb digital hs */
-		if (mode.intval == TYPEC_ACCESSORY_AUDIO)
-			fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		if (mode.intval == TYPEC_ACCESSORY_AUDIO) {
+			if (fsa_priv->lpd_use)
+				fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+			else
+				fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		}
 		rc = blocking_notifier_chain_unregister
 					(&fsa_priv->fsa4480_notifier, nb);
 		mutex_unlock(&fsa_priv->notification_lock);
 	} else {
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		if (fsa_priv->lpd_use)
+			fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+		else
+			fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 		rc = blocking_notifier_chain_unregister
 				(&fsa_priv->fsa4480_notifier, nb);
 	}
@@ -431,7 +446,10 @@ int fsa4480_switch_event(struct device_node *node,
 		fsa4480_usbc_update_settings(fsa_priv, 0x78, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);
 	case FSA_USBC_DISPLAYPORT_DISCONNECTED:
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		if (fsa_priv->lpd_use)
+			fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+		else
+			fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 		break;
 	default:
 		break;
@@ -468,6 +486,7 @@ static int fsa4480_probe(struct i2c_client *i2c,
 {
 	struct fsa4480_priv *fsa_priv;
 	u32 use_powersupply = 0;
+	u32 lpd_use;
 	int rc = 0;
 
 	fsa_priv = devm_kzalloc(&i2c->dev, sizeof(*fsa_priv),
@@ -537,6 +556,17 @@ static int fsa4480_probe(struct i2c_client *i2c,
 		}
 	}
 
+	rc = of_property_read_u32(fsa_priv->dev->of_node,
+			"mi,lpd-use-sbu_h", &lpd_use);
+	if (lpd_use) {
+		fsa_priv->lpd_use = 1;
+		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0xF8);
+		dev_err(fsa_priv->dev, "%s: mi lpd use\n", __func__);
+	} else {
+		fsa_priv->lpd_use = 0;
+		dev_err(fsa_priv->dev, "%s: mi lpd not use\n", __func__);
+	}
+
 	mutex_init(&fsa_priv->notification_lock);
 	i2c_set_clientdata(i2c, fsa_priv);
 
@@ -568,7 +598,10 @@ static void fsa4480_remove(struct i2c_client *i2c)
 	} else {
 		unregister_ucsi_glink_notifier(&fsa_priv->nb);
 	}
-	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+	if (fsa_priv->lpd_use)
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+	else
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 	cancel_work_sync(&fsa_priv->usbc_analog_work);
 	pm_relax(fsa_priv->dev);
 	mutex_destroy(&fsa_priv->notification_lock);

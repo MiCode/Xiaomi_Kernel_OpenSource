@@ -674,7 +674,7 @@ static int msm_eusb2_phy_init(struct usb_phy *uphy)
 	struct msm_eusb2_phy *phy = container_of(uphy, struct msm_eusb2_phy, phy);
 	int ret;
 
-	dev_dbg(uphy->dev, "phy_flags:%x\n", phy->phy.flags);
+	dev_info(uphy->dev, "phy_flags:%x\n", phy->phy.flags);
 	if (is_eud_debug_mode_active(phy)) {
 		/* if in host mode, disable EUD debug mode */
 		if (phy->phy.flags & PHY_HOST_MODE) {

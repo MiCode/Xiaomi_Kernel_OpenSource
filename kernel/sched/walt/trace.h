@@ -1621,7 +1621,7 @@ TRACE_EVENT(sched_fmax_uncap,
 		__entry->fmax_cap_0 = sysctl_fmax_cap[0];
 		__entry->fmax_cap_1 = sysctl_fmax_cap[1];
 		__entry->fmax_cap_2 = sysctl_fmax_cap[2];
-		__entry->fmax_cap_3 = sysctl_fmax_cap[3];
+		// __entry->fmax_cap_3 = sysctl_fmax_cap[3];
 	),
 
 	TP_printk("nr_big=%d ws=%llu wakeup_ctr_sum=%u load_detected=%d uncap_ts=%llu fmax_cap_0=%u fmax_cap_1=%u fmax_cap_2=%u fmax_cap_3=%u",

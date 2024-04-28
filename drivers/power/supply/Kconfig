@@ -878,6 +878,26 @@ config RN5T618_POWER
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
 
+config MI_WIRELESS
+	tristate "mi wirless config"
+	help
+	  Say Y here to enable mi wireless
+
+config WIRELESS_REVERSE_CLOSE
+	tristate "mi wirless reverse close"
+	help
+	  Say Y here to disable mi wireless reverse charge
+
+config DUAL_FUEL_GAUGE
+	tristate "BQ fuel gauge config"
+	help
+	  Say y here to enable Bq fuel gauge
+
+config MI_ENABLE_DP
+	tristate "enable or disable displayPort config"
+	help
+	  Say Y here to enable create node to support dp function
+
 config BATTERY_ACER_A500
 	tristate "Acer Iconia Tab A500 battery driver"
 	depends on MFD_ACER_A500_EC
@@ -930,6 +950,21 @@ config BATTERY_UG3105
 	  Since Linux does not monitor coulomb-counter changes while the
 	  device is off or suspended, the functionality of this driver is
 	  limited to reporting capacity only.
+
+config MI_DTPT
+	tristate "mi dtpt config"
+	help
+	  Say Y here to enable mi dtpt
+
+config MI_SC760X
+	tristate "mi sc760x config"
+	help
+	  Say Y here to enable mi sc760x
+
+config XIAOMI_N9
+	tristate "xiaomi N9 config"
+	help
+	  Say Y here to enable xiaomi N9
 
 source "drivers/power/supply/qcom/Kconfig"
 

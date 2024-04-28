@@ -1,6 +1,35 @@
+target_arch_map = {
+    "autogvm" : "autogvm",
+    "autoghgvm" : "autoghgvm",
+    "blair" : "blair",
+    "gen3auto" : "gen3auto",
+    "gen4auto" : "gen4auto",
+    "pineapple" : "pineapple",
+    "pitti" : "pitti",
+    "sdmsteppeauto" : "sdmsteppeauto",
+    "pineapple-allyes": "pineapple-allyes",
+    "pineapple-tuivm": "pineapple-tuivm",
+    "pineapple-oemvm": "pineapple-oemvm",
+
+    "shennong" : "pineapple",
+    "manet" : "pineapple",
+    "houji" : "pineapple",
+    "aurora" : "pineapple",
+    "niobe" : "niobe",
+    "peridot" : "pineapple",
+    "chenfeng" : "pineapple",
+}
+
 la_targets = [
     # keep sorted
     "autogvm",
+    "autoghgvm",
+    "shennong",
+    "manet",
+    "houji",
+    "aurora",
+    "peridot",
+    "chenfeng",
     "blair",
     "gen3auto",
     "niobe",
@@ -69,3 +98,6 @@ def get_all_vm_variants():
 
 def get_all_variants():
     return get_all_la_variants() + get_all_le_variants() + get_all_lxc_variants() + get_all_vm_variants()
+
+def get_arch_of_target(target):
+    return target_arch_map[target] 

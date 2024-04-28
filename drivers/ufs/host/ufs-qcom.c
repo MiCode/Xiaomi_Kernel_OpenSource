@@ -33,15 +33,17 @@
 #endif
 #include <linux/nvmem-consumer.h>
 
+#include "ufs-qcom.h"
+
 #include <ufs/ufshcd.h>
 #include "ufshcd-pltfrm.h"
+#include <ufs/ufshci.h>
+#include <ufs/ufshcd-crypto-qti.h>
 #include <ufs/unipro.h>
-#include "ufs-qcom.h"
+#include <ufs/ufs_quirks.h>
+#include <trace/hooks/ufshcd.h>
 #define CREATE_TRACE_POINTS
 #include "ufs-qcom-trace.h"
-#include <ufs/ufshci.h>
-#include <ufs/ufs_quirks.h>
-#include <ufs/ufshcd-crypto-qti.h>
 
 #define MCQ_QCFGPTR_MASK	GENMASK(7, 0)
 #define MCQ_QCFGPTR_UNIT	0x200
@@ -74,6 +76,7 @@
 
 /* Max number of log pages */
 #define UFS_QCOM_MAX_LOG_SZ	10
+
 #define ufs_qcom_log_str(host, fmt, ...)	\
 	do {	\
 		if (host->ufs_ipc_log_ctx && host->dbg_en)	\
@@ -1594,7 +1597,6 @@ static void ufs_qcom_set_esi_affinity_hint(struct ufs_hba *hba)
 static int ufs_qcom_cpu_online(unsigned int cpu)
 {
 	struct ufs_hba *hba = ufs_qcom_hosts[0]->hba;
-
 	ufs_qcom_set_esi_affinity_hint(hba);
 
 	return 0;
@@ -2244,7 +2246,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	struct phy *phy = host->generic_phy;
 struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
-
 	if (!dev_req_params) {
 		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
 		ret = -EINVAL;
@@ -2270,7 +2271,6 @@ struct ufs_qcom_dev_params ufs_qcom_cap;
 
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
-
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
@@ -2565,9 +2565,9 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-			UFSHCD_CAP_CLK_SCALING |
 			UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 			UFSHCD_CAP_AGGR_POWER_COLLAPSE |
+			UFSHCD_CAP_RPM_AUTOSUSPEND |
 			UFSHCD_CAP_WB_WITH_CLK_SCALING;
 		if (!host->disable_wb_support)
 			hba->caps |= UFSHCD_CAP_WB_EN;
@@ -4305,7 +4305,7 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 								  void *data)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
+	//struct phy *phy = host->generic_phy;
 	bool ber_th_exceeded = false;
 
 	switch (evt) {
@@ -4317,11 +4317,12 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 			host->ber_th_exceeded = true;
 			ufs_qcom_save_all_regs(host);
 			ufs_qcom_print_ber_hist(host);
-
+#if 0
 			if (crash_on_ber) {
 				ufs_qcom_phy_dbg_register_dump(phy);
 				BUG_ON(1);
 			}
+#endif
 		}
 
 		if (host->ber_th_exceeded)
@@ -4350,6 +4351,7 @@ void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba,
 	}
 
 	host = ufshcd_get_variant(hba);
+
 	if (!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_REGS_EN))
 		return;
 
@@ -4784,6 +4786,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 {
 	struct device_node *np = host->hba->dev->of_node;
+
 	u32 dev_major = 0, dev_minor = 0;
 	u32 val;
 	u32 ufs_dev_types = 0;
@@ -5540,7 +5543,6 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = rq ? blk_rq_sectors(rq) : 0;
-
 		ufs_qcom_qos(hba, lrbp->task_tag);
 
 		if (!is_mcq_enabled(hba)) {

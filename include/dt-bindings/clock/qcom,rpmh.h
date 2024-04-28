@@ -35,5 +35,7 @@
 #define RPMH_QLINK_CLK_A			26
 #define RPMH_CXO_PAD_CLK			27
 #define RPMH_CXO_PAD_CLK_A			28
+#define RPMH_LN_BB_CLK4	    		29
+#define RPMH_LN_BB_CLK4_A			30
 
 #endif

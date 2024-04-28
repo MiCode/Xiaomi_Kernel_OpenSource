@@ -646,7 +646,7 @@ config QCOM_WATCHDOG_BARK_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog bark time in ms"
 	default 11000
-	range 11000 11000
+	range 11000 20000
 	help
 	  The amount of time, in milliseconds, that should elapse after
 	  a watchdog timer reset before a bark interrupt is sent from the
@@ -656,7 +656,7 @@ config QCOM_WATCHDOG_PET_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog pet time in ms"
 	default 9360
-	range 9360 9360
+	range 9360 15000
 	help
 	  The amount of time, in milliseconds, that should elapse before
 	  a watchdog pet is initiated to reset the watchdog timer to 0.
@@ -749,7 +749,7 @@ choice
 	prompt "Perform Action on spinlock bug"
 	depends on DEBUG_SPINLOCK && QCOM_CPU_VENDOR_HOOKS
 
-	default DEBUG_SPINLOCK_BITE_ON_BUG
+	default DEBUG_SPINLOCK_PANIC_ON_BUG
 
 	config DEBUG_SPINLOCK_BITE_ON_BUG
 		bool "Cause a Watchdog Bite on Spinlock bug"
@@ -1140,6 +1140,12 @@ config RENAME_DEVICES
 	  which is needed during android verified boot process and it
 	  also maps to physical partition names on gvm side which help
 	  identify the block and network devices.
+
+config SET_BW_SETTINGS_MAX
+	tristate "XM turn wcd_usbss_equalizer1 bw_settings to max"
+	default n
+	help
+	  This option is to set bw_settings 15:SETTINGS15 to optimize eye diagram.
 
 config QCOM_S2D_VENDOR_HOOK
 	tristate "Vendor hook module to route flow of the core Kernel"

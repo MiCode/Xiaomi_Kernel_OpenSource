@@ -773,7 +773,6 @@ static void bwmon_jiffies_update_cb(void *unused, void *extra)
 	unsigned long flags;
 	ktime_t now = ktime_get();
 	s64 delta_ns;
-
 	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry(node, &hwmon_list, list) {
 		hw = node->hw;

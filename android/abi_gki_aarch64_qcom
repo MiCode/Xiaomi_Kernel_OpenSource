@@ -3326,6 +3326,7 @@
   __traceiter_android_rvh_dequeue_task
   __traceiter_android_rvh_dequeue_task_fair
   __traceiter_android_rvh_do_sched_yield
+  __traceiter_android_rvh_before_do_sched_yield
   __traceiter_android_rvh_enqueue_entity
   __traceiter_android_rvh_enqueue_task
   __traceiter_android_rvh_enqueue_task_fair
@@ -3474,6 +3475,7 @@
   __tracepoint_android_rvh_dequeue_task
   __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_do_sched_yield
+  __tracepoint_android_rvh_before_do_sched_yield
   __tracepoint_android_rvh_enqueue_entity
   __tracepoint_android_rvh_enqueue_task
   __tracepoint_android_rvh_enqueue_task_fair

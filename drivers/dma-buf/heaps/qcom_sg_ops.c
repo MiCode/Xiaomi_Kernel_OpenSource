@@ -35,6 +35,11 @@
 
 #include "qcom_sg_ops.h"
 
+extern int (*dmabuf_hugetlb_remap)(struct vm_area_struct *vma, unsigned long addr,
+                    unsigned long pfn, unsigned long size, pgprot_t prot);
+extern bool dmabuf_hugetlb_enable;
+extern bool *dmabuf_hugetlb_symbol_debug;
+
 int proxy_invalid_map(struct device *dev, struct sg_table *table,
 		      struct dma_buf *dmabuf)
 {
@@ -423,6 +428,29 @@ static const struct vm_operations_struct qcom_sg_vm_ops = {
 	.close = qcom_sg_vm_ops_close,
 };
 
+bool hugetlb_suitable_proc(void)
+{
+	if ((strcmp(current->comm, "vendor.qti.came") == 0) ||
+		(current->group_leader && strcmp(current->group_leader->comm, "vendor.qti.came") == 0) ||
+		(strcmp(current->comm, ".android.camera") == 0) ||
+		(current->group_leader && strcmp(current->group_leader->comm, ".android.camera") == 0) ||
+		(strcmp(current->comm, "cameraserver") == 0) ||
+		(current->group_leader && strcmp(current->group_leader->comm, "cameraserver") == 0))
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL_GPL(hugetlb_suitable_proc);
+
+static inline void dmabuf_hugetlb_debug_info(char *tag, unsigned long vaddr, struct page *page, unsigned long len)
+{
+	if(dmabuf_hugetlb_symbol_debug && (*dmabuf_hugetlb_symbol_debug == true))
+		pr_info("dmabuf_hugetlb_debug: [%s]-[%d - %d - %s]-[%d - %d - %s]-[vaddr: 0x%lx - pfn: 0x%lx - len: 0x%lx]\n",
+				 tag, current->pid, current->tgid, current->comm, \
+				current->group_leader->pid, current->group_leader->tgid, current->group_leader->comm, \
+				vaddr, page_to_pfn(page), len);
+}
+
 int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct qcom_sg_buffer *buffer = dmabuf->priv;
@@ -448,6 +476,9 @@ int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		struct page *page = sg_page(sg);
 		unsigned long remainder = vma->vm_end - addr;
 		unsigned long len = sg->length;
+		unsigned long aligned_start, aligned_end;
+		struct page *tpage;
+		int no_align_flag_2M = 0;
 
 		if (offset >= sg->length) {
 			offset -= sg->length;
@@ -458,8 +489,50 @@ int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 			offset = 0;
 		}
 		len = min(len, remainder);
-		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
-				      vma->vm_page_prot);
+
+		if ((dmabuf_hugetlb_enable) && (dmabuf_hugetlb_remap != NULL) && hugetlb_suitable_proc()) {
+			aligned_start = ALIGN(addr, PMD_SIZE);
+			aligned_end = ALIGN_DOWN(addr + len, PMD_SIZE);
+
+			tpage = page + (aligned_start - addr) / PAGE_SIZE;
+			no_align_flag_2M = ((page_to_pfn(tpage) << PAGE_SHIFT) & ~PMD_MASK) ? 1 : 0;
+
+			if ((len < PMD_SIZE) || (aligned_start == aligned_end) || no_align_flag_2M) {
+				ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+							  vma->vm_page_prot);
+				goto out;
+			}
+
+			if (!IS_ALIGNED(addr, PMD_SIZE)) {
+				ret = remap_pfn_range(vma, addr, page_to_pfn(page), aligned_start - addr,
+							  vma->vm_page_prot);
+				if (ret)
+					goto out;
+				page += (aligned_start - addr) / PAGE_SIZE;
+			}
+
+			if ((aligned_end - aligned_start) >= PMD_SIZE) {
+				ret = (*dmabuf_hugetlb_remap)(vma, aligned_start, page_to_pfn(page), aligned_end - aligned_start,
+								vma->vm_page_prot);
+				if (ret)
+					goto out;
+
+				dmabuf_hugetlb_debug_info("qcom_sg_mmap", aligned_start, page, aligned_end - aligned_start);
+
+				page += (aligned_end - aligned_start) / PAGE_SIZE;
+			}
+
+			if (!IS_ALIGNED(addr + len, PMD_SIZE)) {
+				ret = remap_pfn_range(vma, aligned_end, page_to_pfn(page), addr + len - aligned_end,
+							  vma->vm_page_prot);
+				if (ret)
+					goto out;
+			}
+		} else {
+			ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+					      vma->vm_page_prot);
+		}
+out:
 		if (ret) {
 			mem_buf_vmperm_unpin(buffer->vmperm);
 			return ret;

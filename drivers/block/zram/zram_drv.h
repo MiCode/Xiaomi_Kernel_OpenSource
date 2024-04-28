@@ -1,3 +1,4 @@
+
 /*
  * Compressed RAM block device
  *
@@ -126,3 +127,4 @@ struct zram {
 #endif
 };
 #endif
+
