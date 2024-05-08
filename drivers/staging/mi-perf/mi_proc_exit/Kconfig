@@ -1,0 +1,4 @@
+config MI_PROC_EXIT
+	tristate "Xiaomi process exit control"
+	default n
+

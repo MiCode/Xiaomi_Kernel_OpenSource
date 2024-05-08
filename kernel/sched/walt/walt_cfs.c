@@ -119,6 +119,7 @@ struct find_best_target_env {
  * utilization of the specified task, whenever the task is currently
  * contributing to the CPU utilization.
  */
+
 static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	unsigned int util;
@@ -167,6 +168,25 @@ static inline bool walt_target_ok(int target_cpu, int order_index)
 		 (target_cpu == cpumask_first(&cpu_array[order_index][0])));
 }
 
+//MIUI ADD: Performance_BoostFramework
+static inline bool task_is_roottg(struct task_struct *p)
+{
+	struct cgroup_subsys_state *css;
+	struct cgroup_subsys_state *top_css = &root_task_group.css;
+	bool is_roottg, is_general;
+	int task_uid = -1;
+
+	rcu_read_lock();
+	css = task_css(p, cpu_cgrp_id);
+	task_uid = __task_cred(p)->uid.val;
+	is_general = !strcmp(css->cgroup->kn->name, "general");
+	rcu_read_unlock();
+	is_roottg = (css == top_css);
+	return (is_general && (task_uid == 0)) || is_roottg;
+}
+
+//END Performance_BoostFramework
+
 #define MIN_UTIL_FOR_ENERGY_EVAL	52
 static void walt_get_indicies(struct task_struct *p, int *order_index,
 		int *end_index, int per_task_boost, bool is_uclamp_boosted,
@@ -183,6 +203,13 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		*energy_eval_needed = false;
 		return;
 	}
+
+//MIUI ADD: Performance_BoostFramework
+	if (sysctl_sched_roottg_control && sysctl_sched_roottg_control <= num_sched_clusters && task_is_roottg(p)) {
+		*end_index = num_sched_clusters - sysctl_sched_roottg_control;
+		return;
+	}
+//END Performance_BoostFramework
 
 	if (is_full_throttle_boost()) {
 		*energy_eval_needed = false;
@@ -331,7 +358,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 	cpumask_t visit_cpus;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	int packing_cpu;
-
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
@@ -348,7 +374,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 		stop_index = 0;
 		most_spare_wake_cap = LONG_MIN;
 	}
-
 	/* fast path for packing_cpu */
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(start_cpu, p);
 	if (packing_cpu >= 0) {
@@ -373,9 +398,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 		target_max_spare_cap = 0;
 		min_exit_latency = INT_MAX;
 		best_idle_cuml_util = ULONG_MAX;
-
 		cpumask_and(&visit_cpus, p->cpus_ptr,
 				&cpu_array[order_index][cluster]);
+
 		for_each_cpu(i, &visit_cpus) {
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_cpu_util, new_cpu_util, new_util_cuml;
@@ -863,12 +888,14 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 
 	wts = (struct walt_task_struct *) p->android_vendor_data1;
 	pipeline_cpu = wts->pipeline_cpu;
+
 	if ((wts->low_latency & WALT_LOW_LATENCY_MASK) &&
 			(pipeline_cpu != -1) &&
 			walt_task_skip_min_cpu(p) &&
 			cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
 			cpu_active(pipeline_cpu) &&
-			!cpu_halted(pipeline_cpu)) {
+			!cpu_halted(pipeline_cpu))
+	{
 		if (!walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr)) {
 			best_energy_cpu = pipeline_cpu;
 			fbt_env.fastpath = PIPELINE_FASTPATH;
@@ -1285,6 +1312,39 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p)
 		wts->total_exec = 0;
 }
 
+//MIUI ADD: Performance_BoostFramework
+void mi_cfs_enqueue_runnable_task(struct rq *rq, struct task_struct *p)
+{
+	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	wts->runnable_start = sched_clock();
+	list_add_tail(&wts->runnable_list, &wrq->runnable_tasks);
+}
+
+void mi_cfs_dequeue_runnable_task(struct task_struct *p)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	if (!list_empty(&wts->runnable_list) && wts->runnable_list.next) {
+		wts->runnable_start = 0;
+		list_del_init(&wts->runnable_list);
+	}
+}
+
+void mi_cfs_reenqueue_runnable_task(struct rq *rq, struct task_struct *p)
+{
+	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	if (!list_empty(&wts->runnable_list) && wts->runnable_list.next) {
+		wts->runnable_start = sched_clock();
+		list_del_init(&wts->runnable_list);
+		list_add_tail(&wts->runnable_list, &wrq->runnable_tasks);
+	}
+}
+//END Performance_BoostFramework
+
 void walt_cfs_tick(struct rq *rq)
 {
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
@@ -1387,6 +1447,12 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	struct task_struct *mvp;
 	struct cfs_rq *cfs_rq;
 
+//MIUI ADD: Performance_BoostFramework
+	u64 now = 0;
+	s64 delta = 0;
+	s64 disable_mvp_thres = sysctl_disable_mvp_thres * 1000 * 1000;
+//END Performance_BoostFramework
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -1403,6 +1469,15 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	if (list_empty(&wrq->mvp_tasks))
 		return;
 
+//MIUI ADD: Performance_BoostFramework
+	if (!list_empty(&wrq->runnable_tasks)) {
+		wts = list_first_entry(&wrq->runnable_tasks, struct walt_task_struct, runnable_list);
+		now = sched_clock();
+		delta = now - wts->runnable_start;
+		if (delta > disable_mvp_thres && wts->runnable_start != 0)
+			return;
+	}
+//END Performance_BoostFramework
 	/* Return the first task from MVP queue */
 	wts = list_first_entry(&wrq->mvp_tasks, struct walt_task_struct, mvp_list);
 	mvp = wts_to_ts(wts);

@@ -9,6 +9,7 @@
 #include <linux/sched/autogroup.h>
 #include <linux/sched/cpufreq.h>
 #include <linux/sched/deadline.h>
+#include <linux/sched/cputime.h>
 #include <linux/sched.h>
 #include <linux/sched/loadavg.h>
 #include <linux/sched/mm.h>

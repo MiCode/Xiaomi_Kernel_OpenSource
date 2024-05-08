@@ -603,6 +603,7 @@ static void altmode_notify_clients(struct altmode_dev *amdev)
 			continue;
 
 		if (pos_amdev == amdev) {
+			dev_info(amdev->dev, "%s --->> callback\n", __func__);
 			pos->cb(pos->priv);
 			of_node_put(pos->amdev_node);
 			list_del(&pos->node);
@@ -698,6 +699,8 @@ static int altmode_probe(struct platform_device *pdev)
 	struct altmode_dev *amdev;
 	struct pmic_glink_client_data pgclient_data = { };
 	struct device *dev = &pdev->dev;
+
+	dev_info(dev, "enter %s\n", __func__);
 
 	amdev = devm_kzalloc(&pdev->dev, sizeof(*amdev), GFP_KERNEL);
 	if (!amdev)

@@ -811,6 +811,7 @@ static void qcom_lpm_suspend_trace(void *unused, const char *action,
 
 		for_each_online_cpu(cpu)
 			wake_up_if_idle(cpu);
+
 		return;
 	}
 

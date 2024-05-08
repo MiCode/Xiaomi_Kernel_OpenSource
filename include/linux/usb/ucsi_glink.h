@@ -8,9 +8,11 @@
 
 #include <linux/errno.h>
 #include <linux/usb/typec.h>
+#include <linux/usb/role.h>
 
 struct ucsi_glink_constat_info {
 	enum typec_accessory acc;
+	enum usb_role u_role;
 };
 
 struct notifier_block;

@@ -66,6 +66,13 @@ enum pipeline_types {
 	MAX_PIPELINE_TYPES,
 };
 
+//MIUI ADD: Performance_BoostFramework
+enum task_type {
+	TASK_TYPE_NONE,
+	TASK_TYPE_DISPSET,
+};
+//END Performance_BoostFramework
+
 enum freq_caps {
 	PARTIAL_HALT_CAP,
 	SMART_FMAX_CAP,
@@ -151,6 +158,9 @@ struct walt_rq {
 	u64			util;
 	struct list_head	mvp_tasks;
 	int                     num_mvp_tasks;
+//MIUI ADD: Performance_BoostFramework
+	struct list_head	runnable_tasks;
+//END Performance_BoostFramework
 	u64			latest_clock;
 	u32			enqueue_counter;
 };
@@ -265,6 +275,20 @@ extern enum sched_boost_policy boost_policy;
 extern unsigned int sysctl_input_boost_ms;
 extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
+//MIUI ADD: Performance_BoostFramework
+extern unsigned int sysctl_powerkey_input_boost_ms;
+extern unsigned int sysctl_powerkey_input_boost_freq[8];
+extern unsigned int sysctl_powerkey_sched_boost_on_input;
+
+extern unsigned int sysctl_volkey_input_boost_ms;
+extern unsigned int sysctl_volkey_input_boost_freq[8];
+extern unsigned int sysctl_volkey_sched_boost_on_input;
+//END Performance_BoostFramework
+//MIUI ADD: Performance_DoubleClickBoost
+extern unsigned int sysctl_double_click_input_boost_ms;
+extern unsigned int sysctl_double_click_input_boost_freq[8];
+extern unsigned int sysctl_double_click_sched_boost_on_input;
+//END Performance_DoubleClickBoost
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 extern unsigned int sysctl_sched_hyst_min_coloc_ns;
@@ -272,6 +296,9 @@ extern unsigned int sysctl_sched_long_running_rt_task_ms;
 extern unsigned int sysctl_ed_boost_pct;
 extern unsigned int sysctl_em_inflate_pct;
 extern unsigned int sysctl_em_inflate_thres;
+//MIUI ADD: Performance_BoostFramework
+extern unsigned int sysctl_disable_mvp_thres;
+//END Performance_BoostFramework
 extern unsigned int sysctl_sched_heavy_nr;
 
 extern int cpufreq_walt_set_adaptive_freq(unsigned int cpu, unsigned int adaptive_low_freq,
@@ -348,6 +375,11 @@ extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_suppress_region2;
 extern unsigned int sysctl_sched_skip_sp_newly_idle_lb;
 extern unsigned int sysctl_sched_asymcap_boost;
+//MIUI ADD: Performance_BoostFramework
+extern unsigned int sysctl_sched_roottg_control;
+extern unsigned int sysctl_freq_useadapt_partial;
+extern unsigned int sysctl_sched_rt_skip_min_thres;
+//END Performance_BoostFramework
 extern struct ctl_table walt_table[];
 extern struct ctl_table walt_base_table[];
 extern void walt_tunables(void);
@@ -1019,6 +1051,11 @@ void walt_cfs_enqueue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p);
 void walt_cfs_tick(struct rq *rq);
 void walt_lb_tick(struct rq *rq);
+//MIUI ADD: Performance_BoostFramework
+void mi_cfs_enqueue_runnable_task(struct rq *rq, struct task_struct *p);
+void mi_cfs_dequeue_runnable_task(struct task_struct *p);
+void mi_cfs_reenqueue_runnable_task(struct rq *rq, struct task_struct *p);
+//END Performance_BoostFramework
 
 extern __read_mostly unsigned int walt_scale_demand_divisor;
 

@@ -404,7 +404,7 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 		}
 
 		init_completion(&qdd->ddump_completion);
-		dent = proc_create_data(DDUMP_PROFS_NAME, 0400, NULL, &ddump_proc_ops, qdd);
+		dent = proc_create_data(DDUMP_PROFS_NAME, 0444, NULL, &ddump_proc_ops, qdd);
 		if (!dent) {
 			dev_err(dev, "proc_create_data fail\n");
 			return -ENOMEM;

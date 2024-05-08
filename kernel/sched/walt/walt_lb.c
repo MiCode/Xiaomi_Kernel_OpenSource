@@ -242,6 +242,7 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 	if (wrq->push_task == p)
 		return false;
 
+
 	if (to_lower) {
 		if (wts->iowaited)
 			return false;

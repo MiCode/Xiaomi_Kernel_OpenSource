@@ -91,3 +91,7 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
+obj-$(CONFIG_INPUT_AW862XX_HAPTIC)  += aw8622x_haptic/
+obj-$(CONFIG_INPUT_AW86927_HAPTIC)      += aw86927_haptic/
+obj-$(CONFIG_SIH_VIBRATOR)              += si_haptic/
+KBUILD_CPPFLAGS += -DRICHTAP_FOR_PMIC_ENABLE

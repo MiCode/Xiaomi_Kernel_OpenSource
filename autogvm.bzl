@@ -124,6 +124,7 @@ def define_autogvm():
 
         define_msm_la(
             msm_target = target_name,
+            msm_arch = target_name,
             variant = variant,
             in_tree_module_list = mod_list,
             boot_image_opts = boot_image_opts(

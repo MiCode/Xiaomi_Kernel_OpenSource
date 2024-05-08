@@ -887,7 +887,7 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 /*
  * clock_debug_print_enabled_clocks() - Print names of enabled clocks
  */
-static void clock_debug_print_enabled_clocks(struct seq_file *s)
+void clock_debug_print_enabled_clocks(struct seq_file *s)
 {
 	struct hw_debug_clk *dclk;
 	int cnt = 0;
@@ -903,6 +903,7 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 		clock_debug_output(s, "No clocks enabled.\n");
 
 }
+EXPORT_SYMBOL(clock_debug_print_enabled_clocks);
 
 static int enabled_clocks_show(struct seq_file *s, void *unused)
 {

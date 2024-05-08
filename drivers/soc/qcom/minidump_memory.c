@@ -36,7 +36,7 @@ static struct static_key *md_debug_slub_debug_enabled;
 static unsigned long *md_debug_min_low_pfn;
 static unsigned long *md_debug_max_pfn;
 
-#define DMA_BUF_HASH_SIZE (1 << 20)
+#define DMA_BUF_HASH_SIZE (1 << 13)
 #define DMA_BUF_HASH_SEED 0x9747b28c
 static bool dma_buf_hash[DMA_BUF_HASH_SIZE];
 

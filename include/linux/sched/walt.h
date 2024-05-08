@@ -140,6 +140,11 @@ struct walt_task_struct {
 	int				prev_on_rq;
 	int				prev_on_rq_cpu;
 	struct list_head		mvp_list;
+//MIUI ADD: Performance_BoostFramework
+	struct list_head		runnable_list;
+	u64				runnable_start;
+	int				task_type;
+//END Performance_BoostFramework
 	u64				sum_exec_snapshot_for_slice;
 	u64				sum_exec_snapshot_for_total;
 	u64				total_exec;

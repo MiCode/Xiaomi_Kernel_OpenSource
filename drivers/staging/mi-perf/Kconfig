@@ -1,0 +1,4 @@
+source "drivers/staging/mi-perf/mi_mempool/Kconfig"
+source "drivers/staging/mi-perf/mi_proc_exit/Kconfig"
+source "drivers/staging/mi-perf/mi_io_limit/Kconfig"
+source "drivers/staging/mi-perf/mi_wmark/Kconfig"

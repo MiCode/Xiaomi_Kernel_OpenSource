@@ -59,6 +59,7 @@
 #include "qcom_sg_ops.h"
 #include "qcom_system_heap.h"
 #include "qcom_system_movable_heap.h"
+#include "qcom_extend_system_heap.h"
 
 #if IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL)
 #define DYNAMIC_POOL_FILL_MARK (100 * SZ_1M)
@@ -383,7 +384,11 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 				put_page(page);
 				__free_pages(page, compound_order(page));
 			} else {
-				dynamic_page_pool_free(sys_heap->pool_list[j], page);
+				if (dynamic_pool_fillmark_reached(sys_heap->pool_list[j]) &&
+						need_free_to_reserve_pool(sys_heap, j))
+					dynamic_page_pool_free(sys_heap->reserve_pool_list[j], page);
+				else
+					dynamic_page_pool_free(sys_heap->pool_list[j], page);
 			}
 		}
 	}
@@ -396,7 +401,6 @@ void qcom_system_heap_free(struct qcom_sg_buffer *buffer)
 	deferred_free(&buffer->deferred_free, system_heap_buf_free,
 			PAGE_ALIGN(buffer->len) / PAGE_SIZE);
 }
-
 
 struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **pools,
 						   unsigned long size,
@@ -469,10 +473,16 @@ int system_qcom_sg_buffer_alloc(struct dma_heap *heap,
 		if (fatal_signal_pending(current))
 			goto free_mem;
 
-		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
-							     size_remaining,
-							     max_order,
-							     movable);
+		if (sys_heap->reserve_extend_info.use_reserve_pool)
+			page = qcom_extend_sys_heap_alloc_largest_available(sys_heap,
+									     size_remaining,
+									     max_order,
+									     movable);
+		else
+			page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
+								     size_remaining,
+								     max_order,
+								     movable);
 		if (!page)
 			goto free_mem;
 
@@ -615,6 +625,7 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 	if (ret)
 		goto free_pools;
 
+	qcom_sys_heap_reserve_pool_init(name, sys_heap);
 	heap = dma_heap_add(&exp_info);
 	if (IS_ERR(heap)) {
 		ret = PTR_ERR(heap);

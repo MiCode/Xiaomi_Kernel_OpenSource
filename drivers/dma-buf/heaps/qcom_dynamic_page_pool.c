@@ -22,6 +22,7 @@
 #include <uapi/linux/sched/types.h>
 
 #include "qcom_dynamic_page_pool.h"
+#include "reserve_dynamic_page_pool.h"
 
 static LIST_HEAD(pool_list);
 static DEFINE_MUTEX(pool_list_lock);
@@ -180,6 +181,8 @@ static int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp
 		spin_unlock_irqrestore(&pool->lock, flags);
 		list_add(&page->lru, &pages);
 		freed += (1 << pool->order);
+		if (!can_do_shrink(pool, high))
+			break;
 	}
 
 	if (freed && pool->prerelease_callback)
@@ -278,11 +281,6 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 	for (i = 0; i < NUM_ORDERS; i++) {
 		pool_list[i] = dynamic_page_pool_create(order_flags[i],
 							orders[i]);
-		pool_list[i]->vmid = vmid;
-		pool_list[i]->prerelease_callback = callback;
-		atomic_set(&pool_list[i]->count, 0);
-		pool_list[i]->last_low_watermark_ktime = 0;
-
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;
 
@@ -293,6 +291,16 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 
 			ret = -ENOMEM;
 			goto free_pool_arr;
+		}
+
+		pool_list[i]->vmid = vmid;
+		pool_list[i]->prerelease_callback = callback;
+		atomic_set(&pool_list[i]->count, 0);
+		pool_list[i]->last_low_watermark_ktime = 0;
+		if (is_reserve_vmid(vmid)) {
+			mutex_lock(&pool_list_lock);
+			list_del(&pool_list[i]->list);
+			mutex_unlock(&pool_list_lock);
 		}
 	}
 

@@ -290,10 +290,12 @@ static int usb_probe_device(struct device *dev)
 	 * specialised device drivers prior to setting the
 	 * use_generic_driver bit.
 	 */
+	pr_info("%s load device driver %s\n", __func__, udriver->name);
 	error = udriver->probe(udev);
 	if (error == -ENODEV && udriver != &usb_generic_driver &&
 	    (udriver->id_table || udriver->match)) {
 		udev->use_generic_driver = 1;
+		pr_info("%s load device driver %s error\n", __func__, udriver->name);
 		return -EPROBE_DEFER;
 	}
 	return error;
@@ -393,9 +395,13 @@ static int usb_probe_interface(struct device *dev)
 		intf->needs_altsetting0 = 0;
 	}
 
+	pr_info("%s load interface driver %s\n", __func__, driver->name);
+
 	error = driver->probe(intf, id);
-	if (error)
+	if (error) {
+		pr_info("%s load interface driver %s error\n", __func__, driver->name);
 		goto err;
+	}	
 
 	intf->condition = USB_INTERFACE_BOUND;
 
@@ -701,6 +707,10 @@ int usb_match_one_id_intf(struct usb_device *dev,
 	if ((id->match_flags & USB_DEVICE_ID_MATCH_INT_NUMBER) &&
 	    (id->bInterfaceNumber != intf->desc.bInterfaceNumber))
 		return 0;
+
+	pr_info("bInterfaceClass = 0x%x\n", id->bInterfaceClass);
+	pr_info("bInterfaceSubClass = 0x%x\n", id->bInterfaceSubClass);
+	pr_info("bInterfaceProtocol = 0x%x\n", id->bInterfaceProtocol);
 
 	return 1;
 }

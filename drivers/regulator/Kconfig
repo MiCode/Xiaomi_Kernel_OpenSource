@@ -1647,4 +1647,14 @@ config VIRTIO_REGULATOR
 	  regulator for pass through peripheral devices via regulator backend in
 	  host.
 
+config REGULATOR_WL2868C
+        tristate "Fairchild WL2868C Regulator"
+        depends on I2C && (OF || COMPILE_TEST)
+        select REGMAP_I2C
+        help
+          This driver supports Fairchild (WILL Semiconductor) WL2868C
+          regulator. The regulator is a programmable power management IC
+          (PMIC), it is controlled by I2C and provides one BUCK, one BOOST
+          and four LDO outputs.
+
 endif

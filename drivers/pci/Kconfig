@@ -67,6 +67,13 @@ config PCI_QUIRKS
 	  Disable this only if your target machine is unaffected by PCI
 	  quirks.
 
+config BRCM_XGBE
+        tristate "brcm xgbe 89272 driver"
+        depends on PCI
+        help
+           this is brcm xgbe driver.
+
+
 config PCI_DEBUG
 	bool "PCI Debugging"
 	depends on DEBUG_KERNEL

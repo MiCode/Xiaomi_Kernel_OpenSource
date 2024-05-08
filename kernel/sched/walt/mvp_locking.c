@@ -7,6 +7,13 @@
 #include "../../locking/mutex.h"
 #include "walt.h"
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern void mi_mutex_list_add_hook(struct mutex *lock, struct mutex_waiter *waiter,
+				struct list_head *list, bool * already_on_list);
+#endif
+// END Performance_TurboSched
+
 static void android_vh_alter_mutex_list_add(void *unused, struct mutex *lock,
 				struct mutex_waiter *waiter, struct list_head *list,
 				bool *already_on_list)
@@ -17,6 +24,14 @@ static void android_vh_alter_mutex_list_add(void *unused, struct mutex *lock,
 	struct mutex_waiter *n = NULL;
 	struct list_head *head = list;
 	struct walt_task_struct *wts;
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	mi_mutex_list_add_hook(lock, waiter, list, already_on_list);
+	if (*already_on_list)
+		return;
+#endif
+// END Performance_TurboSched
 
 	if (unlikely(walt_disabled))
 		return;

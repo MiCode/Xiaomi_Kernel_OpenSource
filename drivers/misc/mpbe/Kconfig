@@ -1,0 +1,15 @@
+#
+# Memory performance Booster Enging
+#
+
+comment "Memory performance Booster Enging"
+
+config MI_MPBE_SUPPORT
+	tristate "Memory performance Booster Enging"
+	depends on BLOCK
+	help
+	  Enable MPBE at block driver, tag requester pid to
+	  the accessing pages. This allows UFS Block IO log to obtian
+	  IO statistics of each process. The MPBE also provides
+	  utility functions to UFS Block IO log, such as throughput
+	  calculation, log printing, and ring trace handling.

@@ -2279,6 +2279,9 @@ static struct platform_driver cliffs_pinctrl_driver = {
 	.driver = {
 		.name = "cliffs-pinctrl",
 		.of_match_table = cliffs_pinctrl_of_match,
+// MIUI ADD: Power_LogEnhance
+		.pm = &noirq_msm_pinctrl_dev_pm_ops,
+// END Power_LogEnhance
 	},
 	.probe = cliffs_pinctrl_probe,
 	.remove = msm_pinctrl_remove,

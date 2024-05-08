@@ -51,12 +51,9 @@ static unsigned int num_devices = 1;
  */
 static size_t huge_class_size;
 
-static const struct block_device_operations zram_devops;
-
 static void zram_free_page(struct zram *zram, size_t index);
 static int zram_bvec_read(struct zram *zram, struct bio_vec *bvec,
 				u32 index, int offset, struct bio *bio);
-
 
 static int zram_slot_trylock(struct zram *zram, u32 index)
 {
@@ -293,7 +290,7 @@ static ssize_t mem_used_max_store(struct device *dev,
  * Mark all pages which are older than or equal to cutoff as IDLE.
  * Callers should hold the zram init lock in read mode
  */
-static void mark_idle(struct zram *zram, ktime_t cutoff)
+static void mark_idle(struct zram *zram)
 {
 	int is_idle = 1;
 	unsigned long nr_pages = zram->disksize >> PAGE_SHIFT;
@@ -321,7 +318,6 @@ static ssize_t idle_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
 	struct zram *zram = dev_to_zram(dev);
-	ktime_t cutoff_time = 0;
 	ssize_t rv = -EINVAL;
 
 	if (!sysfs_streq(buf, "all")) {
@@ -329,13 +325,7 @@ static ssize_t idle_store(struct device *dev,
 		 * If it did not parse as 'all' try to treat it as an integer
 		 * when we have memory tracking enabled.
 		 */
-		u64 age_sec;
-
-		if (IS_ENABLED(CONFIG_ZRAM_MEMORY_TRACKING) && !kstrtoull(buf, 0, &age_sec))
-			cutoff_time = ktime_sub(ktime_get_boottime(),
-					ns_to_ktime(age_sec * NSEC_PER_SEC));
-		else
-			goto out;
+		goto out;
 	}
 
 	down_read(&zram->init_lock);
@@ -346,7 +336,7 @@ static ssize_t idle_store(struct device *dev,
 	 * A cutoff_time of 0 marks everything as idle, this is the
 	 * "all" behavior.
 	 */
-	mark_idle(zram, cutoff_time);
+	mark_idle(zram);
 	rv = len;
 
 out_unlock:
@@ -720,6 +710,7 @@ static ssize_t writeback_store(struct device *dev,
 		if (mode & HUGE_WRITEBACK &&
 			  !zram_test_flag(zram, index, ZRAM_HUGE))
 			goto next;
+
 		/*
 		 * Clearing ZRAM_UNDER_WB is duty of caller.
 		 * IOW, zram_free_page never clear it.
@@ -1107,6 +1098,7 @@ static ssize_t mm_stat_show(struct device *dev,
 			atomic_long_read(&pool_stats.pages_compacted),
 			(u64)atomic64_read(&zram->stats.huge_pages),
 			(u64)atomic64_read(&zram->stats.huge_pages_since));
+
 	up_read(&zram->init_lock);
 
 	return ret;
@@ -1460,6 +1452,7 @@ out:
 		zram_set_handle(zram, index, handle);
 		zram_set_obj_size(zram, index, comp_len);
 	}
+
 	zram_slot_unlock(zram, index);
 
 	/* Update stats */

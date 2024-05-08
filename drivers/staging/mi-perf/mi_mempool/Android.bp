@@ -1,0 +1,17 @@
+sh_test {
+    name: "mi_mempool_test_device",
+    src:"mi_mempool_test_device.sh",
+    filename_from_src: true,
+}
+
+
+sh_test {
+    name: "mi_mempool_test_host",
+    src:"mi_mempool_test_host.sh",
+    host_supported: true,
+    device_supported: false,
+    filename_from_src: true,
+    test_suites: ["general-tests"],
+    require_root: true,
+    target_required: [ "mi_mempool_test_device" ]
+}

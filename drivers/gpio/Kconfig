@@ -1709,6 +1709,23 @@ config GPIO_SIM
 	  This enables the GPIO simulator - a configfs-based GPIO testing
 	  driver.
 
+config GPIO_TIANTONG
+	tristate "Tiantong Modem driver"
+	default n
+	help
+	This adds support for tiantong modem.
+
+config GPIO_JINGSHANG
+	tristate "JINGSHANG satellite Modem driver"
+	default n
+	help
+	This adds support for Jingshang satellite modem.
+
+config MI_T1_CHIP
+	tristate "Mi T1 chip"
+	default n
+	help
+	This adds support for Mi T1 chip.
 endmenu
 
 endif

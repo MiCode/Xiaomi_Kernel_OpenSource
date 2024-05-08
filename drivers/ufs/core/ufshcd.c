@@ -6032,7 +6032,7 @@ int ufshcd_wb_toggle(struct ufs_hba *hba, bool enable)
 	}
 
 	hba->dev_info.wb_enabled = enable;
-	dev_dbg(hba->dev, "%s: Write Booster %s\n",
+	dev_err(hba->dev, "%s: ll Write Booster %s\n",
 			__func__, enable ? "enabled" : "disabled");
 
 	return ret;
@@ -9995,7 +9995,7 @@ static void ufshcd_wl_shutdown(struct device *dev)
 	struct ufs_hba *hba;
 
 	hba = shost_priv(sdev->host);
-
+	dump_stack();
 	down(&hba->host_sem);
 	hba->shutting_down = true;
 	up(&hba->host_sem);

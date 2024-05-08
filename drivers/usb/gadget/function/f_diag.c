@@ -977,24 +977,10 @@ static ssize_t diag_pid_show(struct config_item *item, char *page)
 static ssize_t diag_pid_store(struct config_item *item, const char *page,
 		size_t len)
 {
-	int ret;
-	u32 pid;
-
 	if (!diag_dload) {
 		pr_warn("%s: diag_dload mem region not defined\n", __func__);
 		return 0;
 	}
-
-	ret = kstrtou32(page, 0, &pid);
-	if (ret)
-		return ret;
-
-	memcpy_toio(&diag_dload->pid, &pid, sizeof(pid));
-
-	pid = PID_MAGIC_ID;
-	memcpy_toio(&diag_dload->pid_magic, &pid, sizeof(pid));
-
-	return len;
 }
 
 CONFIGFS_ATTR(diag_, pid);

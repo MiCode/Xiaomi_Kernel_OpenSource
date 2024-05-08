@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
 
+config MI_EXTCON_USB_GPIO
+	tristate "extcon usb gpio"
+	help
+	  Say Y or M here support EXTCON USB GPIO
+
 config USB_DWC3
 	tristate "DesignWare USB3 DRD Core Support"
 	depends on (USB || USB_GADGET) && HAS_DMA

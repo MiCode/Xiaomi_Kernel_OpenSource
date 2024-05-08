@@ -2172,13 +2172,14 @@ static void gsm_queue(struct gsm_mux *gsm)
 	struct gsm_dlci *dlci;
 	u8 cr;
 	int address;
-
-	if (gsm->fcs != GOOD_FCS) {
+	//ADD: Feature TT
+	/*if (gsm->fcs != GOOD_FCS) {
 		gsm->bad_fcs++;
 		if (debug & DBG_DATA)
 			pr_debug("BAD FCS %02x\n", gsm->fcs);
 		return;
-	}
+	}*/
+	//END: Feature TT
 	address = gsm->address >> 1;
 	if (address >= NUM_DLCI)
 		goto invalid;
@@ -2216,6 +2217,7 @@ static void gsm_queue(struct gsm_mux *gsm)
 		gsm_response(gsm, address, UA|PF);
 		gsm_dlci_close(dlci);
 		break;
+	case UA:
 	case UA|PF:
 		if (cr == 0 || dlci == NULL)
 			break;
@@ -3420,7 +3422,9 @@ static int gsm_modem_update(struct gsm_dlci *dlci, u8 brk)
 static int gsm_carrier_raised(struct tty_port *port)
 {
 	struct gsm_dlci *dlci = container_of(port, struct gsm_dlci, port);
-	struct gsm_mux *gsm = dlci->gsm;
+	//struct gsm_mux *gsm = dlci->gsm;
+	pr_err("n_gsm: gsm_carrier_raised dlci->state = %d\n", dlci->state);
+	return 1;
 
 	/* Not yet open so no carrier info */
 	if (dlci->state != DLCI_OPEN)
@@ -3432,11 +3436,11 @@ static int gsm_carrier_raised(struct tty_port *port)
 	 * Basic mode with control channel in ADM mode may not respond
 	 * to CMD_MSC at all and modem_rx is empty.
 	 */
-	if (gsm->encoding == GSM_BASIC_OPT &&
+	/*if (gsm->encoding == GSM_BASIC_OPT &&
 	    gsm->dlci[0]->mode == DLCI_MODE_ADM && !dlci->modem_rx)
 		return 1;
 
-	return dlci->modem_rx & TIOCM_CD;
+	return dlci->modem_rx & TIOCM_CD;*/
 }
 
 static void gsm_dtr_rts(struct tty_port *port, int onoff)

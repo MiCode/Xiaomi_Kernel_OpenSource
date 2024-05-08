@@ -779,6 +779,7 @@ static void bwmon_jiffies_update_cb(void *unused, void *extra)
 		hw = node->hw;
 		if (!hw->is_active)
 			continue;
+
 		delta_ns = now - hw->last_update_ts + HALF_TICK_NS;
 		if (delta_ns > ms_to_ktime(hw->node->window_ms)) {
 			queue_work(bwmon_wq, &hw->work);

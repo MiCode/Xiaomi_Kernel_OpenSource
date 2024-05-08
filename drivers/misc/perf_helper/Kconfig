@@ -1,0 +1,5 @@
+config PERF_HELPER
+        tristate "Perf helper"
+        default n
+        help
+          this module support some base functions for performance.

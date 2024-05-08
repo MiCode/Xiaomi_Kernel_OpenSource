@@ -92,6 +92,20 @@ int sched_long_running_rt_task_ms_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
+//MIUI ADD: Performance_BoostFramework
+static bool is_dispset_thread(struct task_struct *task)
+{
+	struct walt_task_struct *wts;
+	bool ret = false;
+
+	wts = (struct walt_task_struct *) task->group_leader->android_vendor_data1;
+	if (wts->task_type == TASK_TYPE_DISPSET)
+		ret = true;
+
+	return ret;
+}
+//END Performance_BoostFramework
+
 static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpumask *lowest_mask,
 					  int ret, int *best_cpu)
 {
@@ -115,6 +129,14 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 		return; /* No targets found */
 
 	rcu_read_lock();
+
+//MIUI ADD: Performance_BoostFramework
+	if ((num_sched_clusters == 4) && (order_index == 0)
+		&& (tutil > sysctl_sched_rt_skip_min_thres) && is_dispset_thread(task)) {
+		order_index = 4;
+		end_index = 1;
+	}
+//END Performance_BoostFramework
 
 	if (num_sched_clusters > 3 && order_index == 0)
 		end_index = 1;

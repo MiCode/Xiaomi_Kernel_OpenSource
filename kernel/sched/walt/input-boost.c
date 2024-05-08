@@ -49,6 +49,16 @@ static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 static struct workqueue_struct *input_boost_wq;
 
 static struct work_struct input_boost_work;
+//MIUI ADD: Performance_BoostFramework
+static struct work_struct powerkey_input_boost_work;
+static struct work_struct volkey_input_boost_work;
+//END Performance_BoostFramework
+
+//MIUI ADD: Performance_DoubleClickBoost
+static struct work_struct double_click_input_boost_work;
+static u64 last_voldown_time;
+#define MAX_DOUBLE_CLICK_INTERVAL (300 * USEC_PER_MSEC)
+//END Performance_DoubleClickBoost
 
 static bool sched_boost_active;
 
@@ -120,11 +130,120 @@ static void do_input_boost_rem(struct work_struct *work)
 
 	if (sched_boost_active) {
 		ret = sched_set_boost(0);
-		if (!ret)
+//MIUI MOD: Performance_BoostFramework
+		if (ret)
+//END Performance_BoostFramework
 			pr_err("input-boost: sched boost disable failed\n");
 		sched_boost_active = false;
 	}
 }
+
+//MIUI ADD: Performance_BoostFramework
+static void do_powerkey_input_boost(struct work_struct *work)
+{
+
+	unsigned int i, ret;
+	struct cpu_sync *i_sync_info;
+	cancel_delayed_work_sync(&input_boost_rem);
+	if (sched_boost_active) {
+		sched_set_boost(0);
+		sched_boost_active = false;
+	}
+
+	/* Set the powerkey_input_boost_min for all CPUs in the system */
+	pr_debug("Setting powerkey input boost min for all CPUs\n");
+	for (i = 0; i < 8; i++) {
+		i_sync_info = &per_cpu(sync_info, i);
+		i_sync_info->input_boost_min = sysctl_powerkey_input_boost_freq[i];
+	}
+
+	/* Update policies for all online CPUs */
+	update_policy_online();
+
+	/* Enable scheduler boost to migrate tasks to big cluster */
+	if (sysctl_powerkey_sched_boost_on_input) {
+		ret = sched_set_boost(sysctl_powerkey_sched_boost_on_input);
+		if (ret)
+			pr_err("cpu-boost: sched boost enable failed\n");
+		else
+			sched_boost_active = true;
+	}
+
+	queue_delayed_work(input_boost_wq, &input_boost_rem,
+					msecs_to_jiffies(sysctl_powerkey_input_boost_ms));
+}
+
+static void do_volkey_input_boost(struct work_struct *work)
+{
+
+	unsigned int i, ret;
+	struct cpu_sync *i_sync_info;
+	cancel_delayed_work_sync(&input_boost_rem);
+	if (sched_boost_active) {
+		sched_set_boost(0);
+		sched_boost_active = false;
+	}
+
+	/* Set the volkey_input_boost_min for all CPUs in the system */
+	pr_debug("Setting volkey input boost min for all CPUs\n");
+	for (i = 0; i < 8; i++) {
+		i_sync_info = &per_cpu(sync_info, i);
+		i_sync_info->input_boost_min = sysctl_volkey_input_boost_freq[i];
+	}
+
+	/* Update policies for all online CPUs */
+	update_policy_online();
+
+	/* Enable scheduler boost to migrate tasks to big cluster */
+	if (sysctl_volkey_sched_boost_on_input) {
+		ret = sched_set_boost(sysctl_volkey_sched_boost_on_input);
+		if (ret)
+			pr_err("cpu-boost: sched boost enable failed\n");
+		else
+			sched_boost_active = true;
+	}
+
+	queue_delayed_work(input_boost_wq, &input_boost_rem,
+					msecs_to_jiffies(sysctl_volkey_input_boost_ms));
+}
+//END Performance_BoostFramework
+
+//MIUI ADD: Performance_DoubleClickBoost
+static void do_double_click_input_boost(struct work_struct *work)
+{
+
+	unsigned int i, ret;
+	struct cpu_sync *i_sync_info;
+	cancel_delayed_work_sync(&input_boost_rem);
+	if (sched_boost_active) {
+		sched_set_boost(0);
+		sched_boost_active = false;
+	}
+
+	/* Set the double_click_input_boost_min for all CPUs in the system */
+	pr_debug("Setting double_click input boost min for all CPUs\n");
+	for (i = 0; i < 8; i++) {
+		i_sync_info = &per_cpu(sync_info, i);
+		i_sync_info->input_boost_min = sysctl_double_click_input_boost_freq[i];
+	}
+
+	/* Update policies for all online CPUs */
+	update_policy_online();
+
+	/* Enable scheduler boost to migrate tasks to big cluster */
+	if (sysctl_double_click_sched_boost_on_input) {
+		pr_debug("double_click set sched boost\n");
+		ret = sched_set_boost(sysctl_double_click_sched_boost_on_input);
+		if (ret)
+			pr_err("cpu-boost: sched boost enable failed\n");
+		else
+			sched_boost_active = true;
+	}
+
+	queue_delayed_work(input_boost_wq, &input_boost_rem,
+					msecs_to_jiffies(sysctl_double_click_input_boost_ms));
+}
+//END Performance_DoubleClickBoost
 
 static void do_input_boost(struct work_struct *work)
 {
@@ -160,12 +279,36 @@ static void do_input_boost(struct work_struct *work)
 					msecs_to_jiffies(sysctl_input_boost_ms));
 }
 
+//MIUI ADD: Performance_DoubleClickBoost
+static int double_click_boost(unsigned int type, unsigned int code, int value)
+{
+	int double_click_boost_status = 0;
+	u64 now;
+
+	//only tracking volumedown press event
+	if (type == EV_KEY && code == KEY_VOLUMEDOWN && value == 1) {
+		now = ktime_to_us(ktime_get());
+		if (now - last_voldown_time <= MAX_DOUBLE_CLICK_INTERVAL) {
+			double_click_boost_status = 1;
+			queue_work(input_boost_wq, &double_click_input_boost_work);
+		}
+
+		last_voldown_time = ktime_to_us(ktime_get());
+	}
+
+	return double_click_boost_status;
+}
+//END Performance_DoubleClickBoost
+
 static void inputboost_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
 	u64 now;
 	int cpu;
 	int enabled = 0;
+//MIUI ADD: Performance_DoubleClickBoost
+	int double_click_enabled = 0;
+//END Performance_DoubleClickBoost
 
 	for_each_possible_cpu(cpu) {
 		if (sysctl_input_boost_freq[cpu] > 0) {
@@ -176,6 +319,10 @@ static void inputboost_input_event(struct input_handle *handle,
 	if (!enabled)
 		return;
 
+//MIUI ADD: Performance_DoubleClickBoost
+	double_click_enabled = double_click_boost(type, code, value);
+//END Performance_DoubleClickBoost
+
 	now = ktime_to_us(ktime_get());
 	if (now - last_input_time < MIN_INPUT_INTERVAL)
 		return;
@@ -183,7 +330,19 @@ static void inputboost_input_event(struct input_handle *handle,
 	if (work_pending(&input_boost_work))
 		return;
 
-	queue_work(input_boost_wq, &input_boost_work);
+//MIUI MOD: Performance_BoostFramework
+	if (type == EV_KEY && code == KEY_POWER) {
+		queue_work(input_boost_wq, &powerkey_input_boost_work);
+	} else if (type == EV_KEY && (code == KEY_VOLUMEDOWN || code == KEY_VOLUMEUP)) {
+//MIUI ADD: Performance_DoubleClickBoost
+		if (!double_click_enabled)
+//END Performance_DoubleClickBoost
+			queue_work(input_boost_wq, &volkey_input_boost_work);
+	} else {
+		queue_work(input_boost_wq, &input_boost_work);
+	}
+//END Performance_BoostFramework
+
 	last_input_time = ktime_to_us(ktime_get());
 }
 
@@ -272,6 +431,13 @@ int input_boost_init(void)
 	if (!input_boost_wq)
 		return -EFAULT;
 
+//MIUI ADD: Performance_BoostFramework
+	INIT_WORK(&powerkey_input_boost_work, do_powerkey_input_boost);
+	INIT_WORK(&volkey_input_boost_work, do_volkey_input_boost);
+//END Performance_BoostFramework
+//MIUI ADD: Performance_DoubleClickBoost
+	INIT_WORK(&double_click_input_boost_work, do_double_click_input_boost);
+//END Performance_DoubleClickBoost
 	INIT_WORK(&input_boost_work, do_input_boost);
 	INIT_DELAYED_WORK(&input_boost_rem, do_input_boost_rem);
 
