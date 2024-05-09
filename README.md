@@ -204,3 +204,5 @@
 | sheng-u-oss | Xiaomi Pad 6S Pro 12.4 | Android U | LA.VENDOR.13.2.0.r1-14800-KAILUA.0-1.36233.3 | [sheng-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sheng-u-oss) |
 | blue-u-oss | POCO C61 / Redmi A3 | Android U | alps-mp-s0.mp1.tc8sp-cs3-V1_xiaomi.s0mp1.k65v1.64.bsp.k510_P18 | [blue-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/blue-u-oss) |
 | peridot-u-oss | Redmi Turbo 3 | Android U | AU_LINUX_ANDROID_LA.VENDOR.14.3.0.R1.00.00.00.000.092 | [peridot-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/peridot-u-oss) |
+| chenfeng-u-oss | Civi 4 pro | Android U | AU_LINUX_KERNEL.PLATFORM.3.0.R1.00.00.00.017.065 | [chenfeng-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/chenfeng-u-oss) |
+
