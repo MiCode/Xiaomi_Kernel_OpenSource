@@ -66,3 +66,14 @@ qseecom-mod-$(CONFIG_QSEECOM)  := qseecom.o
 qseecom-mod-$(CONFIG_COMPAT)	+= compat_qseecom.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_KINECTICS_XR_NORDIC) += kxrctrl/
+obj-y				+= hqsysfs/
+obj-$(CONFIG_OCP2131_BIAS) += ocp2131_bias/
+obj-$(CONFIG_XIAOMI_PANEL_NOTIFIER) += xiaomi_panel_notifier/
+obj-$(CONFIG_XIAOMI_TOUCH_NOTIFIER) += xiaomi_touch_notifier/
+#N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start
+obj-$(CONFIG_XIAOMI_USB_TOUCH_NOTIFIER) += xiaomi_usb_touch_notifier/
+obj-$(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER) += xiaomi_headset_touch_notifier/
+#N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start
+# N19 simtray bringup
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/
+

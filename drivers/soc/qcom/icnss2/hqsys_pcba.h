@@ -1,0 +1,39 @@
+#ifndef HQSYS_PCBA
+#define HQSYS_PCBA
+typedef enum {
+    PCBA_UNKNOW = -1,
+   PCBA_N19_P0_1_CN = 0x10,
+   PCBA_N19_P0_1_IN,
+   PCBA_N19P_P0_1_IN,
+   PCBA_N19_P1_CN = 0x20,
+   PCBA_N19_P1_IN,
+   PCBA_N19P_P1_IN,
+   PCBA_N19_P1_CN_PA,
+   PCBA_N19_P1_IN_PA,
+   PCBA_N19P_P1_IN_PA,
+   PCBA_N19_P1_1_CN = 0x30,
+   PCBA_N19_P1_1_IN,
+   PCBA_N19P_P1_1_IN,
+   PCBA_N19_P1_1_CN_PA,
+   PCBA_N19_P1_1_IN_PA,
+   PCBA_N19P_P1_1_IN_PA,
+   PCBA_N19_P2_CN = 0x40,
+   PCBA_N19_P2_IN,
+   PCBA_N19P_P2_IN,
+   PCBA_N19_P2_CN_PA,
+   PCBA_N19_P2_IN_PA,
+   PCBA_N19P_P2_IN_PA,
+   PCBA_N19_MP_CN = 0x50,
+   PCBA_N19_MP_IN,
+   PCBA_N19P_MP_IN,
+   PCBA_N19_MP_CN_PA,
+   PCBA_N19_MP_IN_PA,
+   PCBA_N19P_MP_IN_PA,
+   PCBA_END,
+} PCBA_CONFIG;
+struct pcba_info {
+	PCBA_CONFIG pcba_config;
+	char pcba_name[32];
+};
+PCBA_CONFIG get_huaqin_pcba_config(void);
+#endif

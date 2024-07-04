@@ -1,0 +1,11 @@
+#
+# Xiaomi usb touch notifier driver configuration
+#
+
+config XIAOMI_HEADSET_TOUCH_NOTIFIER
+        tristate "Xiaomi headset touch notifier"
+        default m
+        help
+          Say Y here if you use xiaomi headset touch notifier.
+          If unsure, say N.
+

@@ -715,6 +715,13 @@ static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
 	if (phy->cable_connected && (mA == 0))
 		return 0;
 
+	/* N19 code for HQ-366827 && HQHW-6488 by p-gucheng at 2023/01/16 - start */
+	if (mA <= 100) {
+		mA = 500;
+		dev_info(phy->phy.dev, "msm_hsphy_set_power:set curr from USB = 500mA\n");
+	}
+	/* N19 code for HQ-366827 && HQHW-6488 by p-gucheng at 2023/01/16 - end */
+
 	phy->vbus_draw = mA;
 	schedule_work(&phy->vbus_draw_work);
 

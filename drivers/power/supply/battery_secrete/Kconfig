@@ -1,0 +1,24 @@
+config BATT_VERIFY_BY_DS28E30
+	tristate "ds28e30 driver"
+	default n
+	help
+		It needs a onewire physical controller to work.
+
+config ONEWIRE_GPIO
+	tristate "onewire gpio driver"
+	default n
+	help
+		It's an onewire driver.
+ 
+config BATT_VERIFY_BY_SLG
+	tristate "slg driver"
+	default n
+	help
+		It needs a onewire physical controller to work.
+ 
+config BATT_VERIFY
+	tristate "auth battery driver"
+	default n
+	help
+		It needs a onewire physical controller to work.
+

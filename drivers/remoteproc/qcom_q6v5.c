@@ -14,11 +14,78 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
+/* N19 code for HQ-354920 by zhangyue at 2024/1/29 start */
+#include <linux/workqueue.h>
+#include <linux/slab.h>
+/* N19 code for HQ-354920 by zhangyue at 2024/1/29 end */
 #include "qcom_common.h"
 #include "qcom_q6v5.h"
 #include <trace/events/rproc_qcom.h>
 
 #define Q6V5_PANIC_DELAY_MS	200
+
+/* N19 code for HQ-354920 by zhangyue at 2024/1/29 start */
+#define MAX_SSR_REASON_LEN	256U
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+	if (checknv_kset != NULL) {
+		pr_info("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_info("kobject alloc failed.");
+		return;
+	}
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+	checknv_kobj->kset = checknv_kset;
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_info("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	return;
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+free_kobj:
+	kfree(checknv_kobj);
+}
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+/* N19 code for HQ-354920 by zhangyue at 2024/1/29 end */
 
 /**
  * qcom_q6v5_prepare() - reinitialize the qcom_q6v5 context before start
@@ -148,19 +215,27 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	else
 		dev_err(q6v5->dev, "fatal error without message\n");
 
-	q6v5->running = false;
-	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", msg);
-	if (q6v5->rproc->recovery_disabled) {
-		schedule_work(&q6v5->crash_handler);
-	} else {
-		if (q6v5->ssr_subdev) {
-			qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
-			ssr = container_of(q6v5->ssr_subdev, struct qcom_rproc_ssr, subdev);
-			ssr->is_notified = true;
-		}
+    /* N19 code for HQ-354920 by zhangyue at 2024/1/29 start */
+    strlcpy(last_modem_sfr_reason, msg, min(len, (size_t)MAX_SSR_REASON_LEN));
+    if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
+        pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+        schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+    }else{
+		q6v5->running = false;
+	    trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", msg);
+	    if (q6v5->rproc->recovery_disabled) {
+            schedule_work(&q6v5->crash_handler);
+        } else {
+            if (q6v5->ssr_subdev) {
+                qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
+                ssr = container_of(q6v5->ssr_subdev, struct qcom_rproc_ssr, subdev);
+                ssr->is_notified = true;
+            }
 
-		rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
-	}
+            rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+	    }
+    }
+    /* N19 code for HQ-354920 by zhangyue at 2024/1/29 end */
 
 	return IRQ_HANDLED;
 }

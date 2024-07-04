@@ -526,5 +526,15 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/isl97900_led/Kconfig"
 source "drivers/misc/uacce/Kconfig"
+source "drivers/misc/hqsysfs/Kconfig"
 source "drivers/misc/hdcp/Kconfig"
+source "drivers/misc/ocp2131_bias/Kconfig"
+source "drivers/misc/xiaomi_panel_notifier/Kconfig"
+source "drivers/misc/xiaomi_touch_notifier/Kconfig"
+# N19 simtray bringup
+source "drivers/misc/simtray/Kconfig"
+#N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start
+source "drivers/misc/xiaomi_usb_touch_notifier/Kconfig"
+source "drivers/misc/xiaomi_headset_touch_notifier/Kconfig"
+#N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start
 endmenu

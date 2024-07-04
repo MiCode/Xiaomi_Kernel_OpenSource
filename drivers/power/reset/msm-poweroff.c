@@ -380,7 +380,7 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
 		return -EINVAL;
 	}
-
+        pr_err("%s: dload_type=0x%x\n", __func__, dload_type);
 	mutex_lock(&tcsr_lock);
 	/*Overwrite TCSR reg*/
 	set_dload_mode(dload_type);

@@ -26,11 +26,15 @@
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/of_common.h>
+#include <linux/soc/qcom/smem.h>
 #include "wlan_firmware_service_v01.h"
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
 #include "genl.h"
+#include "smem_type.h"
+#include "hqsys_pcba.h"
+#include <linux/string.h>
 
 #define WLFW_SERVICE_WCN_INS_ID_V01	3
 #define WLFW_SERVICE_INS_ID_V01		0
@@ -40,7 +44,20 @@
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
+
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
+
+
+#define BIN_BDF_CN_FILE_NAME		"bdwlan.cn"
+#define BIN_BDF_IN_FILE_NAME		"bdwlan.in"
+
+#define BIN_UMC_CN_FILE_NAME	"bdwlanu.cn"
+#define BIN_UMC_IN_FILE_NAME	"bdwlanu.in"
+
+
+#define BIN_SMIC_CN_FILE_NAME	"bdwlans.cn"
+#define BIN_SMIC_IN_FILE_NAME	"bdwlans.in"
+
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan."
 #define REGDB_FILE_NAME			"regdb.bin"
 
@@ -52,7 +69,8 @@
 #define DMS_QMI_MAX_MSG_LEN		SZ_256
 #define DMS_MAC_NOT_PROVISIONED		16
 #define BDWLAN_SIZE			6
-#define UMC_CHIP_ID                    0x4320
+#define UMC_CHIP_ID             0x130
+#define SMIC_CHIP_ID            0x5130
 #define MAX_SHADOW_REG_RESERVED		2
 #define MAX_NUM_SHADOW_REG_V3		(QMI_WLFW_MAX_NUM_SHADOW_REG_V3_USAGE_V01 - \
 					MAX_SHADOW_REG_RESERVED)
@@ -790,6 +808,8 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 		priv->foundry_name = resp->foundry_name[0];
 	else if (resp->chip_info_valid && priv->chip_info.chip_id == UMC_CHIP_ID)
 		priv->foundry_name = 'u';
+	else if (resp->chip_info_valid && priv->chip_info.chip_id == SMIC_CHIP_ID)
+		priv->foundry_name = 's';
 
 	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x",
 		     priv->chip_info.chip_id, priv->chip_info.chip_family,
@@ -1006,14 +1026,32 @@ void icnss_dms_deinit(struct icnss_priv *priv)
 	qmi_handle_release(&priv->qmi_dms);
 }
 
+// N19 code for HQ-376659 by p-songshuyue  at 20240329 start
+static int is_board_id_in(void)
+{	
+	int ret=1;
+	PCBA_CONFIG *pcba_config = NULL;
+	size_t size;
+	icnss_pr_dbg("%s!\n", __func__);
+	icnss_pr_dbg("SMEM_ID_VENDOR1 is %d\n", SMEM_ID_VENDOR1);
+	pcba_config = (PCBA_CONFIG *)qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_ID_VENDOR1, &size);
+  	icnss_pr_dbg("pcba_config is %d\n", *pcba_config);
+	if (pcba_config) {
+	    if((*pcba_config%16 != 0) && (*pcba_config%16 != 3))
+		ret = 2;
+	}
+	return ret;
+}
+// N19 code for HQ-376659 by p-songshuyue  at 20240329 end
+
 static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 				   u32 bdf_type, char *filename,
 				   u32 filename_len)
 {
 	char filename_tmp[ICNSS_MAX_FILE_NAME];
-	char foundry_specific_filename[ICNSS_MAX_FILE_NAME];
 	int ret = 0;
-
+	int boardid = 1;
+	boardid = is_board_id_in();
 	switch (bdf_type) {
 	case ICNSS_BDF_ELF:
 		if (priv->board_id == 0xFF)
@@ -1030,24 +1068,52 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 		break;
 	case ICNSS_BDF_BIN:
 		if (priv->board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
+                {
+                  // N19 code for HQ-376659 by p-songshuyue  at 20240329 start
+                   icnss_pr_dbg("N19_test0,N19 chip id type: 0x%x\n",priv->chip_info.chip_id);
+                   switch (priv->chip_info.chip_id) {
+                   case UMC_CHIP_ID:
+			if(boardid == 2)
+                        {snprintf(filename_tmp, filename_len, BIN_UMC_IN_FILE_NAME);
+                       icnss_pr_dbg("n19_test1,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);}
+			else
+                        {snprintf(filename_tmp, filename_len, BIN_UMC_CN_FILE_NAME);
+                       icnss_pr_dbg("n19_test2,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);}
+                        break;
+                   case SMIC_CHIP_ID:
+                       if(boardid == 2)
+                       {snprintf(filename_tmp, filename_len, BIN_SMIC_IN_FILE_NAME);
+                       icnss_pr_dbg("n19_test3,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);}
+		       else
+                       {snprintf(filename_tmp, filename_len, BIN_SMIC_CN_FILE_NAME);
+                       icnss_pr_dbg("n19_test4,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);}
+                       break;
+                   default:
+                       if(boardid == 2)
+                       {
+                         snprintf(filename_tmp, filename_len, BIN_BDF_IN_FILE_NAME);
+                         icnss_pr_dbg("n19_test5,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);}
+			else
+                        {snprintf(filename_tmp, filename_len, BIN_BDF_CN_FILE_NAME);
+                       icnss_pr_dbg("n19_test6,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);}
+                     	break;
+                   }
+                }
 		else if (priv->board_id >= WLAN_BOARD_ID_INDEX)
+                {
 			snprintf(filename_tmp, filename_len,
 				 BIN_BDF_FILE_NAME_PREFIX "%03x",
 				 priv->board_id);
+			icnss_pr_dbg("n19_test7,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                }
 		else
+                {
 			snprintf(filename_tmp, filename_len,
 				 BIN_BDF_FILE_NAME_PREFIX "b%02x",
 				 priv->board_id);
-		if (priv->foundry_name) {
-			strlcpy(foundry_specific_filename, filename_tmp, ICNSS_MAX_FILE_NAME);
-			memmove(foundry_specific_filename + BDWLAN_SIZE + 1,
-				foundry_specific_filename + BDWLAN_SIZE,
-				BDWLAN_SIZE - 1);
-			foundry_specific_filename[BDWLAN_SIZE] = priv->foundry_name;
-			foundry_specific_filename[ICNSS_MAX_FILE_NAME - 1] = '\0';
-			strlcpy(filename_tmp, foundry_specific_filename, ICNSS_MAX_FILE_NAME);
-		}
+			icnss_pr_dbg("n19_test8,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                 // N19 code for HQ-376659 by p-songshuyue  at 20240329 end
+                }
 		break;
 	case ICNSS_BDF_REGDB:
 		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);

@@ -24,6 +24,11 @@
 #include <linux/soc/qcom/battery_charger.h>
 #include <linux/soc/qcom/panel_event_notifier.h>
 #include "qti_typec_class.h"
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start */
+#if IS_ENABLED(CONFIG_XIAOMI_USB_TOUCH_NOTIFIER)
+#include <misc/xiaomi_usb_touch_notifier.h>
+#endif
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 end */
 
 #define MSG_OWNER_BC			32778
 #define MSG_TYPE_REQ_RESP		1
@@ -40,6 +45,8 @@
 #define BC_WLS_STATUS_GET		0x34
 #define BC_WLS_STATUS_SET		0x35
 #define BC_SHIP_MODE_REQ_SET		0x36
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 */
+#define BC_SHUTDOWN_REQ_SET		0x37
 #define BC_WLS_FW_CHECK_UPDATE		0x40
 #define BC_WLS_FW_PUSH_BUF_REQ		0x41
 #define BC_WLS_FW_UPDATE_STATUS_RESP	0x42
@@ -48,6 +55,10 @@
 #define BC_SHUTDOWN_NOTIFY		0x47
 #define BC_HBOOST_VMAX_CLAMP_NOTIFY	0x79
 #define BC_GENERIC_NOTIFY		0x80
+/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+#define BC_XM_STATUS_GET		0x50
+#define BC_XM_STATUS_SET		0x51
+/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
 
 /* Generic definitions */
 #define MAX_STR_LEN			128
@@ -58,6 +69,28 @@
 #define WLS_FW_BUF_SIZE			128
 #define DEFAULT_RESTRICT_FCC_UA		1000000
 
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/10 - start*/
+#define USBPD_UVDM_SS_LEN	        4
+#define BATTERY_SS_AUTH_DATA_LEN 	4
+
+/* N19 code for HQ-355015&HQHW-6124 by p-yeyinzi at 2023/01/06 - start*/
+#define PPS_THERMAL_LIMIT_MAX		6000000
+#define QC_THERMAL_LIMIT_MAX		3600000
+/* N19 code for HQ-355015&HQHW-6124 by p-yeyinzi at 2023/01/06 - end*/
+
+#define BSWAP_32(x) \
+	(u32)((((u32)(x) & 0xff000000) >> 24) | \
+			(((u32)(x) & 0x00ff0000) >> 8) | \
+			(((u32)(x) & 0x0000ff00) << 8) | \
+			(((u32)(x) & 0x000000ff) << 24))
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/10 - end*/
+
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - start*/
+#define MONITOR_SOC_WAIT_MS	        1000
+#define INIT_MONITOR_SOC_WAIT_MS	        10000
+#define BATT_MA_AVG_SAMPLES		8
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - end*/
+
 enum usb_connector_type {
 	USB_CONNECTOR_TYPE_TYPEC,
 	USB_CONNECTOR_TYPE_MICRO_USB,
@@ -67,6 +100,9 @@ enum psy_type {
 	PSY_TYPE_BATTERY,
 	PSY_TYPE_USB,
 	PSY_TYPE_WLS,
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+	PSY_TYPE_XM,
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
 	PSY_TYPE_MAX,
 };
 
@@ -135,7 +171,75 @@ enum wireless_property_id {
 	WLS_PROP_MAX,
 };
 
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/10 - start*/
+enum uvdm_state {
+	USBPD_UVDM_DISCONNECT,
+	USBPD_UVDM_CHARGER_VERSION,
+	USBPD_UVDM_CHARGER_VOLTAGE,
+	USBPD_UVDM_CHARGER_TEMP,
+	USBPD_UVDM_SESSION_SEED,
+	USBPD_UVDM_AUTHENTICATION,
+	USBPD_UVDM_VERIFIED,
+	USBPD_UVDM_REMOVE_COMPENSATION,
+	USBPD_UVDM_REVERSE_AUTHEN,
+	USBPD_UVDM_CONNECT,
+};
+
+/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/23 - start*/
+enum xm_property_id {
+	XM_PROP_REAL_TYPE,
+	XM_PROP_CC_ORIENTATION,
+	XM_PROP_INPUT_SUSPEND,
+	XM_PROP_USB_OTG,
+	XM_PROP_BAT_ID,
+	XM_PROP_AUTHENTIC,
+	XM_PROP_CHIP_OK,
+	XM_PROP_VERIFY_PROCESS,
+	XM_PROP_VDM_CMD_CHARGER_VERSION,
+	XM_PROP_VDM_CMD_CHARGER_VOLTAGE,
+	XM_PROP_VDM_CMD_CHARGER_TEMP,
+	XM_PROP_VDM_CMD_SESSION_SEED,
+	XM_PROP_VDM_CMD_AUTHENTICATION,
+	XM_PROP_VDM_CMD_VERIFIED,
+	XM_PROP_VDM_CMD_REMOVE_COMPENSATION,
+	XM_PROP_VDM_CMD_REVERSE_AUTHEN,
+	XM_PROP_CURRENT_STATE,
+	XM_PROP_ADAPTER_ID,
+	XM_PROP_ADAPTER_SVID,
+	XM_PROP_PD_VERIFED,
+	XM_PROP_PDO2,
+	XM_PROP_UVDM_STATE,
+	/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end*/
+	/* N19 code for HQ-363897 by p-yeyinzi at 2023/1/15 */
+	XM_PROP_FAKE_TEMP,
+	/* N19 code for HQ-351611 by p-tangsufeng at 2024/1/22 - start*/
+	XM_PROP_SOC_DECIMAL,
+	XM_PROP_SOC_DECIMAL_RATE,
+	/* N19 code for HQ-351611 by p-tangsufeng at 2024/1/22 - end*/
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 */
+	XM_PROP_SHUTDOWN_DELAY,
+	/* N19 code for HQ-357609&HQ-370651 by p-wumingzhu1 at 2024/02/04 start*/
+	XM_PROP_SMART_CHG,
+	XM_PROP_FAKE_CYCLE_COUNT,
+	XM_PROP_SMART_BATT,
+	/* N19 code for HQ-357609HQ-370651 by p-wumingzhu1 at 2024/02/04 end*/
+	/* N19 code for HQHW-6475 by p-gucheng at 2024/03/09 */
+	XM_PROP_CHARGE_DISABLED,
+	/* N19 code for HQ-373306 by p-wuwencheng at 2024/3/15 - start*/
+	XM_PROP_CHARGE_TYPE_MODE,
+	/* N19 code for HQ-371056 by p-wuwencheng at 2024/3/19 - start*/
+	XM_PROP_TYPEC_MODE,
+	/* N19 code for HQ-378516 by p-gucheng at 2023/03/24 */
+	XM_PROP_MTBF_MODE,
+	XM_PROP_CP_ICL,
+	XM_PROP_MAX,
+};
+/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
+
 enum {
+	/* N19 code for HQ-351613 by p-tangsufeng at 2024/1/8 - start*/
+	QTI_POWER_SUPPLY_USB_TYPE_USB_FLOAT = 10,
+	/* N19 code for HQ-351613 by p-tangsufeng at 2024/1/8 - end*/
 	QTI_POWER_SUPPLY_USB_TYPE_HVDCP = 0x80,
 	QTI_POWER_SUPPLY_USB_TYPE_HVDCP_3,
 	QTI_POWER_SUPPLY_USB_TYPE_HVDCP_3P5,
@@ -216,6 +320,12 @@ struct battery_charger_ship_mode_req_msg {
 	u32			ship_mode_type;
 };
 
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 - start */
+struct battery_charger_shutdown_req_msg {
+	struct pmic_glink_hdr	hdr;
+};
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 - end */
+
 struct psy_state {
 	struct power_supply	*psy;
 	char			*model;
@@ -225,6 +335,14 @@ struct psy_state {
 	u32			opcode_get;
 	u32			opcode_set;
 };
+
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - start*/
+struct xm_ss_auth_resp_msg {
+        struct pmic_glink_hdr	hdr;
+        u32			property_id;
+        u32			data[BATTERY_SS_AUTH_DATA_LEN];
+};
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end*/
 
 struct battery_chg_dev {
 	struct device			*dev;
@@ -242,10 +360,20 @@ struct battery_chg_dev {
 	/* extcon for VBUS/ID notification for USB for micro USB */
 	struct extcon_dev		*extcon;
 	u32				*thermal_levels;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - start*/
+	u32				*pps_thermal_levels;
+	u32				*qc_thermal_levels;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - end*/
 	const char			*wls_fw_name;
 	int				curr_thermal_level;
 	int				num_thermal_levels;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - start*/
+	int				pps_num_thermal_levels;
+	int				qc_num_thermal_levels;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - end*/
 	int				shutdown_volt_mv;
+	/* N19 code for HQ-376015 by p-wumingzhu1 at 2024/03/13 */
+	int				usb_vbus_type;
 	atomic_t			state;
 	struct work_struct		subsys_up_work;
 	struct work_struct		usb_type_work;
@@ -260,6 +388,8 @@ struct battery_chg_dev {
 	u16				wls_fw_crc;
 	u32				wls_fw_update_time_ms;
 	struct notifier_block		reboot_notifier;
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 */
+	struct notifier_block		shutdown_notifier;
 	u32				thermal_fcc_ua;
 	u32				restrict_fcc_ua;
 	u32				last_fcc_ua;
@@ -272,6 +402,14 @@ struct battery_chg_dev {
 	bool				initialized;
 	bool				notify_en;
 	bool				error_prop;
+	/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 */
+	u32				*ss_auth_data;
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 - start */
+	bool				shutdown_delay_en;
+	bool				report_power_absent;
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 - end */
+	/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 */
+	struct delayed_work 		soc_monitor_work;
 };
 
 static const int battery_prop_map[BATT_PROP_MAX] = {
@@ -319,6 +457,11 @@ static const int wls_prop_map[WLS_PROP_MAX] = {
 	[WLS_CURR_MAX]		= POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
+/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+static const int xm_prop_map[XM_PROP_MAX] = {
+};
+/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
+
 static const unsigned int bcdev_usb_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
@@ -328,13 +471,30 @@ static const unsigned int bcdev_usb_extcon_cable[] = {
 /* Standard usb_type definitions similar to power_supply_sysfs.c */
 static const char * const power_supply_usb_type_text[] = {
 	"Unknown", "SDP", "DCP", "CDP", "ACA", "C",
-	"PD", "PD_DRP", "PD_PPS", "BrickID"
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+	"PD", "PD_DRP", "PD_PPS", "DCP", "USB_FLOAT"
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
 };
-
+/* N19 code for HQ-373306 by p-wuwencheng at 2024/3/15 - start*/
+static const char * const power_supply_charge_type_text[] = {
+	"UNKNOWN", "NORMAL", "FFC"
+};
+/* N19 code for HQ-373306 by p-wuwencheng at 2024/3/15 - end*/
 /* Custom usb_type definitions */
 static const char * const qc_power_supply_usb_type_text[] = {
 	"HVDCP", "HVDCP_3", "HVDCP_3P5"
 };
+/* N19 code for HQ-371056 by p-wuwencheng at 2024/3/19 - start*/
+static const char * const power_supply_usb_typec_mode_text[] = {
+	"Nothing attached", "SOURCE_DEFAULT", "SOURCE_MEDIUM", "SOURCE_HIGH", "NON_COMPLIANT",
+	"Sink attached", "SINK_POWERED_CABLE", "SINK_DEBUG_ACCESSORY", "Audio Adapter", "POWERED_CABLE_ONLY"
+};
+/* N19 code for HQ-371056 by p-wuwencheng at 2024/3/19 - end*/
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start */
+#if IS_ENABLED(CONFIG_XIAOMI_USB_TOUCH_NOTIFIER)
+int g_charger_flag = 0;
+#endif
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 end */
 
 static RAW_NOTIFIER_HEAD(hboost_notifier);
 
@@ -490,17 +650,62 @@ static int get_property_id(struct psy_state *pst,
 	return -ENOENT;
 }
 
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - start */
+int StringToHex(char *str, unsigned char *out, unsigned int *outlen)
+{
+	char *p = str;
+	char high = 0, low = 0;
+	int tmplen = strlen(p), cnt = 0;
+	tmplen = strlen(p);
+	while(cnt < (tmplen / 2))
+	{
+		high = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+		low = (*(++ p) > '9' && ((*p <= 'F') || (*p <= 'f'))) ? *(p) - 48 - 7 : *(p) - 48;
+		out[cnt] = ((high & 0x0f) << 4 | (low & 0x0f));
+		p ++;
+		cnt ++;
+	}
+	if(tmplen % 2 != 0) out[cnt] = ((*p > '9') && ((*p <= 'F') || (*p <= 'f'))) ? *p - 48 - 7 : *p - 48;
+	if(outlen != NULL) *outlen = tmplen / 2 + tmplen % 2;
+	return tmplen / 2 + tmplen % 2;
+}
+
+static int write_ss_auth_prop_id(struct battery_chg_dev *bcdev,
+			struct psy_state *pst, u32 prop_id, u32* buff)
+{
+	struct xm_ss_auth_resp_msg req_msg = { { 0 } };
+	req_msg.property_id = prop_id;
+	req_msg.hdr.owner = MSG_OWNER_BC;
+	req_msg.hdr.type = MSG_TYPE_REQ_RESP;
+	req_msg.hdr.opcode = pst->opcode_set;
+	memcpy(req_msg.data, buff, BATTERY_SS_AUTH_DATA_LEN*sizeof(u32));
+	pr_debug("psy: prop_id:%d size:%d data[0]:0x%x data[1]:0x%x data[2]:0x%x data[3]:0x%x\n",
+		req_msg.property_id, sizeof(req_msg), req_msg.data[0], req_msg.data[1], req_msg.data[2], req_msg.data[3]);
+	return battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
+}
+
+static int read_ss_auth_property_id(struct battery_chg_dev *bcdev,
+			struct psy_state *pst, u32 prop_id)
+{
+	struct xm_ss_auth_resp_msg req_msg = { { 0 } };
+	req_msg.property_id = prop_id;
+	req_msg.hdr.owner = MSG_OWNER_BC;
+	req_msg.hdr.type = MSG_TYPE_REQ_RESP;
+	req_msg.hdr.opcode = pst->opcode_get;
+	pr_debug("psy: %s prop_id: %u\n", pst->psy->desc->name,
+		req_msg.property_id);
+	return battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
+}
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end */
 static void battery_chg_notify_disable(struct battery_chg_dev *bcdev)
 {
 	struct battery_charger_set_notify_msg req_msg = { { 0 } };
 	int rc;
-
 	if (bcdev->notify_en) {
 		/* Send request to disable notification */
 		req_msg.hdr.owner = MSG_OWNER_BC;
 		req_msg.hdr.type = MSG_TYPE_NOTIFY;
 		req_msg.hdr.opcode = BC_DISABLE_NOTIFY_REQ;
-
 		rc = battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
 		if (rc < 0)
 			pr_err("Failed to disable notification rc=%d\n", rc);
@@ -637,6 +842,13 @@ EXPORT_SYMBOL(qti_battery_charger_set_prop);
 static bool validate_message(struct battery_chg_dev *bcdev,
 			struct battery_charger_resp_msg *resp_msg, size_t len)
 {
+	/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - start */	
+        struct xm_ss_auth_resp_msg *ss_auth_req_msg = (struct xm_ss_auth_resp_msg *)resp_msg;
+	if (len == sizeof(*ss_auth_req_msg)) {
+                return true;
+        }
+	/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end */
+
 	if (len != sizeof(*resp_msg)) {
 		pr_err("Incorrect response length %zu for opcode %#x\n", len,
 			resp_msg->hdr.opcode);
@@ -660,6 +872,8 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 {
 	struct battery_charger_resp_msg *resp_msg = data;
 	struct battery_model_resp_msg *model_resp_msg = data;
+	/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 */
+	struct xm_ss_auth_resp_msg *ss_auth_req_msg = data;
 	struct wireless_fw_check_resp *fw_check_msg;
 	struct wireless_fw_push_buf_resp *fw_resp_msg;
 	struct wireless_fw_update_status *fw_update_msg;
@@ -706,9 +920,32 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 		}
 
 		break;
+
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+	case BC_XM_STATUS_GET:
+		/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - start */
+		if (len == sizeof(*ss_auth_req_msg) && bcdev->ss_auth_data) {
+			memcpy(bcdev->ss_auth_data, ss_auth_req_msg->data, BATTERY_SS_AUTH_DATA_LEN*sizeof(u32));
+			ack_set = true;
+		break;
+		}
+		/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end */
+
+		pst = &bcdev->psy_list[PSY_TYPE_XM];
+		if (validate_message(bcdev, resp_msg, len) &&
+		    resp_msg->property_id < pst->prop_count) {
+			pst->prop[resp_msg->property_id] = resp_msg->value;
+			ack_set = true;
+		}
+
+		break;
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
 	case BC_BATTERY_STATUS_SET:
 	case BC_USB_STATUS_SET:
 	case BC_WLS_STATUS_SET:
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+	case BC_XM_STATUS_SET:
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
 		if (validate_message(bcdev, data, len))
 			ack_set = true;
 
@@ -717,6 +954,8 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 	case BC_DISABLE_NOTIFY_REQ:
 	case BC_SHUTDOWN_NOTIFY:
 	case BC_SHIP_MODE_REQ_SET:
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 */
+	case BC_SHUTDOWN_REQ_SET:
 		/* Always ACK response for notify or ship_mode request */
 		ack_set = true;
 		break;
@@ -886,14 +1125,22 @@ static void battery_chg_check_status_work(struct work_struct *work)
 					struct battery_chg_dev,
 					battery_check_work);
 	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
-	int rc;
-
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start */
+	struct psy_state *usb_pst = &bcdev->psy_list[PSY_TYPE_USB];
+	int rc = 0;
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 end */
 	rc = read_property_id(bcdev, pst, BATT_STATUS);
 	if (rc < 0) {
 		pr_err("Failed to read BATT_STATUS, rc=%d\n", rc);
 		return;
 	}
-
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start */
+ 	rc = read_property_id(bcdev, usb_pst, USB_ONLINE);
+	if (rc < 0) {
+		pr_err("Failed to read USB_ONLINE, rc=%d\n", rc);
+		return;
+	}
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 end */
 	if (pst->prop[BATT_STATUS] == POWER_SUPPLY_STATUS_CHARGING) {
 		pr_debug("Battery is charging\n");
 		return;
@@ -923,15 +1170,16 @@ static void battery_chg_check_status_work(struct work_struct *work)
 	}
 
 	if (pst->prop[BATT_VOLT_NOW] / 1000 > bcdev->shutdown_volt_mv) {
-		pr_debug("Battery voltage is > %d mV\n",
+		/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 */
+		pr_info("Battery voltage is > %d mV\n",
 			bcdev->shutdown_volt_mv);
 		return;
 	}
 
 	pr_emerg("Initiating a shutdown in 100 ms\n");
 	msleep(100);
-	pr_emerg("Attempting kernel_power_off: Battery voltage low\n");
-	kernel_power_off();
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 */
+	bcdev->report_power_absent = true;
 }
 
 static void handle_notification(struct battery_chg_dev *bcdev, void *data,
@@ -959,8 +1207,9 @@ static void handle_notification(struct battery_chg_dev *bcdev, void *data,
 	case BC_BATTERY_STATUS_GET:
 	case BC_GENERIC_NOTIFY:
 		pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
-		if (bcdev->shutdown_volt_mv > 0)
-			schedule_work(&bcdev->battery_check_work);
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 start */
+		schedule_work(&bcdev->battery_check_work);
+/* N19 code for HQ-354491 by p-luozhibin1 at 2023.1.22 end */
 		break;
 	case BC_USB_STATUS_GET:
 		pst = &bcdev->psy_list[PSY_TYPE_USB];
@@ -969,6 +1218,11 @@ static void handle_notification(struct battery_chg_dev *bcdev, void *data,
 	case BC_WLS_STATUS_GET:
 		pst = &bcdev->psy_list[PSY_TYPE_WLS];
 		break;
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+	case BC_XM_STATUS_GET:
+		pst = &bcdev->psy_list[PSY_TYPE_XM];
+		break;
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - end*/
 	default:
 		break;
 	}
@@ -1134,6 +1388,117 @@ static int usb_psy_set_icl(struct battery_chg_dev *bcdev, u32 prop_id, int val)
 	return rc;
 }
 
+/* N19 code for HQ-351613 by p-tangsufeng at 2024/1/8 - start*/
+enum power_supply_quick_charge_type {
+	QUICK_CHARGE_NORMAL = 0,		/* Charging Power <= 10W */
+	QUICK_CHARGE_FAST,			/* 10W < Charging Power <= 20W */
+	QUICK_CHARGE_FLASH,			/* 20W < Charging Power <= 30W */
+	QUICK_CHARGE_TURBE,			/* 30W < Charging Power <= 50W */
+	QUICK_CHARGE_SUPER,			/* Charging Power > 50W */
+	QUICK_CHARGE_MAX,
+};
+struct quick_charge {
+	int adap_type;
+	enum power_supply_quick_charge_type adap_cap;
+};
+struct quick_charge adapter_cap[12] = {
+	{ POWER_SUPPLY_USB_TYPE_SDP,        QUICK_CHARGE_NORMAL },
+	{ POWER_SUPPLY_USB_TYPE_DCP,    QUICK_CHARGE_NORMAL },
+	{ POWER_SUPPLY_USB_TYPE_CDP,    QUICK_CHARGE_NORMAL },
+	{ POWER_SUPPLY_USB_TYPE_ACA,    QUICK_CHARGE_NORMAL },
+	{ QTI_POWER_SUPPLY_USB_TYPE_USB_FLOAT,  QUICK_CHARGE_NORMAL },
+	{ POWER_SUPPLY_USB_TYPE_PD,       QUICK_CHARGE_FAST },
+	{ POWER_SUPPLY_USB_TYPE_PD_PPS,       QUICK_CHARGE_TURBE },
+	{ QTI_POWER_SUPPLY_USB_TYPE_HVDCP,    QUICK_CHARGE_FAST },
+	{ QTI_POWER_SUPPLY_USB_TYPE_HVDCP_3,  QUICK_CHARGE_FAST },
+	/* N19 code for HQ-371347 by p-yeyinzi at 2024/3/19 */
+	{ QTI_POWER_SUPPLY_USB_TYPE_HVDCP_3P5,  QUICK_CHARGE_FAST },
+	{0, 0},
+};
+
+static int battery_psy_set_charge_current(struct battery_chg_dev *bcdev, int val);
+static int quick_charge_type(struct battery_chg_dev *bcdev)
+{
+	struct psy_state *pst_xm = &bcdev->psy_list[PSY_TYPE_XM];
+	struct psy_state *pst_bat = &bcdev->psy_list[PSY_TYPE_BATTERY];
+	struct psy_state *pst_usb = &bcdev->psy_list[PSY_TYPE_USB];
+	enum power_supply_usb_type real_charger_type = 0;
+	int i = 0, usb_present = 0, batt_health = POWER_SUPPLY_HEALTH_GOOD;
+	u8 result = QUICK_CHARGE_NORMAL;
+	int rc = 0;
+
+	batt_health = pst_bat->prop[BATT_HEALTH];
+	if ((batt_health == POWER_SUPPLY_HEALTH_COLD) || (batt_health == POWER_SUPPLY_HEALTH_WARM)
+		|| (batt_health == POWER_SUPPLY_HEALTH_OVERHEAT) || (batt_health == POWER_SUPPLY_HEALTH_OVERVOLTAGE))
+		return result;
+	usb_present = pst_usb->prop[USB_ONLINE];
+	if (usb_present) {
+		rc = read_property_id(bcdev, pst_xm, XM_PROP_REAL_TYPE);
+		if (rc < 0)
+			return rc;
+		real_charger_type = pst_xm->prop[XM_PROP_REAL_TYPE];
+		while (adapter_cap[i].adap_type != 0) {
+			if (real_charger_type == adapter_cap[i].adap_type) {
+				result = adapter_cap[i].adap_cap;
+			}
+			i++;
+		}
+		/* N19 code for HQ-376015 by p-wumingzhu1 at 2024/03/13 start*/
+		if(bcdev->usb_vbus_type != pst_xm->prop[XM_PROP_REAL_TYPE]) {
+			battery_psy_set_charge_current(bcdev, bcdev->curr_thermal_level);
+			pr_info("real_type happen swap: thermal_level=%d", bcdev->curr_thermal_level);
+		}
+		/* N19 code for HQ-376015 by p-wumingzhu1 at 2024/03/13 end*/
+	}
+	/* N19 code for HQ-376015 by p-wumingzhu1 at 2024/03/13 start*/
+	else
+		bcdev->usb_vbus_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+	pr_info("%s quick_type:%d, vbus_type=%d\n", __func__, result, bcdev->usb_vbus_type);
+	/* N19 code for HQ-376015 by p-wumingzhu1 at 2024/03/13 end*/
+
+	return result;
+}
+
+static ssize_t quick_charge_type_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	
+	return scnprintf(buf, PAGE_SIZE, "%u", quick_charge_type(bcdev));
+}
+static CLASS_ATTR_RO(quick_charge_type);
+/* N19 code for HQ-351613 by p-tangsufeng at 2024/1/8 - end*/
+
+/* N19 code for HQ-351611 by p-tangsufeng at 2024/1/22 - start*/
+static ssize_t soc_decimal_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_SOC_DECIMAL);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%u", pst->prop[XM_PROP_SOC_DECIMAL]);
+}
+static CLASS_ATTR_RO(soc_decimal);
+static ssize_t soc_decimal_rate_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_SOC_DECIMAL_RATE);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%u", pst->prop[XM_PROP_SOC_DECIMAL_RATE]);
+}
+static CLASS_ATTR_RO(soc_decimal_rate);
+/* N19 code for HQ-351611 by p-tangsufeng at 2024/1/22 - end*/
+
 static int usb_psy_get_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		union power_supply_propval *pval)
@@ -1152,9 +1517,35 @@ static int usb_psy_get_prop(struct power_supply *psy,
 	if (rc < 0)
 		return rc;
 
-	pval->intval = pst->prop[prop_id];
+	/* N19 code for HQ-367753 by p-gucheng at 2024/01/22 - start */
+	switch(prop) {
+		case POWER_SUPPLY_PROP_ONLINE:
+			rc = read_property_id(bcdev, pst, USB_REAL_TYPE);
+			if (rc < 0)
+				return rc;
+			if ((pst->prop[USB_REAL_TYPE] == POWER_SUPPLY_USB_TYPE_UNKNOWN) &&
+				(1 == pst->prop[prop_id])) {
+					pval->intval = 0;
+					pr_info("charge type not ready, report online = 0\n");
+			}
+			else
+				pval->intval = pst->prop[prop_id];
+		break;
+		default:
+			pval->intval = pst->prop[prop_id];
+		break;
+	}
+	/* N19 code for HQ-367753 by p-gucheng at 2024/01/22 - end */
+
 	if (prop == POWER_SUPPLY_PROP_TEMP)
 		pval->intval = DIV_ROUND_CLOSEST((int)pval->intval, 10);
+
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - start */
+	if (prop == POWER_SUPPLY_PROP_ONLINE) {
+		if (pval->intval == true  && bcdev->report_power_absent)
+			pval->intval = false;
+	}
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18 - end */
 
 	return 0;
 }
@@ -1247,7 +1638,7 @@ static int __battery_psy_set_charge_current(struct battery_chg_dev *bcdev,
 	if (rc < 0) {
 		pr_err("Failed to set FCC %u, rc=%d\n", fcc_ua, rc);
 	} else {
-		pr_debug("Set FCC to %u uA\n", fcc_ua);
+		pr_info("Set FCC to %u uA\n", fcc_ua);
 		bcdev->last_fcc_ua = fcc_ua;
 	}
 
@@ -1259,6 +1650,25 @@ static int battery_psy_set_charge_current(struct battery_chg_dev *bcdev,
 {
 	int rc;
 	u32 fcc_ua, prev_fcc_ua;
+
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - start*/
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	rc = read_property_id(bcdev, pst, XM_PROP_REAL_TYPE);
+	/* N19 code for HQ-376015 by p-wumingzhu1 at 2024/03/13 */
+	bcdev->usb_vbus_type = pst->prop[XM_PROP_REAL_TYPE];
+	if (rc < 0){
+		pr_err("Failed to get real_type rc=%d\n", rc);
+	} else {
+		if(pst->prop[XM_PROP_REAL_TYPE] == POWER_SUPPLY_USB_TYPE_PD_PPS){
+			bcdev->num_thermal_levels = bcdev->pps_num_thermal_levels;
+			bcdev->thermal_levels = bcdev->pps_thermal_levels;
+		}
+		else{
+			bcdev->num_thermal_levels = bcdev->qc_num_thermal_levels;
+			bcdev->thermal_levels = bcdev->qc_thermal_levels;
+		}
+	}
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - end*/
 
 	if (!bcdev->num_thermal_levels)
 		return 0;
@@ -1289,6 +1699,194 @@ static int battery_psy_set_charge_current(struct battery_chg_dev *bcdev,
 	return rc;
 }
 
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - start*/
+static struct timespec64 get_current_time(void)
+{
+	struct timespec64 now_time;
+	ktime_t time;
+
+	time = ktime_get_boottime();
+	now_time = ktime_to_timespec64(time);
+
+	return now_time;
+}
+
+static int calculate_delta_time(struct timespec64 *time_stamp, int *delta_time_s,struct timespec64 *now_time)
+{
+	/* default to delta time = 0 if anything fails */
+	*delta_time_s = 0;
+	*now_time = get_current_time();
+	*delta_time_s = (now_time->tv_sec - time_stamp->tv_sec);
+
+	return 0;
+}
+
+static void calculate_average_current(int batt_current, int *batt_ma_avg )
+{
+	static int samples_index = 0, samples_num = 0;
+	static int batt_ma_avg_samples[BATT_MA_AVG_SAMPLES];
+	static int batt_ma_prev = 0;
+	static int last_batt_ma_avg = 0;
+	int sum_ma = 0;
+	int i;
+
+	if(batt_current == batt_ma_prev)
+		goto unchanged;
+	else
+		batt_ma_prev = batt_current;
+
+	batt_ma_avg_samples[samples_index] = batt_current;
+	samples_index = (samples_index + 1) % BATT_MA_AVG_SAMPLES;
+	samples_num += 1;
+
+	if(samples_num >= BATT_MA_AVG_SAMPLES)
+		samples_num = BATT_MA_AVG_SAMPLES;
+
+	for( i = 0; i <  samples_num; i++){
+		sum_ma += batt_ma_avg_samples[i];
+	}
+
+	last_batt_ma_avg = sum_ma / samples_num;
+
+unchanged:
+	*batt_ma_avg = last_batt_ma_avg;
+}
+
+static void xm_uevent_report_shutdown_delay(struct battery_chg_dev *bcdev, bool shutdown_delay);
+static int fg_battery_soc_smooth_tracking(struct battery_chg_dev *bcdev,  int  Monotonicsoc )
+{
+	static int OptimalSoc = -2;
+	static int last_OptimalSoc;
+	static struct timespec64 last_change_time = {0,0};
+	struct timespec64 now_time;
+	int batt_temp;
+	int batt_current;
+	int batt_ma_avg;
+	int time_since_last_change_sec;
+	int delta_time = 0;
+	int soc_changed = 0;
+	int status;
+	unsigned char shutdown_delay = 0;
+	static bool report_flag = 0;
+
+	struct psy_state *pst_xm= &bcdev->psy_list[PSY_TYPE_XM];
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
+
+	/* get battery temp */
+	batt_temp = DIV_ROUND_CLOSEST((int)pst->prop[BATT_TEMP], 10);
+
+	/* get battery current */
+	batt_current = pst->prop[BATT_CURR_NOW];
+
+	/*get charging status */
+	status = pst->prop[BATT_STATUS];
+
+	/*get shutdown delay status */
+	if (!bcdev->shutdown_delay_en)
+		pst_xm->prop[XM_PROP_SHUTDOWN_DELAY] = 0;
+	else {
+		if (Monotonicsoc < 5) {
+			read_property_id(bcdev, pst_xm, XM_PROP_SHUTDOWN_DELAY);
+			shutdown_delay = pst_xm->prop[XM_PROP_SHUTDOWN_DELAY];
+		}
+	}
+
+	/* initial variable */
+	if (last_change_time.tv_sec == 0)
+		last_change_time = get_current_time();
+
+	if (OptimalSoc == -2) {
+		OptimalSoc = Monotonicsoc;
+		last_OptimalSoc = OptimalSoc;
+	}
+
+	/* smooth algorithm */
+	calculate_delta_time(&last_change_time, &time_since_last_change_sec, &now_time);
+	calculate_average_current(batt_current, &batt_ma_avg);
+
+	if (batt_temp > 150) {
+	/*  Battery in normal temperature */
+		if (batt_ma_avg < -1000000)
+		/* Heavy loading current, ignore battery soc limit*/
+			delta_time = time_since_last_change_sec / 10;
+		else if (batt_current > 0 || abs (OptimalSoc - Monotonicsoc) > 2)
+			delta_time = time_since_last_change_sec / 20;
+		else
+			delta_time = time_since_last_change_sec / 60;
+	} else if(batt_temp < -100) {
+		if (batt_ma_avg < -1000000 ||  abs (OptimalSoc - Monotonicsoc) > 2)
+			delta_time = time_since_last_change_sec / 5;
+		else
+			delta_time = time_since_last_change_sec / 10;
+	} else {
+		/* Calculated average current > 1000mA */
+		if (batt_ma_avg < -1000000 ||  abs (OptimalSoc - Monotonicsoc) > 2)
+			delta_time = time_since_last_change_sec / 10;
+		else
+			delta_time = time_since_last_change_sec / 20;
+	}
+
+	if (shutdown_delay == 2) {
+		pr_info("vbat is too low, poweroff");
+		kernel_power_off();
+	} else if(shutdown_delay == 1){
+		if ((Monotonicsoc == 1) && (OptimalSoc != 1)) {
+			delta_time = time_since_last_change_sec / 5;
+		} else if ((OptimalSoc == 1) && (!report_flag))  {
+			xm_uevent_report_shutdown_delay(bcdev, true);
+			report_flag = true;
+		}
+	} else if(shutdown_delay == 0) {
+		if (report_flag) {
+			xm_uevent_report_shutdown_delay(bcdev, false);
+			report_flag = false;
+		}
+	}
+
+	if (delta_time < 0)
+		delta_time = 0;
+
+	soc_changed = min(1, delta_time);
+
+	pr_info("fg_battery_soc_smooth_tracking::batt_ma_avg=%d, batt_temp=%d, batt_current=%d, delta_time = %d, soc_changed = %d",
+			batt_ma_avg, batt_temp, batt_current, delta_time, soc_changed);
+
+	if (OptimalSoc >= 0) {
+		if (OptimalSoc < 100 && Monotonicsoc == 100 && status == POWER_SUPPLY_STATUS_FULL)
+			OptimalSoc = OptimalSoc + soc_changed;
+		/* N19 code for HQHW-7063 by p-tangsufeng at 2024/04/10 - start */
+		else if (OptimalSoc ==100 && Monotonicsoc >= 97 && status == POWER_SUPPLY_STATUS_FULL)
+			/* keep 100 */
+			OptimalSoc = 100;
+		/* N19 code for HQHW-7063 by p-tangsufeng at 2024/04/10 - end */
+		else if (OptimalSoc < Monotonicsoc && batt_current > 0)
+			/* Battery in charging status
+			* update the soc when resuming device
+			*/
+			OptimalSoc = OptimalSoc + soc_changed;
+		else if (OptimalSoc > Monotonicsoc && batt_current < 0) {
+			/* Battery in discharging status
+			* update the soc when resuming device
+			*/
+			OptimalSoc = OptimalSoc - soc_changed;
+			if(OptimalSoc <= 0)
+				OptimalSoc = 0;
+		}
+	} else {
+		OptimalSoc = 0;
+	}
+
+	if(last_OptimalSoc != OptimalSoc ){
+		last_change_time = now_time;
+		last_OptimalSoc = OptimalSoc;
+		if(pst->psy)
+			power_supply_changed(pst->psy);
+	}
+
+	return OptimalSoc;
+}
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - end*/
+
 static int battery_psy_get_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		union power_supply_propval *pval)
@@ -1296,6 +1894,8 @@ static int battery_psy_get_prop(struct power_supply *psy,
 	struct battery_chg_dev *bcdev = power_supply_get_drvdata(psy);
 	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
 	int prop_id, rc;
+	/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 */
+	int msoc;
 
 	pval->intval = -ENODATA;
 
@@ -1319,7 +1919,15 @@ static int battery_psy_get_prop(struct power_supply *psy,
 		pval->strval = pst->model;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		pval->intval = DIV_ROUND_CLOSEST(pst->prop[prop_id], 100);
+		/* N19 code for HQHW-7063 by p-tangsufeng at 2024/04/10 - start */
+		msoc = (pst->prop[prop_id] + 99) / 98;
+		if (msoc > 100)
+			msoc = 100;
+		if (pst->prop[prop_id] == 100)
+			msoc = 1;
+		pval->intval = fg_battery_soc_smooth_tracking(bcdev, msoc);
+		/* N19 code for HQHW-7063 by p-tangsufeng at 2024/04/10 - end */
+
 		if (IS_ENABLED(CONFIG_QTI_PMIC_GLINK_CLIENT_DEBUG) &&
 		   (bcdev->fake_soc >= 0 && bcdev->fake_soc <= 100))
 			pval->intval = bcdev->fake_soc;
@@ -1333,6 +1941,13 @@ static int battery_psy_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
 		pval->intval = bcdev->num_thermal_levels;
 		break;
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - start */
+	case POWER_SUPPLY_PROP_STATUS:
+		pval->intval = pst->prop[prop_id];
+		if (pval->intval == POWER_SUPPLY_STATUS_CHARGING && bcdev->report_power_absent)
+			pval->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		break;
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - end */
 	default:
 		pval->intval = pst->prop[prop_id];
 		break;
@@ -2030,7 +2645,7 @@ static ssize_t soh_show(struct class *c, struct class_attribute *attr,
 }
 static CLASS_ATTR_RO(soh);
 
-static ssize_t ship_mode_en_store(struct class *c, struct class_attribute *attr,
+static ssize_t shipmode_count_reset_store(struct class *c, struct class_attribute *attr,
 				const char *buf, size_t count)
 {
 	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
@@ -2042,7 +2657,7 @@ static ssize_t ship_mode_en_store(struct class *c, struct class_attribute *attr,
 	return count;
 }
 
-static ssize_t ship_mode_en_show(struct class *c, struct class_attribute *attr,
+static ssize_t shipmode_count_reset_show(struct class *c, struct class_attribute *attr,
 				char *buf)
 {
 	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
@@ -2050,7 +2665,693 @@ static ssize_t ship_mode_en_show(struct class *c, struct class_attribute *attr,
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", bcdev->ship_mode_en);
 }
-static CLASS_ATTR_RW(ship_mode_en);
+static CLASS_ATTR_RW(shipmode_count_reset);
+
+/* N19 code for HQ-354969 by p-yeyinzi at 2023/12/23 - start*/
+/* N19 code for HQ-371347 by p-tangsufeng at 2024/2/19 - start*/
+static void xm_uevent_report(struct battery_chg_dev *bcdev);
+static ssize_t real_type_show(struct class *c, struct class_attribute *attr,
+			char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_REAL_TYPE);
+	if (rc < 0)
+		return rc;
+
+	/* N19 code for HQ-371347 by p-tangsufeng at 2024/2/19 - start*/
+	xm_uevent_report(bcdev);
+
+	if(pst->prop[XM_PROP_REAL_TYPE] == QTI_POWER_SUPPLY_USB_TYPE_HVDCP_3 ||
+		pst->prop[XM_PROP_REAL_TYPE] == QTI_POWER_SUPPLY_USB_TYPE_HVDCP_3P5)
+		pst->prop[XM_PROP_REAL_TYPE] = QTI_POWER_SUPPLY_USB_TYPE_HVDCP;
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			get_usb_type_name(pst->prop[XM_PROP_REAL_TYPE]));
+}
+static CLASS_ATTR_RO(real_type);
+
+static ssize_t typec_cc_orientation_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_CC_ORIENTATION);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_CC_ORIENTATION]);
+}
+static CLASS_ATTR_RO(typec_cc_orientation);
+
+static ssize_t input_suspend_store(struct class *c,
+                                       struct class_attribute *attr,
+                                       const char *buf, size_t count)
+{
+       struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                               battery_class);
+       int rc;
+       bool val;
+       if (kstrtobool(buf, &val))
+               return -EINVAL;
+       pr_err("set charger input suspend %d\n", val);
+       rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+                               XM_PROP_INPUT_SUSPEND, val);
+       if (rc < 0)
+               return rc;
+       return count;
+}
+
+static ssize_t input_suspend_show(struct class *c,
+                                       struct class_attribute *attr, char *buf)
+{
+       struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                               battery_class);
+       struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+       int rc;
+       rc = read_property_id(bcdev, pst, XM_PROP_INPUT_SUSPEND);
+       if (rc < 0)
+               return rc;
+       return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_INPUT_SUSPEND]);
+}
+static CLASS_ATTR_RW(input_suspend);
+
+static ssize_t usb_otg_show(struct class *c,
+                                       struct class_attribute *attr, char *buf)
+{
+       struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                               battery_class);
+       struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+       int rc;
+       rc = read_property_id(bcdev, pst, XM_PROP_USB_OTG);
+       if (rc < 0)
+               return rc;
+       return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_USB_OTG]);
+}
+static CLASS_ATTR_RO(usb_otg);
+
+static ssize_t bat_id_show(struct class *c,
+                                       struct class_attribute *attr, char *buf)
+{
+       struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                               battery_class);
+       struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+       int rc;
+       rc = read_property_id(bcdev, pst, XM_PROP_BAT_ID);
+       if (rc < 0)
+               return rc;
+       return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_BAT_ID]);
+}
+static CLASS_ATTR_RO(bat_id);
+
+static ssize_t authentic_show(struct class *c,
+                                       struct class_attribute *attr, char *buf)
+{
+       struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                               battery_class);
+       struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+       int rc;
+       rc = read_property_id(bcdev, pst, XM_PROP_AUTHENTIC);
+       if (rc < 0)
+               return rc;
+       return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_AUTHENTIC]);
+}
+static CLASS_ATTR_RO(authentic);
+
+static ssize_t chip_ok_show(struct class *c,
+                                       struct class_attribute *attr, char *buf)
+{
+       struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                               battery_class);
+       struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+       int rc;
+       rc = read_property_id(bcdev, pst, XM_PROP_CHIP_OK);
+       if (rc < 0)
+               return rc;
+       return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_CHIP_OK]);
+}
+static CLASS_ATTR_RO(chip_ok);
+/* N19 code for HQ-354969 by p-yeyinzi at 2023/12/23 - end*/
+
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - start */
+static ssize_t verify_process_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	bool val;
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_VERIFY_PROCESS, val);
+	if (rc < 0)
+		return rc;
+	return count;
+}
+
+static ssize_t verify_process_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_VERIFY_PROCESS);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_VERIFY_PROCESS]);
+}
+static CLASS_ATTR_RW(verify_process);
+
+static void usbpd_sha256_bitswap32(unsigned int *array, int len)
+{
+	int i;
+	for (i = 0; i < len; i++) {
+		array[i] = BSWAP_32(array[i]);
+	}
+}
+
+static void usbpd_request_vdm_cmd(struct battery_chg_dev *bcdev, enum uvdm_state cmd, unsigned int *data)
+{
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	u32 prop_id, val = 0;
+	int rc;
+	pr_err("usbpd_request_vdm_cmd:cmd = %d, data = %d\n", cmd, *data);
+	switch (cmd) {
+	case USBPD_UVDM_CHARGER_VERSION:
+		/* N19 code for HQHW-6429 by p-xuyechen at 2024.3.11 */
+		msleep(200);
+		prop_id = XM_PROP_VDM_CMD_CHARGER_VERSION;
+		break;
+	case USBPD_UVDM_CHARGER_VOLTAGE:
+		prop_id = XM_PROP_VDM_CMD_CHARGER_VOLTAGE;
+		break;
+	case USBPD_UVDM_CHARGER_TEMP:
+		prop_id = XM_PROP_VDM_CMD_CHARGER_TEMP;
+		break;
+	case USBPD_UVDM_SESSION_SEED:
+		prop_id = XM_PROP_VDM_CMD_SESSION_SEED;
+		usbpd_sha256_bitswap32(data, USBPD_UVDM_SS_LEN);
+		val = *data;
+		pr_err("SESSION_SEED:data = %d\n", val);
+		break;
+	case USBPD_UVDM_AUTHENTICATION:
+		prop_id = XM_PROP_VDM_CMD_AUTHENTICATION;
+		usbpd_sha256_bitswap32(data, USBPD_UVDM_SS_LEN);
+		val = *data;
+		pr_err("AUTHENTICATION:data = %d\n", val);
+		break;
+	case USBPD_UVDM_REVERSE_AUTHEN:
+		prop_id = XM_PROP_VDM_CMD_REVERSE_AUTHEN;
+		usbpd_sha256_bitswap32(data, USBPD_UVDM_SS_LEN);
+		val = *data;
+		pr_err("AUTHENTICATION:data = %d\n", val);
+		break;
+	case USBPD_UVDM_REMOVE_COMPENSATION:
+		prop_id = XM_PROP_VDM_CMD_REMOVE_COMPENSATION;
+		val = *data;
+		break;
+	case USBPD_UVDM_VERIFIED:
+		prop_id = XM_PROP_VDM_CMD_VERIFIED;
+		val = *data;
+		break;
+	default:
+		prop_id = XM_PROP_VDM_CMD_CHARGER_VERSION;
+		pr_info("cmd:%d is not support\n", cmd);
+		break;
+	}
+	if(cmd == USBPD_UVDM_SESSION_SEED || cmd == USBPD_UVDM_AUTHENTICATION || cmd == USBPD_UVDM_REVERSE_AUTHEN) {
+		rc = write_ss_auth_prop_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				prop_id, data);
+	}
+	else
+		rc = write_property_id(bcdev, pst, prop_id, val);
+}
+
+static ssize_t request_vdm_cmd_store(struct class *c,
+					struct class_attribute *attr, const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int cmd, ret;
+	unsigned char buffer[64];
+	unsigned char data[32];
+	int ccount;
+	ret = sscanf(buf, "%d,%s\n", &cmd, buffer);
+	pr_info("%s:buf:%s cmd:%d, buffer:%s\n", __func__, buf, cmd, buffer);
+	StringToHex(buffer, data, &ccount);
+	usbpd_request_vdm_cmd(bcdev, cmd, (unsigned int *)data);
+	return count;
+}
+
+static ssize_t request_vdm_cmd_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	u32 prop_id = 0;
+	int i;
+	char data[16], str_buf[128] = {0};
+	enum uvdm_state cmd;
+	rc = read_property_id(bcdev, pst, XM_PROP_UVDM_STATE);
+	if (rc < 0)
+		return rc;
+	cmd = pst->prop[XM_PROP_UVDM_STATE];
+	pr_info("request_vdm_cmd_show  uvdm_state: %d\n", cmd);
+	switch (cmd){
+	  case USBPD_UVDM_CHARGER_VERSION:
+	  	prop_id = XM_PROP_VDM_CMD_CHARGER_VERSION;
+		rc = read_property_id(bcdev, pst, prop_id);
+		return snprintf(buf, PAGE_SIZE, "%d,%d", cmd, pst->prop[prop_id]);
+	  	break;
+	  case USBPD_UVDM_CHARGER_TEMP:
+	  	prop_id = XM_PROP_VDM_CMD_CHARGER_TEMP;
+		rc = read_property_id(bcdev, pst, prop_id);
+		return snprintf(buf, PAGE_SIZE, "%d,%d", cmd, pst->prop[prop_id]);
+	  	break;
+	  case USBPD_UVDM_CHARGER_VOLTAGE:
+	  	prop_id = XM_PROP_VDM_CMD_CHARGER_VOLTAGE;
+		rc = read_property_id(bcdev, pst, prop_id);
+		return snprintf(buf, PAGE_SIZE, "%d,%d", cmd, pst->prop[prop_id]);
+	  	break;
+	  case USBPD_UVDM_CONNECT:
+	  case USBPD_UVDM_DISCONNECT:
+	  case USBPD_UVDM_SESSION_SEED:
+	  case USBPD_UVDM_VERIFIED:
+	  case USBPD_UVDM_REMOVE_COMPENSATION:
+	  case USBPD_UVDM_REVERSE_AUTHEN:
+	  	return snprintf(buf, PAGE_SIZE, "%d,Null", cmd);
+	  	break;
+	  case USBPD_UVDM_AUTHENTICATION:
+	  	prop_id = XM_PROP_VDM_CMD_AUTHENTICATION;
+		pr_info("request_vdm_cmd_show  uvdm_state: %d, read_ss_auth\n", cmd);
+		rc = read_ss_auth_property_id(bcdev, pst, prop_id);
+		if (rc < 0) {
+			pr_info("request_vdm_cmd_show  uvdm_state: %d, Error ret = %d\n", cmd, rc);
+			return rc;
+		}
+		pr_info("request_vdm_cmd_show auth:0x%x 0x%x 0x%x 0x%x\n",
+			bcdev->ss_auth_data[0],bcdev->ss_auth_data[1],bcdev->ss_auth_data[2],bcdev->ss_auth_data[3]);
+		for (i = 0; i < USBPD_UVDM_SS_LEN; i++) {
+			memset(data, 0, sizeof(data));
+			snprintf(data, sizeof(data), "%08lx", bcdev->ss_auth_data[i]);
+			strlcat(str_buf, data, sizeof(str_buf));
+		}
+		return snprintf(buf, PAGE_SIZE, "%d,%s", cmd, str_buf);
+	  	break;
+	  default:
+		pr_info("feedbak cmd:%d is not support\n", cmd);
+		break;
+	}
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[prop_id]);
+}
+static CLASS_ATTR_RW(request_vdm_cmd);
+
+static const char * const usbpd_state_strings[] = {
+	"UNKNOWN",
+	"SNK_Startup",
+	"SNK_Ready",
+	"SRC_Ready",
+};
+
+static ssize_t current_state_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_CURRENT_STATE);
+	if (rc < 0)
+		return rc;
+	if (pst->prop[XM_PROP_CURRENT_STATE] == 25)
+		return snprintf(buf, PAGE_SIZE, "%s", usbpd_state_strings[1]);
+	else if (pst->prop[XM_PROP_CURRENT_STATE] == 31)
+		return snprintf(buf, PAGE_SIZE, "%s", usbpd_state_strings[2]);
+	else if (pst->prop[XM_PROP_CURRENT_STATE] == 5)
+		return snprintf(buf, PAGE_SIZE, "%s", usbpd_state_strings[3]);
+	else
+		return snprintf(buf, PAGE_SIZE, "%s %d", usbpd_state_strings[0], pst->prop[XM_PROP_CURRENT_STATE]);
+}
+static CLASS_ATTR_RO(current_state);
+
+static ssize_t adapter_id_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_ADAPTER_ID);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%08x", pst->prop[XM_PROP_ADAPTER_ID]);
+}
+static CLASS_ATTR_RO(adapter_id);
+
+static ssize_t adapter_svid_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_ADAPTER_SVID);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%04x", pst->prop[XM_PROP_ADAPTER_SVID]);
+}
+static CLASS_ATTR_RO(adapter_svid);
+
+static ssize_t pd_verifed_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	bool val;
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_PD_VERIFED, val);
+	if (rc < 0)
+		return rc;
+	return count;
+}
+
+static ssize_t pd_verifed_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_PD_VERIFED);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_PD_VERIFED]);
+}
+static CLASS_ATTR_RW(pd_verifed);
+
+static ssize_t pdo2_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_PDO2);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%08x\n", pst->prop[XM_PROP_PDO2]);
+}
+static CLASS_ATTR_RO(pdo2);
+
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end */
+
+/* N19 code for HQ-363897 by p-yeyinzi at 2023/1/15 - start*/
+static ssize_t fake_temp_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_FAKE_TEMP, val);
+	if (rc < 0)
+		return rc;
+	return count;
+}
+static ssize_t fake_temp_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_FAKE_TEMP);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_FAKE_TEMP]);
+}
+static CLASS_ATTR_RW(fake_temp);
+/* N19 code for HQ-363897 by p-yeyinzi at 2023/1/15 - end*/
+
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - start */
+static ssize_t shutdown_delay_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_SHUTDOWN_DELAY);
+	if (rc < 0)
+		return rc;
+
+	if (!bcdev->shutdown_delay_en)
+		pst->prop[XM_PROP_SHUTDOWN_DELAY] = 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%u", pst->prop[XM_PROP_SHUTDOWN_DELAY]);
+}
+
+static ssize_t shutdown_delay_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int val;
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	bcdev->shutdown_delay_en = val;
+	pr_err("use contral shutdown delay featue enable= %d\n", bcdev->shutdown_delay_en);
+
+	return count;
+}
+static CLASS_ATTR_RW(shutdown_delay);
+
+static ssize_t smart_chg_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+	if (kstrtoint(buf, 0, &val))
+		return -EINVAL;
+	pr_err("set smart charging engine, %d\n", val);
+	val = 0;
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_SMART_CHG, val);
+	if (rc < 0)
+		return rc;
+	return count;
+}
+
+static ssize_t smart_chg_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_SMART_CHG);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_SMART_CHG]);
+}
+static CLASS_ATTR_RW(smart_chg);
+
+static ssize_t fake_cycle_count_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_FAKE_CYCLE_COUNT, val);
+	if (rc < 0)
+		return rc;
+	return count;
+}
+static ssize_t fake_cycle_count_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_FAKE_CYCLE_COUNT);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_FAKE_CYCLE_COUNT]);
+}
+static CLASS_ATTR_RW(fake_cycle_count);
+
+static ssize_t smart_batt_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+
+	if (kstrtoint(buf, 0, &val))
+		return -EINVAL;
+
+	pr_err("set smart batt charging %d\n", val);
+
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_SMART_BATT, val);
+	if (rc < 0)
+		return rc;
+
+	return count;
+}
+
+static ssize_t smart_batt_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_SMART_BATT);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_SMART_BATT]);
+}
+static CLASS_ATTR_RW(smart_batt);
+/* N19 code for HQ-357609&HQ-370651 by p-wumingzhu1 at 2024/02/04 end*/
+
+/* N19 code for HQHW-6475 by p-gucheng at 2024/03/09 - start */
+static ssize_t charge_disabled_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_CHARGE_DISABLED);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_CHARGE_DISABLED]);
+}
+static CLASS_ATTR_RO(charge_disabled);
+/* N19 code for HQHW-6475 by p-gucheng at 2024/03/09 - end */
+/* N19 code for HQ-373306 by p-wuwencheng at 2024/3/15 - start*/
+static ssize_t charge_type_mode_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_CHARGE_TYPE_MODE);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n", power_supply_charge_type_text[pst->prop[XM_PROP_CHARGE_TYPE_MODE]]);
+}
+static CLASS_ATTR_RO(charge_type_mode);
+/* N19 code for HQ-373306 by p-wuwencheng at 2024/3/15 - end*/
+/* N19 code for HQ-371056 by p-wuwencheng at 2024/3/19 - start*/
+static ssize_t typec_mode_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_TYPEC_MODE);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%s\n", power_supply_usb_typec_mode_text[pst->prop[XM_PROP_TYPEC_MODE]]);
+}
+static CLASS_ATTR_RO(typec_mode);
+/* N19 code for HQ-371056 by p-wuwencheng at 2024/3/19 - end*/
+
+/* N19 code for HQ-378516 by p-gucheng at 2024/04/12 start */
+static ssize_t mtbf_mode_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc = 0;
+	int val = 0;
+
+	if (kstrtoint(buf, 0, &val))
+		return -EINVAL;
+
+	pr_info("set mtbf mode %d\n", val);
+
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_MTBF_MODE, val);
+	if (rc < 0)
+		return rc;
+
+	return count;
+}
+
+static ssize_t mtbf_mode_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_MTBF_MODE);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_MTBF_MODE]);
+}
+static CLASS_ATTR_RW(mtbf_mode);
+/* N19 code for HQ-378516 by p-gucheng at 2024/04/12 end */
+
+static ssize_t cp_icl_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_CP_ICL);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_CP_ICL]);
+}
+static CLASS_ATTR_RO(cp_icl);
 
 static struct attribute *battery_class_attrs[] = {
 	&class_attr_soh.attr,
@@ -2065,7 +3366,7 @@ static struct attribute *battery_class_attrs[] = {
 	&class_attr_wireless_fw_version.attr,
 	&class_attr_wireless_fw_crc.attr,
 	&class_attr_wireless_fw_update_time_ms.attr,
-	&class_attr_ship_mode_en.attr,
+	&class_attr_shipmode_count_reset.attr,
 	&class_attr_restrict_chg.attr,
 	&class_attr_restrict_cur.attr,
 	&class_attr_usb_real_type.attr,
@@ -2075,17 +3376,59 @@ static struct attribute *battery_class_attrs[] = {
 ATTRIBUTE_GROUPS(battery_class);
 
 static struct attribute *battery_class_no_wls_attrs[] = {
+	/* N19 code for HQ-351611 by p-tangsufeng at 2024/1/22 - start*/
+	&class_attr_soc_decimal.attr,
+	&class_attr_soc_decimal_rate.attr,
+	/* N19 code for HQ-351611 by p-tangsufeng at 2024/1/22 - end*/
 	&class_attr_soh.attr,
 	&class_attr_resistance.attr,
 	&class_attr_flash_active.attr,
 	&class_attr_moisture_detection_status.attr,
 	&class_attr_moisture_detection_en.attr,
 	&class_attr_fake_soc.attr,
-	&class_attr_ship_mode_en.attr,
+	&class_attr_shipmode_count_reset.attr,
 	&class_attr_restrict_chg.attr,
 	&class_attr_restrict_cur.attr,
 	&class_attr_usb_real_type.attr,
 	&class_attr_usb_typec_compliant.attr,
+/* N19 code for HQ-354969 by p-yeyinzi at 2023/12/23 - start*/
+	&class_attr_real_type.attr,
+	&class_attr_typec_cc_orientation.attr,
+	&class_attr_input_suspend.attr,
+	&class_attr_usb_otg.attr,
+	&class_attr_bat_id.attr,
+	&class_attr_authentic.attr,
+	&class_attr_chip_ok.attr,
+/* N19 code for HQ-354969 by p-yeyinzi at 2023/12/23 - end*/
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - start */
+	&class_attr_verify_process.attr,
+	&class_attr_request_vdm_cmd.attr,
+	&class_attr_current_state.attr,
+	&class_attr_adapter_id.attr,
+	&class_attr_adapter_svid.attr,
+	&class_attr_pd_verifed.attr,
+	&class_attr_pdo2.attr,
+/* N19 code for HQ-354398 by p-gucheng at 2023/12/14 - end */
+/* N19 code for HQ-351613 by p-tangsufeng at 2024/1/8 */
+	&class_attr_quick_charge_type.attr,
+/* N19 code for HQ-363897 by p-yeyinzi at 2023/1/15 */
+	&class_attr_fake_temp.attr,
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  */
+	&class_attr_shutdown_delay.attr,
+/* N19 code for HQ-357609&HQ-370651 by p-wumingzhu1 at 2024/02/04 start*/
+	&class_attr_smart_chg.attr,
+	&class_attr_fake_cycle_count.attr,
+	&class_attr_smart_batt.attr,
+/* N19 code for HQ-357609&HQ-370651 by p-wumingzhu1 at 2024/02/04 end*/
+/* N19 code for HQHW-6475 by p-gucheng at 2024/03/09 */
+	&class_attr_charge_disabled.attr,
+/* N19 code for HQ-373306 by p-wuwencheng at 2024/3/15 */
+	&class_attr_charge_type_mode.attr,
+/* N19 code for HQ-371056 by p-wuwencheng at 2024/3/19 */
+	&class_attr_typec_mode.attr,
+/* N19 code for HQ-378516 by p-gucheng at 2024/04/12 */
+	&class_attr_mtbf_mode.attr,
+	&class_attr_cp_icl.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(battery_class_no_wls);
@@ -2115,8 +3458,10 @@ static int battery_chg_parse_dt(struct battery_chg_dev *bcdev)
 {
 	struct device_node *node = bcdev->dev->of_node;
 	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
-	int i, rc, len;
-	u32 prev, val;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - start*/
+	int i, pps_len, qc_len, len, rc;
+	u32 pps_prev, qc_prev, val;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - end*/
 
 	bcdev->wls_not_supported = of_property_read_bool(node,
 			"qcom,wireless-charging-not-supported");
@@ -2127,17 +3472,14 @@ static int battery_chg_parse_dt(struct battery_chg_dev *bcdev)
 	of_property_read_u32(node, "qcom,shutdown-voltage",
 				&bcdev->shutdown_volt_mv);
 
-
-	rc = read_property_id(bcdev, pst, BATT_CHG_CTRL_LIM_MAX);
-	if (rc < 0) {
-		pr_err("Failed to read prop BATT_CHG_CTRL_LIM_MAX, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = of_property_count_elems_of_size(node, "qcom,thermal-mitigation",
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - start*/
+	pps_len = of_property_count_elems_of_size(node, "qcom,pps-thermal-mitigation",
 						sizeof(u32));
-	if (rc <= 0) {
+	qc_len = of_property_count_elems_of_size(node, "qcom,qc-thermal-mitigation",
+						sizeof(u32));
+
+	if ((pps_len <= 0) && (qc_len <= 0)) {
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - end*/
 
 		rc = of_property_read_u32(node, "qcom,thermal-mitigation-step",
 						&val);
@@ -2161,29 +3503,47 @@ static int battery_chg_parse_dt(struct battery_chg_dev *bcdev)
 		if (pst->prop[BATT_CHG_CTRL_LIM_MAX] - (bcdev->thermal_fcc_step * len) < 500000)
 			len = len - 1;
 	} else {
+		/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - start*/
 		bcdev->thermal_fcc_step = 0;
-		len = rc;
-		prev = pst->prop[BATT_CHG_CTRL_LIM_MAX];
+		pps_prev = PPS_THERMAL_LIMIT_MAX;
+		qc_prev = QC_THERMAL_LIMIT_MAX;
 
-		for (i = 0; i < len; i++) {
-			rc = of_property_read_u32_index(node, "qcom,thermal-mitigation",
+		for (i = 0; i < pps_len; i++) {
+			rc = of_property_read_u32_index(node, "qcom,pps-thermal-mitigation",
 				i, &val);
 			if (rc < 0)
 				return rc;
 
-			if (val > prev) {
+			if (val > pps_prev) {
 				pr_err("Thermal levels should be in descending order\n");
-				bcdev->num_thermal_levels = -EINVAL;
-				return 0;
 			}
 
-			prev = val;
+			pps_prev = val;
 		}
 
-		bcdev->thermal_levels = devm_kcalloc(bcdev->dev, len + 1,
-						sizeof(*bcdev->thermal_levels),
+		for (i = 0; i < qc_len; i++) {
+			rc = of_property_read_u32_index(node, "qcom,qc-thermal-mitigation",
+				i, &val);
+			if (rc < 0)
+				return rc;
+
+			if (val > qc_prev) {
+				pr_err("Thermal levels should be in descending order\n");
+			}
+
+			qc_prev = val;
+		}
+
+		bcdev->pps_thermal_levels = devm_kcalloc(bcdev->dev, pps_len,
+						sizeof(*bcdev->pps_thermal_levels),
 						GFP_KERNEL);
-		if (!bcdev->thermal_levels)
+		if (!bcdev->pps_thermal_levels)
+			return -ENOMEM;
+
+		bcdev->qc_thermal_levels = devm_kcalloc(bcdev->dev, qc_len,
+						sizeof(*bcdev->qc_thermal_levels),
+						GFP_KERNEL);
+		if (!bcdev->qc_thermal_levels)
 			return -ENOMEM;
 
 		/*
@@ -2191,18 +3551,31 @@ static int battery_chg_parse_dt(struct battery_chg_dev *bcdev)
 		 * onwards is for thermal mitigation charging currents.
 		 */
 
-		bcdev->thermal_levels[0] = pst->prop[BATT_CHG_CTRL_LIM_MAX];
-
-		rc = of_property_read_u32_array(node, "qcom,thermal-mitigation",
-					&bcdev->thermal_levels[1], len);
+		rc = of_property_read_u32_array(node, "qcom,pps-thermal-mitigation",
+					&bcdev->pps_thermal_levels[0], pps_len);
 		if (rc < 0) {
-			pr_err("Error in reading qcom,thermal-mitigation, rc=%d\n", rc);
+			pr_err("Error in reading qcom,pps-thermal-mitigation, rc=%d\n", rc);
 			return rc;
+		}
+		for (i = 0; i < pps_len; i++) {
+			pr_info("bcdev->pps_thermal_levels[%d]=%d\n", i, bcdev->pps_thermal_levels[i]);
+		}
+
+		rc = of_property_read_u32_array(node, "qcom,qc-thermal-mitigation",
+					&bcdev->qc_thermal_levels[0], qc_len);
+		if (rc < 0) {
+			pr_err("Error in reading qcom,qc-thermal-mitigation, rc=%d\n", rc);
+			return rc;
+		}
+		for (i = 0; i < qc_len; i++) {
+			pr_info("bcdev->qc_thermal_levels[%d]=%d\n", i, bcdev->qc_thermal_levels[i]);
 		}
 	}
 
-	bcdev->num_thermal_levels = len;
-	bcdev->thermal_fcc_ua = pst->prop[BATT_CHG_CTRL_LIM_MAX];
+	bcdev->pps_num_thermal_levels = pps_len - 1;
+	bcdev->qc_num_thermal_levels = qc_len - 1;
+	bcdev->thermal_fcc_ua = QC_THERMAL_LIMIT_MAX;
+	/* N19 code for HQ-355015 by p-yeyinzi at 2023/01/06 - end*/
 
 	return 0;
 }
@@ -2216,6 +3589,7 @@ static int battery_chg_ship_mode(struct notifier_block *nb, unsigned long code,
 						     reboot_notifier);
 	int rc;
 
+	pr_err("enter battery_chg_ship_mode");
 	msg_notify.hdr.owner = MSG_OWNER_BC;
 	msg_notify.hdr.type = MSG_TYPE_NOTIFY;
 	msg_notify.hdr.opcode = BC_SHUTDOWN_NOTIFY;
@@ -2227,12 +3601,14 @@ static int battery_chg_ship_mode(struct notifier_block *nb, unsigned long code,
 	if (!bcdev->ship_mode_en)
 		return NOTIFY_DONE;
 
+	pr_err("battery_chg_ship_mode::ship_mode_en is true");
 	msg.hdr.owner = MSG_OWNER_BC;
 	msg.hdr.type = MSG_TYPE_REQ_RESP;
 	msg.hdr.opcode = BC_SHIP_MODE_REQ_SET;
 	msg.ship_mode_type = SHIP_MODE_PMIC;
 
-	if (code == SYS_POWER_OFF) {
+	/* N19 code for HQ-351328 by p-gucheng at 2024/01/23 */
+	if (code == SYS_RESTART) {
 		rc = battery_chg_write(bcdev, &msg, sizeof(msg));
 		if (rc < 0)
 			pr_emerg("Failed to write ship mode: %d\n", rc);
@@ -2240,6 +3616,31 @@ static int battery_chg_ship_mode(struct notifier_block *nb, unsigned long code,
 
 	return NOTIFY_DONE;
 }
+
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - start */
+static int battery_chg_shutdown(struct notifier_block *nb, unsigned long code,
+		void *unused)
+{
+	struct battery_charger_shutdown_req_msg msg = { { 0 } };
+	struct battery_chg_dev *bcdev = container_of(nb, struct battery_chg_dev,
+						     shutdown_notifier);
+	int rc;
+
+	pr_err("enter battery_chg_shutdown");
+	msg.hdr.owner = MSG_OWNER_BC;
+	msg.hdr.type = MSG_TYPE_REQ_RESP;
+	msg.hdr.opcode = BC_SHUTDOWN_REQ_SET;
+
+	if (code == SYS_POWER_OFF || code == SYS_RESTART) {
+		pr_err("start adsp shutdown\n");
+		rc = battery_chg_write(bcdev, &msg, sizeof(msg));
+		if (rc < 0)
+			pr_emerg("Failed to write shutdown cmd to adsp: %d\n", rc);
+	}
+
+	return NOTIFY_DONE;
+}
+/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - end */
 
 static void panel_event_notifier_callback(enum panel_event_notifier_tag tag,
 			struct panel_event_notification *notification, void *data)
@@ -2355,6 +3756,97 @@ static int register_extcon_conn_type(struct battery_chg_dev *bcdev)
 	return rc;
 }
 
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - start */
+static void batt_soc_monitor_work(struct work_struct *work)
+{
+	int prop_id, msoc;
+	struct battery_chg_dev *bcdev = container_of(work, struct battery_chg_dev,soc_monitor_work.work);
+	/* get Monotionic SOC*/
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
+
+	prop_id = get_property_id(pst, POWER_SUPPLY_PROP_CAPACITY);
+	read_property_id(bcdev, pst, prop_id);
+	/* N19 code for HQHW-7063 by p-tangsufeng at 2024/04/10 - start */
+	msoc = (pst->prop[prop_id] + 99) / 98;
+	if (msoc > 100)
+		msoc = 100;
+	if (pst->prop[prop_id] == 100)
+		msoc = 1;
+	pr_info(" soc_monitor_work  msoc = %d UISOC = %d", pst->prop[prop_id], msoc);
+	/* N19 code for HQHW-7063 by p-tangsufeng at 2024/04/10 - end */
+	fg_battery_soc_smooth_tracking(bcdev, msoc);
+
+	schedule_delayed_work(&bcdev->soc_monitor_work,
+				msecs_to_jiffies(MONITOR_SOC_WAIT_MS));
+}
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - end */
+
+/* N19 code for HQ-371347 by p-tangsufeng at 2024/2/19 - start*/
+static void xm_uevent_report(struct battery_chg_dev *bcdev)
+{
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int soc_decimal_rate = 0;
+	int soc_decimal = 0;
+	/* N19 code for HQ-376529 by p-tangsufeng at 2024/3/18 - start*/
+	int quick_chg_type = 0;
+	static int quick_chg_type_cnt = 0;
+	/* N19 code for HQ-376529 by p-tangsufeng at 2024/3/18 - end*/
+
+	char quick_charge_string[64];
+	char soc_decimal_string[64];
+	char soc_decimal_string_rate[64];
+
+	char *envp[] = {
+		quick_charge_string,
+		soc_decimal_string,
+		soc_decimal_string_rate,
+		NULL,
+	};
+	
+	/* N19 code for HQ-376529 by p-tangsufeng at 2024/3/18 - start*/
+	quick_chg_type = quick_charge_type(bcdev);
+	sprintf(quick_charge_string, "POWER_SUPPLY_QUICK_CHARGE_TYPE=%d", quick_chg_type);
+
+	if (quick_chg_type == 3 && quick_chg_type_cnt <1) {
+		read_property_id(bcdev, pst, XM_PROP_SOC_DECIMAL);
+		read_property_id(bcdev, pst, XM_PROP_SOC_DECIMAL_RATE);
+		quick_chg_type_cnt ++;
+		msleep(1000);
+		soc_decimal = pst->prop[XM_PROP_SOC_DECIMAL];
+		if (soc_decimal < 0)
+			soc_decimal = 0;
+		sprintf(soc_decimal_string, "POWER_SUPPLY_SOC_DECIMAL=%d", soc_decimal);
+
+		soc_decimal_rate = pst->prop[XM_PROP_SOC_DECIMAL_RATE];
+		if (soc_decimal_rate < 0 || soc_decimal_rate > 100)
+			soc_decimal_rate = 0;
+		sprintf(soc_decimal_string_rate, "POWER_SUPPLY_SOC_DECIMAL_RATE=%d", soc_decimal_rate);
+	} else if (quick_chg_type != 3)
+		quick_chg_type_cnt = 0;
+
+	kobject_uevent_env(&bcdev->dev->kobj, KOBJ_CHANGE, envp);
+
+	pr_err("envp[0]:%s envp[1]:%s envp[2]:%s",envp[0],envp[1],envp[2]);
+}
+/* N19 code for HQ-371347 by p-tangsufeng at 2024/2/19 - end*/
+
+/* N19 code for HQHW-6390 by p-xuyechen at 2024/2/29 - start */
+static void xm_uevent_report_shutdown_delay(struct battery_chg_dev *bcdev, bool shutdown_delay)
+{
+	char shutdown_string[64] = {0};
+	char *envp[] = {
+		shutdown_string,
+		NULL,
+	};
+
+	sprintf(shutdown_string, "POWER_SUPPLY_SHUTDOWN_DELAY=%d", shutdown_delay);
+
+	kobject_uevent_env(&bcdev->dev->kobj, KOBJ_CHANGE, envp);
+
+	pr_info("shutdown uvent:%s, shutdown_delay_en = %d", envp[0], bcdev->shutdown_delay_en);
+}
+/* N19 code for HQHW-6390 by p-xuyechen at 2024/2/29 - end */
+
 static int battery_chg_probe(struct platform_device *pdev)
 {
 	struct battery_chg_dev *bcdev;
@@ -2378,6 +3870,12 @@ static int battery_chg_probe(struct platform_device *pdev)
 	bcdev->psy_list[PSY_TYPE_WLS].prop_count = WLS_PROP_MAX;
 	bcdev->psy_list[PSY_TYPE_WLS].opcode_get = BC_WLS_STATUS_GET;
 	bcdev->psy_list[PSY_TYPE_WLS].opcode_set = BC_WLS_STATUS_SET;
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
+	bcdev->psy_list[PSY_TYPE_XM].map = xm_prop_map;
+	bcdev->psy_list[PSY_TYPE_XM].prop_count = XM_PROP_MAX;
+	bcdev->psy_list[PSY_TYPE_XM].opcode_get = BC_XM_STATUS_GET;
+	bcdev->psy_list[PSY_TYPE_XM].opcode_set = BC_XM_STATUS_SET;
+	/* N19 code for HQ-353528 by p-yeyinzi at 2023/12/10 - start*/
 
 	for (i = 0; i < PSY_TYPE_MAX; i++) {
 		bcdev->psy_list[i].prop =
@@ -2392,6 +3890,12 @@ static int battery_chg_probe(struct platform_device *pdev)
 	if (!bcdev->psy_list[PSY_TYPE_BATTERY].model)
 		return -ENOMEM;
 
+	bcdev->ss_auth_data =
+		devm_kzalloc(&pdev->dev, BATTERY_SS_AUTH_DATA_LEN * sizeof(u32), GFP_KERNEL);
+        if (!bcdev->ss_auth_data) {
+		return -ENOMEM;
+	}
+
 	mutex_init(&bcdev->rw_lock);
 	init_rwsem(&bcdev->state_sem);
 	init_completion(&bcdev->ack);
@@ -2400,6 +3904,12 @@ static int battery_chg_probe(struct platform_device *pdev)
 	INIT_WORK(&bcdev->subsys_up_work, battery_chg_subsys_up_work);
 	INIT_WORK(&bcdev->usb_type_work, battery_chg_update_usb_type_work);
 	INIT_WORK(&bcdev->battery_check_work, battery_chg_check_status_work);
+
+	/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - start*/
+	INIT_DELAYED_WORK( &bcdev->soc_monitor_work, batt_soc_monitor_work);
+	schedule_delayed_work(&bcdev->soc_monitor_work, msecs_to_jiffies(INIT_MONITOR_SOC_WAIT_MS));
+	/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - end*/
+
 	bcdev->dev = dev;
 
 	rc = battery_chg_register_panel_notifier(bcdev);
@@ -2434,6 +3944,12 @@ static int battery_chg_probe(struct platform_device *pdev)
 	bcdev->reboot_notifier.notifier_call = battery_chg_ship_mode;
 	bcdev->reboot_notifier.priority = 255;
 	register_reboot_notifier(&bcdev->reboot_notifier);
+
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - start */
+	bcdev->shutdown_notifier.notifier_call = battery_chg_shutdown;
+	bcdev->shutdown_notifier.priority = 255;
+	register_reboot_notifier(&bcdev->shutdown_notifier);
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  - end */
 
 	rc = battery_chg_parse_dt(bcdev);
 	if (rc < 0) {
@@ -2478,8 +3994,9 @@ static int battery_chg_probe(struct platform_device *pdev)
 			return PTR_ERR(bcdev->typec_class);
 		}
 	}
-
 	schedule_work(&bcdev->usb_type_work);
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  */
+	bcdev->shutdown_delay_en = true;
 
 	return 0;
 error:
@@ -2492,8 +4009,12 @@ error:
 	cancel_work_sync(&bcdev->usb_type_work);
 	cancel_work_sync(&bcdev->subsys_up_work);
 	cancel_work_sync(&bcdev->battery_check_work);
+	/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 */
+	cancel_delayed_work_sync(&bcdev->soc_monitor_work);
 	complete(&bcdev->ack);
 	unregister_reboot_notifier(&bcdev->reboot_notifier);
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  */
+	unregister_reboot_notifier(&bcdev->shutdown_notifier);
 reg_error:
 	if (bcdev->notifier_cookie)
 		panel_event_notifier_unregister(bcdev->notifier_cookie);
@@ -2521,19 +4042,50 @@ static int battery_chg_remove(struct platform_device *pdev)
 	cancel_work_sync(&bcdev->usb_type_work);
 	cancel_work_sync(&bcdev->battery_check_work);
 	unregister_reboot_notifier(&bcdev->reboot_notifier);
-
+	/* N19 code for HQ-351608 by p-gucheng at 2023/1/18  */
+	unregister_reboot_notifier(&bcdev->shutdown_notifier);
 	return 0;
 }
+
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - start */
+static int chg_suspend(struct device *dev)
+{
+	struct battery_chg_dev *bcdev = dev_get_drvdata(dev);
+	cancel_delayed_work(&bcdev->soc_monitor_work);
+	pr_err("chg suspend\n");
+	return 0;
+}
+
+static int chg_resume(struct device *dev)
+{
+	struct battery_chg_dev *bcdev = dev_get_drvdata(dev);
+
+	schedule_delayed_work(&bcdev->soc_monitor_work,
+				msecs_to_jiffies(MONITOR_SOC_WAIT_MS));
+
+	pr_err("chg resume\n");
+	return 0;
+}
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - end */
 
 static const struct of_device_id battery_chg_match_table[] = {
 	{ .compatible = "qcom,battery-charger" },
 	{},
 };
 
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - start*/
+static const struct dev_pm_ops chg_pm_ops = {
+	.resume      = chg_resume,
+	.suspend	= chg_suspend,
+};
+/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 - end*/
+
 static struct platform_driver battery_chg_driver = {
 	.driver = {
 		.name = "qti_battery_charger",
 		.of_match_table = battery_chg_match_table,
+		/* N19 code for HQHW-6569 by p-gucheng at 2024/03/18 */
+		.pm     = &chg_pm_ops,
 	},
 	.probe = battery_chg_probe,
 	.remove = battery_chg_remove,

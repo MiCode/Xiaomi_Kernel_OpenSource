@@ -1,0 +1,11 @@
+#
+# Xiaomi panel notifier driver configuration
+#
+
+config XIAOMI_PANEL_NOTIFIER
+	tristate "Xiaomi panel notifier"
+	default m
+	help
+	  Say Y here if you use xiaomi panel notifier.
+	  If unsure, say N.
+

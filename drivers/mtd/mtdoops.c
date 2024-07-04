@@ -266,11 +266,64 @@ static void find_next_position(struct mtdoops_context *cxt)
 	mtdoops_inc_counter(cxt);
 }
 
+
+static void mtdoops_add_reason(char *oops_buf, enum mtd_dump_reason reason, enum mtdoops_log_type type, int index, int nextpage)
+{
+	char str_buf[200] = {0};
+	int ret_len = 0;
+	struct timespec64 now;
+	struct tm ts;
+	char IsOffModeCharing[4] = {0};
+	ktime_get_coarse_real_ts64(&now);
+	if (!strcmp(off_boot, "1"))
+		strcpy(IsOffModeCharing, "YES");
+	else
+		strcpy(IsOffModeCharing, "NO");
+	if (nextpage > 1)
+		ret_len =  snprintf(str_buf, 200,
+				"\n```\n## Index: %d\t\n### Build: %s\t\n## REASON: %s\n#### LOG TYPE:%s\n## IsOffModeCharing:%s\n##### %04ld-%02d-%02d %02d:%02d:%02d\t\n```c\t\n",
+				index, build_fingerprint, kdump_reason[reason], log_type[type], IsOffModeCharing, ts.tm_year+1900, ts.tm_mon+1, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_sec);
+	else
+		ret_len =  snprintf(str_buf, 200,
+				"\n\n## Index: %d\t\n### Build: %s\t\n## REASON: %s\n#### LOG TYPE: %s\n## IsOffModeCharing:%s\n##### %04ld-%02d-%02d %02d:%02d:%02d\t\n```c\t\n",
+				index, build_fingerprint, kdump_reason[reason], log_type[type], IsOffModeCharing, ts.tm_year+1900, ts.tm_mon+1, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_sec);
+	memcpy(oops_buf, str_buf, ret_len);
+}
+
+static void mtdoops_add_pmsg_head(char *oops_buf, enum mtdoops_log_type type)
+{
+	char str_buf[80] = {0};
+	int ret_len = 0;
+	struct timespec64 now;
+	struct tm ts;
+	ktime_get_coarse_real_ts64(&now);
+	time64_to_tm(now.tv_sec, 0, &ts);
+	ret_len =  snprintf(str_buf, 80,
+			"\n```\n#### LOG TYPE:%s\n#####%04ld-%02d-%02d %02d:%02d:%02d\t\n```c\t\n",
+			log_type[type], ts.tm_year+1900, ts.tm_mon+1, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_sec);
+	memcpy(oops_buf, str_buf, ret_len);
+}
+
 static void mtdoops_do_dump(struct kmsg_dumper *dumper,
 			    enum kmsg_dump_reason reason)
 {
 	struct mtdoops_context *cxt = container_of(dumper,
 			struct mtdoops_context, dump);
+
+	size_t ret_len = 0;
+	char *pmsg_buffer_start = NULL;
+	struct pmsg_buffer_hdr *p_hdr = NULL;
+	int j, ret;
+
+
+	do_dump_count++;
+	printk(KERN_ERR "mtdoops: %s start , count = %d , page = %d, reason = %d, dump_count = %d\n",__func__,cxt->nextcount, cxt->nextpage,reason,do_dump_count);
+
+	if(do_dump_count>1)
+	{
+		for (j = 0, ret = -1; (j < 3) && (ret < 0); j++)
+			ret = mtdoops_erase_block(cxt, cxt->nextpage * record_size);
+	}
 
 	/* Only dump oopses if dump_oops is set */
 	if (reason == KMSG_DUMP_OOPS && !dump_oops)
@@ -286,6 +339,36 @@ static void mtdoops_do_dump(struct kmsg_dumper *dumper,
 		/* For other cases, schedule work to write it "nicely" */
 		schedule_work(&cxt->work_write);
 	}
+}
+
+static void mtdoops_do_dump_kmsgdump(struct kmsg_dumper *dumper,
+				enum kmsg_dump_reason reason)
+{
+	//mtdoops_do_dump(dumper, (enum mtd_dump_reason)reason);
+}
+
+void mtdoops_do_dump_if(int reason)
+{
+	struct mtdoops_context *cxt = &oops_cxt;
+	mtdoops_do_dump(&cxt->dump,(enum mtd_dump_reason)reason);
+}
+EXPORT_SYMBOL_GPL(mtdoops_do_dump_if);
+
+static int mtdoops_reboot_nb_handle(struct notifier_block *this, unsigned long event,
+								  void *ptr)
+{
+	enum mtd_dump_reason reason;
+
+	if (event == SYS_RESTART)
+		reason = MTD_DUMP_RESTART;
+	else if(event == SYS_POWER_OFF)
+		reason = MTD_DUMP_POWEROFF;
+	else
+		return NOTIFY_OK;
+
+	mtdoops_do_dump_if(reason);
+
+	return NOTIFY_OK;
 }
 
 static void mtdoops_notify_add(struct mtd_info *mtd)

@@ -1,0 +1,5 @@
+config HQ_SYSFS_SUPPORT
+  tristate "Enable Huaqin Sysfs Driver"
+  default y
+  help
+    Huaqin Sysfs information driver includes specific information about hardware info and other info for HQ tools

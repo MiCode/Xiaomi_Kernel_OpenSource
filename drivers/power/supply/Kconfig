@@ -824,5 +824,7 @@ config CHARGER_BQ256XX
 	  cell Li-ion and Li-polymer batteries.
 
 source "drivers/power/supply/qcom/Kconfig"
+# N19 code for HQ-377426 by p-hankang1 at 2023/03/25
+source "drivers/power/supply/battery_secrete/Kconfig"
 
 endif # POWER_SUPPLY

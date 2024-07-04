@@ -31,7 +31,8 @@ static struct poweroff_reason reasons[] = {
 	{ "rtc",			0x03 },
 	{ "dm-verity device corrupted",	0x04 },
 	{ "dm-verity enforcing",	0x05 },
-	{ "keys clear",			0x06 },
+        { "keys clear",			0x06 },
+	{ "ffu",		        0x41 },
 	{}
 };
 

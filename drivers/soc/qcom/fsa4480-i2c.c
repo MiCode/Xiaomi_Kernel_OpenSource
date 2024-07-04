@@ -86,44 +86,6 @@ static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
 	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
 }
 
-static int fsa4480_usbc_event_changed(struct notifier_block *nb,
-				      unsigned long evt, void *ptr)
-{
-	struct fsa4480_priv *fsa_priv =
-			container_of(nb, struct fsa4480_priv, ucsi_nb);
-	struct device *dev;
-	enum typec_accessory acc = ((struct ucsi_glink_constat_info *)ptr)->acc;
-
-	if (!fsa_priv)
-		return -EINVAL;
-
-	dev = fsa_priv->dev;
-	if (!dev)
-		return -EINVAL;
-
-	dev_dbg(dev, "%s: USB change event received, supply mode %d, usbc mode %ld, expected %d\n",
-			__func__, acc, fsa_priv->usbc_mode.counter,
-			TYPEC_ACCESSORY_AUDIO);
-
-	switch (acc) {
-	case TYPEC_ACCESSORY_AUDIO:
-	case TYPEC_ACCESSORY_NONE:
-		if (atomic_read(&(fsa_priv->usbc_mode)) == acc)
-			break; /* filter notifications received before */
-		atomic_set(&(fsa_priv->usbc_mode), acc);
-
-		dev_dbg(dev, "%s: queueing usbc_analog_work\n",
-			__func__);
-		pm_stay_awake(fsa_priv->dev);
-		queue_work(system_freezable_wq, &fsa_priv->usbc_analog_work);
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 {
 	int rc = 0;
@@ -355,15 +317,6 @@ static int fsa4480_probe(struct i2c_client *i2c,
 
 	fsa4480_update_reg_defaults(fsa_priv->regmap);
 	devm_regmap_qti_debugfs_register(fsa_priv->dev, fsa_priv->regmap);
-
-	fsa_priv->ucsi_nb.notifier_call = fsa4480_usbc_event_changed;
-	fsa_priv->ucsi_nb.priority = 0;
-	rc = register_ucsi_glink_notifier(&fsa_priv->ucsi_nb);
-	if (rc) {
-		dev_err(fsa_priv->dev, "%s: ucsi glink notifier registration failed: %d\n",
-			__func__, rc);
-		goto err_data;
-	}
 
 	mutex_init(&fsa_priv->notification_lock);
 	i2c_set_clientdata(i2c, fsa_priv);

@@ -121,3 +121,4 @@ obj-$(CONFIG_QCOM_QFPROM_SYS) += qfprom-sys.o
 obj-$(CONFIG_MSM_HELIOSCOM) += helioscom_spi.o
 obj-$(CONFIG_MSM_HELIOSCOM_INTERFACE) += helioscom_interface.o
 obj-$(CONFIG_QTI_OEMVM_CORE_CTL) += oemvm_core_ctl.o
+obj-$(CONFIG_CPU_FEATURE_ID) += cpu_feature_id.o

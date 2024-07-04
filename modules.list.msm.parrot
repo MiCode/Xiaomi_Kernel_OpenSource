@@ -86,8 +86,10 @@ rtc-pm8xxx.ko
 crypto-qti-common.ko
 crypto-qti-hwkm.ko
 hwkm.ko
+ir-spi.ko
 ufshcd-crypto-qti.ko
 tmecom-intf.ko
 cqhci-crypto-qti.ko
 bcl_pmic5.ko
 dispcc-ravelin.ko
+simtray.ko

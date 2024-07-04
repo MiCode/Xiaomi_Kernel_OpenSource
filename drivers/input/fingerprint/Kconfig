@@ -1,0 +1,13 @@
+#
+# FingerprintCard fingerprint driver
+#
+menu "FingerprintCard fingerprint driver"
+config INPUT_FINGERPRINT
+       tristate "support driver fingerprint"
+       default n
+       help
+	fingerprint  device.
+source "drivers/input/fingerprint/silead/Kconfig"
+source "drivers/input/fingerprint/goodix/Kconfig"
+source "drivers/input/fingerprint/xiaomi_fp/Kconfig"
+endmenu

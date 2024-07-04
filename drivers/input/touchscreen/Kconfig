@@ -1343,6 +1343,13 @@ source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
 source "drivers/input/touchscreen/nt36xxx/Kconfig"
 
+source "drivers/input/touchscreen/NT36672C_SPI/Kconfig"
+
+source "drivers/input/touchscreen/FT8725/Kconfig"
+
 source "drivers/input/touchscreen/goodix_berlin_driver/Kconfig"
 
+#N19 code for HQ-351663 by p-luozhibin1 at 2023.1.15 start
+source "drivers/input/touchscreen/xiaomi_touch/Kconfig"
+#N19 code for HQ-351663 by p-luozhibin1 at 2023.1.15 end
 endif

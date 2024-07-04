@@ -1723,6 +1723,8 @@ static void zram_reset_device(struct zram *zram)
 	memset(&zram->stats, 0, sizeof(zram->stats));
 	zcomp_destroy(comp);
 	reset_bdev(zram);
+	up_write(&zram->init_lock);
+	/* N19 code for HQHW-5871 by p-hugaojian1 at 2024/2/1 end */
 }
 
 static ssize_t disksize_store(struct device *dev,

@@ -117,4 +117,9 @@ obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX)	+= synaptics_dsx/
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX_SPI)	+= nt36xxx/
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX_I2C)	+= nt36xxx/
+obj-$(CONFIG_TOUCHSCREEN_NT36672C_SPI)	+= NT36672C_SPI/
+obj-$(CONFIG_TOUCHSCREEN_FT8725)	+= FT8725/
 obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL)	+= goodix_berlin_driver/
+#N19 code for HQ-351663 by p-luozhibin1 at 2023.1.15 start
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE)  += xiaomi_touch/
+#N19 code for HQ-351663 by p-luozhibin1 at 2023.1.15 end

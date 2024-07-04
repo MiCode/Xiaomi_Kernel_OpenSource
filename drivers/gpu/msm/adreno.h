@@ -1514,7 +1514,9 @@ void adreno_writereg64(struct adreno_device *adreno_dev,
 		enum adreno_regs lo, enum adreno_regs hi, uint64_t val);
 
 unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb);
-
+/* N19 code for HQ-369493 by p-dongfeiju at 2024/3/18 start */
+void adreno_touch_wake(struct kgsl_device *device);
+/* N19 code for HQ-369493 by p-dongfeiju at 2024/3/18 end */
 static inline bool adreno_rb_empty(struct adreno_ringbuffer *rb)
 {
 	return (adreno_get_rptr(rb) == rb->wptr);
