@@ -206,4 +206,5 @@
 | peridot-u-oss | Redmi Turbo 3 | Android U | AU_LINUX_ANDROID_LA.VENDOR.14.3.0.R1.00.00.00.000.092 | [peridot-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/peridot-u-oss) |
 | chenfeng-u-oss | Civi 4 pro | Android U | AU_LINUX_KERNEL.PLATFORM.3.0.R1.00.00.00.017.065 | [chenfeng-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/chenfeng-u-oss) |
 | breeze-u-oss | Redmi Note 13R | Android U | LA.VENDOR.1.0.r1-24300-WAIPIO.QSSI14.0-1 | [breeze-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/breeze-u-oss) |
+| moon-u-oss | POCO M6/Redmi 13 | Android U | t-alps-release-s0.mp1.tc8sp-cs3-V1.31 | [moon-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/moon-u-oss) |
 
