@@ -319,6 +319,10 @@ extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 extern struct mtk_drm_disp_mtee_cb disp_mtee_cb;
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);

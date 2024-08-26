@@ -28,8 +28,6 @@ extern void mt6358tsbuck3_exit(void);
 extern int mt6358tsbuck3_init(void);
 extern int mtktsbattery_init(void);
 extern void mtktsbattery_exit(void);
-extern void mtkts_bts_exit(void);
-extern int mtkts_bts_init(void);
 extern void mtkts_btsmdpa_exit(void);
 extern int mtkts_btsmdpa_init(void);
 extern void tscpu_exit(void);
@@ -69,4 +67,6 @@ extern void mtk_cooler_sysrst_exit(void);
 extern int mtk_cooler_sysrst_init(void);
 extern int mtk_cooler_VR_FPS_init(void);
 extern void mtk_cooler_VR_FPS_exit(void);
+
+
 #endif

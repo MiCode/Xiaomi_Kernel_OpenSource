@@ -851,7 +851,11 @@ struct pd_country_authority {
 struct pd_port {
 	struct tcpc_device *tcpc;
 	struct mutex pd_lock;
-
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	/* miss msg */
+	bool miss_msg;
+	uint8_t rx_cap;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	/* PD */
 	bool msg_output_lock;
 
@@ -1638,5 +1642,8 @@ static inline uint8_t pd_get_swap_battery_nr(struct pd_port *pd_port)
 struct pd_battery_info *pd_get_battery_info(
 	struct pd_port *pd_port, enum pd_battery_reference ref);
 #endif	/* CONFIG_USB_PD_REV30 */
-
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+void pd_add_miss_msg(struct pd_port *pd_port,struct pd_event *pd_event,
+				uint8_t msg);
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 #endif /* PD_CORE_H_ */

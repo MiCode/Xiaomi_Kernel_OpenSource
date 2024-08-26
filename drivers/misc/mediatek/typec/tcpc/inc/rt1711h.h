@@ -10,8 +10,9 @@
 #include "pd_dbg_info.h"
 
 /*show debug message or not */
-#define ENABLE_RT1711_DBG	0
-
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#define ENABLE_RT1711_DBG	1
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 /* RT1711H Private RegMap */
 
 #define RT1711H_REG_CONFIG_GPIO0			(0x71)

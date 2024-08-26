@@ -1,0 +1,1 @@
+obj-$(CONFIG_BQ_CHARGERPUMP_BQ25960)				+= bq25960_charger.o

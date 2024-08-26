@@ -18,6 +18,7 @@
 #include "sensor_list.h"
 #include "SCP_power_monitor.h"
 #include "hwmsensor.h"
+#include <linux/hqsysfs.h>
 
 struct sensorlist_info_t {
 	char name[16];
@@ -132,6 +133,8 @@ static void sensorlist_get_deviceinfo(struct work_struct *work)
 		strlcpy(sensorlist_info[handle].name,
 			devinfo.name,
 			sizeof(sensorlist_info[handle].name));
+		if(handle == accel)
+			hq_regiser_hw_info(HWID_GSENSOR,sensorlist_info[handle].name);
 		spin_unlock(&sensorlist_info_lock);
 	}
 }

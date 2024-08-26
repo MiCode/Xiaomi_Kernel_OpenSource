@@ -818,7 +818,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
@@ -865,6 +865,15 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
 	mSensorState[SENSOR_TYPE_SAR].timestamp_filter = false;
+	/*N19a code for HQ-353506 by huweifeng at 2023/12/16 start*/
+	mSensorState[SENSOR_TYPE_SAR_ALGO].sensorType = SENSOR_TYPE_SAR_ALGO;
+	mSensorState[SENSOR_TYPE_SAR_ALGO].rate = SENSOR_RATE_ONCHANGE;
+	mSensorState[SENSOR_TYPE_SAR_ALGO].timestamp_filter = false;
+
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].sensorType = SENSOR_TYPE_SAR_ALGO_TOP;
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].rate = SENSOR_RATE_ONCHANGE;
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].timestamp_filter = false;
+	/*N19a code for HQ-353506 by huweifeng at 2023/12/16 end*/
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1699,6 +1708,18 @@ int sensor_get_data_from_hub(uint8_t sensorType,
 		data->sar_event.data[1] = data_t->sar_event.data[1];
 		data->sar_event.data[2] = data_t->sar_event.data[2];
 		break;
+	/*N19a code for HQ-348009 by huweifeng at 2023/12/23 start*/
+	case ID_SAR_ALGO:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		pr_debug("HTP saralgo status %d \n",data->data[0]);
+		break;
+	case ID_SAR_ALGO_TOP:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		pr_debug("HTP saralgo status %d \n",data->data[0]);
+		break;
+	/*N19a code for HQ-348009 by huweifeng at 2023/12/23 end*/
 	default:
 		err = -1;
 		break;

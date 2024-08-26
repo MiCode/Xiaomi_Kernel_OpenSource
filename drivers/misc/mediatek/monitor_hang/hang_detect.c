@@ -932,7 +932,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 	int mapcount = 0;
 	struct file *file;
 	int flags;
-	struct mm_struct *mm;
+	struct mm_struct *mm, *current_mm;
 	struct pt_regs *user_ret;
 	char tpath[512];
 	char *path_p = NULL;
@@ -949,17 +949,18 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		return -1;
 	}
 
-	if (!get_task_mm(current_task)) {
+	current_mm = get_task_mm(current_task);
+	if (!current_mm) {
 		pr_info(" %s,%d:%s: current_task->mm == NULL", __func__, pid,
 				current_task->comm);
 		return -1;
 	}
 
-	mmap_read_lock(current_task->mm);
-	vma = current_task->mm->mmap;
+	mmap_read_lock(current_mm);
+	vma = current_mm->mmap;
 	log_hang_info("Dump native maps files:\n");
 	hang_log("Dump native maps files:\n");
-	while (vma && (mapcount < current_task->mm->map_count)) {
+	while (vma && (mapcount < current_mm->map_count)) {
 		file = vma->vm_file;
 		flags = vma->vm_flags;
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
@@ -1023,8 +1024,8 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		vma = vma->vm_next;
 		mapcount++;
 	}
-	mmap_read_unlock(current_task->mm);
-	mmput(current_task->mm);
+	mmap_read_unlock(current_mm);
+	mmput(current_mm);
 	return 0;
 }
 
@@ -1036,6 +1037,7 @@ static int dump_native_info_by_tid(pid_t tid,
 	unsigned long userstack_start = 0;
 	unsigned long userstack_end = 0, length = 0;
 	int ret = -1;
+	struct mm_struct *current_mm;
 
 	if (!current_task)
 		return -ESRCH;
@@ -1047,13 +1049,14 @@ static int dump_native_info_by_tid(pid_t tid,
 		return ret;
 	}
 
-	if (!get_task_mm(current_task)) {
+	current_mm = get_task_mm(current_task);
+	if (!current_mm) {
 		pr_info(" %s,%d:%s, current_task->mm == NULL", __func__, tid,
 				current_task->comm);
 		return ret;
 	}
 
-	mmap_read_lock(current_task->mm);
+	mmap_read_lock(current_mm);
 #ifndef __aarch64__		/* 32bit */
 	log_hang_info(" pc/lr/sp 0x%08x/0x%08x/0x%08x\n", user_ret->ARM_pc,
 			user_ret->ARM_lr, user_ret->ARM_sp);
@@ -1081,7 +1084,7 @@ static int dump_native_info_by_tid(pid_t tid,
 		(long)(user_ret->ARM_r1), (long)(user_ret->ARM_r0));
 
 	userstack_start = (unsigned long)user_ret->ARM_sp;
-	vma = current_task->mm->mmap;
+	vma = current_mm->mmap;
 	while (vma) {
 		if (vma->vm_start <= userstack_start &&
 			vma->vm_end >= userstack_start) {
@@ -1089,12 +1092,12 @@ static int dump_native_info_by_tid(pid_t tid,
 			break;
 		}
 		vma = vma->vm_next;
-		if (vma == current_task->mm->mmap)
+		if (vma == current_mm->mmap)
 			break;
 	}
 
 #if !IS_ENABLED(CONFIG_MTK_HANG_PROC)
-	mmap_read_unlock(current_task->mm);
+	mmap_read_unlock(current_mm);
 #endif
 
 	if (!userstack_end) {
@@ -1193,7 +1196,7 @@ static int dump_native_info_by_tid(pid_t tid,
 			(long)(user_ret->user_regs.regs[1]),
 			(long)(user_ret->user_regs.regs[0]));
 		userstack_start = (unsigned long)user_ret->user_regs.regs[13];
-		vma = current_task->mm->mmap;
+		vma = current_mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= userstack_start &&
 				vma->vm_end >= userstack_start) {
@@ -1201,12 +1204,12 @@ static int dump_native_info_by_tid(pid_t tid,
 				break;
 			}
 			vma = vma->vm_next;
-			if (vma == current_task->mm->mmap)
+			if (vma == current_mm->mmap)
 				break;
 		}
 
 #if !IS_ENABLED(CONFIG_MTK_HANG_PROC)
-		mmap_read_unlock(current_task->mm);
+		mmap_read_unlock(current_mm);
 #endif
 
 		if (!userstack_end) {
@@ -1264,7 +1267,7 @@ static int dump_native_info_by_tid(pid_t tid,
 		}
 	} else {		/*K64+U64 */
 		userstack_start = (unsigned long)user_ret->user_regs.sp;
-		vma = current_task->mm->mmap;
+		vma = current_mm->mmap;
 		while (vma) {
 			if (vma->vm_start <= userstack_start &&
 					vma->vm_end >= userstack_start) {
@@ -1272,12 +1275,12 @@ static int dump_native_info_by_tid(pid_t tid,
 				break;
 			}
 			vma = vma->vm_next;
-			if (vma == current_task->mm->mmap)
+			if (vma == current_mm->mmap)
 				break;
 		}
 
 #if !IS_ENABLED(CONFIG_MTK_HANG_PROC)
-		mmap_read_unlock(current_task->mm);
+		mmap_read_unlock(current_mm);
 #endif
 
 		if (!userstack_end) {
@@ -1349,9 +1352,9 @@ static int dump_native_info_by_tid(pid_t tid,
 	ret = 0;
 err:
 #if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-	mmap_read_unlock(current_task->mm);
+	mmap_read_unlock(current_mm);
 #endif
-	mmput(current_task->mm);
+	mmput(current_mm);
 	return ret;
 
 }

@@ -1,0 +1,10 @@
+&hq_chg_manager {
+    hq_chg_manager,cyclecount = <100 300 800 65535>;
+    hq_chg_manager,dropfv = <0 20 30 30>;
+    hq_chg_manager,normalfv = <20 30 40 60>;
+
+    hq,pd-thermal-mitigation-fast = <6000 5700 5400 5000 4500
+                                4000 3500 3200 3000 2800
+                                2500 2200 1900 1600 900
+                                500 300 300 300>;
+};

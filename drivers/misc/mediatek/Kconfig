@@ -203,6 +203,9 @@ source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
 source "drivers/misc/mediatek/gate_ic/Kconfig"
+# N19A code for HQ-354070 by gaobowei at 2023/12/07 start
+source "drivers/misc/mediatek/simtray/Kconfig"
+# N19A code for HQ-354070 by gaobowei at 2023/12/07 end
 endmenu # Other Peripheral
 
 menu "Performance"

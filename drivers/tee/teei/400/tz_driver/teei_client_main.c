@@ -88,7 +88,9 @@ DECLARE_SEMA(pm_sema, 0);
 DECLARE_COMPLETION(boot_decryto_lock);
 
 #if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
-#define TZ_PREFER_BIND_CORE (6)
+//N19A code for HQ-348450 by sunyuting at 2024/1/11 start
+#define TZ_PREFER_BIND_CORE (7)
+//N19A code for HQ-348450 by sunyuting at 2024/1/11 end
 #endif
 
 #define TEEI_RT_POLICY			(0x01)

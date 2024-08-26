@@ -142,6 +142,15 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 LC898122AF_Release, LC898122AF_GetFileName, NULL},
 	{1, AFDRV_WV511AAF, WV511AAF_SetI2Cclient, WV511AAF_Ioctl,
 	 WV511AAF_Release, WV511AAF_GetFileName, NULL},
+	{1, AFDRV_GT9764BAF, GT9764BAF_SetI2Cclient, GT9764BAF_Ioctl,
+	 GT9764BAF_Release, GT9764BAF_GetFileName, NULL},
+	/* N19A code for HQ-357412 by wangjie at 2023/12/12 start */
+	{1, AFDRV_MOON_PD9302AVAF, MOON_PD9302AVAF_SetI2Cclient, MOON_PD9302AVAF_Ioctl,
+	 MOON_PD9302AVAF_Release, MOON_PD9302AVAF_GetFileName, NULL},
+	/* N19A code for HQ-357413 by wangjie at 2023/12/27 start */
+	{1, AFDRV_MOON_PD9302AC6HAF, MOON_PD9302AC6HAF_SetI2Cclient, MOON_PD9302AC6HAF_Ioctl,
+	 MOON_PD9302AC6HAF_Release, MOON_PD9302AC6HAF_GetFileName, NULL},
+	/* N19A code for HQ-357413 by wangjie at 2023/12/27 end */
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;

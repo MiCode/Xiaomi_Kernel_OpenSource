@@ -1,0 +1,37 @@
+config BATT_VERIFY_BY_DS28E30
+	tristate "ds28e30 driver"
+	prompt "Support ds28e16 as encryption IC."
+	default y
+	help
+		It needs a onewire physical controller to work.
+
+config ONEWIRE_GPIO
+	tristate "onewire gpio driver"
+	prompt "Support Onewire Driver."
+	default y
+	help
+		It's an onewire driver.
+
+config BATT_VERIFY_BY_SLG
+	tristate "slg driver"
+	prompt "Support slg as encryption IC."
+	default y
+	help
+		It needs a onewire physical controller to work.
+
+# N19A code for HQ-360184 by p-wumingzhu1 at 20240103 start 
+config BATT_VERIFY_BY_ST
+	tristate "st driver"
+	prompt "Support sti as encryption IC."
+	default m
+	help
+		It's an onewire driver.
+# N19A code for HQ-360184 by p-wumingzhu1 at 20240103 end
+
+config BATT_VERIFY
+	tristate "auth battery driver"
+	prompt "Support auth battery."
+	default y
+	help
+		It needs a onewire physical controller to work.
+

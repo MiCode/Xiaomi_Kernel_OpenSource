@@ -66,7 +66,13 @@
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
 #define AFDRV_DW9718TAF "DW9718TAF"
-
+#define AFDRV_GT9764BAF "GT9764BAF"
+/*N19A code for HQ-357412 by wangjie at 2012/12/12 start*/
+#define AFDRV_MOON_PD9302AVAF "MOON_PD9302AVAF"
+/*N19A code for HQ-357412 by wangjie at 2012/12/12 end*/
+/*N19A code for HQ-357413 by wangjie at 2012/12/27 start*/
+#define AFDRV_MOON_PD9302AC6HAF "MOON_PD9302AC6HAF"
+/*N19A code for HQ-357413 by wangjie at 2012/12/27 end*/
 #define CONVERT_CCU_TIMESTAMP 0x1000
 
 /* Structures */

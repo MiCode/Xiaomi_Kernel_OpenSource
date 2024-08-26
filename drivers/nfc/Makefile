@@ -17,3 +17,6 @@ obj-$(CONFIG_NFC_ST_NCI)	+= st-nci/
 obj-$(CONFIG_NFC_NXP_NCI)	+= nxp-nci/
 obj-$(CONFIG_NFC_S3FWRN5)	+= s3fwrn5/
 obj-$(CONFIG_NFC_ST95HF)	+= st95hf/
+# N19A code for HQ-348137 by p-xuzhirong at 20231210 start
+obj-$(CONFIG_NFC_PN553_DEVICES)	+= pn557/
+# N19A code for HQ-348137 by p-xuzhirong at 20231210 end

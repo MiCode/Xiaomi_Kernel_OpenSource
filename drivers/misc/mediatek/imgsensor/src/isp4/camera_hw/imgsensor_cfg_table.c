@@ -28,14 +28,16 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 		IMGSENSOR_I2C_DEV_0,
 		{
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
-			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
+			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_DVDD},
+			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AFVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
 		},
 	},
+/* N19A code for HQ-357408 by p-huabinchen at 2023/12/11 start */
 	{
 		IMGSENSOR_SENSOR_IDX_SUB,
 		IMGSENSOR_I2C_DEV_1,
@@ -43,7 +45,7 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
-			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_DVDD},
+			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
@@ -54,14 +56,16 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 		IMGSENSOR_I2C_DEV_2,
 		{
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
-			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_AVDD},
+			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
+			/* N19A code for HQ-365583 by p-xuyechen at 2024/1/11 */
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DVDD},
-			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
+			//{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
 		},
 	},
+/* N19A code for HQ-357408 by p-huabinchen at 2023/12/11 end */
 	{
 		IMGSENSOR_SENSOR_IDX_SUB2,
 		IMGSENSOR_I2C_DEV_1,
@@ -141,6 +145,142 @@ struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[] = {
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+/* N19A code for HQ-357408 by p-huabinchen at 2023/12/11 start */
+#if defined(S5KHM6_SUNNY_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_S5KHM6_SUNNY_MAIN_MIPI_RAW,
+			{
+				/*N19A code for HQ-357411 by xiexinli at 2012/12/14 start*/
+				{AFVDD, Vol_2800, 1},
+				/*N19A code for HQ-357411 by xiexinli at 2012/12/14 end*/
+				{RST, Vol_Low, 1},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2500, 1},//AVDD is 2.2V
+				{DVDD, Vol_1000, 1},
+				{RST, Vol_High, 1},
+				{SensorMCLK, Vol_High, 10},
+			},
+		},
+#endif
+#if defined(S5KHM6_AAC_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_S5KHM6_AAC_MAIN_MIPI_RAW,
+			{
+				/*N19A code for HQ-357411 by xiexinli at 2012/12/14 start*/
+				{AFVDD, Vol_2800, 1},
+				/*N19A code for HQ-357411 by xiexinli at 2012/12/14 end*/
+				{RST, Vol_Low, 1},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2500, 1},//AVDD is 2.2V
+				{DVDD, Vol_1000, 1},
+				{RST, Vol_High, 1},
+				{SensorMCLK, Vol_High, 10},
+			},
+		},
+#endif
+#if defined(S5KHM6_TRULY_MAIN_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_S5KHM6_TRULY_MAIN_MIPI_RAW,
+			{
+				/*N19A code for HQ-357413 by wangjie at 2012/12/27 start*/
+				{AFVDD, Vol_2800, 1},
+				/*N19A code for HQ-357413 by wangjie at 2012/12/27 end*/
+				{RST, Vol_Low, 1},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2500, 1},//AVDD is 2.2V
+				{DVDD, Vol_1000, 1},
+				{RST, Vol_High, 1},
+				{SensorMCLK, Vol_High, 10},
+			},
+		},
+#endif
+#if defined(OV13B10_SUNNY_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV13B10_SUNNY_FRONT_MIPI_RAW,
+		{
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 1},
+			{RST, Vol_High, 6}
+		},
+	},
+#endif
+#if defined(OV13B10_OFILM_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV13B10_OFILM_FRONT_MIPI_RAW,
+		{
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 1},
+			{DVDD, Vol_1200, 1},
+			{RST, Vol_High, 6}
+		},
+	},
+#endif
+/* N19A code for HQ-360492 by p-xuyechen at 2023/12/20 start */
+#if defined(S5K3L6_AAC_FRONT_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5K3L6_AAC_FRONT_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 0},
+			{DVDD, Vol_1200, 0},
+			{DOVDD, Vol_1800, 1},
+			{RST, Vol_High, 10},
+			{SensorMCLK, Vol_High, 2}
+		},
+	},
+#endif
+/* N19A code for HQ-360492 by p-xuyechen at 2023/12/20 end */
+#if defined(GC02M1_SUNNY_MACRO_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_GC02M1_SUNNY_MACRO_MIPI_RAW,
+			{
+				{RST, Vol_Low, 0},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2800, 0},
+				//{AFVDD, Vol_2800, 0},
+				{SensorMCLK, Vol_High, 1},
+				/* N19A code for HQ-365583 by p-xuyechen at 2024/1/11 */
+				{DVDD, Vol_1200, 1},
+				{RST, Vol_High, 0}
+			},
+		},
+#endif
+/* N19A code for HQ-357408 by p-huabinchen at 2023/12/11 end */
+/* N19A code for HQ-357416 by p-xuyechen at 2023/12/17 start*/
+#if defined(GC02M1_AAC_MACRO_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_GC02M1_AAC_MACRO_MIPI_RAW,
+			{
+				{RST, Vol_Low, 0},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2800, 0},
+				{SensorMCLK, Vol_High, 1},
+				/* N19A code for HQ-365583 by p-xuyechen at 2024/1/11 */
+				{DVDD, Vol_1200, 1},
+				{RST, Vol_High, 0}
+			},
+		},
+#endif
+#if defined(GC02M1_TRULY_MACRO_MIPI_RAW)
+		{
+			SENSOR_DRVNAME_GC02M1_TRULY_MACRO_MIPI_RAW,
+			{
+				{RST, Vol_Low, 0},
+				{DOVDD, Vol_1800, 1},
+				{AVDD, Vol_2800, 0},
+				{SensorMCLK, Vol_High, 1},
+				/* N19A code for HQ-365583 by p-xuyechen at 2024/1/11 */
+				{DVDD, Vol_1200, 1},
+				{RST, Vol_High, 0}
+			},
+		},
+#endif
+/* N19A code for HQ-357416 by p-xuyechen at 2023/12/17 end*/
 #if defined(S5K4H7_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_S5K4H7_MIPI_RAW,

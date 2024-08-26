@@ -1878,6 +1878,8 @@ static void msdc_init_hw(struct msdc_host *host)
 
 	/* Configure to default data timeout */
 	sdr_set_field(host->base + SDC_CFG, SDC_CFG_DTOC, 3);
+	/* default write data / busy timeout 20s */
+	sdr_set_field(host->base + SDC_CFG, SDC_CFG_WRDTOC, 4000);
 
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 	host->def_tune_para.iocon = readl(host->base + MSDC_IOCON);

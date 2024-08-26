@@ -1,0 +1,123 @@
+#include "subpmic_irq.h"
+
+&i2c7 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	subpmic_core@61 {
+		compatible = "southchip,subpmic_core";
+		reg = <0x61>;
+		status = "okay";
+		interrupt-parent = <&pio>;
+		interrupts = <20 0>;
+		intr-gpio = <&pio 20 0>;
+		charger_name = "primary_chg";
+		/*phys = <&u2port0 PHY_TYPE_USB2>;
+		phy-names = "usb2-phy";
+		usb = <&usb>;*/
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		subpmic_chg {
+			compatible = "southchip,subpmic_chg";
+			interrupts = <SUBPMIC_IRQ_HK>, <SUBPMIC_IRQ_CHARGER>,
+							<SUBPMIC_IRQ_DPDM>, <SUBPMIC_IRQ_LED>;
+			interrupt-names = "Hourse Keeping", "Buck Charger",
+								"DPDM", "LED";
+			sc,vsys-limit = <3500>;
+			sc,batsnc-enable = <1>;
+			sc,vbat = <4450>;
+			sc,charge-curr = <500>;
+			sc,iindpm-disable = <0>;
+			sc,input-curr-limit = <500>;
+			sc,ico-enable = <0>;
+			sc,iindpm-ico = <100>;
+			sc,precharge-volt = <1>;      /* 0:2900mv, 1:3000, 2:3100, 3:3200 */
+			sc,precharge-curr = <500>;
+			sc,term-en = <1>;
+			sc,term-curr = <500>;     /* ma */
+			sc,rechg-dis = <0>;
+			sc,rechg-dg = <0>;    /* 0:64ms , 1:256ms , 2:1024ms , 3:2048ms */
+			sc,rechg-volt = <0>;  /* 0:100mv , 1:200mv , 2:300mv , 3:400mv */
+			sc,boost-voltage = <5000>;
+			sc,boost-max-current = <1500>;
+			sc,conv-ocp-dis = <0>;
+			sc,tsbat-jeita-dis = <1>;
+			sc,ibat-ocp-dis = <0>;
+			sc,vpmid-ovp-otg-dis = <0>;
+			sc,vbat-ovp-buck-dis = <0>;
+			sc,ibat-ocp = <1>;    /* 0:12A , 1:16A */
+			status = "okay";
+		};
+		subpmic_ufcs {
+			compatible = "southchip,subpmic_ufcs";
+			interrupts = <SUBPMIC_IRQ_UFCS>;
+			interrupt-names = "UFCS";
+
+			subpmic_ufcs,name = "ufcs_port2";
+			subpmic_ufcs,default-baudrate = <0>; /*0: 115200, 1: 57600
+												2: 38400, 3: 19200*/
+			subpmic_ufcs,default-request-volt = <6000>; /*mV*/
+			subpmic_ufcs,default-request-curr = <2000>; /*mA*/
+		};
+		subpmic_cid {
+			compatible = "southchip,subpmic_cid";
+			interrupts = <SUBPMIC_IRQ_CID>;
+			interrupt-names = "CID";
+                        status = "okay";
+		};
+	};
+
+	subpmic_core_nu@30 {
+		compatible = "nuvolta,subpmic_core_nu";
+		reg = <0x30>;
+		status = "okay";
+		interrupt-parent = <&pio>;
+		interrupts = <20 0>;
+		intr-gpio = <&pio 20 0>;
+		charger_name = "primary_chg";
+		/*phys = <&u2port0 PHY_TYPE_USB2>;
+		phy-names = "usb2-phy";
+		usb = <&usb>;*/
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+	subpmic_chg: chg {
+	#io-channel-cells = <1>;
+				 status = "okay";
+				 compatible = "nuvolta,nu6601_charger";
+
+				 interrupts = <USB_DET_DONE>, <VBUS_0V>, <VBUS_GD>, <CHG_FSM>,
+							<CHG_OK>, <BC12_DET_DONE>, <DM_COT_PLUSE_DONE>, <DP_COT_PLUSE_DONE>,
+							<DPDM_2PLUSE_DONE>, <DPDM_3PLUSE_DONE>, <DM_16PLUSE_DONE>, <DP_16PLUSE_DONE>,
+							<HVDCP_DET_FAIL>, <HVDCP_DET_OK>, <BOOST_FAIL>, <BOOST_GOOD>, <LED1_TIMEOUT>, 
+							<LED2_TIMEOUT>, <VBAT_OV> ,<DCD_TIMEOUT>, <RID_CID_DET>;
+				 interrupt-names = "usb_det_done", "vbus_0v", "vbus_gd", "chg_fsm",
+					 "chg_ok", "bc1p2_det_done", "dm_cot_pluse_done", "dp_cot_pluse_done",
+					 "dpdm_2pluse_done", "dpdm_3pluse_done", "dm_16pluse_done", "dp_16pluse_done",
+					 "hvdcp_det_fail", "hvdcp_det_ok", "boost_fail", "boost_gd", "led1_timeout", "led2_timeout", 
+					 "vbat_ov" ,"dcd_timeout", "rid_cid_det";
+
+				 /* charger default */
+				 charger,enable-termination = <1>;
+				 charger,enable-ico = <0>;
+				 charger,batsns-en = <1>;
+				 charger,otg-vol = <5000>; /* mV */
+				 charger,otg-current = <1500>; /* mA */
+				 charger,charge-voltage = <4400>; /* mV */
+				 charger,charge-current = <3000>; /* mA */
+				 charger,precharge-current = <250>; /* mA */
+				 charger,term-current = <200>; /* mA */
+				 charger,input-curr-limit = <3000>; /* mA */
+				 charger,iindpm-disable = <0>; /* 0 enable 1 disable*/
+				 charger,rechg-dis = <0>; /* 0 enable 1 disable*/
+				 charger,rechg-volt = <0>;  /* 0:100mv , 1:200mv*/
+				 charger,cid-en = <1>; /* 0 disable, 1 enable */
+
+				 /* fled default */
+				 torch_max_level = <36>;  /* 500 mA */
+				 strobe_max_level = <116>;  /* 50 ~ 500 mA */
+				 strobe_timeout = <11>; /* 300ms */
+				 strobe_max_timeout = <23>; /* 10 ~ 800 ms */
+			 };
+		};
+};

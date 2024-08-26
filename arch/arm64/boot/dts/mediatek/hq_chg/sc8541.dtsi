@@ -1,0 +1,103 @@
+&i2c7 {
+    sc8541@master{
+        compatible = "sc,sc8541-master";
+        reg = <0x6a>;
+        interrupt-parent = <&pio>;
+        interrupts = <3 0>;
+        sc8541,intr_gpio = <&pio 3 0>;
+        //sc8541,intr_gpio = <&gpio2 9 IRQ_TYPE_EDGE_FALLING>;
+        charger_name = "primary_dvchg";
+        charger_name_v4_19 = "primary_divider_chg";
+        sc,sc8541,vbat-ovp-dis = <0>;
+        sc,sc8541,vbat-ovp = <90>; /*3840 + val * 10*/
+        sc,sc8541,vbat-ovp-alm-dis = <1>;
+        sc,sc8541,vbat-ovp-alm = <70>; /*3840 + val * 10*/
+        sc,sc8541,ibat-ocp-dis = <1>;
+        sc,sc8541,ibat-ocp  = <81>; /*val * 100*/
+        sc,sc8541,ibat-ocp-alm-dis = <1>;
+        sc,sc8541,ibat-ocp-alm = <80>; /*val * 100*/
+        sc,sc8541,ibus-ucp-dis = <0>;
+        sc,sc8541,vbus-in-range-dis = <0>;
+        sc,sc8541,vbus-pd-en = <0>;
+        sc,sc8541,vbus-ovp = <38>; /*7000 + val * 50*/
+        sc,sc8541,vbus-ovp-alm-dis = <1>;
+        sc,sc8541,vbus-ovp-alm = <34>; /*7000 + val * 50*/
+        sc,sc8541,ibus-ocp-dis = <0>;
+        sc,sc8541,ibus-ocp = <13>; /*1000 + val * 250*/
+        sc,sc8541,tshut-dis = <1>;
+        sc,sc8541,tsbus-flt-dis = <1>;
+        sc,sc8541,tsbat-flt-dis = <1>;
+        sc,sc8541,tdie-alm = <200>; /*25 + val * 0.5*/
+        sc,sc8541,tsbus-flt = <21>;
+        sc,sc8541,tsbat-flt = <21>;
+        sc,sc8541,vac1-ovp = <2>; /*0:6.5V 1:10.5V 2:12V 3:14V 4:16V 5~7:18V*/
+        sc,sc8541,vac2-ovp = <2>; /*0:6.5V 1:10.5V 2:12V 3:14V 4:16V 5~7:18V*/
+        sc,sc8541,vac1-pd-en = <0>;
+        sc,sc8541,vac2-pd-en = <0>;
+        sc,sc8541,fsw-set = <4>; /*0:200KHz 1:300KHz 2:400KHz 
+                    3:500KHz 4:600KHz 5:650KHz 6:700KHz 7:750KHz*/
+        sc,sc8541,wd-timeout = <0>; /*0:0.5s 1:1s 2:5s 3:30s*/
+        sc,sc8541,wd-timeout-dis = <1>;
+        sc,sc8541,ibat-sns-r = <0>; /*0:2mho 1:5mho*/
+        sc,sc8541,ss-timeout = <7>; /*0:6.25ms 1:12.5ms 2:25ms 3:50ms 
+                    4:100ms 5:400ms 6:1.5s 7:10s*/
+        sc,sc8541,ibus-ucp-fall-dg = <1>;
+        sc,sc8541,vout-ovp-dis = <0>;
+        sc,sc8541,vout-ovp = <3>; /*4700 + val * 100*/
+        sc,sc8541,pmid2out-uvp = <7>; /*50 + val * 25*/
+        sc,sc8541,pmid2out-ovp = <7>; /*200 + val * 50*/
+    };
+};
+
+
+&i2c7 {
+    sc8541@slave{
+        compatible = "sc,sc8541-slave";
+        reg = <0x6a>;
+        interrupt-parent = <&pio>;
+	status = "disable";
+        interrupts = <3 0>;
+        sc8541,intr_gpio = <&pio 3 0>;
+        //sc8541,intr_gpio = <&gpio2 12 IRQ_TYPE_EDGE_FALLING>;
+        charger_name = "secondary_dvchg";
+        charger_name_v4_19 = "secondary_divider_chg";
+        sc,sc8541,vbat-ovp-dis = <0>;
+        sc,sc8541,vbat-ovp = <90>; /*3840 + val * 10*/
+        sc,sc8541,vbat-ovp-alm-dis = <1>;
+        sc,sc8541,vbat-ovp-alm = <70>; /*3840 + val * 10*/
+        sc,sc8541,ibat-ocp-dis = <0>;
+        sc,sc8541,ibat-ocp  = <81>; /*val * 100*/
+        sc,sc8541,ibat-ocp-alm-dis = <1>;
+        sc,sc8541,ibat-ocp-alm = <80>; /*val * 100*/
+        sc,sc8541,ibus-ucp-dis = <0>;
+        sc,sc8541,vbus-in-range-dis = <0>;
+        sc,sc8541,vbus-pd-en = <0>;
+        sc,sc8541,vbus-ovp = <38>; /*7000 + val * 50*/
+        sc,sc8541,vbus-ovp-alm-dis = <1>;
+        sc,sc8541,vbus-ovp-alm = <34>; /*7000 + val * 50*/
+        sc,sc8541,ibus-ocp-dis = <0>;
+        sc,sc8541,ibus-ocp = <13>; /*1000 + val * 250*/
+        sc,sc8541,tshut-dis = <1>;
+        sc,sc8541,tsbus-flt-dis = <1>;
+        sc,sc8541,tsbat-flt-dis = <1>;
+        sc,sc8541,tdie-alm = <200>; /*25 + val * 0.5*/
+        sc,sc8541,tsbus-flt = <21>;
+        sc,sc8541,tsbat-flt = <21>;
+        sc,sc8541,vac1-ovp = <2>; /*0:6.5V 1:10.5V 2:12V 3:14V 4:16V 5~7:18V*/
+        sc,sc8541,vac2-ovp = <2>; /*0:6.5V 1:10.5V 2:12V 3:14V 4:16V 5~7:18V*/
+        sc,sc8541,vac1-pd-en = <0>;
+        sc,sc8541,vac2-pd-en = <0>;
+        sc,sc8541,fsw-set = <4>; /*0:200KHz 1:300KHz 2:400KHz
+                    3:500KHz 4:600KHz 5:650KHz 6:700KHz 7:750KHz*/
+        sc,sc8541,wd-timeout = <0>; /*0:0.5s 1:1s 2:5s 3:30s*/
+        sc,sc8541,wd-timeout-dis = <1>;
+        sc,sc8541,ibat-sns-r = <0>; /*0:2mho 1:5mho*/
+        sc,sc8541,ss-timeout = <7>; /*0:6.25ms 1:12.5ms 2:25ms 3:50ms
+                    4:100ms 5:400ms 6:1.5s 7:10s*/
+        sc,sc8541,ibus-ucp-fall-dg = <1>;
+        sc,sc8541,vout-ovp-dis = <0>;
+        sc,sc8541,vout-ovp = <3>; /*4700 + val * 100*/
+        sc,sc8541,pmid2out-uvp = <7>; /*50 + val * 25*/
+        sc,sc8541,pmid2out-ovp = <7>; /*200 + val * 50*/
+    };
+};

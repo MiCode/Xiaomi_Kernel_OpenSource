@@ -15,8 +15,25 @@
 #if IS_ENABLED(CONFIG_MTK_CHARGER)
 #include <charger_class.h>
 #endif /* CONFIG_MTK_CHARGER */
-
 #define RT_PD_MANAGER_VERSION	"1.0.8"
+
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_MANAGER)
+#include "hq_charger_class.h"
+#define CONFIG_USB_OTG_ENABLE 1
+#define CONFIG_USB_OTG_DISENABLE 0
+#endif /* CONFIG_HUAQIN_CHARGER_MANAGER */
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+enum {
+	NOTHING_ATTACHED,
+	SOURCE_ATTACHED,
+	SINK_ATTACHED,
+	AUDIO_ADAPTER,
+	NON_COMPLIANT,
+};
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 struct typec_port {
 	unsigned int			id;
@@ -43,10 +60,11 @@ struct rt_pd_manager_data {
 	struct device *dev;
 #if IS_ENABLED(CONFIG_MTK_CHARGER)
 	struct charger_device *chg_dev;
-#if CONFIG_WATER_DETECTION
-	struct power_supply *chg_psy;
-#endif /* CONFIG_WATER_DETECTION */
 #endif /* CONFIG_MTK_CHARGER */
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	struct power_supply *chg_psy;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+	struct charger_dev *use_charge;
 	struct tcpc_device *tcpc;
 	struct notifier_block pd_nb;
 #if CONFIG_WATER_DETECTION
@@ -64,7 +82,7 @@ struct rt_pd_manager_data {
 	struct usb_pd_identity partner_identity;
 };
 
-void usb_dpdm_pulldown(bool enable)
+void __attribute__((weak)) usb_dpdm_pulldown(bool enable)
 {
 	pr_notice("%s is not defined\n", __func__);
 }
@@ -80,15 +98,32 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	enum typec_pwr_opmode opmode = TYPEC_PWR_MODE_USB;
 	uint32_t partner_vdos[VDO_MAX_NR];
 	struct typec_mux_state state;
-#if CONFIG_WATER_DETECTION
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_MANAGER)
 	union power_supply_propval val = {.intval = 0};
-#endif /* CONFIG_MTK_CHARGER */
-#endif /* CONFIG_WATER_DETECTION */
+#endif /* CONFIG_HUAQIN_CHARGER_MANAGER */
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
 		break;
+
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_MANAGER)
+	case TCP_NOTIFY_SOURCE_VBUS:
+		dev_info(rpmd->dev, "%s source vbus %dmV %dmA type(0x%02X)\n",
+				    __func__, noti->vbus_state.mv,
+				    noti->vbus_state.ma, noti->vbus_state.type);
+		if (noti->vbus_state.mv) {
+			val.intval = CONFIG_USB_OTG_ENABLE;
+		} else {
+			val.intval = CONFIG_USB_OTG_DISENABLE;
+		}
+		ret = charger_set_otg(rpmd->use_charge, val.intval);
+		if (ret < 0)
+			dev_info(rpmd->dev, "%s set otg fail", __func__);
+		break;
+#endif /* CONFIG_HUAQIN_CHARGER_MANAGER */
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+
 	case TCP_NOTIFY_TYPEC_STATE:
 		old_state = noti->typec_state.old_state;
 		new_state = noti->typec_state.new_state;
@@ -96,6 +131,8 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		state.data = noti;
 		state.mode = TCP_NOTIFY_TYPEC_STATE;
 		typec_mux_set(rpmd->typec_port->mux, &state);
+		/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+		rpmd->tcpc->typec_mode = NON_COMPLIANT;
 
 		if (old_state == TYPEC_UNATTACHED &&
 		    (new_state == TYPEC_ATTACHED_SNK ||
@@ -121,6 +158,8 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 					noti->typec_state.polarity ?
 					TYPEC_ORIENTATION_NORMAL :
 					TYPEC_ORIENTATION_REVERSE);
+			/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+			rpmd->tcpc->typec_mode = SOURCE_ATTACHED;
 		} else if ((old_state == TYPEC_ATTACHED_SNK ||
 			    old_state == TYPEC_ATTACHED_NORP_SRC ||
 			    old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
@@ -131,6 +170,8 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			 * report charger plug-out,
 			 * and disable device connection
 			 */
+			/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+			rpmd->tcpc->typec_mode = NOTHING_ATTACHED;
 		} else if (old_state == TYPEC_UNATTACHED &&
 			   (new_state == TYPEC_ATTACHED_SRC ||
 			    new_state == TYPEC_ATTACHED_DEBUG)) {
@@ -160,19 +201,27 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 					noti->typec_state.polarity ?
 					TYPEC_ORIENTATION_NORMAL :
 					TYPEC_ORIENTATION_REVERSE);
+			/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+			rpmd->tcpc->typec_mode = SINK_ATTACHED;
 		} else if ((old_state == TYPEC_ATTACHED_SRC ||
 			    old_state == TYPEC_ATTACHED_DEBUG) &&
 			    new_state == TYPEC_UNATTACHED) {
 			dev_info(rpmd->dev, "%s OTG plug out\n", __func__);
 			/* disable host connection */
+			/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+			rpmd->tcpc->typec_mode = NOTHING_ATTACHED;
 		} else if (old_state == TYPEC_UNATTACHED &&
 			   new_state == TYPEC_ATTACHED_AUDIO) {
 			dev_info(rpmd->dev, "%s Audio plug in\n", __func__);
 			/* enable AudioAccessory connection */
+			/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+			rpmd->tcpc->typec_mode = AUDIO_ADAPTER;
 		} else if (old_state == TYPEC_ATTACHED_AUDIO &&
 			   new_state == TYPEC_UNATTACHED) {
 			dev_info(rpmd->dev, "%s Audio plug out\n", __func__);
 			/* disable AudioAccessory connection */
+			/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+			rpmd->tcpc->typec_mode = NOTHING_ATTACHED;
 		}
 
 		if (new_state == TYPEC_UNATTACHED) {
@@ -240,7 +289,6 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			 * report charger plug-in without charger type detection
 			 * to not interfering with USB2.0 communication
 			 */
-
 			typec_set_pwr_role(rpmd->typec_port, TYPEC_SINK);
 		} else if (noti->swap_state.new_role == PD_ROLE_SOURCE) {
 			dev_info(rpmd->dev, "%s swap power role to source\n",
@@ -332,24 +380,20 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				break;
 			dev_info(rpmd->dev, "%s Water is detected in KPOC\n",
 					    __func__);
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
 			val.intval = 0;
 			power_supply_set_property(rpmd->chg_psy,
 						  POWER_SUPPLY_PROP_VOLTAGE_MAX,
 						  &val);
-#endif /* CONFIG_MTK_CHARGER */
 		} else {
 			usb_dpdm_pulldown(true);
 			if (!rpmd->tcpc_kpoc)
 				break;
 			dev_info(rpmd->dev, "%s Water is removed in KPOC\n",
 					    __func__);
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
 			val.intval = 1;
 			power_supply_set_property(rpmd->chg_psy,
 						  POWER_SUPPLY_PROP_VOLTAGE_MAX,
 						  &val);
-#endif /* CONFIG_MTK_CHARGER */
 		}
 		break;
 #endif /* CONFIG_WATER_DETECTION */
@@ -607,21 +651,30 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_get_chg_dev;
 	}
+#endif /* CONFIG_MTK_CHARGER */
 
-#if CONFIG_WATER_DETECTION
-	rpmd->chg_psy = power_supply_get_by_name("mtk-master-charger");
+	rpmd->chg_psy = power_supply_get_by_name("usb");
 	if (!rpmd->chg_psy) {
 		dev_notice(rpmd->dev, "%s get chg psy fail\n", __func__);
-		ret = -ENODEV;
+		ret = -EPROBE_DEFER;
 		goto err_get_chg_psy;
 	}
-#endif /* CONFIG_WATER_DETECTION */
-#endif /* CONFIG_MTK_CHARGER */
+
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_MANAGER)
+	rpmd->use_charge = charger_find_dev_by_name("primary_chg");
+	if (IS_ERR_OR_NULL(rpmd->use_charge)) {
+		dev_notice(rpmd->dev, "%s get primary_chg fail\n", __func__);
+		ret = -EPROBE_DEFER;
+		goto err_get_primary_charger;
+	}
+#endif /* CONFIG_HUAQIN_CHARGER_MANAGER */
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	rpmd->tcpc = tcpc_dev_get_by_name("type_c_port0");
 	if (!rpmd->tcpc) {
 		dev_notice(rpmd->dev, "%s get tcpc dev fail\n", __func__);
-		ret = -ENODEV;
+		ret = -EPROBE_DEFER;
 		goto err_get_tcpc_dev;
 	}
 
@@ -663,13 +716,17 @@ err_reg_tcpc_notifier:
 	typec_unregister_port(rpmd->typec_port);
 err_init_typec:
 err_get_tcpc_dev:
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
-#if CONFIG_WATER_DETECTION
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_MANAGER)
+err_get_primary_charger:
+#endif
 	power_supply_put(rpmd->chg_psy);
-err_get_chg_psy:
-#endif /* CONFIG_WATER_DETECTION */
+/* CONFIG_HUAQIN_CHARGER_MANAGER */
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+#if IS_ENABLED(CONFIG_MTK_CHARGER)
 err_get_chg_dev:
 #endif /* CONFIG_MTK_CHARGER */
+err_get_chg_psy:
 	return ret;
 }
 

@@ -58,4 +58,11 @@ obj-$(CONFIG_UACCE)		+= uacce/
 obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
+obj-y				+= hqsysfs/
+obj-$(CONFIG_PERF_HELPER)       += perf_helper.o
 obj-y				+= mediatek/
+obj-$(CONFIG_TMS_DEVICE)	+= tmsdrv/
+# N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start
+obj-$(CONFIG_XIAOMI_USB_TOUCH_NOTIFIER) += xiaomi_usb_touch_notifier/
+obj-$(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER) += xiaomi_headset_touch_notifier/
+# N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end

@@ -17,6 +17,14 @@
 #include "../../codecs/mt6358.h"
 #include "../common/mtk-sp-spk-amp.h"
 
+// N19A code for HQ-367036 by liutongren at 2024/01/16 start
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpci_core.h"
+// N19A code for HQ-367036 by liutongren at 2024/01/16 end
+
+// Audio bringup pa codec dai config liutongren 20231211 start
+#include "../../codecs/sia81xx/sipa_aux_dev_if.h"
+// Audio bringup pa codec dai config liutongren 20231211 end
+
 #if IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
       #include "../../codecs/mt6358-accdet.h"
 #endif
@@ -43,6 +51,80 @@ static const struct soc_enum mt6768_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6768_spk_i2s_type_str),
 			    mt6768_spk_i2s_type_str),
 };
+
+
+// N19A code for HQ-367036 by liutongren at 2024/01/16 start
+struct usb_priv {
+	struct device *dev;
+	struct notifier_block psy_nb;
+	struct tcpc_device *tcpc_dev;
+};
+struct usb_priv *g_usbc_priv = NULL;
+
+static int analog_usb_typec_event_changed(struct notifier_block *nb,
+					unsigned long evt, void *ptr)
+{
+	struct tcp_notify *noti = ptr;
+	struct usb_priv *usbc_priv = container_of(nb, struct usb_priv, psy_nb);
+	pr_info("%s: enter\n", __func__);
+	if (NULL == noti) {
+		pr_err("%s:data is NULL. \n", __func__);
+		return -EINVAL;
+	}
+	if (!usbc_priv || (usbc_priv != g_usbc_priv))
+		return -EINVAL;
+	pr_info("%s: USB change event received, evt %d, expected %d, ole state %d, new state %d\n",
+		__func__, evt, TCP_NOTIFY_TYPEC_STATE, noti->typec_state.old_state, noti->typec_state.new_state);
+	switch (evt) {
+	case TCP_NOTIFY_TYPEC_STATE:
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+			noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			/* Audio Plug in */
+			pr_info("%s: Audio Plug in\n", __func__);
+			report_analog_usb_plug_in();
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO &&
+			noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			/* Audio Plug out */
+			pr_info("%s: Audio Plug out\n", __func__);
+			report_analog_usb_plug_out();
+		}
+		break;
+	}
+	return 0;
+}
+
+static int analog_usb_typec_event_setup(struct platform_device *platform_device)
+{
+	int rc = 0;
+	pr_info("%s: enter\n", __func__);
+	if (NULL != g_usbc_priv) {
+		pr_err("%s: had done! \n", __func__);
+		return -EINVAL;
+	}
+	g_usbc_priv = devm_kzalloc(&platform_device->dev, sizeof(*g_usbc_priv),
+				GFP_KERNEL);
+	if (!g_usbc_priv)
+		return -ENOMEM;
+	g_usbc_priv->dev = &platform_device->dev;
+	g_usbc_priv->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (!g_usbc_priv->tcpc_dev) {
+		rc = -EPROBE_DEFER;
+		pr_err("%s: get tcpc device type_c_port0 fail \n", __func__);
+		goto err_data;
+	}
+	/* register tcpc_event */
+	g_usbc_priv->psy_nb.notifier_call = analog_usb_typec_event_changed;
+	g_usbc_priv->psy_nb.priority = 0;
+	rc = register_tcp_dev_notifier(g_usbc_priv->tcpc_dev, &g_usbc_priv->psy_nb, TCP_NOTIFY_TYPE_USB);
+	if (rc) {
+		pr_info("%s: register_tcp_dev_notifier failed\n", __func__);
+	}
+	return 0;
+err_data:
+	devm_kfree(&platform_device->dev, g_usbc_priv);
+	return rc;
+}
+// N19A code for HQ-367036 by liutongren at 2024/01/16 end
 
 static int mt6768_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -953,6 +1035,20 @@ static int mt6768_mt6358_dev_probe(struct platform_device *pdev)
 	}
 
 	card->dev = &pdev->dev;
+
+	// Audio bringup pa codec dai config liutongren 20231211 start
+	ret = soc_aux_init_only_sia81xx(pdev, card);
+	if (ret)
+		dev_err(&pdev->dev, "%s soc_aux_init_only_sia81xx fail %d\n",
+			__func__, ret);
+	// Audio bringup pa codec dai config liutongren 20231211 end
+
+	// N19A code for HQ-367036 by liutongren at 2024/01/16 start
+	ret = analog_usb_typec_event_setup(pdev);
+	if (ret) {
+		dev_err(&pdev->dev,"%s analog usb typeC event setup fail.ret:%d\n", __func__, ret);
+	}
+	// N19A code for HQ-367036 by liutongren at 2024/01/16 end
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)

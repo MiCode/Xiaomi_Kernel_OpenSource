@@ -1,0 +1,21 @@
+&hq_qc_policy {
+    status = "okay";
+    compatible = "huaqin,hq_qc_policy";
+    max_vbus = <12000>;
+    max_ibus_qc3_18w = <2000>;
+    max_ibat_qc3_18w = <3500>;
+    max_ibus_qc3_27w = <3000>;
+    max_ibat_qc3_27w = <5400>;
+    max_ibus_qc35 = <2250>;
+    max_ibat_qc35 = <4400>;
+    tune_step_ibat_qc3_27 = <2000>;
+    tune_step_ibat_qc3_18 = <1900>;
+    tune_step_ibat_qc35 = <200>;
+    tune_step_ibus_qc3_27 = <1000>;
+    tune_step_ibus_qc3_18 = <950>;
+    tune_step_ibus_qc35 = <50>;
+    high_soc = <95>;
+    cv_vbat = <4440>;
+    cv_vbat_ffc = <4450>;
+    cv_ibat = <2000>;
+};

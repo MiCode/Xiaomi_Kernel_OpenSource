@@ -50,6 +50,7 @@ def main(**args):
     build_mode = args["build_mode"]
     abi_mode = args["abi_mode"]
     out_file = args["out_file"]
+    factory_build = args["factory_build"]
     if ((project == '') and (kernel_defconfig == ''))  or (out_file == ''):
         help()
 
@@ -133,6 +134,12 @@ def main(**args):
     file_text.append("  ADDITIONAL_KMI_SYMBOL_LISTS=\"${ADDITIONAL_KMI_SYMBOL_LISTS} android/abi_gki_aarch64\"")
     file_text.append("fi")
     file_text.append("unset BUILD_NUMBER")
+    #Add for factory config
+    if factory_build == "1":
+        factory_config = "factory.config"
+    else:
+        factory_config = ""
+    #End
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
@@ -142,7 +149,7 @@ def main(**args):
         # get relative path from {kernel dir} to curret working dir
         rel_kernel_path = 'REL_KERNEL_PATH=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${ROOT_DIR} %s`' % (kernel_dir)
         file_text.append(rel_kernel_path)
-        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s %s' % (special_defconfig, project, kernel_defconfig_overlays, mode_config)
+        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s %s %s' % (special_defconfig, project, kernel_defconfig_overlays, mode_config, factory_config)
         pre_defconfig_cmds = 'PRE_DEFCONFIG_CMDS=\"cp -p ${KERNEL_DIR}/%s/%s ${OUT_DIR}/%s.config\"' % (defconfig_dir, project_defconfig_name, project)
     all_defconfig = 'DEFCONFIG=\"%s\"' % (all_defconfig.strip())
     file_text.append(all_defconfig)
@@ -228,6 +235,7 @@ if __name__ == '__main__':
     parser.add_argument("-m","--build-mode", dest="build_mode", help="specify the build mode to build kernel.", default="user")
     parser.add_argument("--abi", dest="abi_mode", help="specify whether build.config is used to check ABI.", default="no")
     parser.add_argument("-o","--out-file", dest="out_file", help="specify the generated build.config file.", required=True)
+    parser.add_argument("-f","--factory_build", dest="factory_build", help="specific whether factory_build", default="")
 
     args = parser.parse_args()
     main(**args.__dict__)

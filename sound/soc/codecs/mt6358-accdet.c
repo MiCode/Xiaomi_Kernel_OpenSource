@@ -30,7 +30,14 @@
 #include <linux/mfd/mt6358/core.h>
 #include "mt6358-accdet.h"
 #include "mt6358.h"
-
+/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+#include <linux/switch.h>
+/* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start */
+#if IS_ENABLED(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER)
+#include <misc/xiaomi_headset_touch_notifier.h>
+#endif
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end */
 /* grobal variable definitions */
 #define REGISTER_VAL(x)	(x - 1)
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
@@ -63,6 +70,11 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+
+/* N19A code for HQ-348243 by tianjuanhe at 20231218 start */
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/* N19A code for HQ-348243 by tianjuanhe at 20231218 end */
 
 struct mt63xx_accdet_data {
 	u32 base;
@@ -167,11 +179,20 @@ static struct timer_list micbias_timer;
 static void dis_micbias_timerhandler(struct timer_list *t);
 static bool dis_micbias_done;
 static char accdet_log_buf[1280];
+/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+static struct switch_dev accdet_data;
+/* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
 static bool debug_thread_en;
 static bool dump_reg;
 static struct task_struct *thread;
 
 static u32 button_press_debounce = 0x400;
+
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start */
+#if IS_ENABLED(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER)
+static struct xiaomi_headset_notify_data xiaomi_touch_headset_data;
+#endif
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end */
 
 /* local function declaration */
 static void accdet_init_once(void);
@@ -828,6 +849,15 @@ static void send_status_event(u32 cable_type, u32 status)
 		}
 		pr_info("accdet HEADPHONE(3-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start */
+#if IS_ENABLED(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER)
+		xiaomi_touch_headset_data.headset_touch_enable = status ? XIAOMI_HEADSET_ENABLE : XIAOMI_HEADSET_DISABLE;
+		xiaomi_headset_touch_notifier_call_chain(XIAOMI_TOUCH_HEADSET_SWITCH,&xiaomi_touch_headset_data);
+#endif
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end */
+		/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -847,6 +877,15 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start */
+#if IS_ENABLED(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER)
+		xiaomi_touch_headset_data.headset_touch_enable = status ? XIAOMI_HEADSET_ENABLE : XIAOMI_HEADSET_DISABLE;
+		xiaomi_headset_touch_notifier_call_chain(XIAOMI_TOUCH_HEADSET_SWITCH,&xiaomi_touch_headset_data);
+#endif
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end */
+		/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
 		/* when press key for a long time then plug in
 		 * even recoginized as 4-pole
 		 * disable micbias timer still timeout after 6s
@@ -865,6 +904,15 @@ static void send_status_event(u32 cable_type, u32 status)
 				SND_JACK_LINEOUT);
 		pr_info("accdet LineOut %s\n",
 			status ? "PlugIn" : "PlugOut");
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start */
+#if IS_ENABLED(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER)
+		xiaomi_touch_headset_data.headset_touch_enable = status ? XIAOMI_HEADSET_ENABLE : XIAOMI_HEADSET_DISABLE;
+		xiaomi_headset_touch_notifier_call_chain(XIAOMI_TOUCH_HEADSET_SWITCH,&xiaomi_touch_headset_data);
+#endif
+/* N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end */
+		/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PLUG_OUT : EINT_PLUG_IN);
+		/* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
 		break;
 	default:
 		pr_info("%s Invalid cableType\n", __func__);
@@ -2073,10 +2121,14 @@ int mt6358_accdet_init(struct snd_soc_component *component,
 	}
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
+	/* N19A code for HQ-348243 by tianjuanhe at 20231218 start */
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	//snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
+	//snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+        /* N19A code for HQ-348243 by tianjuanhe at 20231218 end*/
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
 
@@ -2246,7 +2298,17 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
-
+	/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+        accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		pr_err("%s switch_dev_register fail:%d!\n", __func__, ret);
+	} else {
+		dev_dbg(&pdev->dev,"accdet select success\n");
+	}
+        /* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet->accdet_devno, 0, 1, ACCDET_DEVNAME);
 	if (ret)
@@ -2339,6 +2401,9 @@ static int mt6358_accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->delay_init_workqueue);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
+	/* N19A code for HQ-353952 by tianjuanhe at 20231211 start */
+	switch_dev_unregister(&accdet_data);
+	/* N19A code for HQ-353952 by tianjuanhe at 20231211 end */
 	devm_kfree(&pdev->dev, accdet);
 	return 0;
 }

@@ -1,0 +1,7 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config SC_CHARGER
+	tristate "Southchip charger support policy"
+	default n
+	help
+		Say Y here to support southchip charger policy.

@@ -1,0 +1,51 @@
+&i2c7 {
+    nu2115@master{
+        compatible = "nuvolta,nu2115-master";
+        reg = <0x6d>;
+		status = "disable";
+        interrupt-parent = <&pio>;
+        interrupts = <3 0>;
+        nu2115,intr_gpio = <&pio 3 0>;
+        //sc8541,intr_gpio = <&gpio2 9 IRQ_TYPE_EDGE_FALLING>;
+        charger_name = "primary_dvchg";
+        charger_name_v4_19 = "primary_divider_chg";
+
+		nuvolta,nu2115,bat-ovp-disable = <0>;
+		nuvolta,nu2115,bat-ocp_disable = <1>;
+		nuvolta,nu2115,bus-ocp-disable = <0>;
+		nuvolta,nu2115,bat-ovp-threshold = <4575>;
+		nuvolta,nu2115,bat-ocp-threshold = <8000>;
+		nuvolta,nu2115,bus-ovp-threshold = <12300>;
+		nuvolta,nu2115,bus-ovp-alarm-threshold = <12300>;
+		nuvolta,nu2115,bus-ocp-threshold = <3750>;
+		nuvolta,nu2115,bus-ocp-alarm-threshold = <3500>;
+		nuvolta,nu2115,ac-ovp-threshold = <13000>;
+		nuvolta,nu2115,sense-resistor-mohm = <5>;
+    };
+};
+
+&i2c7 {
+    nu2115@slave{
+        compatible = "nuvolta,nu2115-slave";
+        reg = <0x6d>;
+		status = "disable";
+        interrupt-parent = <&pio>;
+        interrupts = <3 0>;
+        nu2115,intr_gpio = <&pio 3 0>;
+        //sc8541,intr_gpio = <&gpio2 12 IRQ_TYPE_EDGE_FALLING>;
+        charger_name = "secondary_dvchg";
+        charger_name_v4_19 = "secondary_divider_chg";
+
+		nuvolta,nu2115,bat-ovp-disable = <0>;
+		nuvolta,nu2115,bat-ocp_disable = <0>;
+		nuvolta,nu2115,bus-ocp-disable = <0>;
+		nuvolta,nu2115,bat-ovp-threshold = <4575>;
+		nuvolta,nu2115,bat-ocp-threshold = <8000>;
+		nuvolta,nu2115,bus-ovp-threshold = <12300>;
+		nuvolta,nu2115,bus-ovp-alarm-threshold = <12300>;
+		nuvolta,nu2115,bus-ocp-threshold = <3750>;
+		nuvolta,nu2115,bus-ocp-alarm-threshold = <3500>;
+		nuvolta,nu2115,ac-ovp-threshold = <13000>;
+		nuvolta,nu2115,sense-resistor-mohm = <5>;
+    };
+};

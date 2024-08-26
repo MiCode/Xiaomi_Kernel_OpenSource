@@ -13,7 +13,7 @@
 /*	The ui_soc will keep 100% until SOC drop X percents after unplugged*/
 	R_FG_VALUE = <(5)>;
 /*	R_sense resistance*/
-	EMBEDDED_SEL = <(0)>;
+	EMBEDDED_SEL = <(1)>;
 /*	Configures whether using embedded battery or not*/
 	PMIC_SHUTDOWN_CURRENT = <(20)>;
 /*	System shutdown current*/
@@ -39,16 +39,18 @@
 /*	Battery temperature T4*/
 	TEMPERATURE_T5 = <(-10)>;
 /*	Battery temperature T5*/
-	g_FG_PSEUDO100_T0 = <(100)>;
+/* N19A code for HQHW-5895 by wuwencheng at 2024/02/01 start */
+	g_FG_PSEUDO100_T0 = <(92)>;
 /*	Pseudo 100% percentage at T0*/
-	g_FG_PSEUDO100_T1 = <(100)>;
+	g_FG_PSEUDO100_T1 = <(97)>;
 /*	Pseudo 100% percentage at T1*/
-	g_FG_PSEUDO100_T2 = <(100)>;
+	g_FG_PSEUDO100_T2 = <(97)>;
 /*	Pseudo 100% percentage at T2*/
-	g_FG_PSEUDO100_T3 = <(100)>;
+	g_FG_PSEUDO100_T3 = <(97)>;
 /*	Pseudo 100% percentage at T3*/
-	g_FG_PSEUDO100_T4 = <(100)>;
+	g_FG_PSEUDO100_T4 = <(97)>;
 /*	Pseudo 100% percentage at T4*/
+/* N19A code for HQHW-5895 by wuwencheng at 2024/02/01 end */
 	Q_MAX_SYS_VOLTAGE_BAT0 = <(3350)>;
 /*	Pseudo1 for hide percentage*/
 	Q_MAX_SYS_VOLTAGE_BAT1 = <(3350)>;
@@ -63,9 +65,11 @@
 /*	compensate R_sense resistance*/
 	enable_tmp_intr_suspend = <(0)>;
 /* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+/* N19A code for HQ-353534 by p-tangsufeng at 2024/1/17 - start*/
+	ACTIVE_TABLE = <(5)>;
 /* Table numbers per battery*/
 	MULTI_TEMP_GAUGE0 = <(1)>;
 /* Multi gauge0 enable*/
-#include "mt6768_battery_table.dtsi"
+/* N19A code for HQ-353534 by p-tangsufeng at 2024/1/17 - start*/
+#include "mt6768_battery_table_ext.dtsi"
 };

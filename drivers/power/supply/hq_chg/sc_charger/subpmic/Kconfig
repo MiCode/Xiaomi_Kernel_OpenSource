@@ -1,0 +1,12 @@
+config SUBPMIC_DRIVER
+    tristate "subpmic driver"
+    default n
+    help
+      Say Y to use subpmic core driver
+
+config SUBPMIC_6601
+    tristate "subpmic 6601"
+    default n
+	help
+      Say Y to use subpmic core driver
+

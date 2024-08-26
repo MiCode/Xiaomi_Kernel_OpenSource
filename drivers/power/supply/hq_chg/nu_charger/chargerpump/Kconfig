@@ -1,0 +1,12 @@
+config NU_CHARGERPUMP_DRIVER
+    tristate "nuvolta cp driver"
+    default n
+    help
+      Say Y to use nuvolta cp driver
+
+config NU_CHARGERPUMP_NU2115
+    tristate "nuvolta cp nu2115"
+    default n
+	help
+      Say Y to use nuvolta cp nu2115 driver
+

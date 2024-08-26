@@ -113,6 +113,9 @@
 /************************************************************************
  *
  ************************************************************************/
+
+
+
 /* SENSOR CHIP VERSION */
 /*IMX*/
 #define IMX499_SENSOR_ID                        0x0499
@@ -386,6 +389,32 @@
 #define OV16A10_SENSOR_ID                       0x561641
 #define GC02M1B_SENSOR_ID                       0x02e0
 #define SC800CS_LY_SENSOR_ID                    0xd126
+
+
+/* N19A code for HQ-357408 by p-huabinchen at 2023/12/11 start */
+#define SENSOR_DRVNAME_S5KHM6_SUNNY_MAIN_MIPI_RAW    "s5khm6_sunny_main_mipi_raw"
+#define S5KHM6_SUNNY_MAIN_SENSOR_ID             0x1AD6
+#define SENSOR_DRVNAME_S5KHM6_AAC_MAIN_MIPI_RAW    "s5khm6_aac_main_mipi_raw"
+#define S5KHM6_AAC_MAIN_SENSOR_ID             (0x1AD6 +1)
+#define SENSOR_DRVNAME_S5KHM6_TRULY_MAIN_MIPI_RAW    "s5khm6_truly_main_mipi_raw"
+#define S5KHM6_TRULY_MAIN_SENSOR_ID             (0x1AD6 +2)
+#define OV13B10_SUNNY_FRONT_SENSOR_ID                 (0x560D42)
+#define SENSOR_DRVNAME_OV13B10_SUNNY_FRONT_MIPI_RAW          "ov13b10_sunny_front_mipi_raw"
+#define OV13B10_OFILM_FRONT_SENSOR_ID                 (0x560D42 + 1)
+/* N19A code for HQ-360492 by p-xuyechen at 2023/12/20 start */
+#define S5K3L6_AAC_FRONT_SENSOR_ID                     0x30C6
+#define SENSOR_DRVNAME_S5K3L6_AAC_FRONT_MIPI_RAW          "s5k3l6_aac_front_mipi_raw"
+/* N19A code for HQ-360492 by p-xuyechen at 2023/12/20 end */
+#define SENSOR_DRVNAME_OV13B10_OFILM_FRONT_MIPI_RAW          "ov13b10_ofilm_front_mipi_raw"
+#define GC02M1_SUNNY_MACRO_SENSOR_ID                       0x02e0
+#define SENSOR_DRVNAME_GC02M1_SUNNY_MACRO_MIPI_RAW          "gc02m1_sunny_macro_mipi_raw"
+/* N19A code for HQ-357416 by p-xuyechen at 2023/12/17 start */
+#define GC02M1_AAC_MACRO_SENSOR_ID                        (GC02M1_SUNNY_MACRO_SENSOR_ID + 1)
+#define SENSOR_DRVNAME_GC02M1_AAC_MACRO_MIPI_RAW          "gc02m1_aac_macro_mipi_raw"
+#define GC02M1_TRULY_MACRO_SENSOR_ID                      (GC02M1_SUNNY_MACRO_SENSOR_ID + 2)
+#define SENSOR_DRVNAME_GC02M1_TRULY_MACRO_MIPI_RAW        "gc02m1_truly_macro_mipi_raw"
+/* N19A code for HQ-357416 by p-xuyechen at 2023/12/17 end */
+/* N19A code for HQ-357408 by p-huabinchen at 2023/12/11 end */
 
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"

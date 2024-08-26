@@ -11,8 +11,9 @@
 #include <imsg_log.h>
 
 #define TZ_LOG_SIZE           (PAGE_SIZE * 64)
-#define TZ_LINE_BUFFER_SIZE   256
-
+/* N19A code for HQ-353543 by lizhilong at 20231207 start */
+#define TZ_LINE_BUFFER_SIZE   512
+/* N19A code for HQ-353543 by lizhilong at 20231207 end */
 #define TZ_LOG_RATELIMIT_INTERVAL	(1 * HZ)
 #define TZ_LOG_RATELIMIT_BURST		200
 

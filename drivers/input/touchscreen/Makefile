@@ -114,6 +114,16 @@ obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET) += hxchipset/
 obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL)   += GT9966/
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE)	+=	xiaomi/
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start
+obj-$(CONFIG_TOUCHSCREEN_TPD_NOTIFY)   +=  tpd_notify/
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end
+obj-$(CONFIG_TOUCHSCREEN_NT36XXX_HOSTDL_SPI)	+=	NT36672C_SPI/
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start
+# N19A code for HQ-361166 by p-huangyunbiao at 2023/12/26 start
+obj-$(CONFIG_TOUCHSCREEN_FTS_SPI)	+=	FT8725_SPI/
+# N19A code for HQ-361166 by p-huangyunbiao at 2023/12/26 end
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end
 obj-$(CONFIG_TOUCHSCREEN_MTK_TUI_COMMON_API) +=tui-common.o
 TOUCH_LISTS := $(subst ",,$(CONFIG_TOUCHSCREEN_MTK_TOUCH))
 obj-y += $(foreach TOUCH,$(TOUCH_LISTS),$(TOUCH)/)

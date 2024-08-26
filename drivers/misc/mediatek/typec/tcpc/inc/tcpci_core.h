@@ -32,18 +32,19 @@
 #define PE_EVENT_DBG_ENABLE	1
 #define PE_STATE_INFO_ENABLE	1
 #define TCPC_INFO_ENABLE	1
-#define TCPC_TIMER_DBG_EN	0
-#define TCPC_TIMER_INFO_EN	0
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#define TCPC_TIMER_DBG_EN	1
+#define TCPC_TIMER_INFO_EN	1
 #define PE_INFO_ENABLE		1
-#define TCPC_DBG_ENABLE		0
-#define TCPC_DBG2_ENABLE	0
+#define TCPC_DBG_ENABLE		1
+#define TCPC_DBG2_ENABLE	1
 #define DPM_INFO_ENABLE		1
 #define DPM_INFO2_ENABLE	1
-#define DPM_DBG_ENABLE		0
+#define DPM_DBG_ENABLE		1
 #define PD_ERR_ENABLE		1
-#define PE_DBG_ENABLE		0
-#define TYPEC_DBG_ENABLE	0
-
+#define PE_DBG_ENABLE		1
+#define TYPEC_DBG_ENABLE	1
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 #define DP_INFO_ENABLE		1
 #define DP_DBG_ENABLE		1
@@ -222,6 +223,9 @@ struct tcpc_ops {
 	int (*set_alert_mask)(struct tcpc_device *tcpc, uint32_t mask);
 	int (*get_alert_mask)(struct tcpc_device *tcpc, uint32_t *mask);
 	int (*get_alert_status)(struct tcpc_device *tcpc, uint32_t *alert);
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	int (*rx_busy_get_alert_status)(struct tcpc_device *tcpc, uint32_t *alert);
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	int (*get_power_status)(struct tcpc_device *tcpc, uint16_t *pwr_status);
 	int (*get_fault_status)(struct tcpc_device *tcpc, uint8_t *status);
 	int (*get_cc)(struct tcpc_device *tcpc, int *cc1, int *cc2);
@@ -233,6 +237,11 @@ struct tcpc_ops {
 	int (*alert_vendor_defined_handler)(struct tcpc_device *tcpc);
 	int (*set_auto_dischg_discnt)(struct tcpc_device *tcpc, bool en);
 	int (*get_vbus_voltage)(struct tcpc_device *tcpc, u32 *vbus);
+
+	//sc6601 patch
+	int (*get_chip_id)(struct tcpc_device *tcpc,uint32_t *chip_id);
+	int (*get_chip_pid)(struct tcpc_device *tcpc,uint32_t *chip_pid);
+	int (*get_chip_vid)(struct tcpc_device *tcpc,uint32_t *chip_vid);
 
 #if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	int (*is_vsafe0v)(struct tcpc_device *tcpc);
@@ -377,6 +386,9 @@ struct tcpc_device {
 	uint8_t typec_remote_cc[2];
 	uint8_t typec_remote_rp_level;
 	uint8_t typec_wait_ps_change;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	uint8_t typec_mode;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	bool typec_polarity;
 	bool typec_drp_try_timeout;
 	bool typec_lpm;
@@ -524,6 +536,12 @@ struct tcpc_device {
 	u32 alert_mask;
 	struct completion alert_done;
 	long long alert_max_access_time;
+
+/* N19A code for HQ-380111 by p-yanzelin at 20240423 start */
+#if defined(CONFIG_PR_SWAP_FOR_NU6601)
+	bool g_flag_role_swap;
+#endif
+/* N19A code for HQ-380111 by p-yanzelin at 20240423 end */
 };
 
 #define to_tcpc_device(obj) container_of(obj, struct tcpc_device, dev)
@@ -555,7 +573,7 @@ static inline bool pd_check_rev30(struct pd_port *pd_port)
 }
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#if IS_ENABLED(CONFIG_PD_DBG_INFO)
+#if 0
 #define __RT_DBG_INFO	pd_dbg_info
 #else
 #define __RT_DBG_INFO	pr_info

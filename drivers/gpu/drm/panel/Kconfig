@@ -998,6 +998,39 @@ config DRM_PANEL_TIANMA_HX83102J_VDO
           and uses 24-bits RGB per pixel. It provides a MIPI DSI
           interface to host.
 
+config DRM_PANEL_N19A_36_02_0A_DSC_VDO
+        tristate "36 02 0A fhdplus and vdo mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for nt36672c
+          fhdplus vdo panel. The panel has a 2460x1080 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI
+          interface to host.
+
+config DRM_PANEL_N19A_42_03_0B_DSC_VDO
+        tristate "42 03 0B fhdplus and vdo mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for ft8725
+          fhdplus vdo panel. The panel has a 2460x1080 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI
+          interface to host.
+
+config DRM_PANEL_N19A_43_02_0C_DSC_VDO
+        tristate "43 02 0C fhdplus and vdo mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for nt36672s
+          fhdplus vdo panel. The panel has a 2460x1080 resolution
+          and uses 24-bits RGB per pixel. It provides a MIPI DSI
+          interface to host.
+
 config BACKLIGHT_KTZ8866
        tristate "Backlight driver for KTZ8866"
        depends on I2C && PWM

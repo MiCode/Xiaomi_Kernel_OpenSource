@@ -138,9 +138,12 @@ enum {
 	TCP_NOTIFY_WD_STATUS,
 	TCP_NOTIFY_FOD_STATUS,
 	TCP_NOTIFY_CABLE_TYPE,
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	TCP_NOTIFY_SOFT_RESET,
 	TCP_NOTIFY_TYPEC_OTP,
 	TCP_NOTIFY_PLUG_OUT,
-	TCP_NOTIFY_MISC_END = TCP_NOTIFY_CABLE_TYPE,
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+	TCP_NOTIFY_MISC_END = TCP_NOTIFY_SOFT_RESET,
 };
 
 struct tcp_ny_pd_state {
@@ -922,6 +925,13 @@ extern uint8_t tcpm_inquire_pd_pe_ready(
 extern uint8_t tcpm_inquire_cable_current(
 	struct tcpc_device *tcpc);
 
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_PD_BATTERY_SECRET)
+extern uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc);
+#endif
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+
 extern uint32_t tcpm_inquire_dpm_flags(
 	struct tcpc_device *tcpc);
 
@@ -1442,6 +1452,16 @@ static inline uint8_t tcpm_inquire_cable_current(
 {
 	return PD_CABLE_CURR_UNKNOWN;
 }
+
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_PD_BATTERY_SECRET)
+static inline uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc)
+{
+	return 0;
+}
+#endif
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 static inline uint32_t tcpm_inquire_dpm_flags(
 	struct tcpc_device *tcpc)

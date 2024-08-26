@@ -14,7 +14,6 @@
 
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
-#include <asm/div64.h>
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "inc/tcpci_event.h"
@@ -62,7 +61,7 @@ static inline void tcpci_vbus_level_init_v10(
 		if (tcpc->vbus_level == TCPC_VBUS_INVALID)
 			tcpc->vbus_level = TCPC_VBUS_SAFE0V;
 		else
-			TCPC_INFO("ps_confused: 0x%02x\n", power_status);
+			pr_err("ps_confused: 0x%02x\n", power_status);
 	}
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
@@ -79,7 +78,7 @@ static inline void __tcpci_vbus_level_refresh(struct tcpc_device *tcpc)
 		if (tcpc->vbus_level == TCPC_VBUS_INVALID)
 			tcpc->vbus_level = TCPC_VBUS_SAFE0V;
 		else
-			TCPC_INFO("ps_confused: %d\n", tcpc->vbus_level);
+			pr_err("ps_confused: %d\n", tcpc->vbus_level);
 	}
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 }
@@ -122,7 +121,7 @@ static inline int tcpci_alert_power_status_changed_v10(struct tcpc_device *tcpc)
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
 	if (show_msg)
-		TCPC_INFO("ps_change=%d\n", tcpc->vbus_level);
+		pr_err("ps_change=%d\n", tcpc->vbus_level);
 
 	rv = tcpc_typec_handle_ps_change(tcpc, tcpc->vbus_level);
 	if (rv < 0)
@@ -151,7 +150,7 @@ static inline int tcpci_vbus_level_changed(struct tcpc_device *tcpc)
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
 	if (show_msg)
-		TCPC_INFO("ps_change=%d\n", tcpc->vbus_level);
+		pr_err("ps_change=%d\n", tcpc->vbus_level);
 
 	rv = tcpc_typec_handle_ps_change(tcpc, tcpc->vbus_level);
 	if (rv < 0)
@@ -189,7 +188,7 @@ static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc)
 static int tcpci_alert_tx_success(struct tcpc_device *tcpc)
 {
 	uint8_t tx_state;
-	uint64_t temp = 0;
+
 	struct pd_event evt = {
 		.event_type = PD_EVT_CTRL_MSG,
 		.msg = PD_CTRL_GOOD_CRC,
@@ -199,9 +198,9 @@ static int tcpci_alert_tx_success(struct tcpc_device *tcpc)
 	mutex_lock(&tcpc->access_lock);
 #if PD_DYNAMIC_SENDER_RESPONSE
 	tcpc->t[1] = local_clock();
-	temp = tcpc->t[1] - tcpc->t[0];
-	do_div(temp, NSEC_PER_USEC);
-	tcpc->tx_time_diff = (uint32_t)temp;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	tcpc->tx_time_diff = (tcpc->t[1] - tcpc->t[0]) / NSEC_PER_USEC;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	pd_dbg_info("%s, diff = %d\n", __func__, tcpc->tx_time_diff);
 #endif /* PD_DYNAMIC_SENDER_RESPONSE */
 	tx_state = tcpc->pd_transmit_state;
@@ -258,7 +257,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc)
 	tcpc->pd_transmit_state = PD_TX_STATE_DISCARD;
 	mutex_unlock(&tcpc->access_lock);
 
-	TCPC_INFO("Discard\n");
+	pr_err("Discard\n");
 #if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
 	complete(&tcpc->pd_port.tx_done);
 #endif /* CONFIG_WAIT_TX_RETRY_DONE */
@@ -275,7 +274,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc)
 			tcpc->pd_discard_pending = true;
 			tcpc_enable_timer(tcpc, PD_TIMER_DISCARD);
 #else
-			TCPC_ERR("RETRY_CRC_DISCARD\n");
+			pr_err("RETRY_CRC_DISCARD\n");
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 		} else {
 			pd_put_hw_event(tcpc, PD_HW_TX_FAILED);
@@ -289,6 +288,16 @@ static int tcpci_alert_recv_msg(struct tcpc_device *tcpc)
 	int retval;
 	struct pd_msg *pd_msg;
 	enum tcpm_transmit_type type;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	int rv1 = 0;
+	uint32_t chip_pid = 0;
+
+	rv1 = tcpci_get_chip_pid(tcpc, &chip_pid);
+	if (!rv1 && (SC2150A_PID == chip_pid) &&
+					tcpc->pd_bist_mode == PD_BIST_MODE_DISABLE) {
+		tcpci_set_rx_enable(tcpc, PD_RX_CAP_PE_STARTUP);
+	}
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	pd_msg = pd_alloc_msg(tcpc);
 	if (pd_msg == NULL) {
@@ -299,13 +308,21 @@ static int tcpci_alert_recv_msg(struct tcpc_device *tcpc)
 	retval = tcpci_get_message(tcpc,
 		pd_msg->payload, &pd_msg->msg_hdr, &type);
 	if (retval < 0) {
-		TCPC_INFO("recv_msg failed: %d\n", retval);
+		pr_err("recv_msg failed: %d\n", retval);
 		pd_free_msg(tcpc, pd_msg);
 		return retval;
 	}
 
 	pd_msg->frame_type = (uint8_t) type;
 	pd_put_pd_msg_event(tcpc, pd_msg);
+
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	if (!rv1 && (SC2150A_PID == chip_pid) &&
+					tcpc->pd_bist_mode == PD_BIST_MODE_DISABLE) {
+		tcpci_set_rx_enable(tcpc, tcpc->pd_port.rx_cap);
+	}
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+
 	return 0;
 }
 
@@ -314,7 +331,7 @@ static int tcpci_alert_rx_overflow(struct tcpc_device *tcpc)
 	int rv;
 	uint32_t alert_status;
 
-	TCPC_INFO("RX_OVERFLOW\n");
+	pr_err("RX_OVERFLOW\n");
 
 	rv = tcpci_get_alert_status(tcpc, &alert_status);
 	if (rv)
@@ -328,7 +345,7 @@ static int tcpci_alert_rx_overflow(struct tcpc_device *tcpc)
 
 static int tcpci_alert_recv_hard_reset(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("HardResetAlert\n");
+	pr_err("HardResetAlert\n");
 	pd_put_recv_hard_reset_event(tcpc);
 	tcpci_init_alert_mask(tcpc);
 	return 0;
@@ -347,7 +364,7 @@ static int tcpci_alert_fault(struct tcpc_device *tcpc)
 	uint8_t status = 0;
 
 	tcpci_get_fault_status(tcpc, &status);
-	TCPC_INFO("FaultAlert=0x%x\n", status);
+	pr_err("FaultAlert=0x%x\n", status);
 	tcpci_fault_status_clear(tcpc, status);
 	return 0;
 }
@@ -356,7 +373,7 @@ static int tcpci_alert_fault(struct tcpc_device *tcpc)
 static int tcpci_alert_wakeup(struct tcpc_device *tcpc)
 {
 	if (tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG) {
-		TCPC_INFO("Wakeup\n");
+		pr_err("Wakeup\n");
 
 		if (tcpc->typec_remote_cc[0] == TYPEC_CC_DRP_TOGGLING)
 			tcpc_enable_wakeup_timer(tcpc, true);
@@ -433,7 +450,7 @@ static inline bool tcpci_check_hard_reset_complete(
 #if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
 		complete(&tcpc->pd_port.tx_done);
 #endif /* CONFIG_WAIT_TX_RETRY_DONE */
-		TCPC_INFO("HResetFailed\n");
+		pr_err("HResetFailed\n");
 		tcpci_transmit(tcpc, TCPC_TX_HARD_RESET, 0, NULL);
 		return false;
 	}
@@ -449,6 +466,9 @@ int tcpci_alert(struct tcpc_device *tcpc)
 	int rv;
 	uint32_t alert_status;
 	uint32_t alert_mask;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	uint32_t chip_vid;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	rv = tcpci_get_alert_status(tcpc, &alert_status);
 	if (rv)
@@ -465,11 +485,15 @@ int tcpci_alert(struct tcpc_device *tcpc)
 
 #if CONFIG_USB_PD_DBG_ALERT_STATUS
 	if (alert_status != 0)
-		TCPC_INFO("Alert:0x%04x, Mask:0x%04x\n",
+		pr_err("Alert:0x%04x, Mask:0x%04x\n",
 			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
 
-	alert_status &= alert_mask;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	rv = tcpci_get_chip_vid(tcpc, &chip_vid);
+	if (rv || chip_vid != SOUTHCHIP_PD_VID)
+		alert_status &= alert_mask;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	tcpci_alert_status_clear(tcpc,
 		alert_status & (~TCPC_REG_ALERT_RX_MASK));
@@ -587,7 +611,7 @@ static inline int tcpci_set_wake_lock_pd(
 
 static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("usb_port_attached\n");
+	pr_err("usb_port_attached\n");
 
 	tcpci_set_wake_lock_pd(tcpc, true);
 
@@ -608,7 +632,7 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 
 static inline int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("usb_port_detached\r\n");
+	pr_err("usb_port_detached\r\n");
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* MTK Only */

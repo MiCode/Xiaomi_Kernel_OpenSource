@@ -262,12 +262,15 @@
 			regulator-max-microvolt = <1800000>;
 			regulator-enable-ramp-delay = <3300>;
 		};
+		/* N19A code for HQ-364699 by songweijie at 20240109 start */
 		mt_pmic_vibr_ldo_reg: ldo_vibr {
 			regulator-name = "vibr";
-			regulator-min-microvolt = <1200000>;
+			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 			regulator-enable-ramp-delay = <60>;
+			regulator-always-on;
 		};
+		/* N19A code for HQ-364699 by songweijie at 20240109 end */
 		mt_pmic_vrf12_ldo_reg: ldo_vrf12 {
 			regulator-name = "vrf12";
 			regulator-min-microvolt = <1200000>;

@@ -31,6 +31,8 @@
 #include "mtk_battery.h"
 #include "mtk_battery_table.h"
 
+/* N19A code for HQ-372635 by p-xuyechen at 2024/02/28 */
+#define BOOTMODE_RECOVERY    2
 
 struct tag_bootmode {
 	u32 size;
@@ -154,7 +156,25 @@ bool is_algo_active(struct mtk_battery *gm)
 
 int fgauge_get_profile_id(void)
 {
-	return 0;
+	/* N19A code for HQ-353534 by p-tangsufeng at 2024/1/22 - start*/
+	struct power_supply *verify_psy = NULL;
+	union power_supply_propval pval;
+	int ret;
+
+	verify_psy = power_supply_get_by_name("batt_verify");
+	if (IS_ERR_OR_NULL(verify_psy)) {
+		bm_err("Cannot get power supply of name\n");
+		return -ENODEV;
+	}
+
+	ret = power_supply_get_property(verify_psy, POWER_SUPPLY_PROP_TYPE, &pval);
+	if (ret < 0) {
+		bm_err("Couldn't read batt_id, ret=%d\n", ret);
+		return -ENODEV;
+	}
+
+	return pval.intval;
+	/* N19A code for HQ-353534 by p-tangsufeng at 2024/1/22 - end*/
 }
 
 int wakeup_fg_algo_cmd(
@@ -323,7 +343,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = bs_data->bat_technology;
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		val->intval = 1;
+		val->intval = gm->bat_cycle;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
@@ -337,7 +357,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 		if (gm->fixed_uisoc != 0xffff)
 			val->intval = gm->fixed_uisoc;
 		else
-			val->intval = bs_data->bat_capacity;
+			/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+			val->intval = bs_data->final_capacity;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
@@ -364,9 +385,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval =
-			gm->fg_table_cust_data.fg_profile[
-				gm->battery_id].q_max * 1000;
+		val->intval = gm->algo_qmax;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		val->intval = gm->ui_soc *
@@ -397,7 +416,19 @@ static int battery_psy_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = force_get_tbat(gm, true) * 10;
+		/*N19A code for HQ-354064 by tangsufeng at 2023.12.16 start*/
+		ret = gauge_get_property(GAUGE_PROP_BATTERY_EXIST,
+			&bs_data->bat_present);
+		if (ret < 0) {
+			val->intval = 250;
+			bm_debug("fail to get at_present\n");
+		}
+		else if (bs_data->bat_present == 0) {
+			val->intval = 250;
+			bm_debug("battery is not EXIST \n");
+		} else
+		/*N19A code for HQ-354064 by tangsufeng at 2023.12.16 end*/
+			val->intval = force_get_tbat(gm, true) * 10;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(bs_data->bat_capacity);
@@ -500,6 +531,10 @@ static int battery_psy_set_property(struct power_supply *psy,
 			bm_err("[%s], dynamic_cv: %d\n",  __func__, val->intval);
 		}
 		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+            gm->fake_bat_cycle = val->intval;
+            gm->bat_cycle = val->intval;
+		break;
 
 
 	default:
@@ -511,6 +546,18 @@ static int battery_psy_set_property(struct power_supply *psy,
 		__func__, psp, ret, val->intval);
 
 	return ret;
+}
+
+static int battery_psy_is_writeable(struct power_supply *psy,
+				     enum power_supply_property psp)
+{
+	switch (psp) {
+		case POWER_SUPPLY_PROP_CYCLE_COUNT:
+			return 1;
+
+		default:
+			return 0;
+	}
 }
 
 static void mtk_battery_external_power_changed(struct power_supply *psy)
@@ -596,8 +643,10 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		cur_chr_type = prop_type.intval;
 
 		if (cur_chr_type == POWER_SUPPLY_TYPE_UNKNOWN) {
-			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN)
+			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN) {
+				gm->s_flag = LOW_FAST_NORMAL;
 				bm_err("%s chr plug out\n", __func__);
+			}
 		} else {
 			if (gm->chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
@@ -626,12 +675,17 @@ void battery_service_data_init(struct mtk_battery *gm)
 	struct battery_data *bs_data;
 
 	bs_data = &gm->bs_data;
+	#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+	bs_data->psd.name = "bms",
+	#else
 	bs_data->psd.name = "battery",
+	#endif
 	bs_data->psd.type = POWER_SUPPLY_TYPE_BATTERY;
 	bs_data->psd.properties = battery_props;
 	bs_data->psd.num_properties = ARRAY_SIZE(battery_props);
 	bs_data->psd.get_property = battery_psy_get_property;
 	bs_data->psd.set_property = battery_psy_set_property;
+	bs_data->psd.property_is_writeable = battery_psy_is_writeable;
 	bs_data->psd.external_power_changed =
 		mtk_battery_external_power_changed;
 	bs_data->psy_cfg.drv_data = gm;
@@ -660,13 +714,13 @@ int adc_battemp(struct mtk_battery *gm, int res)
 	ptable = gm->tmp_table;
 	if (res >= ptable[0].TemperatureR) {
 		tbatt_value = -40;
-	} else if (res <= ptable[20].TemperatureR) {
+	} else if (res <= ptable[100].TemperatureR) {
 		tbatt_value = 60;
 	} else {
 		res1 = ptable[0].TemperatureR;
 		tmp1 = ptable[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+		for (i = 0; i <= 100; i++) {
 			if (res >= ptable[i].TemperatureR) {
 				res2 = ptable[i].TemperatureR;
 				tmp2 = ptable[i].BatteryTemp;
@@ -681,7 +735,7 @@ int adc_battemp(struct mtk_battery *gm, int res)
 		tbatt_value = (((res - res2) * tmp1) +
 			((res1 - res) * tmp2)) / (res1 - res2);
 	}
-	bm_debug("[%s] %d %d %d %d %d %d\n",
+	bm_err("[%s] %d %d %d %d %d %d\n",
 		__func__,
 		res1, res2, res, tmp1,
 		tmp2, tbatt_value);
@@ -1363,10 +1417,15 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 
 	/* init battery temperature table */
 	gm->rbat.type = 10;
-	gm->rbat.rbat_pull_up_r = RBAT_PULL_UP_R;
+	/* N19A code for HQ-369417 by hankang at 20240127 start */
+	if (gm->board_id > P1_BOARD_ID)
+		gm->rbat.rbat_pull_up_r = RBAT_PULL_UP_R;
+	else
+		gm->rbat.rbat_pull_up_r = RBAT_PULL_UP_R_P1;
+	bm_err("%s board id = %d, rbat_pull_up_r = %d\n", __func__, gm->board_id, gm->rbat.rbat_pull_up_r);
+	/* N19A code for HQ-369417 by hankang at 20240127 end */
 	gm->rbat.rbat_pull_up_volt = RBAT_PULL_UP_VOLT;
 	gm->rbat.bif_ntc_r = BIF_NTC_R;
-
 	if (IS_ENABLED(BAT_NTC_47)) {
 		gm->rbat.type = 47;
 		gm->rbat.rbat_pull_up_r = RBAT_PULL_UP_R;
@@ -1455,7 +1514,7 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 			}
 		}
 
-		bm_debug("%s: mah: %d, voltage: %d, resistance: %d, rdc0:%d rdc:%d %d %d %d\n",
+		bm_err("%s: mah: %d, voltage: %d, resistance: %d, rdc0:%d rdc:%d %d %d %d\n",
 			__func__, mah, voltage, resistance, charge_rdc[0],
 			charge_rdc[1], charge_rdc[2], charge_rdc[3],
 			charge_rdc[4]);
@@ -1508,6 +1567,10 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 	struct fuel_gauge_table_custom_data *fg_table_cust_data;
 
 	gm->battery_id = fgauge_get_profile_id();
+	/* N19A code for HQ-353534 by p-tangsufeng at 2024/1/22 - start*/
+	if (gm->battery_id < 0 || gm->battery_id == 255)
+		gm->battery_id = 0;
+	/* N19A code for HQ-353534 by p-tangsufeng at 2024/1/22 - end*/
 	bat_id = gm->battery_id;
 	fg_cust_data = &gm->fg_cust_data;
 	fg_table_cust_data = &gm->fg_table_cust_data;
@@ -2119,10 +2182,85 @@ void battery_update_psd(struct mtk_battery *gm)
 
 	bat_data->bat_batt_temp = force_get_tbat(gm, true);
 }
+
+/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+struct ffc_smooth ffc_dischg_smooth[FFC_SMOOTH_LEN] = {
+	{0,    300},
+	{300,  150},
+	{600,   72},
+	{1000,  50},
+};
+/*N19A code for HQ-369185 by wuwencheng at 20240128 end */
+
+static u64 get_current_time(void)
+{
+	ktime_t boottime = ktime_get_boottime();
+	u64 boottime_ns = ktime_to_ns(boottime);
+	u64 boottime_sec = boottime_ns / 1000000000; // 转换为秒数
+
+	return boottime_sec;
+}
+
 void battery_update(struct mtk_battery *gm)
 {
 	struct battery_data *bat_data = &gm->bs_data;
 	struct power_supply *bat_psy = bat_data->psy;
+
+	/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+	struct charger_dev *chg;
+	int ret;
+	int curr_now = 0;
+	int vbat_now = 0;
+	u64 time_now, delta_time;
+	static u64 time_last = 0;
+	static int last_capacity;
+	bool is_full_flag;
+	static bool keep_100;
+	struct votable	*is_full_votable = NULL;
+	int unit_time = 0, i = 0, curr_avg = 0, soc_changed = 0;
+
+	chg = charger_find_dev_by_name("primary_chg");
+	if (chg == NULL) {
+		/* N19A code for HQ-372635 by p-xuyechen at 2024/02/28 start */
+		bm_err("[%s]chg is not rdy, gm->ui_soc = %d\n", __func__, gm->ui_soc);
+
+		if (gm->ui_soc > 0 && gm->bootmode == BOOTMODE_RECOVERY) {
+			bat_data->final_capacity = gm->ui_soc;
+		}
+		/* N19A code for HQ-372635 by p-xuyechen at 2024/02/28 end */
+		return;
+	}
+
+	ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
+		&curr_now);
+	if (ret < 0) {
+		bm_err("[%s] get ibat failed\n", __func__);
+		return;
+	}
+
+	ret = gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
+		&vbat_now);
+	if (ret < 0) {
+		bm_err("[%s] get vbat failed\n", __func__);
+		return;
+	}
+
+	is_full_votable = find_votable("IS_FULL");
+	if (!is_full_votable) {
+		pr_err("%s failed to get is_full_votable\n", __func__);
+	} else {
+		is_full_flag = get_effective_result(is_full_votable);
+		if (is_full_flag) {
+			keep_100 = true;
+			hq_info("%s smooth_new: report full, is_full_flag = %d ui_soc=%d keep_100=%d\n", __func__, is_full_flag,gm->ui_soc, keep_100);
+		} else {
+			keep_100 = false;
+		}
+	}
+
+	bm_err("[%s]temp:%d bat_status:%d ibat:%d vbat:%d is_full_flag=%d keep_100=%d\n", __func__,bat_data->bat_batt_temp,
+		bat_data->bat_status, curr_now *100, vbat_now, is_full_flag, keep_100);
+	/*N19A code for HQ-369185 by wuwencheng at 20240128 end */
 
 	if (gm->is_probe_done == false || bat_psy == NULL) {
 		bm_err("[%s]battery is not rdy:probe:%d\n",
@@ -2141,6 +2279,80 @@ void battery_update(struct mtk_battery *gm)
 
 	if (gm->algo.active == true)
 		bat_data->bat_capacity = gm->ui_soc;
+
+	/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+	if(keep_100) {//battery full
+		if(gm->ui_soc > RECHARGE_UISOC) {//after battery full, before 95% recharge
+			time_last = get_current_time(); //time_last: last time when capacity changed after 95% recharge was begined.
+		} else {
+			keep_100 = false; //capacity begin to drop (fg ui_soc: 95~*, new capacity: 100~*)
+			if (is_full_votable) {
+				vote(is_full_votable, SMOOTH_NEW_VOTER, false, 0);
+				hq_info("%s smooth_new: report full, is_full_flag = %d ui_soc=%d\n", __func__, is_full_flag,gm->ui_soc);
+			}
+		}
+		bat_data->bat_capacity = 100;
+		last_capacity = 100;
+		bm_err("[%s]keep 100, bat_capacity = %d, ui_soc = %d, keep_100 = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, keep_100);
+	} else {
+		bm_err("[%s]start of smooth, bat_capacity = %d, ui_soc = %d, last_capacity = %d, keep_100 = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity, keep_100);
+
+		if(last_capacity > (gm->ui_soc + 1)) { //95% recharge strategy was triggered while real recharge happend but capacity is bigger then uisoc+1, or charger plug out at that time.
+			gm->s_flag = LOW_FAST_IN;
+			time_now = get_current_time();
+			delta_time = time_now - time_last;
+			ret = gauge_get_property(GAUGE_PROP_AVERAGE_CURRENT,&curr_avg);
+			for (i = FFC_SMOOTH_LEN-1; i >= 0; i--) {
+				if(-curr_avg / 10 > ffc_dischg_smooth[i].curr_lim) {
+					unit_time = ffc_dischg_smooth[i].time; //caculate time_unit of soc_change according to average current
+					break;
+				}
+			}
+
+			delta_time = delta_time / unit_time;
+			if(delta_time < 1)
+				soc_changed = 0;
+			else {
+				soc_changed = 1;
+				time_last = get_current_time(); //time_last: last time when capacity changed
+			}
+			bm_err("[%s]curr_avg = %d, unit_time = %d, delta_time = %d, soc_changed = %d\n", __func__, curr_avg, unit_time, delta_time, soc_changed);
+
+			bat_data->bat_capacity = last_capacity - soc_changed; //new capacity
+			last_capacity = bat_data->bat_capacity; //last capacity
+			bm_err("[%s]end of smooth, bat_capacity = %d, ui_soc = %d, last_capacity = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity);
+		} else if ((gm->s_flag == LOW_FAST_IN) && (last_capacity == (gm->ui_soc + 1))) {//switch from low_fast_in to low_fast_normal first cycle
+			gm->s_flag = LOW_FAST_SWITCH;
+			bat_data->bat_capacity = gm->ui_soc + 1;
+			last_capacity = bat_data->bat_capacity;
+			time_last = get_current_time();
+			bm_err("[%s]low_fast_switch smooth first cycle, bat_capacity = %d, ui_soc = %d, last_capacity = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity);
+		} else if (gm->s_flag == LOW_FAST_SWITCH) {//switch from low_fast_in to low_fast_normal second cycle
+			time_now = get_current_time();
+			delta_time = time_now - time_last;
+			if(delta_time < 5) {
+				soc_changed = 0;
+			} else if ((delta_time >= 5) && (last_capacity > gm->ui_soc)) {
+				soc_changed = 1;
+				time_last = get_current_time(); //time_last: last time when capacity changed
+			} else {
+				gm->s_flag = LOW_FAST_NORMAL;
+				soc_changed = 0;
+			}
+
+			bat_data->bat_capacity = last_capacity - soc_changed; //new capacity
+			last_capacity = bat_data->bat_capacity;
+			bm_err("[%s]low_fast_switch smooth second cycle, bat_capacity = %d, ui_soc = %d, last_capacity = %d, delta_time = %d, soc_changed = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity, delta_time, soc_changed);
+		} else {//normal charge and normal discharge, or after capacity was smoothed frome 100 to uisoc+1 at upstair conditions
+			gm->s_flag = LOW_FAST_NORMAL;
+			bat_data->bat_capacity = gm->ui_soc;
+			last_capacity = bat_data->bat_capacity;
+			bm_err("[%s]normal not smooth, bat_capacity = %d, ui_soc = %d, last_capacity = %d\n", __func__, bat_data->bat_capacity, gm->ui_soc, last_capacity);
+		}
+	}
+
+	bat_data->final_capacity = bat_data->bat_capacity;
+	/*N19A code for HQ-369185 by wuwencheng at 20240128 end */
 
 	power_supply_changed(bat_psy);
 
@@ -2564,7 +2776,11 @@ int battery_get_property(enum battery_property bp,
 	struct mtk_battery *gm;
 	struct power_supply *psy;
 
+	#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+	psy = power_supply_get_by_name("bms");
+	#else
 	psy = power_supply_get_by_name("battery");
+	#endif
 	if (psy == NULL)
 		return -ENODEV;
 
@@ -2594,7 +2810,11 @@ int battery_set_property(enum battery_property bp,
 	struct mtk_battery *gm;
 	struct power_supply *psy;
 
+	#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+	psy = power_supply_get_by_name("bms");
+	#else
 	psy = power_supply_get_by_name("battery");
+	#endif
 	if (psy == NULL)
 		return -ENODEV;
 
@@ -3377,7 +3597,11 @@ static int mtk_power_misc_psy_event(
 
 	gm = get_mtk_battery();
 
+	#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+	if (strcmp(psy->desc->name, "bms") == 0) {
+	#else
 	if (strcmp(psy->desc->name, "battery") == 0) {
+	#endif
 		if (gm != NULL) {
 			sdc = container_of(
 				nb, struct shutdown_controller, psy_nb);
@@ -3538,9 +3762,20 @@ int battery_init(struct platform_device *pdev)
 	gm->log_level = BMLOG_ERROR_LEVEL;
 	gm->sw_iavg_gap = 3000;
 	gm->in_sleep = false;
+	gm->fake_bat_cycle = 0;
 	mutex_init(&gm->fg_update_lock);
 
 	init_waitqueue_head(&gm->wait_que);
+
+	/* N19A code for HQ-369417 by hankang at 20240127 start */
+	gm->boardid_node = of_parse_phandle(pdev->dev.of_node, "boardid", 0);
+	if (gm->boardid_node) {
+		ret = of_property_read_u32(gm->boardid_node, "project_stage", &(gm->board_id));
+		if (ret)
+			bm_err("%s: get pcba_stage fail\n", __func__);
+	} else
+		bm_err("%s: board id node not found\n", __func__);
+	/* N19A code for HQ-369417 by hankang at 20240127 end */
 
 	fg_check_bootmode(&pdev->dev, gm);
 	fg_check_lk_swocv(&pdev->dev, gm);
@@ -3602,7 +3837,7 @@ int battery_init(struct platform_device *pdev)
 		battery_algo_init(gm);
 		bm_err("[%s]: enable Kernel mode Gauge\n", __func__);
 	}
-
+	gm->s_flag = LOW_FAST_NORMAL;
 	return 0;
 }
 

@@ -30,6 +30,10 @@ enum situation_index_table {
 	tilt_detector,
 	flat,
 	sar,
+	/*N19a code for HQ-353506 by huweifeng at 2023/12/16 start*/
+	saralgo,
+	saralgo_top,
+	/*N19a code for HQ-353506 by huweifeng at 2023/12/16 end*/
 	max_situation_support,
 };
 
@@ -38,6 +42,7 @@ struct situation_control_path {
 	int (*batch)(int flag, int64_t samplingPeriodNs,
 		int64_t maxBatchReportLatencyNs);
 	int (*flush)(void);
+	int (*set_cali)(uint8_t *data, uint8_t count);
 	bool is_support_wake_lock;
 	bool is_support_batch;
 };
@@ -88,5 +93,7 @@ extern int sar_data_report(int32_t value[3]);
 extern int sar_data_report_t(int32_t value[3], int64_t time_stamp);
 extern int situation_probe(void);
 extern int situation_remove(void);
-
+/*N19a code for HQ-347954 by huweifeng at 2023/12/14 start*/
+extern int sar_cal_report_t(int32_t value[3], int64_t time_stamp);
+/*N19a code for HQ-347954 by huweifeng at 2023/12/14 end*/
 #endif

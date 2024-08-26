@@ -105,6 +105,9 @@ obj-$(CONFIG_DRM_PANEL_NT35521_HD_VDO_TRULY_RT50358) += panel-nt35521_hd_dsi_vdo
 obj-$(CONFIG_DRM_PANEL_NT35695_FHD_VDO_AUO_RT5081_HDP) += panel-nt35695_fhd_dsi_vdo_auo_rt5081_hdp.o
 obj-$(CONFIG_DRM_PANEL_BOE_HX83102J_VDO) += panel-boe-hx83102j-vdo.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_HX83102J_VDO) += panel-tianma-hx83102j-vdo.o
+obj-$(CONFIG_DRM_PANEL_N19A_36_02_0A_DSC_VDO) += panel-n19a-36-02-0a-dsc-vdo.o
+obj-$(CONFIG_DRM_PANEL_N19A_42_03_0B_DSC_VDO) += panel-n19a-42-03-0b-dsc-vdo.o
+obj-$(CONFIG_DRM_PANEL_N19A_43_02_0C_DSC_VDO) += panel-n19a-43-02-0c-dsc-vdo.o
 
 obj-$(CONFIG_BACKLIGHT_KTZ8866)         += ktz8866.o
 obj-$(CONFIG_DRM_PANEL_EDO_HX5329_CMD_120) += panel-edo-hx5329-cmd-120hz.o

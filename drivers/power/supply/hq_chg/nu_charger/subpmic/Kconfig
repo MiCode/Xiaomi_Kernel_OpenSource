@@ -1,0 +1,12 @@
+config NU_SUBPMIC_DRIVER
+    tristate "nuvolta subpmic driver"
+    default n
+    help
+      Say Y to use subpmic core driver
+
+config NU_SUBPMIC_NU6601
+    tristate "subpmic nu6601"
+    default n
+	help
+      Say Y to use nuvolta subpmic nu6601 driver
+

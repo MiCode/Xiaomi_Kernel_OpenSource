@@ -1,0 +1,31 @@
+&i2c7 {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	bq25960_master: bq25960-charger@65 {
+		#io-channel-cells = <1>;
+		compatible = "ti,bq25960-master";
+	    	reg = <0x65>;
+
+	    	interrupt-parent = <&pio>;
+		interrupts = <3 0>;
+		ti,bq25960,bat-ovp-threshold = <4710>;
+		ti,bq25960,bat-ovp-alarm-threshold = <4675>;
+	    	ti,bq25960,bus-ovp-threshold = <12800>;
+	    	ti,bq25960,bus-ovp-alarm-threshold = <11000>;
+	    	ti,bq25960,bus-ocp-threshold = <3750>;
+	    	ti,bq25960,bus-ocp-alarm-threshold = <3500>;
+		ti,bq25960,ntc-alarm-cfg  = <226>;
+	    	ti,bq25960,tdie-prot-disable;
+	    	ti,bq25960,tbus-mon-disable;
+	    	ti,bq25960,tbat-mon-disable;
+	    	ti,bq25960,iin-ocp-disable;
+	    	ti,bq25960,iin-reg-disable;
+	    	ti,bq25960,tdie-reg-disable;
+	    	ti,bq25960,vbat-reg-disable;
+	    	ti,bq25960,revcurr-prot-disable;
+		ti,bq25960,bat-ocp-disable;
+		ti,bq25960,bat-ocp-alarm-disable;
+	};
+};
+

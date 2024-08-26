@@ -68,6 +68,21 @@ int als_cali_report(int *value)
 }
 EXPORT_SYMBOL_GPL(als_cali_report);
 
+/*N19a code for HQ-363833 by huweifeng at 2023/01/03 start*/
+int als_0lux_cali_report(int *value)
+{
+	int err = 0;
+	struct sensor_event event;
+	memset(&event, 0, sizeof(struct sensor_event));
+	event.handle = ID_LIGHT;
+	event.flush_action = CALI_0LUX_ACTION;
+	event.word[0] = value[0];
+	err = sensor_input_event(alsps_context_obj->als_mdev.minor, &event);
+	return err;
+}
+EXPORT_SYMBOL_GPL(als_0lux_cali_report);
+/*N19a code for HQ-363833 by huweifeng at 2023/01/03 end*/
+
 int als_flush_report(void)
 {
 	struct sensor_event event;

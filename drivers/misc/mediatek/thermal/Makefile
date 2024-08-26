@@ -52,16 +52,14 @@ thermal_monitor-y += mtk_cooler_cam.o
 #thermal zones
 thermal_monitor-y += common/thermal_zones/mtk_ts_battery.o
 
+
 ifneq ($(CONFIG_POWER_EXT),y)
-thermal_monitor-y += common/thermal_zones/mtk_ts_bts.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_btsmdpa.o
 endif
 
 thermal_monitor-y += common/thermal_zones/mtk_ts_pa.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_pa_thput.o
 thermal_monitor-y += common/thermal_zones/mtk_ts_charger.o
-
-
 
 thermal_monitor-y += common/thermal_zones/mtk_ts_wmt.o
 
@@ -133,6 +131,7 @@ endif
 thermal_monitor-y += common/coolers/mtk_cooler_bcct_v1.o
 thermal_monitor-y += src/mtk_pmic_efuse.o
 thermal_monitor-y += src/mtk_thermal_ipi.o
+
 endif
 
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)

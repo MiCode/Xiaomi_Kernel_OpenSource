@@ -9,7 +9,9 @@
 #define TEEI_FUNC_H
 
 #include <teei_ioc.h>
-#define MICROTRUST_FP_SIZE	0x80000
+/*N19A code for HQ-348358 by sunyuting at 20240201 start*/
+#define MICROTRUST_FP_SIZE	0x200000
+/*N19A code for HQ-348358 by sunyuting at 20240201 end*/
 #define FP_MAJOR		254
 #define DEV_NAME		"teei_fp"
 

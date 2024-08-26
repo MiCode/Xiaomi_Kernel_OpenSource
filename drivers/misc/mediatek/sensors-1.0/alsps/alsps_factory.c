@@ -147,6 +147,23 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return -EINVAL;
 		}
 		return 0;
+	case ALSPS_ALS_SET_CALI_0LUX:
+		/*N19a code for HQ-363833 by huweifeng at 2023/01/03 start*/
+		if (copy_from_user(&als_cali, ptr, sizeof(als_cali)))
+			return -EFAULT;
+		if (alsps_factory.fops != NULL &&
+		    alsps_factory.fops->als_set_cali_0lux != NULL) {
+			err = alsps_factory.fops->als_set_cali_0lux(als_cali);
+			if (err < 0) {
+				pr_err("ALSPS_ALS_SET_CALI FAIL!\n");
+				return -EINVAL;
+			}
+		} else {
+			pr_err("ALSPS_ALS_SET_CALI NULL\n");
+			return -EINVAL;
+		}
+		/*N19a code for HQ-363833 by huweifeng at 2023/01/03 end*/
+		return 0;
 	case ALSPS_GET_PS_TEST_RESULT:
 		if (alsps_factory.fops != NULL &&
 		    alsps_factory.fops->ps_get_data != NULL) {

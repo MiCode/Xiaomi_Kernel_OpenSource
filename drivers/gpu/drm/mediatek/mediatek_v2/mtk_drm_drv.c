@@ -60,6 +60,13 @@
 #include "dvfsrc-exp.h"
 #endif
 
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
+
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
@@ -88,6 +95,11 @@
 #define DRIVER_DATE "20150513"
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
+
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
 
 void disp_dbg_deinit(void);
 void disp_dbg_probe(void);
@@ -4342,8 +4354,9 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 #ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 	caps_info->lcm_degree = 180;
 #endif
-
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+// N19A code for HQ-370123 by chentao at 20240130 start
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
+// N19A code for HQ-370123 by chentao at 20240130 end
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -6809,6 +6822,21 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -6871,8 +6899,16 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+/*static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
+			 mtk_drm_sys_resume);*/
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",
@@ -6968,6 +7004,13 @@ static int __init mtk_drm_init(void)
 	int i;
 
 	DDPINFO("%s+\n", __func__);
+
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
+
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		DDPINFO("%s register %s driver\n",
 			__func__, mtk_drm_drivers[i]->driver.name);

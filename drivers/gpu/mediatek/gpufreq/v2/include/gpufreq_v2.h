@@ -239,6 +239,9 @@ extern unsigned int (*mtk_get_gpu_limiter_fp)(enum gpufreq_target target,
 	enum gpuppm_limit_type limit);
 extern unsigned int (*mtk_get_gpu_cur_freq_fp)(enum gpufreq_target target);
 extern int (*mtk_get_gpu_cur_oppidx_fp)(enum gpufreq_target target);
+/* N19A code for HQHW-6512 by liwenhao at 2024/3/8 start */
+extern void (*mtk_devfreq_set_cur_freq_fp)(unsigned long cur_freq);
+/* N19A code for HQHW-6512 by liwenhao at 2024/3/8 end */
 
 /**************************************************
  * External Function

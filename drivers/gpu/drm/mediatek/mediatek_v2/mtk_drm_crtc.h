@@ -1106,4 +1106,7 @@ void mtk_crtc_prepare_instr(struct drm_crtc *crtc);
 unsigned int check_dsi_underrun_event(void);
 void clear_dsi_underrun_event(void);
 void mtk_crtc_update_gce_event(struct mtk_drm_crtc *mtk_crtc);
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 start*/
+int mtk_drm_set_cabc_mode(struct drm_crtc *crtc, unsigned int mode);
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 end*/
 #endif /* MTK_DRM_CRTC_H */

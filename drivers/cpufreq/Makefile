@@ -115,3 +115,6 @@ obj-$(CONFIG_LOONGSON1_CPUFREQ)		+= loongson1-cpufreq.o
 obj-$(CONFIG_SH_CPU_FREQ)		+= sh-cpufreq.o
 obj-$(CONFIG_SPARC_US2E_CPUFREQ)	+= sparc-us2e-cpufreq.o
 obj-$(CONFIG_SPARC_US3_CPUFREQ)		+= sparc-us3-cpufreq.o
+# N19A code for HQ-348485 by gaobowei at  2023/12/13 start
+obj-$(CONFIG_MI_CPU_MAX_FREQ)		+= cpumaxfreq.o
+# N19A code for HQ-348485 by gaobowei at  2023/12/13 end

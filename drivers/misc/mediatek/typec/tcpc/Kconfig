@@ -130,3 +130,11 @@ config MTK_TYPEC_WATER_DETECT_BY_PCB
 	  need to be enabled.
 	  Say Yes to let PCB decides enabling water detection or not.
 	  If unsure, say N.
+
+# N19A code for HQ-380111 by p-yanzelin at 20240423 start
+config PR_SWAP_FOR_NU6601
+	tristate "power role swap for nu6601"
+	default n
+	help
+	  Say Y to use power role swap logic for nu6601.
+# N19A code for HQ-380111 by p-yanzelin at 20240423 end

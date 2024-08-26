@@ -1,0 +1,25 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config HUAQIN_CHARGER_MANAGER
+	tristate "support hauqin charger manger"
+	default n
+	help
+		Say Y here to support hauqin charger manger.
+
+config HUAQIN_CP_POLICY
+	tristate "support hauqin charger pump policy"
+	default n
+	help
+		Say Y here to support hauqin charger class.
+
+config HUAQIN_QC_POLICY
+	tristate "support hauqin qc policy"
+	default n
+	help
+		Say Y here to support hauqin charger class.
+
+config BC12_RETRY_FOR_MI_PD
+	tristate "support retry BC1.2"
+	default n
+	help
+		Say Y here to support retry BC1.2.

@@ -235,4 +235,8 @@ source "drivers/interconnect/Kconfig"
 source "drivers/counter/Kconfig"
 
 source "drivers/most/Kconfig"
+
+# N19A code for HQ-353952 by tianjuanhe at 20231211 start
+source "drivers/switch/Kconfig"
+# N19A code for HQ-353952 by tianjuanhe at 20231211 end
 endmenu

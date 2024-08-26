@@ -11,8 +11,9 @@
 #include <SCP_sensorHub.h>
 #include "SCP_power_monitor.h"
 #include <linux/pm_wakeup.h>
-
-
+/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 start*/
+#include "tpd_notify.h"
+/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 end*/
 #define ALSPSHUB_DEV_NAME     "alsps_hub_pl"
 
 struct alspshub_ipi_data {
@@ -293,15 +294,16 @@ static void alspshub_init_done_work(struct work_struct *work)
 		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
 			ID_PROXIMITY, CUST_ACTION_SET_CALI);
 #else
-	spin_lock(&calibration_lock);
+/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 start*/
+	/*spin_lock(&calibration_lock);
 	cfg_data[0] = atomic_read(&obj->ps_thd_val_high);
 	cfg_data[1] = atomic_read(&obj->ps_thd_val_low);
 	spin_unlock(&calibration_lock);
 	err = sensor_cfg_to_hub(ID_PROXIMITY,
 		(uint8_t *)cfg_data, sizeof(cfg_data));
 	if (err < 0)
-		pr_err("sensor_cfg_to_hub ps fail\n");
-
+		pr_err("sensor_cfg_to_hub ps fail\n");*/
+/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 end*/
 	spin_lock(&calibration_lock);
 	cfg_data[0] = atomic_read(&obj->als_cali);
 	spin_unlock(&calibration_lock);
@@ -443,6 +445,17 @@ static int alshub_factory_set_cali(int32_t offset)
 	return err;
 
 }
+
+/*N19a code for HQ-363833 by huweifeng at 2023/01/03 start*/
+static int alshub_factory_set_cali_0lux(int32_t offset)
+{
+	int32_t cfg_data;
+	cfg_data = offset;
+	als_0lux_cali_report(&cfg_data);
+	return 0;
+}
+/*N19a code for HQ-363833 by huweifeng at 2023/01/03 end*/
+
 static int alshub_factory_get_cali(int32_t *offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
@@ -591,6 +604,7 @@ static struct alsps_factory_fops alspshub_factory_fops = {
 	.als_clear_cali = alshub_factory_clear_cali,
 	.als_set_cali = alshub_factory_set_cali,
 	.als_get_cali = alshub_factory_get_cali,
+	.als_set_cali_0lux = alshub_factory_set_cali_0lux,
 
 	.ps_enable_sensor = pshub_factory_enable_sensor,
 	.ps_get_data = pshub_factory_get_data,
@@ -735,7 +749,67 @@ static int ps_open_report_data(int open)
 {
 	return 0;
 }
+/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 start*/
+static struct blocking_notifier_head ps_enable_nb;
 
+int ps_enable_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&ps_enable_nb, nb);
+}
+EXPORT_SYMBOL_GPL(ps_enable_register_notifier);
+
+int ps_enable_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&ps_enable_nb, nb);
+}
+EXPORT_SYMBOL_GPL(ps_enable_unregister_notifier);
+
+int ps_enable_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&ps_enable_nb, val, v);
+}
+EXPORT_SYMBOL_GPL(ps_enable_notifier_call_chain);
+
+int ps_send_touch_event(int32_t data){
+	int32_t touch_event = data;
+	int err = sensor_cfg_to_hub(ID_PROXIMITY,(uint8_t *)&touch_event,sizeof(touch_event));
+	pr_notice("ps_send_touch_event = %d",touch_event);
+	if (err < 0)
+		pr_err("sensor_cfg_to_hub fail\n");
+	return err;
+}
+EXPORT_SYMBOL_GPL(ps_send_touch_event);
+
+int (*ps_tpd)(struct notifier_block *nb) = NULL;
+EXPORT_SYMBOL_GPL(ps_tpd);
+
+static int ps_recive_touch_event_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	int32_t ps_touch_event = 0;
+	pr_info("virtual_prox %s: touch event level = %d\n", __func__, (int)event);
+	ps_touch_event = (int32_t)event;
+	ps_send_touch_event(ps_touch_event);
+	return 0;
+}
+
+struct notifier_block proxmity_ready_nb;
+
+int ps_register_recive_touch_event_callback(void)
+{
+	pr_info("virtual_prox %s\n", __func__);
+	memset(&proxmity_ready_nb, 0, sizeof(proxmity_ready_nb));
+	proxmity_ready_nb.notifier_call = ps_recive_touch_event_notifier_callback;
+	
+	if (ps_tpd != NULL) {
+		return (*ps_tpd)(&proxmity_ready_nb);
+	} else {
+		pr_err("ps_tpd is NULL!");
+		return 0;
+	}
+}
+EXPORT_SYMBOL_GPL(ps_register_recive_touch_event_callback);
+/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 end*/
 static int ps_enable_nodata(int en)
 {
 	int res = 0;
@@ -752,7 +826,9 @@ static int ps_enable_nodata(int en)
 		pr_err("als_enable_nodata is failed!!\n");
 		return -1;
 	}
-
+	/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 start*/
+	ps_enable_notifier_call_chain((unsigned long)en, NULL);
+	/*N19A code for HQ-359826 by chenyushuai at 2023/12/20 end*/
 	mutex_lock(&alspshub_mutex);
 	if (en)
 		set_bit(CMC_BIT_PS, &obj_ipi_data->enable);

@@ -9,7 +9,6 @@
 #include <linux/time.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
-#include <asm/div64.h>
 
 #define TCPC_NOTIFY_OVERTIME	(20) /* ms */
 
@@ -37,8 +36,9 @@ static void tcp_notify_func(struct work_struct *work)
 	begin = local_clock();
 	srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
 	end = local_clock();
-	timeval = end - begin;
-	do_div(timeval, NSEC_PER_USEC);
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	timeval = (end - begin) / NSEC_PER_USEC;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	PD_BUG_ON(timeval > (TCPC_NOTIFY_OVERTIME * 1000));
 #else
 	srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
@@ -72,14 +72,13 @@ static int tcpc_check_notify_time(struct tcpc_device *tcpc,
 #if CONFIG_PD_BEGUG_ON
 	struct timeval begin, end;
 	int timeval = 0;
-	uint64_t temp = 0;
 
 	do_gettimeofday(&begin);
 	ret = srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
 	do_gettimeofday(&end);
-	temp = timeval_to_ns(end) - timeval_to_ns(begin);
-	do_div(temp, 1000 * 1000);
-	timeval = (int)temp;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	timeval = (timeval_to_ns(end) - timeval_to_ns(begin))/1000/1000;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	PD_BUG_ON(timeval > TCPC_NOTIFY_OVERTIME);
 #else
 	ret = srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
@@ -141,6 +140,34 @@ int tcpci_check_vsafe0v(
 }
 EXPORT_SYMBOL(tcpci_check_vsafe0v);
 
+//sc6601 patch
+int tcpci_get_chip_id(struct tcpc_device *tcpc,uint32_t *chip_id)
+{
+	if (tcpc->ops->get_chip_id == NULL) {
+		return -ENOTSUPP;
+	}
+	return tcpc->ops->get_chip_id(tcpc,chip_id);
+}
+EXPORT_SYMBOL(tcpci_get_chip_id);
+
+int tcpci_get_chip_pid(struct tcpc_device *tcpc,uint32_t *chip_pid)
+{
+	if (tcpc->ops->get_chip_pid == NULL) {
+		return -ENOTSUPP;
+	}
+	return tcpc->ops->get_chip_pid(tcpc,chip_pid);
+}
+EXPORT_SYMBOL(tcpci_get_chip_pid);
+
+int tcpci_get_chip_vid(struct tcpc_device *tcpc,uint32_t *chip_vid)
+{
+	if (tcpc->ops->get_chip_vid == NULL) {
+		return -ENOTSUPP;
+	}
+	return tcpc->ops->get_chip_vid(tcpc,chip_vid);;
+}
+EXPORT_SYMBOL(tcpci_get_chip_vid);
+
 int tcpci_alert_status_clear(
 	struct tcpc_device *tcpc, uint32_t mask)
 {
@@ -187,6 +214,16 @@ int tcpci_get_alert_status(
 	return tcpc->ops->get_alert_status(tcpc, alert);
 }
 EXPORT_SYMBOL(tcpci_get_alert_status);
+
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+int tcpci_rx_busy_get_alert_status(
+	struct tcpc_device *tcpc, uint32_t *alert)
+{
+	PD_BUG_ON(tcpc->ops->rx_busy_get_alert_status == NULL);
+	return tcpc->ops->rx_busy_get_alert_status(tcpc, alert);
+}
+EXPORT_SYMBOL(tcpci_rx_busy_get_alert_status);
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 int tcpci_get_fault_status(
 	struct tcpc_device *tcpc, uint8_t *fault)
@@ -882,6 +919,20 @@ int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 EXPORT_SYMBOL(tcpci_enable_force_discharge);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+int tcpci_notify_soft_reset(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti = {0};
+	int ret;
+	DP_INFO("%s++++",__func__);
+
+	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
+		TCP_NOTIFY_IDX_MISC, TCP_NOTIFY_SOFT_RESET);
+
+	return ret;
+}
+EXPORT_SYMBOL(tcpci_notify_soft_reset);
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 int tcpci_notify_hard_reset_state(struct tcpc_device *tcpc, uint8_t state)
 {

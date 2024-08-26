@@ -189,3 +189,6 @@ obj-$(CONFIG_GNSS)		+= gnss/
 obj-$(CONFIG_INTERCONNECT)	+= interconnect/
 obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
+# N19A code for HQ-353952 by tianjuanhe at 20231211 start
+obj-$(CONFIG_SWITCH)		+= switch/
+# N19A code for HQ-353952 by tianjuanhe at 20231211 end

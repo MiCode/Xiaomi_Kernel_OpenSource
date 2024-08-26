@@ -1,0 +1,18 @@
+#
+# Focaltech Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_FTS_SPI
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start
+    tristate "Focaltech Touchscreen"
+    depends on TOUCHSCREEN_TPD_NOTIFY
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end
+    default n
+    help
+      Say Y here if you have Focaltech touch panel.
+      If unsure, say N.
+
+config TOUCHSCREEN_FTS_DIRECTORY
+    string "Focaltech ts directory name"
+    default "focaltech_touch"
+    depends on TOUCHSCREEN_FTS_SPI

@@ -119,6 +119,7 @@ struct compat_biometric_threshold {
 #define ALSPS_PS_ENABLE_CALI _IO(ALSPS, 0x18)
 #define ALSPS_IOCTL_ALS_GET_CALI _IOW(ALSPS, 0x19, int)
 #define ALSPS_ALS_SET_CALI _IOW(ALSPS, 0x20, int)
+#define ALSPS_ALS_SET_CALI_0LUX _IOW(ALSPS, 0x21, int)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_ALSPS_SET_PS_MODE _IOW(ALSPS, 0x01, compat_int_t)
@@ -221,5 +222,10 @@ struct compat_biometric_threshold {
 #define COMPAT_SAR_IOCTL_GET_CALI _IOR(SAR, 0x03, struct SENSOR_DATA)
 #define COMPAT_SAR_IOCTL_ENABLE_CALI _IO(SAR, 0x04)
 #endif
-
+/*N19a code for HQ-348009 by huweifeng at 2023/12/23 start*/
+#define SARALGO 0x92
+#define SARALGO_IOCTL_INIT _IOW(SARALGO, 0x01, int)
+#define SARALGO_IOCTL_READ_SENSORDATA _IOR(SARALGO, 0x02, int)
+#define SARALGO_IOCTL_STEP _IOW(SARALGO, 0x03, int)
+/*N19a code for HQ-348009 by huweifeng at 2023/12/23 end*/
 #endif

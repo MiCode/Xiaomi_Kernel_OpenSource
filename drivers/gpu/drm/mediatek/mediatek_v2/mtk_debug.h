@@ -53,6 +53,10 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 
 extern int mtk_disp_hrt_bw_dbg(void);
 
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 start*/
+int mtk_disp_set_cabc_mode(unsigned int mode);
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 end*/
+
 #ifdef _DRM_P_H_
 struct disp_rect {
 	u32 x;

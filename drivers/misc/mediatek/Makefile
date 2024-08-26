@@ -135,3 +135,6 @@ obj-$(CONFIG_MTK_POWER_GS_LEGACY_V2) += power_gs_v1/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_LEGACY_THERMAL) += thermal/
 obj-$(CONFIG_MTK_MT6382_BDG) += spi_slave_drv/
+# N19A code for HQ-354070 by gaobowei at 2023/12/07 start
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/
+# N19A code for HQ-354070 by gaobowei at 2023/12/07 end

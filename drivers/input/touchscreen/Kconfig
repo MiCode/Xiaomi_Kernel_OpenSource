@@ -1395,6 +1395,14 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
 source "drivers/input/touchscreen/GT9966/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/NT36672C_SPI/Kconfig"
+# N19A code for HQ-361166 by p-huangyunbiao at 2023/12/26 start
+source "drivers/input/touchscreen/FT8725_SPI/Kconfig"
+# N19A code for HQ-361166 by p-huangyunbiao at 2023/12/26 end
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start
+source "drivers/input/touchscreen/tpd_notify/Kconfig"
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end
 
 endif
 

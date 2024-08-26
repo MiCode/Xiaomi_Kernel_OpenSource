@@ -14,6 +14,9 @@ IMGSENSOR_DRIVER_OBJ := \
 	../common/$(COMMON_VERSION)/imgsensor_proc.o \
 	../common/$(COMMON_VERSION)/imgsensor_sensor_list.o \
 	imgsensor_clk.o \
+	../async-setting/async-setting.o \
+	../async-setting/task-queue/task-queue.o\
+
 
 ifeq ($(CONFIG_MTK_IMGSENSOR_ISP4), m)
 obj-$(CONFIG_MTK_IMGSENSOR_ISP4) += $(MTK_PLATFORM_KO).o
@@ -24,6 +27,8 @@ endif
 
 subdir-ccflags-y += \
     -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
+    -I$(IMGSENSOR_DRIVER_PATH)/async-setting \
+    -I$(IMGSENSOR_DRIVER_PATH)/async-setting/task-queue \
 	-I$(srctree)/drivers/i2c/busses/ \
 	-DNO_I2C_MTK -DNO_CLK_METER -DIMGSENSOR_USE_RPM -DIMGSENSOR_DFS_CTRL_ENABLE -DSENINF_USE_WAKE_LOCK
 

@@ -7,6 +7,9 @@ endif
 ifneq ($(CONFIG_SND_SOC_MEDIATEK),)
 ccflags-y += -I$(srctree)/sound/soc/mediatek/common
 endif
+# N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 start
+ccflags-y += -I$(srctree)/drivers/
+# N19A code for HQ-353617 by p-huangyunbiao at 2024/02/19 end
 
 snd-soc-88pm860x-objs := 88pm860x-codec.o
 snd-soc-ab8500-codec-objs := ab8500-codec.o
@@ -648,3 +651,10 @@ obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_MAX98504)	+= snd-soc-max98504.o
 obj-$(CONFIG_SND_SOC_SIMPLE_AMPLIFIER)	+= snd-soc-simple-amplifier.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+
+# Audio bringup pa driver coding config liutongren 20231212 start
+obj-$(CONFIG_SND_SOC_SIA8150)	+= sia81xx/
+obj-$(CONFIG_SND_SOC_FS1599)	+= fs1599/
+obj-$(CONFIG_SND_SOC_AW87XXX)	+= aw87390/
+# Audio bringup pa driver coding config liutongren 20231212 end
+

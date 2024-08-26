@@ -62,6 +62,14 @@
   ufshcd_update_evt_hist
   utf16s_to_utf8s
   wait_for_completion_io_timeout
+  nr_free_buffer_pages
+  mmc_set_blocklen
+
+#required by mq-deadline module
+  blk_mq_debugfs_rq_show
+  seq_list_start
+  seq_list_next
+  __blk_mq_debugfs_rq_show
 
 #required by cs35l41 module
   regcache_drop_region

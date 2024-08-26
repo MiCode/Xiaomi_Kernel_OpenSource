@@ -24,15 +24,29 @@
 #include "mtk-cmdq-ext.h"
 #endif
 
-enum MTK_CONNECTOR_PROP {
-	CONNECTOR_PROP_PANEL_ID,
-	CONNECTOR_PROP_MAX,
-};
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifdef CONFIG_MI_DISP
+#include <uapi/drm/mi_disp.h>
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_dsi_panel.h"
+#include "mi_disp/mi_dsi_display.h"
+#include "mi_disp/mi_panel_ext.h"
+#include "mi_disp/mi_disp_input_handler.h"
+#include "mi_disp/mi_disp_lhbm.h"
+#include "mi_disp/mi_disp_print.h"
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifndef CONFIG_MI_DISP
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 struct t_condition_wq {
 	wait_queue_head_t wq;
 	atomic_t condition;
 };
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 struct mtk_dsi_driver_data {
 	const u32 reg_cmdq0_ofs;
@@ -56,6 +70,9 @@ struct mtk_dsi_driver_data {
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
 };
 
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifndef CONFIG_MI_DISP
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 struct mtk_dsi {
 	struct mtk_ddp_comp ddp_comp;
 	struct device *dev;
@@ -128,6 +145,9 @@ struct mtk_dsi {
 	unsigned int prop_val[CONNECTOR_PROP_MAX];
 	bool pending_switch;
 };
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 enum dsi_porch_type;
 

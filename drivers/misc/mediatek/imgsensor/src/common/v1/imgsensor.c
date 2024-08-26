@@ -1267,6 +1267,8 @@ static inline int check_length_of_para(
 	case SENSOR_FEATURE_SET_STREAMING_RESUME:
 	case SENSOR_FEATURE_GET_PERIOD:
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
+	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
+	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 	{
 		if (length != 8)
 			ret = -EFAULT;
@@ -1517,6 +1519,10 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 	case SENSOR_FEATURE_SET_STREAMING_RESUME:
 	case SENSOR_FEATURE_SET_SENSOR_SYNC_MODE:
+	case SENSOR_FEATURE_SEAMLESS_SWITCH:
+	case SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS:
+	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
+	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		if (copy_from_user(
 		    (void *)pFeaturePara,
 		    (void *) pFeatureCtrl->pFeaturePara,
@@ -1524,6 +1530,19 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			kfree(pFeaturePara);
 			PK_DBG(
 			    "[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
+			return -EFAULT;
+		}
+		break;
+	case XIAOMI_FEATURE_LOCK_SETTING_WORK_QUEUE:
+	case XIAOMI_FEATURE_UNLOCK_SETTING_WORK_QUEUE:
+	case SENSOR_FEATURE_SET_3RD_APP:
+		if (copy_from_user(
+		    (void *)pFeaturePara,
+		    (void *) pFeatureCtrl->pFeaturePara,
+		    FeatureParaLen)) {
+			kfree(pFeaturePara);
+			pr_info(
+			    "[n19a_debug_log][CAMERA_HW][pFeaturePara] WORK QUEUE LOCK&UNLOCK failed\n");
 			return -EFAULT;
 		}
 		break;
@@ -1635,6 +1654,8 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 	case SENSOR_FEATURE_GET_SENSOR_N3D_STREAM_TO_VSYNC_TIME:
 	case SENSOR_FEATURE_GET_PERIOD:
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
+	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
+	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 	case SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE:
 	case SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE:
 	case SENSOR_FEATURE_GET_SENSOR_SYNC_MODE_CAPACITY:
@@ -2239,6 +2260,50 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			kfree(pData);
 		}
 		break;
+	case SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS:
+	case SENSOR_FEATURE_SEAMLESS_SWITCH:
+		{
+#define _DATA_SIZE 64
+			char *p_data = NULL;
+			unsigned long long *pFeaturePara_64 =
+				(unsigned long long *)pFeaturePara;
+			usr_ptr =
+				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
+			if (FeatureParaLen < 3 * sizeof(unsigned long long)) {
+				PK_DBG("FeatureParaLen is too small %d\n", FeatureParaLen);
+				kfree(pFeaturePara);
+				return -EINVAL;
+			}
+			p_data = kmalloc(
+				sizeof(char) * _DATA_SIZE, GFP_KERNEL);
+			if (p_data == NULL) {
+				kfree(pFeaturePara);
+				PK_DBG(" ioctl allocate mem failed\n");
+				return -ENOMEM;
+			}
+			if (copy_from_user((void *)p_data,
+				(void __user *)usr_ptr, _DATA_SIZE)) {
+				kfree(pFeaturePara);
+				kfree(p_data);
+				PK_DBG("SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS [CAMERA_HW]ERROR: copy_from_user fail\n");
+				return -ENOMEM;
+			}
+			if (pFeaturePara_64 != NULL)
+				*(pFeaturePara_64 + 1) = (uintptr_t) p_data;
+
+			ret = imgsensor_sensor_feature_control(psensor,
+					pFeatureCtrl->FeatureId,
+					(unsigned char *)pFeaturePara,
+					(unsigned int *)&FeatureParaLen);
+
+			if (copy_to_user((void __user *)usr_ptr,
+					 (void *)p_data, _DATA_SIZE)) {
+				PK_DBG("[CAMERA_HW]ERROR: copy_to_user fail\n");
+			}
+			kfree(p_data);
+			*(pFeaturePara_64 + 1) = (uintptr_t) usr_ptr;
+		}
+		break;
 
 	default:
 		ret = imgsensor_sensor_feature_control(
@@ -2308,6 +2373,8 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 	case SENSOR_FEATURE_GET_RESOLUTION:
 	case SENSOR_FEATURE_GET_PERIOD:
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
+	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
+	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 	case SENSOR_FEATURE_GET_REGISTER:
 	case SENSOR_FEATURE_GET_REGISTER_DEFAULT:
 	case SENSOR_FEATURE_GET_CONFIG_PARA:
@@ -2355,6 +2422,9 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 	case SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE:
 	case SENSOR_FEATURE_GET_SENSOR_SYNC_MODE_CAPACITY:
 	case SENSOR_FEATURE_GET_SENSOR_SYNC_MODE:
+	case SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS:
+	case SENSOR_FEATURE_SEAMLESS_SWITCH:
+	case SENSOR_FEATURE_SET_3RD_APP:
 		if (copy_to_user(
 		    (void __user *) pFeatureCtrl->pFeaturePara,
 		    (void *)pFeaturePara,
@@ -2366,7 +2436,6 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			return -EFAULT;
 		}
 		break;
-
 	default:
 		break;
 	}

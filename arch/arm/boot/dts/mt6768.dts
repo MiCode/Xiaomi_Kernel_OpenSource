@@ -4906,13 +4906,14 @@ transparent_hugepage=never clk_ignore_unused=1";
 
 	tcpc_pd: tcpc_pd_eint {
 	};
-
+/* N19A code for HQ-353575 by p-gaobowei at 2023/12/07 start */
 	irtx_pwm:irtx_pwm {
 		compatible = "mediatek,irtx-pwm";
 		pwm_ch = <0>;
 		pwm_data_invert = <0>;
-		pwm-supply = "vio28";
+		/*pwm-supply = "vio28";*/
 	};
+/* N19A code for HQ-353575 by p-gaobowei at 2023/12/07 end */
 
 	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
 		compatible = "mediatek,clock_buffer_ctrl";

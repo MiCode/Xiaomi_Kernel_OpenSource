@@ -1820,6 +1820,34 @@ static ssize_t UI_SOC_store(
 	return size;
 }
 
+/* N19 code for HQ-368376 by p-tangsufeng at 2024/1/23 - start*/
+static ssize_t RSOC_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+	int rsoc;
+
+	gm = get_mtk_battery();
+	if (gm == NULL) {
+		bm_err("[%s]can not get gm\n", __func__);
+		rsoc = 50;
+		return sprintf(buf, "%d\n", rsoc);
+	}
+
+	rsoc = gm->soc;
+	if (rsoc > 100) {
+		rsoc = 100;
+	} else if (rsoc < 0) {
+		rsoc = 0;
+	}
+
+	bm_info("%s: %d\n",
+		__func__, rsoc);
+	return sprintf(buf, "%d\n", rsoc);
+
+}
+/* N19 code for HQ-368376 by p-tangsufeng at 2024/1/23 - end*/
+
 static ssize_t uisoc_update_type_show(
 	struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -2482,6 +2510,8 @@ static ssize_t BAT_HEALTH_store(
 
 static DEVICE_ATTR_RW(Battery_Temperature);
 static DEVICE_ATTR_RW(UI_SOC);
+/* N19 code for HQ-368376 by p-tangsufeng at 2024/1/23 - start*/
+static DEVICE_ATTR_RO(RSOC);
 static DEVICE_ATTR_RW(uisoc_update_type);
 static DEVICE_ATTR_RW(disable_nafg);
 static DEVICE_ATTR_RW(ntc_disable_nafg);
@@ -2509,6 +2539,12 @@ static int mtk_battery_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_UI_SOC);
 	if (ret)
 		goto _out;
+
+	/* N19 code for HQ-368376 by p-tangsufeng at 2024/1/23 - start*/
+	ret = device_create_file(&(pdev->dev), &dev_attr_RSOC);
+	if (ret)
+		goto _out;
+	/* N19 code for HQ-368376 by p-tangsufeng at 2024/1/23 - end*/
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_uisoc_update_type);
 	if (ret)
@@ -3944,9 +3980,15 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_SET_BAT_CYCLES:
 	{
 		memcpy(&int_value, &msg->fgd_data[0], sizeof(int_value));
-		gm->bat_cycle = int_value;
-		bm_debug("[K]FG_DAEMON_CMD_SET_BAT_CYCLES %d\n",
-		gm->bat_cycle);
+		if(gm->fake_bat_cycle > 0){
+			gm->bat_cycle = gm->fake_bat_cycle;
+			bm_err("[K] FG_DAEMON_CMD_SET_BAT_CYCLES use fake_cycle_count: %d\n",
+			gm->bat_cycle);
+		} else {
+			gm->bat_cycle = int_value;
+			bm_err("[K] FG_DAEMON_CMD_SET_BAT_CYCLES %d\n",
+			gm->bat_cycle);
+		}
 	}
 	break;
 	case FG_DAEMON_CMD_SET_NCAR:
@@ -5046,6 +5088,87 @@ bool is_daemon_support(struct mtk_battery *gm)
 	return is_support;
 }
 
+/* N19A code for HQ-353528 by hankang at 20231208 start */
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+static int fuel_guage_get_soc_decimal_rate(struct fuel_gauge_dev *fuel_gauge)
+{
+	struct mtk_battery *gm = fuel_gauge_get_private(fuel_gauge);
+	static int mtk_soc_decimal_rate[24] = {0,32,10,30,20,28,30,28,40,28,50,28,60,28,70,28,80,28,90,26,95,10,99,5};
+	static int *dec_rate_seq = &mtk_soc_decimal_rate[0];
+	static int dec_rate_len = 24;
+	int i, soc;
+
+	if(IS_ERR_OR_NULL(gm))
+		return 0;
+
+/* N19A code for HQHW-6320 by wuwencheng at 20240226 start */
+/* N19A code for HQ-370602 by songweijie at 20240218 start */
+	if(gm->bs_data.bat_capacity != -1) {
+		soc = gm->bs_data.bat_capacity;
+		bm_info(" %s: daemon bs_data.bat_capacity = %d !!\n", __func__, soc);
+	} else {
+		soc = gm->fg_cust_data.ui_old_soc;
+		bm_info(" %s: daemon fg_cust_data.ui_old_soc = %d !!\n", __func__, soc);
+	}
+/* N19A code for HQ-370602 by songweijie at 20240218 end */
+/* N19A code for HQHW-6320 by wuwencheng at 20240226 end */
+
+	for (i = 0; i < dec_rate_len; i += 2) {
+		if (soc < dec_rate_seq[i]) {
+			return dec_rate_seq[i - 1];
+		}
+	}
+	return  dec_rate_seq[dec_rate_len - 1];
+}
+
+static int fuel_guage_get_soc_decimal(struct fuel_gauge_dev *fuel_gauge)
+{
+	struct mtk_battery *gm = fuel_gauge_get_private(fuel_gauge);
+	int dec_rate, soc_dec, hal_soc, soc, val = 0;
+	static int last_val = 0, last_soc_dec = 0, last_hal_soc = 0;
+
+	if(IS_ERR_OR_NULL(gm))
+		return 0;
+
+	hal_soc = gm->ui_soc ;
+	soc_dec = gm->fg_cust_data.ui_old_soc % 100;
+	dec_rate = fuel_guage_get_soc_decimal_rate(fuel_gauge);
+	soc = gm->fg_cust_data.ui_old_soc;
+
+	if (soc_dec >= 0 && soc_dec < (50 - dec_rate))
+		val = soc_dec + 50;
+	else if (soc_dec >= (50 - dec_rate) && soc_dec < 50)
+		val = soc_dec + 50 - dec_rate;
+	else
+		val = soc_dec -50;
+
+	if (last_hal_soc == hal_soc) {
+		if ((last_val > val && hal_soc != soc) || (last_soc_dec == soc_dec && hal_soc == soc)) {
+			if (last_val > 50)
+				val = last_val + (100 - last_val - dec_rate) / 2;
+			else
+				val = last_val + dec_rate / 4;
+		} else if (last_val > val) {
+			val = last_val;
+		}
+	}
+	if (last_val != val)
+		last_val = val;
+	if (last_soc_dec != soc_dec)
+		last_soc_dec = soc_dec;
+	if (last_hal_soc != hal_soc)
+		last_hal_soc = hal_soc;
+
+	return val;
+}
+
+static struct fuel_gauge_ops fuel_gauge_ops = {
+	.get_soc_decimal = fuel_guage_get_soc_decimal,
+	.get_soc_decimal_rate = fuel_guage_get_soc_decimal_rate,
+};
+#endif
+/* N19A code for HQ-353528 by hankang at 20231208 end */
+
 int mtk_battery_daemon_init(struct platform_device *pdev)
 {
 	int ret;
@@ -5071,6 +5194,13 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	gauge_set_property(GAUGE_PROP_2SEC_REBOOT, 0);
 
 	hw_version = gauge_get_int_property(GAUGE_PROP_HW_VERSION);
+	/* N19A code for HQ-353528 by hankang at 20231208 end */
+	#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+	gm->fuel_gauge = fuel_gauge_register("fuel_gauge", &gm->gauge->pdev->dev, &fuel_gauge_ops, gm);
+	if(IS_ERR_OR_NULL(gm->fuel_gauge))
+		bm_err("create fuel guaue ops fail\n", __func__);
+	#endif
+	/* N19A code for HQ-353528 by hankang at 20231208 end */
 
 	gm->shutdown = mtk_battery_shutdown;
 	gm->suspend = mtk_battery_suspend;

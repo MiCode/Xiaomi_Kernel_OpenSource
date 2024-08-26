@@ -1,0 +1,124 @@
+#ifndef __HQSYS_PCBA_
+#define __HQSYS_PCBA_
+
+typedef enum
+{
+	PCBA_INFO_UNKNOW = 0,
+
+	PCBA_N19A_P0_IN,
+	PCBA_N19A_P0_LA,
+	PCBA_N19A_P0_AP,
+	PCBA_N19P_P0_IN,
+	PCBA_N19P_P0_GLOBAL,
+	PCBA_N19A_P0_EEA,
+
+	PCBA_N19A_P0_1_IN,
+	PCBA_N19A_P0_1_LA,
+	PCBA_N19A_P0_1_AP,
+	PCBA_N19P_P0_1_IN,
+	PCBA_N19P_P0_1_GLOBAL,
+	PCBA_N19A_P0_1_EEA,
+
+	PCBA_N19A_P1_IN,
+	PCBA_N19A_P1_LA,
+	PCBA_N19A_P1_AP,
+	PCBA_N19P_P1_IN,
+	PCBA_N19P_P1_GLOBAL,
+	PCBA_N19A_P1_EEA,
+
+	PCBA_N19A_P1_1_IN,
+	PCBA_N19A_P1_1_LA,
+	PCBA_N19A_P1_1_AP,
+	PCBA_N19P_P1_1_IN,
+	PCBA_N19P_P1_1_GLOBAL,
+	PCBA_N19A_P1_1_EEA,
+
+	PCBA_N19A_P2_IN,
+	PCBA_N19A_P2_LA,
+	PCBA_N19A_P2_AP,
+	PCBA_N19P_P2_IN,
+	PCBA_N19P_P2_GLOBAL,
+	PCBA_N19A_P2_EEA,
+
+	PCBA_N19A_MP_IN,
+	PCBA_N19A_MP_LA,
+	PCBA_N19A_MP_AP,
+	PCBA_N19P_MP_IN,
+	PCBA_N19P_MP_GLOBAL,
+	PCBA_N19A_MP_EEA,
+
+    PCBA_INFO_END,
+} PCBA_INFO;
+
+typedef enum
+{
+	STAGE_UNKNOW = 0,
+	P0,
+	P0_1,
+	P1,
+	P1_1,
+	P2,
+	MP,
+} PROJECT_STAGE;
+
+
+struct pcba {
+	PCBA_INFO pcba_info;
+	char pcba_info_name[32];
+} pcba_map[] = {
+
+	{PCBA_N19A_P0_IN,          "PCBA_N19A_P0_IN"},
+	{PCBA_N19A_P0_LA,          "PCBA_N19A_P0_LA"},
+	{PCBA_N19A_P0_AP,          "PCBA_N19A_P0_AP"},
+	{PCBA_N19P_P0_IN,          "PCBA_N19P_P0_IN"},
+	{PCBA_N19P_P0_GLOBAL,      "PCBA_N19P_P0_GLOBAL"},
+	{PCBA_N19A_P0_EEA,         "PCBA_N19A_P0_EEA", },
+
+	{PCBA_N19A_P0_1_IN,        "PCBA_N19A_P0-1_IN"},
+	{PCBA_N19A_P0_1_LA,        "PCBA_N19A_P0-1_LA"},
+	{PCBA_N19A_P0_1_AP,        "PCBA_N19A_P0-1_AP"},
+	{PCBA_N19P_P0_1_IN,        "PCBA_N19P_P0-1_IN"},
+	{PCBA_N19P_P0_1_GLOBAL,    "PCBA_N19P_P0-1_GLOBAL"},
+	{PCBA_N19A_P0_1_EEA,       "PCBA_N19A_P0-1_EEA", },
+
+	{PCBA_N19A_P1_IN,          "PCBA_N19A_P1_IN"},
+	{PCBA_N19A_P1_LA,          "PCBA_N19A_P1_LA"},
+	{PCBA_N19A_P1_AP,          "PCBA_N19A_P1_AP"},
+	{PCBA_N19P_P1_IN,          "PCBA_N19P_P1_IN"},
+	{PCBA_N19P_P1_GLOBAL,      "PCBA_N19P_P1_GLOBAL"},
+	{PCBA_N19A_P1_EEA,         "PCBA_N19A_P1_EEA"},
+
+	{PCBA_N19A_P1_1_IN,        "PCBA_N19A_P1-1_IN"},
+	{PCBA_N19A_P1_1_LA,        "PCBA_N19A_P1-1_LA"},
+	{PCBA_N19A_P1_1_AP,        "PCBA_N19A_P1-1_AP"},
+	{PCBA_N19P_P1_1_IN,        "PCBA_N19P_P1-1_IN"},
+	{PCBA_N19P_P1_1_GLOBAL,    "PCBA_N19P_P1-1_GLOBAL"},
+	{PCBA_N19A_P1_1_EEA,       "PCBA_N19A_P1-1_EEA"},
+
+	{PCBA_N19A_P2_IN,          "PCBA_N19A_P2_IN"},
+	{PCBA_N19A_P2_LA,          "PCBA_N19A_P2_LA"},
+	{PCBA_N19A_P2_AP,          "PCBA_N19A_P2_AP"},
+	{PCBA_N19P_P2_IN,          "PCBA_N19P_P2_IN"},
+	{PCBA_N19P_P2_GLOBAL,      "PCBA_N19P_P2_GLOBAL"},
+	{PCBA_N19A_P2_EEA,         "PCBA_N19A_P2_EEA"},
+
+	{PCBA_N19A_MP_IN,          "PCBA_N19A_MP_IN"},
+	{PCBA_N19A_MP_LA,          "PCBA_N19A_MP_LA"},
+	{PCBA_N19A_MP_AP,          "PCBA_N19A_MP_AP"},
+	{PCBA_N19P_MP_IN,          "PCBA_N19P_MP_IN"},
+	{PCBA_N19P_MP_GLOBAL,      "PCBA_N19P_MP_GLOBAL"},
+	{PCBA_N19A_MP_EEA,         "PCBA_N19A_MP_EEA"},
+};
+
+struct PCBA_MSG {
+	PCBA_INFO huaqin_pcba_config;
+	PROJECT_STAGE pcba_stage;
+	unsigned int pcba_config;
+	unsigned int pcba_config_count;
+	const char *rsc;
+	const char *sku;
+};
+
+struct PCBA_MSG* get_pcba_msg(void);
+
+#endif

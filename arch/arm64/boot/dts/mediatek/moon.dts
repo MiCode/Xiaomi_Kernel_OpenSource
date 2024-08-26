@@ -1,0 +1,542 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/mt6768-pinfunc.h>
+#include "mediatek/cust_mt6768_msdc.dtsi"
+
+&reserved_memory {
+	reserve-memory-scp_share {
+		compatible = "mediatek,reserve-memory-scp_share";
+		no-map;
+		size = <0 0x00d00000>;
+		alignment = <0 0x1000000>;
+		alloc-ranges = <0 0x40000000 0 0x50000000>;
+	};
+};
+
+/* chosen */
+&chosen {
+
+	atag,videolfb-fb_base_l = <0x7e605000>;
+	atag,videolfb-fb_base_h = <0x0>;
+	atag,videolfb-islcmfound = <1>;
+	atag,videolfb-islcm_inited = <0>;
+	atag,videolfb-fps= <6000>;
+	atag,videolfb-vramSize= <0x017e8000>;
+	atag,videolfb-lcmname=
+		"hx83112b_fhdp_dsi_cmd_auo_rt5081_drv";
+};
+
+/* N19A code for HQ-353543 by lizhilong at 20231207 start */
+&utos {
+	microtrust,real-drv = <1>;
+};
+
+/*svp start*/
+&mtee_svp {
+	svp:SecureVideoPath {
+		compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};
+/*svp end*/
+/* N19A code for HQ-353543 by lizhilong at 20231207 end */
+
+&mtk_leds {
+	/*N19A code for HQ-348394 by p-xielihui at 2024/1/20 start*/
+	compatible = "mediatek,disp-leds";
+	backlight {
+		led_mode = <4>;
+		max-brightness = <4095>;
+		max-hw-brightness = <4095>;
+		trans-bits = <12>;
+		led-bits= <12>;
+	/*N19A code for HQ-348394 by p-xielihui at 2024/1/20 end*/
+	};
+};
+
+&odm {
+	led0:led@0 {
+		compatible = "mediatek,red";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led1:led@1 {
+		compatible = "mediatek,green";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led2:led@2 {
+		compatible = "mediatek,blue";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led3:led@3 {
+		compatible = "mediatek,jogball-backlight";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led4:led@4 {
+		compatible = "mediatek,keyboard-backlight";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led5:led@5 {
+		compatible = "mediatek,button-backlight";
+		led_mode = <0>;
+		data = <1>;
+		pwm_config = <0 0 0 0 0>;
+	};
+	led6:led@6 {
+		compatible = "mediatek,lcd-backlight";
+		led_mode = <4>;
+		data = <1>;
+		pwm_config = <0 3 0 0 0>;
+	};
+	vibrator0:vibrator@0 {
+		compatible = "mediatek,vibrator";
+		vib_timer = <25>;
+		vib_limit = <9>;
+		vib_vol= <9>;
+	};
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+
+	mtk-usb@60 {
+		compatible = "mediatek,mtk-usb";
+		reg = <0x60>;
+		status = "okay";
+	};
+};
+
+/* N19A code for HQ-360358 by p-xuzhirong at 20240101 start */
+/* N19A code for HQ-348137 by p-xuzhirong at 20231210 start */
+&i2c3 {
+	status = "ok";
+	clock-frequency = <400000>;
+	pn557: pn557@28 {
+		compatible = "nxp,pn557";
+		reg = <0x28>;
+		nq-irq = <&pio 9 0x00>;
+		interrupt-parent = <&pio>;
+		interrupts = <9 IRQ_TYPE_LEVEL_HIGH 9 0>;
+		nq-ven = <&pio 5 0x0>;
+		nq-firm = <&pio 17 0x0>;
+		nq-clkreq = <&pio 11 0x0>;
+		interrupt-names = "irq_nfc";
+//add TMS NFC
+		tms,irq-gpio        = <&pio 9 0x00>;
+		tms,ven-gpio        = <&pio 5 0x0>;
+		tms,download-gpio   = <&pio 17 0x0>;
+		status = "okay";
+	};
+};
+/* N19A code for HQ-348137 by p-xuzhirong at 20231210 end */
+/* N19A code for HQ-360358 by p-xuzhirong at 20240101 end */
+
+/* accdet start */
+&accdet {
+	/* accdet micbias voltage: 0x07,2.7v;0x05,2.5v;0x02,1.9v */
+	accdet-mic-vol = <6>;
+	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
+	accdet-plugout-debounce = <1>;
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <1>;
+	/* eint_level_trigger: 8,LEVEL_LOW(DEF) ;4,LV_HIGH;others,LV_LOW */
+	headset-eint-level-pol = <8>;
+	/*0--MD_MAX--UP_MAX--DW_MAX*/
+	headset-three-key-threshold = <0 80 220 400>;
+	headset-three-key-threshold-CDD = <0 121 192 600>;
+	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
+	headset-four-key-threshold = <0 58 121 192 400>;
+	status = "okay";
+};
+/* accdet end */
+
+/* keypad start */
+&keypad {
+	pinctrl-names = "default";
+	pinctrl-0 = <&kpd_pins_default>;
+};
+
+&pio {
+	kpd_pins_default: kpdgpiodefault {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO93__FUNC_KPCOL0>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
+			input-enable;
+			input-schmitt-enable;
+		};
+	};
+};
+/* keypad end */
+
+&mt6370_pmu {
+	mt6370,intr_gpio_num = <20>; /* direct defined GPIO num */
+	mt6370,intr_gpio = <&pio 20 0x0>;
+};
+&mt6370_typec {
+	mt6370pd,intr_gpio_num = <41>; /* direct defined GPIO num */
+	mt6370pd,intr_gpio = <&pio 41 0x0>;
+};
+
+/* CONSYS GPIO standardization */
+&pio {
+	consys_pins_default: consys_default {
+	};
+	gpslna_pins_init: gpslna@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <0>;
+			bias-disable;
+			output-low;
+		};
+	};
+	gpslna_pins_oh: gpslna@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	gpslna_pins_ol: gpslna@2 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+&consys {
+	pinctrl-names = "default", "gps_lna_state_init",
+		"gps_lna_state_oh", "gps_lna_state_ol";
+	pinctrl-0 = <&consys_pins_default>;
+	pinctrl-1 = <&gpslna_pins_init>;
+	pinctrl-2 = <&gpslna_pins_oh>;
+	pinctrl-3 = <&gpslna_pins_ol>;
+	status = "okay";
+};
+/* CONSYS end */
+
+/* IRTX GPIO Start */
+&irtx_pwm {
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+&pio {
+	/* IRTX GPIO Settings -Start */
+	/* default: GPIO0, output, high */
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio12 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio12 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_PWM0>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+}; /* IRTX GPIO Settings -End */
+
+/* DISPSYS GPIO standardization */
+&pio {
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO45__FUNC_GPIO45>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO45__FUNC_GPIO45>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO44__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_6382_rst_out1_gpio: 6382_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO151__FUNC_GPIO151>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	mtkfb_pins_6382_rst_out0_gpio: 6382_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO151__FUNC_GPIO151>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_GPIO169>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_GPIO169>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO165__FUNC_GPIO165>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO165__FUNC_GPIO165>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_tp_rst_out1_gpio: tp_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO152__FUNC_GPIO152>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_tp_rst_out0_gpio: tp_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO152__FUNC_GPIO152>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+};
+
+&mtkfb {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "6382_rst_out1_gpio",
+		"6382_rst_out0_gpio", "lcd_bias_enp1_gpio",
+		"lcd_bias_enp0_gpio", "lcd_bias_enn1_gpio",
+		"lcd_bias_enn0_gpio", "tp_rst_out1_gpio",
+		"tp_rst_out0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_6382_rst_out1_gpio>;
+	pinctrl-4 = <&mtkfb_pins_6382_rst_out0_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-6 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-7 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-8 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-9 = <&mtkfb_pins_tp_rst_out1_gpio>;
+	pinctrl-10 = <&mtkfb_pins_tp_rst_out0_gpio>;
+
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&bdg_support {
+ 	bdg: bridge {
+ 		compatible = "mediatek,disp,bdg_enabled";
+ 		bdg_mm_clk = <270>;
+ 		bdg_rx_v12 = <1800>;
+ 		bdg_rxtx_ratio = <225>;
+ 		hs_dco_enable = <0>;
+ 		lp_tx_l023_enable = <0>;
+ 		g_mode_enable = <0>;
+ 	};
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	bdg-gpios = <&pio 151 0>;
+	panel@0 {
+		compatible = "n19a-36-02-0a-dsc-vdo,lcm";
+		bdg-support=<1>;
+		reg = <0>;
+		reset-gpios = <&pio 45 0>;
+		avdd-gpios = <&pio 169 0>;
+		avee-gpios = <&pio 165 0>;
+		/*N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start*/
+		lcmid-gpios = <&pio 179 0>;
+		/*N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end*/
+		pinctrl-names = "default";
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@2 {
+		compatible = "n19a-42-03-0b-dsc-vdo,lcm";
+		bdg-support=<1>;
+		reg = <2>;
+		reset-gpios = <&pio 45 0>;
+		avdd-gpios = <&pio 169 0>;
+		avee-gpios = <&pio 165 0>;
+		/*N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start*/
+		lcmid-gpios = <&pio 179 0>;
+		/*N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end*/
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi2_out>;
+			};
+		};
+	};
+	panel3@3 {
+		compatible = "n19a-43-02-0c-dsc-vdo,lcm";
+		bdg-support=<1>;
+		reg = <3>;
+		reset-gpios = <&pio 45 0>;
+		avdd-gpios = <&pio 169 0>;
+		avee-gpios = <&pio 165 0>;
+		lcmid-gpios = <&pio 179 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in3: endpoint {
+				remote-endpoint = <&dsi3_out>;
+			};
+		};
+	};
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			dsi2_out: endpoint {
+				remote-endpoint = <&panel_in2>;
+			};
+		};
+		port@3 {
+			reg = <3>;
+			dsi3_out: endpoint {
+				remote-endpoint = <&panel_in3>;
+			};
+		};
+	};
+};
+
+&spi5 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spislv_pins_default>;
+	/*N19A code for HQ-358128 by p-xielihui at 2024/2/23 start*/
+	mediatek,fifo-polling = <1>;
+	/*N19A code for HQ-358128 by p-xielihui at 2024/2/23 end*/
+
+	spislv@0 {
+		compatible = "mediatek,spi_slave";
+		reg = <0>;
+		spi-max-frequency = <55000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		low-speed-tick-delay = /bits/ 8 <4>;
+		low-speed-early-trans = /bits/ 8 <0>;
+		high-speed-tick-delay = /bits/ 8 <2>;
+		high-speed-early-trans = /bits/ 8 <0>;
+		slave-drive-strength = /bits/ 8 <3>;
+	};
+};
+
+&pio {
+	spislv_pins_default: spislv_mode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO13__FUNC_SPI5_MI>,
+				<PINMUX_GPIO14__FUNC_SPI5_CSB>,
+				<PINMUX_GPIO15__FUNC_SPI5_MO>,
+				<PINMUX_GPIO16__FUNC_SPI5_CLK>;
+			drive-strength = <3>;
+		};
+	};
+};
+
+&i2c7 {
+	mt6660: mt6660@34 {
+		compatible = "mediatek,mt6660";
+		#sound-dai-cells = <0>;
+		reg = <0x34>;
+		status = "okay";
+	};
+};
+
+&sound {
+	mediatek,speaker-codec {
+		sound-dai = <&mt6660>;
+	};
+};
+
+/* DISPSYS GPIO standardization end*/
+
+#include <moon/cust.dtsi>
+#include "mediatek/cust_mt6768_camera.dtsi"
+/* Audio bringup pa dts config liutongren 20231207 start */
+#include "mediatek/cust_mt6768_audio.dtsi"
+/* Audio bringup pa dts config liutongren 20231207 end */
+//#include "mediatek/cust_mt6768_touch_1080x2160.dtsi"
+#include "mediatek/cust_mt6768_touch_1080x2460.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
+/* N19A code for HQ-353528 by p-hankang1 at 20231206 */
+#include "mediatek/hq_chg/hq_chg.dtsi"
+/*N19A code for HQ-354305 by sunyuting at 2023/12/13 start*/
+#include "mediatek/cust_moon_fingerprint.dtsi"
+/*N19A code for HQ-354305 by sunyuting at 2023/12/13 end*/
+&mmc1 {
+	cd-gpios = <&pio 18 GPIO_ACTIVE_HIGH>;
+	vmmc-supply = <&mt6358_vmch_eint_low>;
+};

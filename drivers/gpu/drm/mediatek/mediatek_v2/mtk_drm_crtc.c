@@ -58,6 +58,9 @@
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
 #include "platform/mtk_drm_6789.h"
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+#include "mtk_disp_bdg.h"
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -866,7 +869,9 @@ int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc)
 	return 0;
 }
 
-static void bl_cmdq_cb(struct cmdq_cb_data data)
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+__maybe_unused static void bl_cmdq_cb(struct cmdq_cb_data data)
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
 
@@ -874,12 +879,101 @@ static void bl_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 start*/
+int mtk_drm_set_cabc_mode(struct drm_crtc *crtc, unsigned int mode)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct cmdq_client *client;
+	static unsigned int bl_cnt;
+	bool is_frame_mode;
+	int index = drm_crtc_index(crtc);
+	int ret = 0;
+
+	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
+			mode);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!(mtk_crtc->enabled)) {
+		DDPINFO("Sleep State set cabc stop --crtc not ebable\n");
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
+
+		return 0;
+	}
+
+	if (!(comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI)) {
+		DDPINFO("%s no output comp\n", __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
+
+		return 0;
+	}
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+
+	/* SILKY CABC control flow only support CRTC0 */
+	if (index == 0 && m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
+		sb_cmdq_handle != NULL) {
+		cmdq_handle = sb_cmdq_handle;
+		sb_cmdq_handle = NULL;
+	} else {
+		/* set cabc would use VM CMD in  DSI VDO mode only */
+		client = (is_frame_mode) ? mtk_crtc->gce_obj.client[CLIENT_CFG] :
+						mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+		cmdq_handle = cmdq_pkt_create(client);
+	}
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH, 0);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH, 0);
+
+	if (is_frame_mode) {
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		cmdq_pkt_wfe(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+
+	}
+
+	/* set cabc mode */
+	if (comp->funcs && comp->funcs->io_cmd)
+		comp->funcs->io_cmd(comp, cmdq_handle, MI_DSI_SET_CABC_MODE, &mode);
+
+	if (is_frame_mode) {
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	}
+
+	CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
+	bl_cnt++;
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	CRTC_MMP_EVENT_END(index, backlight, (unsigned long)crtc,
+			mode);
+
+	return ret;
+}
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 end*/
+
 int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
-	struct mtk_cmdq_cb_data *cb_data;
 	struct cmdq_client *client;
 	static unsigned int bl_cnt;
 	bool is_frame_mode;
@@ -911,14 +1005,6 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	}
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
-
-	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-	if (!cb_data) {
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDPPR_ERR("cb data creation failed\n");
-		CRTC_MMP_EVENT_END(index, backlight, 0, 2);
-		return -EINVAL;
-	}
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
@@ -963,13 +1049,10 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
 	bl_cnt++;
 
-	cb_data->crtc = crtc;
-	cb_data->cmdq_handle = cmdq_handle;
-
-	if (cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data) < 0) {
-		DDPPR_ERR("failed to flush bl_cmdq_cb\n");
-		ret = -EINVAL;
-	}
+	/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+	/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 

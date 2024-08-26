@@ -1,0 +1,7 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config BQ_FUELGAUGE
+	tristate "bq28z610 fuelgauge"
+	default n
+	help
+		Say Y here to support bq28z610 fuelgauge.

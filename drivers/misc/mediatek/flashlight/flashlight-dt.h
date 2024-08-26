@@ -23,6 +23,10 @@
 #define RT4505_DTNAME_I2C "mediatek,strobe_main"
 #define RT5081_DTNAME     "mediatek,flashlights_rt5081"
 
+/*N19A code for HQ-353578 by wangjie at 2023/12/1 start*/
+#define MT6768_DTNAME     "mediatek,flashlights_mt6768"
+/*N19A code for HQ-353578 by wangjie at 2023/12/1 end*/
+
 #define AW3644_DTNAME_I2C "mediatek,strobe_main"
 #define AW3644_DTNAME     "mediatek,flashlights_aw3644"
 #endif /* _FLASHLIGHT_DT_H */

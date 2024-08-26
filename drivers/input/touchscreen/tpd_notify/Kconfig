@@ -1,0 +1,11 @@
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start
+config TOUCHSCREEN_TPD_NOTIFY
+	tristate "touchscreen tpd notify"
+	default n
+	help
+	  Say Y here if you enable touchscreen tpd notify.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here:
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end

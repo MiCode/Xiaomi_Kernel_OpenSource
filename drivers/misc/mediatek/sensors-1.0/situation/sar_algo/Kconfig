@@ -1,0 +1,4 @@
+config MTK_SAR_ALGO_HUB
+	tristate "flat for MediaTek package"
+	help
+	  Put the device lie on the table.

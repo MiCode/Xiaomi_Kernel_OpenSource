@@ -794,6 +794,9 @@ int pd_reset_protocol_layer(struct pd_port *pd_port, bool sop_only)
 
 int pd_set_rx_enable(struct pd_port *pd_port, uint8_t enable)
 {
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	pd_port->rx_cap = enable;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	return tcpci_set_rx_enable(pd_port->tcpc, enable);
 }
 
@@ -1269,7 +1272,8 @@ int pd_reply_svdm_request(struct pd_port *pd_port,
 	uint8_t reply, uint8_t cnt, uint32_t *data_obj)
 {
 #if CONFIG_USB_PD_STOP_REPLY_VDM_IF_RX_BUSY
-	int rv;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	int rv, chip_id = 1;
 	uint32_t alert_status;
 #endif	/* CONFIG_USB_PD_STOP_REPLY_VDM_IF_RX_BUSY */
 	uint8_t ver = SVDM_REV10;
@@ -1292,6 +1296,14 @@ int pd_reply_svdm_request(struct pd_port *pd_port,
 	rv = tcpci_get_alert_status(tcpc, &alert_status);
 	if (rv)
 		return rv;
+
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	rv = tcpci_get_chip_id(tcpc, &chip_id);
+	if (!rv) {
+		if (chip_id == 0x6601)
+			tcpci_rx_busy_get_alert_status(tcpc, &alert_status);
+	}
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	if (alert_status & TCPC_REG_ALERT_RX_STATUS) {
 		PE_DBG("RX Busy, stop reply VDM\n");
@@ -1350,6 +1362,35 @@ void pd_lock_msg_output(struct pd_port *pd_port)
 
 	pd_dbg_info_lock();
 }
+
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+void pd_add_miss_msg(struct pd_port *pd_port,struct pd_event *pd_event,
+				uint8_t msg)
+{
+	struct pd_msg *pd_msg = pd_event->pd_msg;
+	struct pd_msg * miss_msg = NULL;
+	uint8_t sop_type = 0;
+	struct pd_event evt = {
+		.event_type = PD_EVT_CTRL_MSG,
+		.msg = msg,
+		.pd_msg = NULL,
+	};
+	if (pd_msg != NULL) {
+		sop_type = pd_msg->frame_type;
+	}
+	pd_put_event(pd_port->tcpc,&evt,true);
+	miss_msg = pd_alloc_msg(pd_port->tcpc);
+	if (miss_msg == NULL) {
+		return;
+	}
+	if (pd_msg != NULL)
+		memcpy(miss_msg,pd_msg,sizeof(struct pd_msg));
+
+	pd_put_pd_msg_event(pd_port->tcpc,miss_msg);
+	pd_port->pe_data.msg_id_rx[sop_type]--;
+	return;
+}
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 void pd_unlock_msg_output(struct pd_port *pd_port)
 {

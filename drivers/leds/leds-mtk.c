@@ -440,7 +440,9 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	leds_info = nleds_info;
 	leds_info->leds[leds_info->lens] = &mdev->desp;
 	leds_info->lens++;
-	mdev->conf.aal_enable = 0;
+	/*N19A code for HQ- by p-xielihui at 2024/5/11 start*/
+	mdev->conf.aal_enable = 1;
+	/*N19A code for HQ- by p-xielihui at 2024/5/11 end*/
 	mutex_init(&mdev->led_access);
 
 	pr_info("parse led: %s, num: %d, connector_id: %d, max: %d, min: %d, max_hw: %d, brightness: %d",

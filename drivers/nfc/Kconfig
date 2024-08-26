@@ -59,4 +59,7 @@ source "drivers/nfc/st-nci/Kconfig"
 source "drivers/nfc/nxp-nci/Kconfig"
 source "drivers/nfc/s3fwrn5/Kconfig"
 source "drivers/nfc/st95hf/Kconfig"
+# N19A code for HQ-348137 by p-xuzhirong at 20231210 start
+source "drivers/nfc/pn557/Kconfig"
+# N19A code for HQ-348137 by p-xuzhirong at 20231210 end
 endmenu

@@ -1,0 +1,5 @@
+config SND_SOC_SIA8150
+	tristate "SoC Audio for si-in SIA8150 PA"
+	depends on I2C
+	help
+	  This option enables support for SIA8150 PA.

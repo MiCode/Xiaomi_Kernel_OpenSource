@@ -1,5 +1,6 @@
 subdir-ccflags-y += -Werror
 
+#N19A code for HQ-348450 by p-xielihui at 2024/2/4 start
 mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_tdshp.o \
 		  mtk_disp_color.o \
@@ -52,6 +53,8 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_inlinerotate.o \
 		  mtk_mmlsys_bypass_mode.o \
 		  platform/mtk_drm_6789.o \
+		  mi_notifier_odm.o \
+#N19A code for HQ-348450 by p-xielihui at 2024/2/4 end
 
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o
@@ -76,6 +79,12 @@ obj-y += mtk_dp_hdcp1x.o \
 endif
 
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
+
+#N19A code for HQ-353621 by p-xielihui at 2023/12/26 start
+ifeq ($(CONFIG_MI_DISP), y)
+include $(src)/mi_disp/Makefile
+endif
+#N19A code for HQ-353621 by p-xielihui at 2023/12/26 end
 
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_sync.o
@@ -132,3 +141,8 @@ ccflags-y += -DCCORR_SUPPORT
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+#N19A code for HQ-353621 by p-xielihui at 2023/12/26 start
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/
+#N19A code for HQ-353621 by p-xielihui at 2023/12/26 end

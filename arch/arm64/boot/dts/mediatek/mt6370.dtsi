@@ -7,11 +7,11 @@
 #include <dt-bindings/leds/common.h>
 
 &i2c5 {
-	clock-frequency = <1000000>;
+	clock-frequency = <400000>;
 	mt6370: mt6370@34 {
 		compatible = "mediatek,mt6370";
 		reg = <0x34>;
-		status = "okay";
+		status = "disabled";
 		interrupt-parent = <&pio>;
 		interrupts = <20 IRQ_TYPE_LEVEL_LOW 20 0>;
 		//interrupts-extended = <&pio 20 IRQ_TYPE_LEVEL_LOW>;

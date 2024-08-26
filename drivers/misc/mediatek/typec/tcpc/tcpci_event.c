@@ -649,6 +649,11 @@ void pd_notify_tcp_event_buf_reset(struct pd_port *pd_port, uint8_t reason)
 {
 	struct tcpc_device *tcpc = pd_port->tcpc;
 
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	if (reason == TCP_DPM_RET_DROP_RECV_SRESET)
+		tcpci_notify_soft_reset(tcpc);
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+
 	pd_notify_tcp_event_1st_result(pd_port, reason);
 
 	mutex_lock(&tcpc->access_lock);

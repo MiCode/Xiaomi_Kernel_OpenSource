@@ -21,7 +21,9 @@
 #define RT_MASK64(i)	(((uint64_t)1) << i)
 
 #define TIMEOUT_VAL(val)	(val * 1000)
-#define TIMEOUT_RANGE(min, max)		((min * 4000 + max * 1000)/5)
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#define TIMEOUT_RANGE(min, max)		((min * 3000 + max * 2000)/5)
+/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 #define TIMEOUT_VAL_US(val)	(val)
 
 /* Debug message Macro */
@@ -361,6 +363,10 @@ static inline void on_pe_timer_timeout(
 		struct tcpc_device *tcpc, uint32_t timer_id)
 {
 	struct pd_event pd_event = {0};
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	int rv = 0;
+	uint32_t chip_vid = 0;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	pd_event.event_type = PD_EVT_TIMER_MSG;
 	pd_event.msg = timer_id;
@@ -417,6 +423,14 @@ static inline void on_pe_timer_timeout(
 		TCPC_INFO("pe_idle tout\n");
 		pd_put_pe_event(&tcpc->pd_port, PD_PE_IDLE);
 		break;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	case PD_TIMER_HARD_RESET_COMPLETE:
+		rv = tcpci_get_chip_vid(tcpc, &chip_vid);
+		if (!rv &&  SOUTHCHIP_PD_VID == chip_vid) {
+			pd_put_sent_hard_reset_event(tcpc);
+		}
+		break;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	default:
 		pd_put_event(tcpc, &pd_event, false);

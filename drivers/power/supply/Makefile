@@ -142,3 +142,6 @@ mtk_pep50-objs := mtk_pe5.o mtk_pe5_hal.o
 ifneq ($(wildcard $(srctree)/$(src)/k6983v1_64_alpha),)
 obj-$(CONFIG_GAUGE_MT6983_ALPHA_SUPPORT) += k6983v1_64_alpha/
 endif
+
+# N6 code for HQ-301669 by wumingzhu1 at 20230705
+obj-$(CONFIG_HUAQIN_CHARGER_MANAGER)     += hq_chg/

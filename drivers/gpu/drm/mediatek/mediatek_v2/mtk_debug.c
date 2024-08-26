@@ -103,6 +103,10 @@ unsigned int m_new_pq_persist_property[32];
 
 unsigned int g_mml_mode;
 
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+static unsigned int esd_restore_bl;
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
+
 int gCaptureOVLEn;
 int gCaptureWDMAEn;
 int gCapturePriLayerDownX = 20;
@@ -488,6 +492,32 @@ int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 	return n;
 }
 
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 start*/
+int mtk_disp_set_cabc_mode(unsigned int mode)
+{
+	struct drm_crtc *crtc;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return -EINVAL;
+	}
+
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (IS_ERR_OR_NULL(crtc)) {
+		DDPPR_ERR("%s failed to find crtc\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = mtk_drm_set_cabc_mode(crtc, mode);
+	DDPINFO("%s-%d, ret=%d\n", __func__, __LINE__, ret);
+
+	return ret;
+}
+/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 end*/
+
 extern int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
 int mtkfb_set_backlight_level(unsigned int level)
 {
@@ -509,10 +539,26 @@ int mtkfb_set_backlight_level(unsigned int level)
 
 	ret = mtk_drm_setbacklight(crtc, level);
 	DDPINFO("%s-%d, ret=%d\n", __func__, __LINE__, ret);
+	/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+	esd_restore_bl = level;
+	/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 
 	return ret;
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
+
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+int esd_restore_backlight(void)
+{
+	int ret = 0;
+
+	ret = mtkfb_set_backlight_level(esd_restore_bl);
+
+	DDPPR_ERR("%s-, esd_restore_bl=%d\n", __func__,  esd_restore_bl);
+
+	return ret;
+}
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 
 int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level)
 {
@@ -1005,8 +1051,10 @@ static void mtk_ddic_send_cb(struct cmdq_cb_data data)
 	CRTC_MMP_MARK(0, ddic_send_cmd, 1, 1);
 }
 
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking)
+			bool blocking, bool queueing)
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
@@ -1043,24 +1091,28 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	private = crtc->dev->dev_private;
 	mtk_crtc = to_mtk_crtc(crtc);
 
-	mutex_lock(&private->commit.lock);
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+	if (!queueing) {
+		mutex_lock(&private->commit.lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	if (!mtk_crtc->enabled) {
-		DDPMSG("crtc%d disable skip %s\n",
-			drm_crtc_index(&mtk_crtc->base), __func__);
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
-		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
-		return -EINVAL;
-	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		DDPMSG("skip %s, ddp_mode: NO_USE\n",
-			__func__);
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
-		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
-		return -EINVAL;
+		if (!mtk_crtc->enabled) {
+			DDPMSG("crtc%d disable skip %s\n",
+				drm_crtc_index(&mtk_crtc->base), __func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
+			return -EINVAL;
+		} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+			DDPMSG("skip %s, ddp_mode: NO_USE\n",
+				__func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
+			return -EINVAL;
+		}
 	}
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
@@ -1078,64 +1130,76 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	CRTC_MMP_MARK(index, ddic_send_cmd, 1, 0);
 
 	/* Kick idle */
-	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+	if (!queueing) {
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+		CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
 
-	/* only use CLIENT_DSI_CFG for VM CMD scenario */
-	/* use CLIENT_CFG otherwise */
+		/* only use CLIENT_DSI_CFG for VM CMD scenario */
+		/* use CLIENT_CFG otherwise */
 
-	gce_client = (!is_frame_mode && use_lpm) ?
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] :
-			mtk_crtc->gce_obj.client[CLIENT_CFG];
+		gce_client = (!is_frame_mode && use_lpm) ?
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] :
+				mtk_crtc->gce_obj.client[CLIENT_CFG];
 
-	mtk_crtc_pkt_create(&cmdq_handle, crtc, gce_client);
+		mtk_crtc_pkt_create(&cmdq_handle, crtc, gce_client);
 
-	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH, 0);
-	else
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH, 0);
+		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_SECOND_PATH, 0);
+		else
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_FIRST_PATH, 0);
 
-	if (is_frame_mode) {
-		cmdq_pkt_clear_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-		cmdq_pkt_wfe(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		if (is_frame_mode) {
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+			cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		}
 	}
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 	/* DSI_SEND_DDIC_CMD */
 	if (output_comp)
 		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
 		DSI_SEND_DDIC_CMD, cmd_msg);
 
-	if (is_frame_mode) {
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-	}
-
-	if (blocking) {
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-	} else {
-		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-		if (!cb_data) {
-			DDPPR_ERR("%s:cb data creation failed\n", __func__);
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mutex_unlock(&private->commit.lock);
-			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
-			return -EINVAL;
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+	if (!queueing) {
+		if (is_frame_mode) {
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		}
 
-		cb_data->cmdq_handle = cmdq_handle;
-		cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+		if (blocking) {
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		} else {
+			cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+			if (!cb_data) {
+				DDPPR_ERR("%s:cb data creation failed\n", __func__);
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+				mutex_unlock(&private->commit.lock);
+				CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
+				return -EINVAL;
+			}
+
+			cb_data->cmdq_handle = cmdq_handle;
+			cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+		}
 	}
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 	DDPMSG("%s -\n", __func__);
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-	mutex_unlock(&private->commit.lock);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+	if (!queueing) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+	}
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 	CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
 			blocking);
 
@@ -1356,7 +1420,9 @@ void ddic_dsi_send_cmd_test(unsigned int case_num)
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -1428,7 +1494,9 @@ void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
+	/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;

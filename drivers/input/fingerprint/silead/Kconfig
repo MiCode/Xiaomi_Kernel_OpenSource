@@ -1,0 +1,20 @@
+#
+# Silead Fingerprint driver configuration
+#
+
+config SILEAD_FP
+	tristate "Silead Fingerprint driver support"
+	help
+	  This supports Silead Fingerprint drivers.
+
+config SILEAD_FP_SPI
+	tristate "Silead spi Fingerprint driver support"
+	select SILEAD_FP
+	help
+	  This supports Silead spi Fingerprint drivers.
+
+config SILEAD_FP_PLATFORM
+	tristate "Silead platformm Fingerprint driver support"
+	select SILEAD_FP
+	help
+	  This supports Silead platform Fingerprint drivers.

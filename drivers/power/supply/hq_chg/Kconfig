@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: GPL-2.0
+#charge_policy
+source "drivers/power/supply/hq_chg/charger_policy/Kconfig"
+
+#sc_charger
+source "drivers/power/supply/hq_chg/sc_charger/Kconfig"
+
+#protocol
+source "drivers/power/supply/hq_chg/sc_charger/protocol/Kconfig"
+
+#subpimc
+source "drivers/power/supply/hq_chg/sc_charger/subpmic/Kconfig"
+
+#nu_charger
+source "drivers/power/supply/hq_chg/nu_charger/Kconfig"
+
+#nuvolta subpimc
+source "drivers/power/supply/hq_chg/nu_charger/subpmic/Kconfig"
+
+#fuelgauge
+source "drivers/power/supply/hq_chg/fuelgauge/Kconfig"
+
+#bq_charger
+source "drivers/power/supply/hq_chg/bq_charger/Kconfig"
+
+source "drivers/power/supply/hq_chg/battery_secrete/Kconfig"
+
+config HUAQIN_ADAPTER_CLASS
+	tristate "support hauqin charger adapter class"
+	default n
+	help
+		Say Y here to support hauqin charger adapter class.
+
+config HUAQIN_CHARGER_CLASS
+	tristate "support hauqin charger class"
+	default n
+	help
+		Say Y here to support hauqin charger class.
+
+config HUAQIN_CP_CLASS
+	tristate "support hauqin chager pump class"
+	default n
+	help
+		Say Y here to support hauqin chager pump class.
+
+config PD_BATTERY_SECRET
+	tristate "pd battery secret"
+	default n
+	help
+		Say Y here to support pd battery secret.
+
+config XIAOMI_SMART_CHG
+        tristate "support xiaomi smart charge"
+        default n
+        help
+                Say Y here to support xiaomi smart charge.
+
+config XM_CHG_ANIMATION
+        tristate "support xiaomi charge animation"
+        default n
+        help
+                Say Y here to support xiaomi charge animation.
+
+config XM_FG_I2C_ERR
+        tristate "support xiaomi fg i2c error"
+        default n
+        help
+                Say Y here to support xiaomi fg i2c error.

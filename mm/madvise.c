@@ -322,8 +322,11 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 	struct page *page = NULL;
 	LIST_HEAD(page_list);
 	bool allow_shared = false;
+	bool abort_madvise = false;
+	bool skip = false;
 
-	if (fatal_signal_pending(current))
+	trace_android_vh_madvise_cold_or_pageout_abort(vma, &abort_madvise);
+	if (fatal_signal_pending(current) || abort_madvise)
 		return -EINTR;
 
 	trace_android_vh_madvise_cold_or_pageout(vma, &allow_shared);
@@ -416,6 +419,10 @@ regular_page:
 		page = vm_normal_page(vma, addr, ptent);
 		if (!page)
 			continue;
+
+		trace_android_vh_should_end_madvise(mm, &skip, &pageout);
+		if (skip)
+			break;
 
 		/*
 		 * Creating a THP page is expensive so split it only if we

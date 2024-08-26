@@ -1079,9 +1079,23 @@ static inline bool pd_try_get_vdm_event(
 {
 	bool ret = false;
 	struct pd_port *pd_port = &tcpc->pd_port;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	int rv = 0;
+	uint32_t chip_id, chip_pid;
+	rv = tcpci_get_chip_id(tcpc, &chip_id);
+	rv |= tcpci_get_chip_pid(tcpc, &chip_pid);
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 
 	switch (pd_port->pe_pd_state) {
 #if CONFIG_USB_PD_PE_SINK
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	case PE_SNK_TRANSITION_SINK:
+		if (!rv && SC2150A_DID == chip_id &&
+				SC2150A_PID == chip_pid)  {
+			ret = pd_get_vdm_event(tcpc, pd_event);
+		}
+		break;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
 	case PE_SNK_READY:
 		ret = pd_get_vdm_event(tcpc, pd_event);
 		break;
@@ -1259,10 +1273,14 @@ static inline uint8_t pd_try_get_active_event(
 	struct tcpc_device *tcpc, struct pd_event *pd_event)
 {
 	uint8_t ret;
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+	int chip_id = 1;
 	uint8_t from_pe = PD_TCP_FROM_PE;
 	struct pd_port *pd_port = &tcpc->pd_port;
 
-	if (!pd_check_tx_ready(pd_port))
+	tcpci_get_chip_id(tcpc, &chip_id);
+	/* N19A code for HQ-353528 by tangsufeng at 20231208 end */
+	if (!pd_check_tx_ready(pd_port) && chip_id != 0x6601)
 		return PE_NEW_EVT_NULL;
 
 #if CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG

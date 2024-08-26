@@ -28,6 +28,17 @@
 #define MAX_DEBUG_WRITE_INPUT 256
 #define CODEC_SYS_DEBUG_SIZE (1024 * 32)
 
+// N19A code for HQ-367036 by liutongren at 2024/01/16 start
+#include <sound/jack.h>
+struct snd_soc_jack g_usb_3_5_jack;
+// N19A code for HQ-367036 by liutongren at 2024/01/16 end
+
+// Audio bringup pa codec dai config liutongren 20231212 start
+#include "fs1599/fsm_public.h"
+extern void fsm_add_codec_controls(struct snd_soc_codec *codec);
+extern int aw87xxx_add_codec_controls(void *codec);
+// Audio bringup pa codec dai config liutongren 20231212 end
+
 static ssize_t mt6358_codec_sysfs_read(struct file *filep, struct kobject *kobj,
 				       struct bin_attribute *attr,
 				       char *buf, loff_t offset, size_t size);
@@ -47,6 +58,21 @@ int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6358_set_codec_ops);
+
+// N19A code for HQ-367036 by liutongren at 2024/01/16 start
+void report_analog_usb_plug_in() {
+	snd_soc_jack_report(&g_usb_3_5_jack, (SND_JACK_HEADSET | SND_JACK_VIDEOOUT),
+			(SND_JACK_HEADSET | SND_JACK_VIDEOOUT));
+	pr_info("%s: report analog usb plug in successful \n", __func__);
+}
+EXPORT_SYMBOL_GPL(report_analog_usb_plug_in);
+
+void report_analog_usb_plug_out(){
+	snd_soc_jack_report(&g_usb_3_5_jack, 0, (SND_JACK_HEADSET | SND_JACK_VIDEOOUT));
+	pr_info("%s: report analog usb plug out successful \n", __func__);
+}
+EXPORT_SYMBOL_GPL(report_analog_usb_plug_out);
+// N19A code for HQ-367036 by liutongren at 2024/01/16 end
 
 static struct bin_attribute codec_dev_attr_reg = {
 	.attr = {
@@ -6695,11 +6721,28 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 				       ARRAY_SIZE(mt6358_snd_vow_controls));
 	mt6358_codec_init_reg(priv);
 
+	// Audio bringup pa codec dai config liutongren 20231212 start
+	pr_info("%s:pa add_codec_controls enter \n", __func__);
+	fsm_add_codec_controls(cmpnt);
+	if (aw87xxx_add_codec_controls(cmpnt) < 0) {
+		pr_err("%s: aw87xxx_add_codec_controls failed, ret= %d\n", __func__, ret);
+	};
+	// Audio bringup pa codec dai config liutongren 20231212 end
+
 #if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
 #else
 	priv->hp_current_calibrate_val = 0;
 #endif
+
+	// N19A code for HQ-367036 by liutongren at 2024/01/16 start
+	pr_info("%s: snd_soc_card_jack_new\n", __func__);
+	ret = snd_soc_card_jack_new(cmpnt->card, "USB_3_5 Jack", (SND_JACK_VIDEOOUT | SND_JACK_HEADSET),
+                                   &g_usb_3_5_jack, NULL, 0);
+	if (ret) {
+		pr_err("%s: Failed to create new jack USB_3_5 Jack\n", __func__);
+	}
+	// N19A code for HQ-367036 by liutongren at 2024/01/16 end
 
 	return 0;
 }

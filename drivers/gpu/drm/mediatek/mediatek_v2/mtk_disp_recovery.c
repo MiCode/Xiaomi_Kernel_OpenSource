@@ -36,7 +36,9 @@
 #include "mtk_dsi.h"
 
 #define ESD_TRY_CNT 5
-#define ESD_CHECK_PERIOD 2000 /* ms */
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+#define ESD_CHECK_PERIOD 3000 /* ms */
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 static DEFINE_MUTEX(pinctrl_lock);
 
 /* pinctrl implementation */
@@ -604,7 +606,9 @@ done:
 
 	return 0;
 }
-
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+extern int esd_restore_backlight(void);
+/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -614,6 +618,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	struct mtk_drm_esd_ctx *esd_ctx = NULL;
 	int ret = 0;
 	int i = 0;
+	/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+	int restore_backlight = 0;
+	/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 	int recovery_flg = 0;
 	bool check_te = false, te_timeout = false;
 	unsigned int crtc_idx;
@@ -714,6 +721,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 				"[ESD%u]esd check fail, will do esd recovery. te timeout:%d try=%d\n",
 				crtc_idx, te_timeout, i);
 			mtk_drm_esd_recover(crtc);
+			/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+			restore_backlight = 1;
+			/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 			recovery_flg = 1;
 		} while (++i < ESD_TRY_CNT);
 
@@ -740,6 +750,13 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 		mutex_unlock(&private->commit.lock);
 
 		/* 2. other check & recovery */
+		/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 start*/
+		if(restore_backlight){
+			DDPPR_ERR("%s: esd_restore_backlight\n", __func__);
+			esd_restore_backlight();
+			restore_backlight = 0;
+		}
+		/*N19A code for HQ-348361 by p-xielihui at 2024/1/19 end*/
 		if (kthread_should_stop())
 			break;
 	}

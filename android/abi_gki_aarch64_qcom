@@ -34,6 +34,7 @@
   android_debug_for_each_module
   android_debug_per_cpu_symbol
   android_debug_symbol
+  android_gki_sysctl_vals
   android_rvh_probe_register
   anon_inode_getfile
   arc4_crypt
@@ -1659,6 +1660,7 @@
   overflowuid
   page_endio
   page_mapping
+  page_owner_inited
   __page_pinner_migration_failed
   __pagevec_release
   panic
@@ -2187,6 +2189,7 @@
   set_normalized_timespec64
   set_page_dirty_lock
   __SetPageMovable
+  __set_page_owner
   set_task_cpu
   set_user_nice
   sg_alloc_table
@@ -3041,6 +3044,7 @@
   wait_for_completion_interruptible_timeout
   wait_for_completion_killable
   wait_for_completion_timeout
+  wait_for_device_probe
   wait_on_page_bit
   __wait_rcu_gp
   wait_woken

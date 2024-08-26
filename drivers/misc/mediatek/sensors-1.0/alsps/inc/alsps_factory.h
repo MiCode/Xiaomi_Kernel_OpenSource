@@ -40,6 +40,7 @@ struct alsps_factory_fops {
 	int (*als_clear_cali)(void);
 	int (*als_set_cali)(int32_t offset);
 	int (*als_get_cali)(int32_t *offset);
+	int (*als_set_cali_0lux)(int32_t offset);
 
 	int (*ps_enable_sensor)(bool enable_disable, int64_t sample_periods_ms);
 	int (*ps_get_data)(int32_t *data);

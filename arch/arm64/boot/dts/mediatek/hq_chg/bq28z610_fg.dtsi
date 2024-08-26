@@ -1,0 +1,28 @@
+&i2c7 {
+ 	clock-frequency = <400000>;
+ 	status = "okay";
+ 	bq28z610@55 {
+ 		compatible = "bq28z610";
+ 		reg = <0x55>;
+ 		enable_shutdown_delay;
+ 		normal_shutdown_vbat_1s = <3400>;
+ 		critical_shutdown_vbat_1s = <3310>;
+ 		cool_critical_shutdown_vbat_1s = <3290>;
+ 		old_critical_shutdown_vbat_1s = <3300>;
+ 		report_full_rsoc_1s = <9650>;
+ 		soc_gap_1s = <2>;
+ 		soc_decimal_rate = <
+			0  38
+ 			10 35
+ 			20 33
+ 			30 33
+ 			40 33
+			50 33
+			60 33
+			70 30
+ 			80 25
+ 			90 20
+ 			95 10 >;
+	};
+};
+

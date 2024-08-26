@@ -1,0 +1,17 @@
+#
+# Novatek NT36xxx touchscreen driver configuration
+#
+config TOUCHSCREEN_NT36XXX_HOSTDL_SPI
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 start
+	tristate "Novatek NT36xxx host download SPI driver"
+# N19A code for HQ-378484 by p-huangyunbiao at 2024/3/20 start
+	depends on TOUCHSCREEN_TPD_NOTIFY
+	depends on DRM_PANEL_N19A_36_02_0A_DSC_VDO && DRM_PANEL_N19A_43_02_0C_DSC_VDO
+# N19A code for HQ-378484 by p-huangyunbiao at 2024/3/20 end
+	default n
+# N19A code for HQ-359934 by p-huangyunbiao at 2023/12/19 end
+	help
+	  Say Y here if you have a Novatek NT36xxx no flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.

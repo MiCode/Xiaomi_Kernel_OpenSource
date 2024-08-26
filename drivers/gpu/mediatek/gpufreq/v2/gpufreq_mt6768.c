@@ -136,6 +136,11 @@ static void __gpufreq_update_gpu_working_table(void);
 /*external function*/
 extern void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage);
 
+/* N19A code for HQHW-6512 by liwenhao at 2024/3/8 start */
+void (*mtk_devfreq_set_cur_freq_fp)(unsigned long) = NULL;
+EXPORT_SYMBOL(mtk_devfreq_set_cur_freq_fp);
+/* N19A code for HQHW-6512 by liwenhao at 2024/3/8 end */
+
 //thermal
 static void __mt_update_gpufreqs_power_table(void);
 
@@ -1268,6 +1273,11 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 	g_gpu.cur_oppidx = target_oppidx;
 
 	__gpufreq_footprint_oppidx(target_oppidx);
+
+	/* N19A code for HQHW-6512 by liwenhao at 2024/3/8 start */
+	if (mtk_devfreq_set_cur_freq_fp)
+		mtk_devfreq_set_cur_freq_fp((unsigned long)g_gpu.cur_freq);
+	/* N19A code for HQHW-6512 by liwenhao at 2024/3/8 end */
 
 	__gpufreq_kick_pbm(1);
 

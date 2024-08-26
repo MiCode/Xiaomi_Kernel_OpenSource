@@ -34,6 +34,10 @@
 #include <linux/ratelimit.h>
 #include <soc/mediatek/smi.h>
 
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+#include <linux/pm_wakeup.h>
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
+
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_drv.h"
@@ -358,10 +362,16 @@ unsigned int line_back_to_LP = 1;
 
 unsigned int data_phy_cycle;
 struct mtk_dsi;
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifndef CONFIG_MI_DISP
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 struct mtk_dsi_mgr {
 	struct mtk_dsi *master;
 	struct mtk_dsi *slave;
 };
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 struct DSI_T0_INS {
 	unsigned CONFG : 8;
@@ -396,6 +406,16 @@ static const char * const mtk_dsi_porch_str[] = {
 		writel(regval, (reg32));  \
 	} while (0)
 
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 start*/
+#define WAIT_RESUME_TIMEOUT 200
+int panel_event = 0;
+EXPORT_SYMBOL(panel_event);
+struct mipi_dsi_device *dsi_panel_device;
+struct mtk_ddp_comp *g_output_comp;
+static struct delayed_work mtk_drm_suspend_delayed_work;
+static struct wakeup_source prim_panel_wakelock;
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 end*/
+
 enum DSI_MODE_CON {
 	MODE_CON_CMD = 0,
 	MODE_CON_SYNC_PULSE_VDO,
@@ -409,6 +429,13 @@ enum DSI_SET_MMCLK_TYPE {
 	SET_MMCLK_TYPE_ONLY_CALCULATE,
 	SET_MMCLK_TYPE_END,
 };
+
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+struct drm_connector *dsi_to_connector(void *dsi)
+{
+	return &(((struct mtk_dsi *)dsi)->conn);
+}
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
 
@@ -2698,8 +2725,10 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
 
-static void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
 					  const void *data, size_t len);
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 					struct mtk_ddic_dsi_cmd *para_table);
@@ -2867,8 +2896,10 @@ void DSI_MIPI_deskew(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_PHY_TIMECON2, mask, value);
 }
 
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
 void mtk_mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
-				const struct mipi_dsi_msg *msg)
+				const struct mipi_dsi_msg *msg, bool need_hs)
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 {
 	const char *tx_buf = msg->tx_buf;
 	u8 config, cmdq_size, cmdq_off, type = msg->type;
@@ -2881,7 +2912,10 @@ void mtk_mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		config = (msg->tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
 
 	/* AP read/write 6382 configs only support hs */
-	config |= HSTX;
+	/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+	if (need_hs)
+		config |= HSTX;
+	/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 
 	if (msg->tx_len > 2) {
 		cmdq_size = 1 + (msg->tx_len + 3) / 4;
@@ -2936,7 +2970,9 @@ void mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 	msg.type = 0x79;
 
 	mtk_dsi_poll_for_idle(dsi, handle);
-	mtk_mipi_dsi_write_6382(dsi, handle, &msg);
+	/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+	mtk_mipi_dsi_write_6382(dsi, handle, &msg, true);
+	/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 
 	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
 		dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
@@ -2945,6 +2981,43 @@ void mipi_dsi_write_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 
 	mtk_dsi_poll_for_idle(dsi, handle);
 }
+
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+void mipi_dsi_6382_ddic(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+                                 const void *data, size_t len)
+{
+	struct mipi_dsi_msg msg = {
+		.tx_buf = data,
+		.tx_len = len
+	};
+
+	switch (len) {
+		case 0:
+			return;
+
+		case 1:
+			msg.type = MIPI_DSI_DCS_SHORT_WRITE;
+			break;
+
+		case 2:
+			msg.type = MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+			break;
+
+		default:
+			msg.type = MIPI_DSI_DCS_LONG_WRITE;
+			break;
+	}
+	mtk_dsi_poll_for_idle(dsi, handle);
+	mtk_mipi_dsi_write_6382(dsi, handle, &msg, true);
+
+	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+}
+/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 
 /**
  * _mtk_dsi_read_ddic_by6382: read ddic by 6382
@@ -3786,6 +3859,57 @@ err_dsi_power_off:
 	mtk_dsi_poweroff(dsi);
 }
 
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 start*/
+/**
+ *  mtk_drm_early_resume - Panel light on interface for fingerprint
+ *  In order to improve panel light on performance when unlock device by
+ *  fingerprint, export this interface for fingerprint.Once finger touch
+ *  happened, it could light on LCD panel in advance of android resume.
+ *
+ *  @timeout: wait time for android resume and set panel on.
+ *            If timeout, mtk drm dsi will disable panel to avoid fingerprint
+ *            touch by mistake.
+ */
+
+int mtk_drm_early_resume(int timeout)
+{
+	int ret = 0;
+	 struct drm_connector *connector = NULL;
+
+        if (!g_output_comp) {
+                pr_err("[XMFP]: %s: invalid output comp g_output_comp is nullptr\n", __func__);
+                ret = -EINVAL;
+		return ret;
+	}
+
+	ret = wait_event_timeout(resume_wait_q,
+		!atomic_read(&resume_pending),
+		msecs_to_jiffies(WAIT_RESUME_TIMEOUT));
+	if (!ret) {
+		pr_err("[XMFP]: Primary fb resume timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	mutex_lock(&g_output_comp->panel_lock);
+
+	__pm_stay_awake(&prim_panel_wakelock);
+
+	connector = dsi_to_connector((void *)g_output_comp);
+	panel_event = 1;
+	pr_info("[XMFP]: %s panel_event=%d, dev_name = %s\n", __func__, panel_event, dev_name(&dsi_panel_device->dev));
+	sysfs_notify(&dsi_panel_device->dev.kobj, NULL, "panel_event");
+
+	if (timeout > 0)
+		schedule_delayed_work(&mtk_drm_suspend_delayed_work, msecs_to_jiffies(timeout));
+	else
+		__pm_relax(&prim_panel_wakelock);
+
+	mutex_unlock(&g_output_comp->panel_lock);
+	return ret;
+}
+EXPORT_SYMBOL(mtk_drm_early_resume);
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 end*/
+
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
 static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 	int force_lcm_update)
@@ -4223,12 +4347,31 @@ static int mtk_dsi_create_connector(struct drm_device *drm, struct mtk_dsi *dsi)
 	return 0;
 }
 
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 start*/
+static void mtk_drm_suspend_delayed_work_handle(struct work_struct *work)
+{
+	struct drm_connector *connector = NULL;
+	mutex_lock(&g_output_comp->panel_lock);
+	connector = dsi_to_connector((void *)g_output_comp);
+	panel_event = 0;
+	pr_info("[XMFP]: %s panel_event=%d\n", __func__, panel_event);
+	sysfs_notify(&dsi_panel_device->dev.kobj, NULL, "panel_event");
+
+	__pm_relax(&prim_panel_wakelock);
+	mutex_unlock(&g_output_comp->panel_lock);
+}
+/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 end*/
+
 static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 {
 	int ret;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	int possible_crtcs = 0;
 	int panel_id = 0;
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 start*/
+	enum mtk_ddp_comp_type type;
+	struct drm_connector *connector = NULL;
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/1 end*/
 
 	ret = drm_encoder_init(drm, &dsi->encoder, &mtk_dsi_encoder_funcs,
 			       DRM_MODE_ENCODER_DSI, NULL);
@@ -4263,6 +4406,21 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 		if (ret)
 			goto err_encoder_cleanup;
 	}
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 start*/
+	type = mtk_ddp_comp_get_type(comp->id);
+	if (type == MTK_DSI) {
+		pr_info("[XMFP]: %s init mtk ealry resume resources\n", __func__);
+		connector = dsi_to_connector((void *)comp);
+		mutex_init(&comp->panel_lock);
+		g_output_comp = comp;
+		atomic_set(&resume_pending, 0);
+		memset(&prim_panel_wakelock, 0, sizeof(*&prim_panel_wakelock));
+		prim_panel_wakelock.name = "prim_panel_wakelock";
+		wakeup_source_add(&prim_panel_wakelock);
+		init_waitqueue_head(&resume_wait_q);
+		INIT_DELAYED_WORK(&mtk_drm_suspend_delayed_work, mtk_drm_suspend_delayed_work_handle);
+	}
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 end*/
 
 	mtk_dsi_attach_property(drm, dsi);
 	dsi->prop_val[CONNECTOR_PROP_PANEL_ID] = panel_id;
@@ -4276,6 +4434,17 @@ err_encoder_cleanup:
 
 static void mtk_dsi_destroy_conn_enc(struct mtk_dsi *dsi)
 {
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 start*/
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+
+	if (comp == g_output_comp) {
+		pr_info("%s destroy mtk ealry resume resources\n", __func__);
+		cancel_delayed_work_sync(&mtk_drm_suspend_delayed_work);
+		wakeup_source_remove(&prim_panel_wakelock);
+		__pm_relax(&prim_panel_wakelock);
+	}
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 end*/
+
 	drm_encoder_cleanup(&dsi->encoder);
 	/* Skip connector cleanup if creation was delegated to the bridge */
 	if (dsi->conn.dev)
@@ -4355,6 +4524,7 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 	mtk_dsi_poll_for_idle(dsi, handle);
 	if (is_bdg_supported()) {
 		mipi_dsi_write_6382(dsi, handle, stopdsi, 8);
+		cmdq_pkt_sleep_by_poll(handle, CMDQ_US_TO_TICK(25)); //need wait 5 lines, 25us
 		mipi_dsi_write_6382(dsi, handle, sw_reset0, 8);
 		mipi_dsi_write_6382(dsi, handle, sw_reset1, 8);
 		mipi_dsi_write_6382(dsi, handle, setcmd, 8);
@@ -5544,6 +5714,9 @@ static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 	/* ********Panel Master********** */
 	dsi->dev_for_PM = device;
 	/* ******end Panel Master**** */
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 start*/
+	dsi_panel_device = device;
+	/*N19A code for HQ-348450 by p-xielihui at 2024/2/4 end*/
 	if (dsi->conn.dev)
 		drm_helper_hpd_irq_event(dsi->conn.dev);
 
@@ -7086,8 +7259,10 @@ void mtk_dsi_send_switch_cmd(struct mtk_dsi *dsi,
 			break;
 
 		if (dfps_cmd->src_fps == 0 || drm_mode_vrefresh(old_mode) == dfps_cmd->src_fps)
-			mipi_dsi_dcs_write_gce_dyn(dsi, handle, dfps_cmd->para_list,
+			/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+			mipi_dsi_6382_ddic(dsi, handle, dfps_cmd->para_list,
 				dfps_cmd->cmd_num);
+			/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 	}
 }
 
@@ -8138,6 +8313,10 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		}
 		if (is_bdg_supported()) {
 			mtk_dsi_vfp_porch_setting_6382(dsi, vfp, handle);
+			/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+			mtk_dsi_send_switch_cmd(dsi, handle, mtk_crtc,src_mode,
+									drm_mode_vrefresh(&adjusted_mode));
+			/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 			mtk_dsi_start_vdo_mode(comp, handle);
 			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 			mtk_dsi_trigger(comp, handle);
@@ -8790,13 +8969,49 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 
 		panel_ext = mtk_dsi_get_panel_ext(comp);
-		if (panel_ext && panel_ext->funcs
-			&& panel_ext->funcs->set_backlight_cmdq)
-			panel_ext->funcs->set_backlight_cmdq(dsi,
-					mipi_dsi_dcs_write_gce,
-					handle, *(int *)params);
+		/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+			DDPMSG("%s:6382 setbacklight by cmd cmd\n", __func__);
+			cmdq_pkt_wfe(handle,
+					comp->mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			mtk_dsi_stop_vdo_mode(dsi, handle);
+			if (panel_ext && panel_ext->funcs
+					&& panel_ext->funcs->set_backlight_cmdq)
+				panel_ext->funcs->set_backlight_cmdq(dsi,
+						mipi_dsi_6382_ddic,
+						handle, *(int *)params);
+			mtk_dsi_start_vdo_mode(comp, handle);
+			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
+			mtk_dsi_trigger(comp, handle);
+		}
+		/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 	}
 		break;
+	/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 start*/
+	case MI_DSI_SET_CABC_MODE:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+			DDPMSG("%s:6382 set cabc mode by cmd cmd\n", __func__);
+			cmdq_pkt_wfe(handle,
+					comp->mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			mtk_dsi_stop_vdo_mode(dsi, handle);
+			if (panel_ext && panel_ext->funcs
+					&& panel_ext->funcs->set_cabc_mode)
+				panel_ext->funcs->set_cabc_mode(dsi,
+						mipi_dsi_6382_ddic,
+						handle, *(int *)params);
+			mtk_dsi_start_vdo_mode(comp, handle);
+			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
+			mtk_dsi_trigger(comp, handle);
+		}
+	}
+		break;
+	/*N19A code for HQ-348461 by p-xielihui at 2024/1/11 end*/
 	case DSI_SET_BL_AOD:
 	{
 		struct mtk_dsi *dsi =
@@ -8828,13 +9043,20 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case DSI_HBM_SET:
 	{
 		panel_ext = mtk_dsi_get_panel_ext(comp);
-		if (!(panel_ext && panel_ext->funcs &&
-		      panel_ext->funcs->hbm_set_cmdq))
-			break;
-
-		panel_ext->funcs->hbm_set_cmdq(dsi->panel, dsi,
-					       mipi_dsi_dcs_write_gce, handle,
-					       *(bool *)params);
+		/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 start*/
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+			DDPMSG("%s:6382 set hbm by cmd cmd\n", __func__);
+			cmdq_pkt_wfe(handle,
+							comp->mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			mtk_dsi_stop_vdo_mode(dsi, handle);
+			panel_ext->funcs->hbm_set_cmdq(dsi->panel, dsi,
+				mipi_dsi_6382_ddic, handle,
+				*(bool *)params);
+			mtk_dsi_start_vdo_mode(comp, handle);
+			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
+			mtk_dsi_trigger(comp, handle);
+		}
+		/*N19A code for HQ-354076 by p-xielihui at 2023/12/19 end*/
 		break;
 	}
 	case DSI_HBM_GET_STATE:
@@ -9293,6 +9515,18 @@ static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)
 		goto err_unregister;
 	}
 
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifdef CONFIG_MI_DISP
+	ret = mi_disp_feature_attach_display(dsi,
+				MI_DISP_PRIMARY, MI_INTF_DSI);
+	if (ret) {
+		pr_err("failed to attach %s display(%s intf)\n",
+				get_disp_id_name(MI_DISP_PRIMARY),
+				get_disp_intf_type_name(MI_INTF_DSI));
+	}
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
+
 	DDPINFO("%s-\n", __func__);
 	return 0;
 
@@ -9310,6 +9544,12 @@ static void mtk_dsi_unbind(struct device *dev, struct device *master,
 
 	if (dsi->is_slave)
 		return;
+
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 start*/
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_detach_display(dsi, MI_DISP_PRIMARY, MI_INTF_DSI);
+#endif
+/*N19A code for HQ-353621 by p-xielihui at 2023/12/26 end*/
 
 	mtk_dsi_destroy_conn_enc(dsi);
 	mipi_dsi_host_unregister(&dsi->host);
@@ -9637,7 +9877,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	struct mtk_dsi *dsi;
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *of_id;
-	struct device_node *remote_node, *endpoint;
+	struct device_node *remote_node, *endpoint, *prev_endpoint;
 	struct resource *regs;
 	int irq_num;
 	int comp_id;
@@ -9669,32 +9909,46 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	dsi->driver_data = (struct mtk_dsi_driver_data *)of_id->data;
 
 	if (!dsi->is_slave) {
-		endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
-		if (endpoint) {
-			remote_node = of_graph_get_remote_port_parent(endpoint);
-			if (!remote_node) {
-				dev_err(dev, "No panel connected\n");
-				ret = -ENODEV;
-				goto error;
-			}
+		prev_endpoint = NULL;
+		do {
+			endpoint = of_graph_get_next_endpoint(dev->of_node, prev_endpoint);
+			if (endpoint) {
+				remote_node = of_graph_get_remote_port_parent(endpoint);
+				if (!remote_node) {
+					dev_err(dev, "No panel connected\n");
+					ret = -ENODEV;
+					goto error;
+				}
 
-			dsi->bridge = of_drm_find_bridge(remote_node);
-			dsi->panel = of_drm_find_panel(remote_node);
-			of_node_put(remote_node);
-			if (IS_ERR_OR_NULL(dsi->bridge) && IS_ERR_OR_NULL(dsi->panel)) {
-				dev_info(dev, "Waiting for bridge or panel driver\n");
-				dsi->panel = NULL;
-				ret = -EPROBE_DEFER;
-				goto error;
+				dsi->bridge = of_drm_find_bridge(remote_node);
+				dsi->panel = of_drm_find_panel(remote_node);
+				of_node_put(remote_node);
+				if (IS_ERR_OR_NULL(dsi->bridge) && IS_ERR_OR_NULL(dsi->panel)) {
+					dev_info(dev, "Waiting for bridge or panel driver\n");
+					dsi->panel = NULL;
+				}
+
+				if (dsi->panel)
+					dsi->ext = find_panel_ext(dsi->panel);
+				if (dsi->slave_dsi) {
+					dsi->slave_dsi->ext = dsi->ext;
+					dsi->slave_dsi->panel = dsi->panel;
+					dsi->slave_dsi->bridge = dsi->bridge;
+				}
+
+				if(dsi->bridge || dsi->panel) {
+					dev_info(dev, "find bridge or panel driver\n");
+					break;
+				}
 			}
-			if (dsi->panel)
-				dsi->ext = find_panel_ext(dsi->panel);
-			if (dsi->slave_dsi) {
-				dsi->slave_dsi->ext = dsi->ext;
-				dsi->slave_dsi->panel = dsi->panel;
-				dsi->slave_dsi->bridge = dsi->bridge;
-			}
-		}
+			prev_endpoint = endpoint;
+		} while (prev_endpoint);
+	}
+
+	if (!dsi->bridge && !dsi->panel) {
+		dev_info(dev, "Waiting for bridge or panel driver\n");
+		ret = -EPROBE_DEFER;
+		goto error;
 	}
 
 	if (is_bdg_supported()) {

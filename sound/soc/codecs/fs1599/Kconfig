@@ -1,0 +1,5 @@
+config SND_SOC_FS1599
+	tristate "FourSemi FS1599 speaker amplifier"
+	depends on I2C
+	help
+	  Config of FourSemi FS1599 speaker amplifier.

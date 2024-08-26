@@ -408,6 +408,18 @@ uint8_t tcpm_inquire_cable_current(
 }
 EXPORT_SYMBOL(tcpm_inquire_cable_current);
 
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+#if IS_ENABLED(CONFIG_PD_BATTERY_SECRET)
+uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc)
+{
+	struct pd_port *pd_port = &tcpc->pd_port;
+	return pd_port->pe_state_curr;
+}
+EXPORT_SYMBOL(tcpm_inquire_pd_state_curr);
+#endif
+/* N19A code for HQ-353528 by tangsufeng at 20231208 start */
+
 uint32_t tcpm_inquire_dpm_flags(struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;

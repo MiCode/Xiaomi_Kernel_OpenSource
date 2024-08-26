@@ -475,6 +475,13 @@ aliases {
 			phy-names = "dphy";
 		};
 
+		mt6382_eint: mt6382_eint {
+			compatible = "mediatek, mt6382_eint";
+			interrupt-parent = <&pio>;
+			interrupts = <0 IRQ_TYPE_LEVEL_HIGH 0 0>;
+			status = "okay";
+		};
+
 		bdg_support: bdg_support {
 			compatible = "mediatek,disp,6382,bdg";
 		};
@@ -2510,16 +2517,31 @@ transparent_hugepage=never";
 		compatible = "mediatek,goodix-fp";
 	};
 
+/*N19A code for HQ-354305 by sunyuting at 2023/12/13 start*/
+	silead_fp: silead_fp {
+		compatible = "sil,silead_fp-pins";
+	};
+
+	silead_fp_platform {
+		compatible = "sil,silead_fp";
+	};
+/*N19A code for HQ-354305 by sunyuting at 2023/12/13 end*/
+
+/* N19A code for HQ-353558 by p-dongfeiju at 2023/12/15 start */
 	regulator_vibrator: regulator_vibrator {
 		compatible = "regulator-vibrator";
 		label = "vibrator";
-		min-volt = <2300000>;
-		max-volt = <3200000>;
+/* N19A code for HQ-376173 by p-gaobowei at 2024/3/8 start */
+/* N19A code for HQHW-5739 by p-gaobowei at 2024/1/31 start */
+		min-volt = <3000000>;
+		max-volt = <3000000>;
+/* N19A code for HQHW-5739 by p-gaobowei at 2024/1/31 end */
+/* N19A code for HQ-376173 by p-gaobowei at 2024/3/8 end */
 		min-limit = <15>;
 		max-limit = <15000>;
-		vib-supply = <&mt_pmic_vibr_ldo_reg>;
+		vib-supply = <&mt_pmic_vldo28_ldo_reg>;
 	};
-
+/* N19A code for HQ-353558 by p-dongfeiju at 2023/12/15 end */
 	md_ccif3@1023f000 {
 		compatible = "mediatek,md_ccif3";
 		reg = <0 0x1023f000 0 0x1000>;
@@ -3114,7 +3136,6 @@ transparent_hugepage=never";
 		io-channels = <&auxadc 0>;
 		io-channel-names = "thermistor-ch0";
 	};
-
 	tboard_thermistor2: thermal-sensor2 {
 		compatible = "mediatek,mtboard-thermistor2";
 		io-channels = <&auxadc 1>;
@@ -3349,8 +3370,14 @@ transparent_hugepage=never";
 			clocks = <&clk26m>;
 			clock-names = "ref";
 			mediatek,discth = <0x7>;
-			mediatek,eye-vrt = <0x5>;
+			/*N19A code for HQ-358661 by songweijie at 2023/12/18 start*/ 
+			mediatek,eye-vrt = <0x7>;
 			mediatek,eye-term = <0x5>;
+			mediatek,rev6 = <0x3>;
+			mediatek,eye-vrt-host = <0x7>;
+			mediatek,eye-term-host = <0x5>;
+			mediatek,rev6-host = <0x3>;
+			/*N19A code for HQ-358661 by songweijie at 2023/12/18 end*/
 			nvmem-cells = <&u2_phy_data>;
 			nvmem-cell-names = "intr_cal";
 			nvmem-cell-masks = <0x1f>;
@@ -3957,6 +3984,10 @@ transparent_hugepage=never";
 		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&mmsys_config CLK_MM_MDP_WROT0>;
 		clock-names = "MDP_WROT0";
+	};
+
+	board_id: board_id {
+	    compatible = "mediatek,board_id";
 	};
 
 	mdp_tdshp0: mdp_tdshp0@1400a000 {
@@ -4677,6 +4708,10 @@ transparent_hugepage=never";
 		};
 	};
 
+	flashlights_mt6768: flashlights_mt6768 {
+		compatible = "mediatek,flashlights_mt6768";
+	};
+
 	camera_af_hw_node: camera_af_hw_node {
 		compatible = "mediatek,camera_af_lens";
 	};
@@ -4756,6 +4791,13 @@ transparent_hugepage=never";
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
 	};
+
+/* N19A code for HQ-354070 by gaobowei at 2023/12/07 start */
+	simtray: simtray {
+		compatible = "simtray-status";
+		status-gpio = <&pio 18 0x0>;
+	};
+/* N19A code for HQ-354070 by gaobowei at 2023/12/07 end */
 
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
@@ -4981,12 +5023,53 @@ transparent_hugepage=never";
 		adapter_name = "pd_adapter";
 	};
 
+	/* N19A code for HQ-353528 by p-hankang1 at 20231206 start */
+	hq_chg_manager:hq_chg_manager {
+		compatible = "huaqin,hq_chg_manager";
+		usb = <&usb>;
+		status = "disabled";
+	};
+	hq_cp_policy:hq_cp_policy {
+		compatible = "huaqin,hq_cp_policy";
+		status = "disabled";
+	};
+	hq_qc_policy:hq_qc_policy {
+		compatible = "huaqin,hq_qc_policy";
+		status = "disabled";
+	};
+
+	hq_pd_adapter: hq_pd_adapter {
+		compatible = "huaqin,pd_adapter";
+		status = "disabled";
+	};
+	xm_pd_adapter:xm_pd_adapter {
+		compatible = "xiaomi,pd_adapter";
+		status = "disabled";
+	};
+	/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 start */
+	onewire_gpio: onewire_gpio {
+		status = "disabled";
+	};
+	maxim_ds28e16: maxim_ds28e16 {
+		status = "disabled";
+	};
+	acl_slg: acl_slg {
+		status = "disabled";
+	};
+	st_stick: st_stick {
+		status = "disabled";
+	};
+	/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 end */
+	/* N19A code for HQ-353528 by p-hankang1 at 20231206 end */
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		charger = <&mt6370_chg>;
-		vbus-supply = <&otg_vbus>;
-		vbus-voltage = <5000000>;
-		vbus-current = <1800000>;
+		/* N19A code for HQ-353528 by p-hankang1 at 20231206 start */
+		//vbus-supply = <&otg_vbus>;
+		//vbus-voltage = <5000000>;
+		//vbus-current = <1800000>;
+                /* N19A code for HQ-353528 by p-hankang1 at 20231206 end */
 		tcpc = "type_c_port0";
 		mediatek,bypss-typec-sink = <1>;
 		mediatek,u2;
@@ -5028,20 +5111,15 @@ transparent_hugepage=never";
 	};
 
 	touch: touch {
-		compatible = "goodix,touch";
+		compatible = "novatek,NVT-ts-spi","focaltech,fts";
 	};
 
-	nfc:nfc {
-		compatible = "mediatek,nfc-gpio-v2";
-		gpio-rst = <159>;
-		gpio-rst-std = <&pio 159 0x0>;
-		gpio-irq = <9>;
-		gpio-irq-std = <&pio 9 0x0>;
+	xiaomi_touch{
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
 	};
 
-	irq_nfc: irq_nfc {
-		compatible = "mediatek,irq_nfc-eint";
-	};
 	/* NFC end */
 
 	smart_pa: smart_pa {
@@ -5545,10 +5623,6 @@ transparent_hugepage=never";
 	regulator-always-on;
 };
 
-&mt_pmic_vio28_ldo_reg {
-	regulator-always-on;
-};
-
 &mt_pmic_va12_ldo_reg {
 	regulator-always-on;
 };
@@ -5565,4 +5639,6 @@ transparent_hugepage=never";
 	md_vmodem-supply = <&mt_pmic_vmodem_buck_reg>;
 	md_vmodem = <750000 750000>;
 };
+
+
 

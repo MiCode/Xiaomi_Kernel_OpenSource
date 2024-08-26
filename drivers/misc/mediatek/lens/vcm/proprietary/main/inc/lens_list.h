@@ -373,4 +373,44 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
 
+#define GT9764BAF_SetI2Cclient GT9764BAF_SetI2Cclient_Main
+#define GT9764BAF_Ioctl GT9764BAF_Ioctl_Main
+#define GT9764BAF_Release GT9764BAF_Release_Main
+#define GT9764BAF_PowerDown GT9764BAF_PowerDown_Main
+#define GT9764BAF_GetFileName GT9764BAF_GetFileName_Main
+extern int GT9764BAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+                                spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long GT9764BAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+                                unsigned long a_u4Param);
+extern int GT9764BAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int GT9764BAF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+                                int *pAF_Opened);
+extern int GT9764BAF_GetFileName(unsigned char *pFileName);
+extern struct regulator *regulator_get_regVCAMAF(void);
+
+/*N19A code for HQ-357412 by wangjie at 2012/12/12 start*/
+#define MOON_PD9302AVAF_SetI2Cclient MOON_PD9302AVAF_SetI2Cclient_Main
+#define MOON_PD9302AVAF_Ioctl MOON_PD9302AVAF_Ioctl_Main
+#define MOON_PD9302AVAF_Release MOON_PD9302AVAF_Release_Main
+#define MOON_PD9302AVAF_GetFileName MOON_PD9302AVAF_GetFileName_Main
+extern int MOON_PD9302AVAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+                                spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long MOON_PD9302AVAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+                                unsigned long a_u4Param);
+extern int MOON_PD9302AVAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int MOON_PD9302AVAF_GetFileName(unsigned char *pFileName);
+/*N19A code for HQ-357412 by wangjie at 2012/12/12 end*/
+
+/*N19A code for HQ-357413 by wangjie at 2012/12/27 start*/
+#define MOON_PD9302AC6HAF_SetI2Cclient MOON_PD9302AC6HAF_SetI2Cclient_Main
+#define MOON_PD9302AC6HAF_Ioctl MOON_PD9302AC6HAF_Ioctl_Main
+#define MOON_PD9302AC6HAF_Release MOON_PD9302AC6HAF_Release_Main
+#define MOON_PD9302AC6HAF_GetFileName MOON_PD9302AC6HAF_GetFileName_Main
+extern int MOON_PD9302AC6HAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+                                spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long MOON_PD9302AC6HAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+                                unsigned long a_u4Param);
+extern int MOON_PD9302AC6HAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int MOON_PD9302AC6HAF_GetFileName(unsigned char *pFileName);
+/*N19A code for HQ-357413 by wangjie at 2012/12/27 end*/
 #endif

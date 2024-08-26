@@ -1,0 +1,5 @@
+config BC12
+        tristate "software bc12 protocol"
+        default n
+        help
+          If you say yes here you will get support for the software bc12 protocol.

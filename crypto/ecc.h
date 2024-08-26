@@ -26,13 +26,25 @@
 #ifndef _CRYPTO_ECC_H
 #define _CRYPTO_ECC_H
 
+/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 start */
+#include <crypto/ecc_curve.h>
+#include <asm/unaligned.h>
+#include <linux/types.h>
+/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 end */
+
 /* One digit is u64 qword. */
 #define ECC_CURVE_NIST_P192_DIGITS  3
 #define ECC_CURVE_NIST_P256_DIGITS  4
+/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 */
+#define ECC_CURVE_NIST_P384_DIGITS  6
 #define ECC_MAX_DIGITS             (512 / 64)
 
 #define ECC_DIGITS_TO_BYTES_SHIFT 3
+/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 start */
+#define ECC_MAX_BYTES (ECC_MAX_DIGITS << ECC_DIGITS_TO_BYTES_SHIFT)
+#define ECC_POINT_INIT(x, y, ndigits)	(struct ecc_point) { x, y, ndigits }
 
+#if 0
 /**
  * struct ecc_point - elliptic curve point in affine coordinates
  *
@@ -45,8 +57,6 @@ struct ecc_point {
 	u64 *y;
 	u8 ndigits;
 };
-
-#define ECC_POINT_INIT(x, y, ndigits)	(struct ecc_point) { x, y, ndigits }
 
 /**
  * struct ecc_curve - definition of elliptic curve
@@ -69,6 +79,16 @@ struct ecc_curve {
 	u64 *a;
 	u64 *b;
 };
+#endif
+
+static inline void ecc_swap_digits(const void *in, u64 *out, unsigned int ndigits)
+{
+	const __be64 *src = (__force __be64 *)in;
+	int i;
+	for (i = 0; i < ndigits; i++)
+		out[i] = get_unaligned_be64(&src[ndigits - 1 - i]);
+}
+/* N19A code for HQ-360184 by p-wumingzhu1 at 20240103 end */
 
 /**
  * ecc_is_key_valid() - Validate a given ECDH private key

@@ -420,6 +420,11 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	tcpc->desc = *tcpc_desc;
 	tcpc->ops = ops;
 	tcpc->typec_local_rp_level = tcpc_desc->rp_lvl;
+/* N19A code for HQ-380111 by p-yanzelin at 20240423 start */
+#if defined(CONFIG_PR_SWAP_FOR_NU6601)
+	tcpc->g_flag_role_swap = false;
+#endif
+/* N19A code for HQ-380111 by p-yanzelin at 20240423 end */
 
 #if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	tcpc->tcpc_vconn_supply = tcpc_desc->vconn_supply;

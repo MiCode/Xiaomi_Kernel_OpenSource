@@ -1,0 +1,105 @@
+/* FINGERPRINT start */
+&spi2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	gf_spi@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		gf,enable-wakeup;
+		spi-max-frequency = <10000000>;
+		netlink-event = <30>;
+		status = "okay";
+	};
+};
+
+&silead_fp {
+	pinctrl-names = "default","reset_high","reset_low","spi_mode", "irq_rst-low", "irq_rst-high","avdd-enable","avdd-disable";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_spi_mode>;
+	pinctrl-4 = <&fingerprint_irq_rst_low>;
+	pinctrl-5 = <&fingerprint_irq_rst_high>;
+	pinctrl-6 = <&fingerprint_vdd_high>;
+	pinctrl-7 = <&fingerprint_vdd_low>;
+	interrupt-parent = <&pio>;
+	interrupts = <4 0>;
+	int_gpio = <&pio 4 0>;
+	status = "okay";
+};
+
+&goodix_fp {
+	gf,gpio_irq = <&pio 4 0>;
+	pinctrl-names = "default","reset_high","reset_low","spi_mode", "irq_rst-low", "irq_rst-high","vdd_high","vdd_low";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_spi_mode>;
+	pinctrl-4 = <&fingerprint_irq_rst_low>;
+	pinctrl-5 = <&fingerprint_irq_rst_high>;
+	pinctrl-6 = <&fingerprint_vdd_high>;
+	pinctrl-7 = <&fingerprint_vdd_low>;
+	status = "okay";
+};
+&pio {
+	fingerprint_default: state_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_spi_mode:spi_mode{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO27__FUNC_SPI2_CLK>,
+				<PINMUX_GPIO25__FUNC_SPI2_CSB>,
+				<PINMUX_GPIO26__FUNC_SPI2_MO>,
+				<PINMUX_GPIO28__FUNC_SPI2_MI>;
+			drive-strength = <2>;
+		};
+	};
+	fingerprint_irq_rst_high: state_irq_to_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_irq_rst_low: state_irq_to_reset_low {
+		pins_cmd_dat {
+		pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
+		slew-rate = <1>;
+		output-low;
+		};
+	};
+	fingerprint_vdd_high: state_vdd_high {
+		pins_cmd_dat {
+		pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+		slew-rate = <1>;
+		output-high;
+		};
+	};
+	fingerprint_vdd_low: state_vdd_low {
+		pins_cmd_dat {
+		pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+		slew-rate = <1>;
+		output-low;
+		};
+	};
+};
+/* FINGERPRINT end */

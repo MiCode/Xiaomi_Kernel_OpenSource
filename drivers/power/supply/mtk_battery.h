@@ -17,6 +17,17 @@
 #include <linux/wait.h>
 #include <linux/ktime.h>
 #include "mtk_gauge.h"
+/* N19A code for HQ-353528 by hankang at 20231208 start */
+#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+#include "./hq_chg/charger_class/hq_fg_class.h"
+#endif
+/* N19A code for HQ-353528 by hankang at 20231208 end */
+
+/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+#include "./hq_chg/charger_class/hq_charger_class.h"
+#include "./hq_chg/common/hq_voter.h"
+#include "./hq_chg/hq_printk.h"
+/*N19A code for HQ-369185 by wuwencheng at 20240128 end */
 
 
 #define NETLINK_FGD 26
@@ -34,6 +45,21 @@
 #define BMLOG_DEBUG_LEVEL   7
 #define BMLOG_TRACE_LEVEL   8
 
+/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+#define RECHARGE_UISOC			97
+#define FFC_SMOOTH_LEN			4
+
+struct ffc_smooth {
+	int curr_lim;
+	int time;
+};
+
+enum smooth_flag{
+	LOW_FAST_NORMAL = 0,
+	LOW_FAST_IN = 1,
+	LOW_FAST_SWITCH = 2,
+};
+/*N19A code for HQ-369185 by wuwencheng at 20240128 end */
 #define BMLOG_DEFAULT_LEVEL BMLOG_DEBUG_LEVEL
 
 #define bm_err(fmt, args...)   \
@@ -129,6 +155,8 @@ struct battery_data {
 	/* Add for Battery Service */
 	int bat_batt_vol;
 	int bat_batt_temp;
+	/*N17 code for HQ-308499 by liyanhao at 2023/08/10 start*/
+	int final_capacity;
 };
 
 struct VersionControl {
@@ -899,6 +927,11 @@ struct mtk_battery {
 	struct mtk_coulomb_service cs;
 	struct mtk_gauge *gauge;
 	struct sock *mtk_battery_sk;
+	/* N19A code for HQ-353528 by hankang at 20231208 start */
+	#if IS_ENABLED(CONFIG_HUAQIN_CHARGER_CLASS)
+	struct fuel_gauge_dev *fuel_gauge;
+	#endif
+	/* N19A code for HQ-353528 by hankang at 20231208 end */
 
 	struct mtk_battery_algo algo;
 
@@ -1070,12 +1103,19 @@ struct mtk_battery {
 	int enable_tmp_intr_suspend;
 	struct battery_temperature_table rbat;
 	struct fg_temp *tmp_table;
+	int fake_bat_cycle;
 
 	void (*shutdown)(struct mtk_battery *gm);
 	int (*suspend)(struct mtk_battery *gm, pm_message_t state);
 	int (*resume)(struct mtk_battery *gm);
+	/* N19A code for HQ-369417 by hankang at 20240127 start */
+	int board_id;
+	struct device_node *boardid_node;
+	/* N19A code for HQ-369417 by hankang at 20240127 end */
 
 	int log_level;
+	/*N19A code for HQ-369185 by wuwencheng at 20240128 start */
+	enum smooth_flag s_flag;
 };
 
 struct mtk_battery_sysfs_field_info {

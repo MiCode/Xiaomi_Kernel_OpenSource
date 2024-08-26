@@ -1,0 +1,1 @@
+obj-$(CONFIG_BC12)				+= bc12/
