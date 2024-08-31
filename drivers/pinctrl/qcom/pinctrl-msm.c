@@ -835,6 +835,23 @@ static void msm_gpio_log_pin_status(struct gpio_chip *chip, unsigned int offset)
 	msm_gpio_pin_status_get(pctrl, g, offset, &is_out, &func,
 					&drive, &pull, &egpio_enable, &val);
 
+	if (func != 0)
+		return;
+
+	//out high
+	if (is_out && val == 0)
+		return;
+	if (!is_out) {
+		if (val == 0) {
+			//in low and pull up
+			if (strcmp(pctrl->soc->pull_no_keeper ? pulls_no_keeper[pull] : pulls_keeper[pull], "pull up"))
+				return;
+		} else {
+			//in hight and pull down
+			if (strcmp(pctrl->soc->pull_no_keeper ? pulls_no_keeper[pull] : pulls_keeper[pull], "pull down"))
+				return;
+		}
+	}
 	printk_deferred("%s: %s, %s, func%d, %dmA, %s\n",
 			g->name, is_out ? "out" : "in",
 			val ? "high" : "low", func,

@@ -91,7 +91,10 @@
 #define VLED_MAX_DEFAULT_UV			3500000
 
 #define LED_MASK_ALL(led)		GENMASK(led->max_channels - 1, 0)
-
+// MIUI ADD: Camera_HWCapabilityLimit
+// < custom torch node current level number >
+#define TORCH_MAX_CURRENT_LEVEL_NUM		10
+// END Camera_HWCapabilityLimit
 enum flash_led_type {
 	FLASH_LED_TYPE_UNKNOWN,
 	FLASH_LED_TYPE_FLASH,
@@ -116,10 +119,27 @@ enum thermal_levels {
 	OTST2_IDX,
 	OTST_MAX,
 };
-
+// MIUI ADD: Camera_HWCapabilityLimit
+// < max_currents: max current in MA >
+// < time_for_currents: max duration in MS,  corresponding to max_currents >
+// < num_current: number of max_currents or time_for_currents element >
+// < always_on_max_current: the max current of the flashlight that is always on >
+struct custom_max_current {
+	u32				max_currents[TORCH_MAX_CURRENT_LEVEL_NUM];
+	u32				time_for_currents[TORCH_MAX_CURRENT_LEVEL_NUM];
+	u8				num_current;
+	u32				always_on_max_current;
+};
+// END Camera_HWCapabilityLimit
 struct flash_node_data {
 	struct qti_flash_led		*led;
 	struct led_classdev_flash	fdev;
+// MIUI ADD: Camera_HWCapabilityLimit
+// < custom_max_cur: custom max current info >
+// < max_duration: max lighting duration of flash node >
+	struct custom_max_current	custom_max_cur;
+	u32				max_duration;
+// END Camera_HWCapabilityLimit
 	u32				ires_ua;
 	u32				default_ires_ua;
 	u32				user_current_ma;
@@ -566,16 +586,57 @@ static int __qti_flash_led_brightness_set(struct led_classdev *led_cdev,
 
 	return rc;
 }
-
+// MIUI ADD: Camera_HWCapabilityLimit
+/**
+ * check_current_with_time
+ * @brief  limit user current according to off_time
+ * @param  fnode: flash or torch node, it saved user current in mA
+ *         off_time_ms: max duration of flash lighting
+ * @return None
+ */
+static void check_current_with_time(struct flash_node_data *fnode, u64 off_time_ms)
+{
+	int i;
+	u32 pick_max_current = 0;
+	if(0 == off_time_ms) {
+		pick_max_current = fnode->custom_max_cur.always_on_max_current;
+	} else {
+		for(i = 0; i < fnode->custom_max_cur.num_current; i++) {
+			if(off_time_ms <= fnode->custom_max_cur.time_for_currents[i]) {
+				break;
+			}
+		}
+		if(i == fnode->custom_max_cur.num_current) {
+			pick_max_current = fnode->custom_max_cur.always_on_max_current;
+		} else {
+			pick_max_current = fnode->custom_max_cur.max_currents[i];
+		}
+	}
+	if(pick_max_current > 0 && fnode->user_current_ma > pick_max_current) {
+		pr_err("%s:%d modify flash LED fnode[%d] current from %u to %u\n",
+					__func__, __LINE__, fnode->id, fnode->user_current_ma, pick_max_current);
+		fnode->user_current_ma = pick_max_current;
+	}
+}
+// END Camera_HWCapabilityLimit
 static int qti_flash_config_group_symmetry(struct qti_flash_led *led,
 					   enum flash_led_type type,
-					   u32 led_mask)
+					   u32 led_mask,
+// MIUI ADD: Camera_HWCapabilityLimit
+					   u64 off_time_ms)
+// END Camera_HWCapabilityLimit
 {
 	int i, rc = 0, total_curr_ma = 0, symmetric_leds = 0, per_led_curr_ma;
 
 	for (i = 0; i < led->num_fnodes; i++) {
 		if ((led_mask & BIT(led->fnode[i].id)) &&
 			(led->fnode[i].type == type)) {
+// MIUI ADD: Camera_HWCapabilityLimit
+// < if custom max current info is available, will call check_current_with_time >
+			if(led->fnode[i].custom_max_cur.num_current > 0) {
+				check_current_with_time(&led->fnode[i], off_time_ms);
+			}
+// END Camera_HWCapabilityLimit
 			total_curr_ma += led->fnode[i].user_current_ma;
 			symmetric_leds++;
 		}
@@ -631,14 +692,20 @@ static int qti_flash_led_symmetry_config(struct flash_switch_data *snode)
 		for (i = 0; i < led->num_snodes; i++) {
 			if (led->snode[i].led_mask != LED_MASK_ALL(led)) {
 				rc = qti_flash_config_group_symmetry(led, type,
-						led->snode[i].led_mask);
+						led->snode[i].led_mask,
+// MIUI ADD: Camera_HWCapabilityLimit
+						snode[i].off_time_ms);
+// END Camera_HWCapabilityLimit
 				if (rc < 0)
 					return rc;
 			}
 		}
 	} else {
 		rc = qti_flash_config_group_symmetry(led, type,
-				snode->led_mask);
+				snode->led_mask,
+// MIUI ADD: Camera_HWCapabilityLimit
+				snode->off_time_ms);
+// END Camera_HWCapabilityLimit
 	}
 
 	return rc;
@@ -785,6 +852,9 @@ static void qti_flash_led_switch_brightness_set(
 	struct flash_switch_data *snode = NULL;
 	int rc = 0;
 	bool state = value > 0;
+	// MIUI ADD: Camera_HWCapabilityLimit
+	ktime_t time_rem;
+	// END Camera_HWCapabilityLimit
 
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 
@@ -806,6 +876,13 @@ static void qti_flash_led_switch_brightness_set(
 
 		rc = qti_flash_switch_enable(snode);
 	} else {
+		// MIUI ADD: Camera_HWCapabilityLimit
+		// < if user switch off is befor than timer callback, cancel timer >
+		time_rem = hrtimer_get_remaining(&snode->off_timer);
+		if (ktime_to_us(time_rem) > 0) {
+			hrtimer_cancel(&snode->off_timer);
+		}
+		// END Camera_HWCapabilityLimit
 		rc = qti_flash_switch_disable(snode);
 	}
 
@@ -837,7 +914,10 @@ static enum hrtimer_restart off_timer_function(struct hrtimer *timer)
 	struct flash_switch_data *snode = container_of(timer,
 			struct flash_switch_data, off_timer);
 	int rc = 0;
-
+// MIUI ADD: Camera_HWCapabilityLimit
+	pr_warn("%s:%d off timer timeout, disable flash LED switch %s\n",
+			__func__, __LINE__, snode->cdev.name);
+// END Camera_HWCapabilityLimit
 	rc = qti_flash_switch_disable(snode);
 	if (rc < 0)
 		pr_err("Failed to disable flash LED switch %s, rc=%d\n",
@@ -1188,8 +1268,10 @@ static ssize_t qti_flash_off_time_store(struct device *dev,
 	rc = kstrtou64(buf, 0, &val);
 	if (rc < 0)
 		return rc;
-
-	val = min_t(u64, val, SAFETY_TIMER_MAX_TIMEOUT_MS);
+// MIUI DEL: Camera_HWCapabilityLimit
+// < torch node needs to use the value greater than SAFETY_TIMER_MAX_TIMEOUT_MS >
+	//val = min_t(u64, val, SAFETY_TIMER_MAX_TIMEOUT_MS);
+// END Camera_HWCapabilityLimit
 
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 	snode->off_time_ms = val;
@@ -1308,6 +1390,10 @@ static int qti_flash_timeout_set(struct led_classdev_flash *fdev,
 	}
 
 	timeout = timeout / 1000;
+// MIUI ADD: Camera_HWCapabilityLimit
+// < add flash node max duration limit >
+	timeout = min(fnode->max_duration, timeout);
+// END Camera_HWCapabilityLimit
 
 	rc = timeout_to_code(timeout);
 	if (rc < 0)
@@ -1523,6 +1609,127 @@ sysfs_fail:
 			&qti_flash_led_attrs[i--].attr);
 	return rc;
 }
+// MIUI ADD: Camera_HWCapabilityLimit
+/**
+ * filte_available_current_value
+ * @brief  filter available current value
+ * @param  fnode: torch node
+ * @return None
+ */
+void filte_available_current_value(struct flash_node_data *fnode)
+{
+	int index = 0;
+	for(index = 0; index < fnode->custom_max_cur.num_current; index++) {
+		if(0 == fnode->custom_max_cur.max_currents[index]) {
+			//if current value == 0, delete this group
+			fnode->custom_max_cur.max_currents[index] =
+				fnode->custom_max_cur.max_currents[fnode->custom_max_cur.num_current - 1];
+			fnode->custom_max_cur.time_for_currents[index] =
+				fnode->custom_max_cur.time_for_currents[fnode->custom_max_cur.num_current - 1];
+			index --;
+			fnode->custom_max_cur.num_current--;
+		} else if(fnode->custom_max_cur.max_currents[index] > fnode->max_current) {
+			fnode->custom_max_cur.max_currents[index] = fnode->max_current;
+		}
+	}
+}
+
+/**
+ * sort_with_time
+ * @brief  sort current and time value, by time value from small to large
+ * @param  currents: custom max current info
+ * @return None
+ */
+void sort_with_time(struct custom_max_current *currents)
+{
+	int i, j, temp_time, temp_current;
+	for(i = 1; i < currents->num_current; i++) {
+		j = i;
+		temp_current = currents->max_currents[i];
+		temp_time = currents->time_for_currents[i];
+		while(j > 0 && currents->time_for_currents[j-1] > temp_time) {
+			//If need to swap positions, move both the time and current values
+			currents->time_for_currents[j] = currents->time_for_currents[j-1];
+			currents->max_currents[j] = currents->max_currents[j-1];
+			j--;
+		}
+		currents->time_for_currents[j] = temp_time;
+		currents->max_currents[j] = temp_current;
+	}
+}
+/**
+ * get_custom_max_current
+ * @brief  get custom max current configuretion from dtsi
+ * @param  fnode: current flash or torch node
+ *         node: device tree node
+ * @return None
+ */
+void get_custom_max_current(struct flash_node_data *fnode, struct device_node *node)
+{
+	int rc, count;
+	u32 val;
+
+	if(FLASH_LED_TYPE_FLASH == fnode->type) {
+		fnode->max_duration = SAFETY_TIMER_MAX_TIMEOUT_MS;
+		rc = of_property_read_u32(node, "xiaomi,max-duration-ms", &val);
+		if (!rc && (val >= SAFETY_TIMER_MIN_TIMEOUT_MS &&
+				val <= SAFETY_TIMER_MAX_TIMEOUT_MS)) {
+			fnode->max_duration = val;
+		}
+		return;
+	}
+
+	//Step 1: Get the number of the max currents from dtsi, maximum number is 10
+	count = of_property_count_u32_elems(node, "xiaomi,currents-with-time");
+	if (count <= 0) {
+		pr_warn("flash led no custom max current count found");
+		count = 0;
+	} else if (count > TORCH_MAX_CURRENT_LEVEL_NUM) {
+		pr_warn("flash led custom max current only can load %d number",
+				TORCH_MAX_CURRENT_LEVEL_NUM);
+		count = TORCH_MAX_CURRENT_LEVEL_NUM;
+	}
+	fnode->custom_max_cur.num_current = count;
+	if(0 == fnode->custom_max_cur.num_current) {
+		return;
+	}
+
+	//Step 2: read max currents value from dtsi, if read failed, set num_current to 0,
+	//indicating that the custom max current info data is invalid.
+	rc = of_property_read_u32_array(node, "xiaomi,currents-with-time",
+			fnode->custom_max_cur.max_currents, fnode->custom_max_cur.num_current);
+	if (rc) {
+		pr_err("%s:%d flash led load currents-with-time error:%d, modify num_current(%d) to 0\n",
+							__func__, __LINE__, rc, fnode->custom_max_cur.num_current);
+		fnode->custom_max_cur.num_current = 0;
+		return;
+	}
+
+	//Step 3: read the max lighting duration one-to-one corresponding to the max currents value,
+	//if read failed, set num_current to 0, indicating that the custom max current info data is invalid.
+	rc = of_property_read_u32_array(node, "xiaomi,time-for-currents",
+		fnode->custom_max_cur.time_for_currents, fnode->custom_max_cur.num_current);
+	if (rc) {
+		pr_err("%s:%d flash led load time-for-currents error:%d, modify num_current(%d) to 0\n",
+						__func__, __LINE__, rc, fnode->custom_max_cur.num_current);
+		fnode->custom_max_cur.num_current = 0;
+		return;
+	}
+
+	//Step 4: check current value
+	filte_available_current_value(fnode);
+
+	//Step 5: Sort current and time value
+	sort_with_time(&fnode->custom_max_cur);
+
+	//Step 6: Read the max current value of the flash always on,
+	//if read failed, use the last value in max_currents
+	if (fnode->custom_max_cur.num_current > 0) {
+		fnode->custom_max_cur.always_on_max_current =
+			fnode->custom_max_cur.max_currents[fnode->custom_max_cur.num_current-1];
+	}
+}
+// END Camera_HWCapabilityLimit
 
 static int register_flash_device(struct qti_flash_led *led,
 			struct flash_node_data *fnode, struct device_node *node)
@@ -1605,11 +1812,13 @@ static int register_flash_device(struct qti_flash_led *led,
 
 	fnode->max_current = val;
 	fnode->fdev.led_cdev.max_brightness = val;
-
+// MIUI ADD: Camera_HWCapabilityLimit
+	get_custom_max_current(fnode, node);
+// END Camera_HWCapabilityLimit
 	duration = SAFETY_TIMER_DEFAULT_TIMEOUT_MS;
 	rc = of_property_read_u32(node, "qcom,duration-ms", &val);
 	if (!rc && (val >= SAFETY_TIMER_MIN_TIMEOUT_MS &&
-			val <= SAFETY_TIMER_MAX_TIMEOUT_MS))
+			val <= fnode->max_duration))
 		duration = val;
 
 	rc = timeout_to_code(duration);
@@ -1657,7 +1866,11 @@ static int register_flash_device(struct qti_flash_led *led,
 
 	setting = &fnode->fdev.timeout;
 	setting->min = 0;
-	setting->max = SAFETY_TIMER_MAX_TIMEOUT_MS * 1000;
+// MIUI MOD: Camera_HWCapabilityLimit
+// < add for limit flash node max lightning duration >
+	//setting->max = SAFETY_TIMER_MAX_TIMEOUT_MS * 1000;
+	setting->max = fnode->max_duration * 1000;
+// END Camera_HWCapabilityLimit
 	setting->step = SAFETY_TIMER_STEP_SIZE * 1000;
 	setting->val = SAFETY_TIMER_DEFAULT_TIMEOUT_MS * 1000;
 

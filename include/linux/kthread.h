@@ -98,6 +98,7 @@ void kthread_unpark(struct task_struct *k);
 void kthread_parkme(void);
 void kthread_exit(long result) __noreturn;
 void kthread_complete_and_exit(struct completion *, long) __noreturn;
+#define complete_and_exit(c, s) kthread_complete_and_exit(c, s)
 
 int kthreadd(void *unused);
 extern struct task_struct *kthreadd_task;

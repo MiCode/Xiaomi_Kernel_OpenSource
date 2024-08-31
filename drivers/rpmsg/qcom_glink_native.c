@@ -24,6 +24,7 @@
 #include <linux/suspend.h>
 #include <linux/termios.h>
 #include <linux/ipc_logging.h>
+#include <linux/wakeup_reason.h>
 
 #include "rpmsg_internal.h"
 #include "qcom_glink_native.h"
@@ -1512,6 +1513,7 @@ static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 		glink_resume_pkt = true;
 		should_wake = false;
 		pm_system_wakeup();
+		log_abnormal_wakeup_reason("%s\n", glink->irqname);
 	}
 
 	spin_lock_irqsave(&glink->irq_lock, flags);

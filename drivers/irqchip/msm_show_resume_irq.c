@@ -27,7 +27,7 @@
 #define gic_data_rdist_sgi_base() (gic_data_rdist_rd_base() + SZ_64K)
 
 static void __iomem *base;
-static int msm_show_resume_irq_mask;
+static int msm_show_resume_irq_mask = 1;
 module_param_named(debug_mask, msm_show_resume_irq_mask, int, 0664);
 
 static bool hibernation;

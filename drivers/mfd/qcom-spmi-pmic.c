@@ -232,6 +232,8 @@ static const struct regmap_config spmi_regmap_can_sleep_config = {
 	.fast_io	= false,
 };
 
+extern void mi_power_regmap_register(struct regmap *regmap);
+
 static int pmic_spmi_probe(struct spmi_device *sdev)
 {
 	struct device_node *root = sdev->dev.of_node;
@@ -248,6 +250,10 @@ static int pmic_spmi_probe(struct spmi_device *sdev)
 		return PTR_ERR(regmap);
 
 	devm_regmap_qti_debugfs_register(&sdev->dev, regmap);
+
+	//just /d/regmap/0-00 for main pmic
+	if (!strcmp(dev_name(&sdev->dev), "0-00"))
+		mi_power_regmap_register(regmap);
 
 	ctx = devm_kzalloc(&sdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)

@@ -8,3 +8,5 @@ sched-walt-$(CONFIG_SCHED_WALT) := walt.o boost.o sched_avg.o walt_halt.o core_c
 
 obj-$(CONFIG_SCHED_WALT_DEBUG) += sched-walt-debug.o
 sched-walt-debug-$(CONFIG_SCHED_WALT_DEBUG) := walt_debug.o preemptirq_long.o
+obj-$(CONFIG_SCHED_WALT) += sched-penalty.o
+sched-penalty-$(CONFIG_SCHED_WALT) := penalty.o trace_penalty.o

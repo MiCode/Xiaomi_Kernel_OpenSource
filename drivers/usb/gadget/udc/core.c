@@ -1370,6 +1370,8 @@ int usb_add_gadget(struct usb_gadget *gadget)
 
 	udc->started = false;
 
+	pr_info("%s : add one udc !\n", __func__);
+
 	mutex_lock(&udc_lock);
 	list_add_tail(&udc->list, &udc_list);
 	mutex_unlock(&udc_lock);

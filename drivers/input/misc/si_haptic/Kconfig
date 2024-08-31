@@ -1,0 +1,4 @@
+config SIH_VIBRATOR
+    tristate "SI Vibrator driver"
+    help 
+    SI Vibrator driver

@@ -12,9 +12,14 @@
 #include <linux/qcom_scm.h>
 #include <linux/qtee_shmbridge.h>
 
-#include <ufs/ufshcd-crypto.h>
 #include <linux/crypto-qti-common.h>
 #include "ufs-qcom.h"
+
+#ifdef CONFIG_MI_UFS_MODULE
+#include "../../mi_ufs/include/ufshcd-crypto-qti.h"
+#else
+#include <ufs/ufshcd-crypto-qti.h>
+#endif
 
 #define AES_256_XTS_KEY_SIZE			64
 

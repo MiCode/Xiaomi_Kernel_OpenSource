@@ -20,6 +20,10 @@
 #define CLIENT_ID_PROP "qcom,client-id"
 #define MPSS_RMTS_CLIENT_ID 1
 
+static bool cma_already_panic;
+module_param(cma_already_panic, bool, 0644);
+MODULE_PARM_DESC(cma_already_panic, "Indicates that a cma alloc fail panic has occurred before");
+
 static int uio_get_mem_index(struct uio_info *info, struct vm_area_struct *vma)
 {
 	if (vma->vm_pgoff >= MAX_UIO_MAPS)
@@ -127,6 +131,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 	bool is_addr_dynamic = false;
 	bool guard_memory = false;
 	bool vm_nav_path = false;
+	u32 retry_count = 0;
 
 	/* Get the addresses from platform-data */
 	if (!pdev->dev.of_node) {
@@ -176,12 +181,32 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 		shared_mem_tot_sz = guard_memory ? shared_mem_size + SZ_8K :
 					shared_mem_size;
 
-		shared_mem = dma_alloc_coherent(&pdev->dev, shared_mem_tot_sz,
+		pr_err("cma_already_panic = %d \n", cma_already_panic);
+
+		for(retry_count = 0; retry_count < 5;retry_count++ ) {
+
+			shared_mem = dma_alloc_coherent(&pdev->dev, shared_mem_tot_sz,
 					&shared_mem_pyhsical, GFP_KERNEL);
-		if (shared_mem == NULL) {
-			pr_err("failed to alloc memory %d\n", shared_mem_tot_sz);
-			return -ENOMEM;
+
+			if (shared_mem == NULL) {
+				pr_err("failed to alloc memory = %d, fail times = %d \n", shared_mem_tot_sz,retry_count+1);
+
+				if ( retry_count == 4) {
+					if(cma_already_panic == true)
+						return -ENOMEM;
+					else
+						panic("panic for failing to allocate cma memory");
+				}
+				else {
+					set_current_state(TASK_INTERRUPTIBLE);
+					schedule_timeout(msecs_to_jiffies(4000));
+				}
+			}
+			else {
+				break;
+			}
 		}
+
 		if (guard_memory)
 			shared_mem_pyhsical += SZ_4K;
 	}

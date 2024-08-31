@@ -1,0 +1,728 @@
+/****************************************************************************
+ * ispv4_busmon_reg.h
+ *
+ *   Copyright (C) 2022 Xiaomi Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name NuttX nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
+#ifndef __ISPV4_BUSMON_REG_H__
+#define __ISPV4_BUSMON_REG_H__
+
+/* ======== Generated code START - Do not modify by hand! ======== */
+
+#define BUSMON_COM_CFG_OFFSET		    0x0000
+#define AUTO_GATE_EN_SHIFT		    4
+#define AUTO_GATE_EN_WIDTH		    1
+#define DEBUG_EN_SHIFT			    3
+#define DEBUG_EN_WIDTH			    1
+#define MATCH_EN_SHIFT			    2
+#define MATCH_EN_WIDTH			    1
+#define PERFM_EN_SHIFT			    1
+#define PERFM_EN_WIDTH			    1
+#define AXI_GRP_SEL_SHIFT		    0
+#define AXI_GRP_SEL_WIDTH		    1
+
+#define BUSMON_INT_CLR_OFFSET		    0x0004
+#define INT_CLR_MATCH_SHIFT		    2
+#define INT_CLR_MATCH_WIDTH		    1
+#define INT_CLR_PERFM_CNT_SHIFT		    1
+#define INT_CLR_PERFM_CNT_WIDTH		    1
+#define INT_CLR_LATCY_BAD_SHIFT		    0
+#define INT_CLR_LATCY_BAD_WIDTH		    1
+
+#define BUSMON_INT_SET_OFFSET		    0x0008
+#define INT_SET_MATCH_SHIFT		    2
+#define INT_SET_MATCH_WIDTH		    1
+#define INT_SET_PERFM_CNT_SHIFT		    1
+#define INT_SET_PERFM_CNT_WIDTH		    1
+#define INT_SET_LATCY_BAD_SHIFT		    0
+#define INT_SET_LATCY_BAD_WIDTH		    1
+
+#define BUSMON_INT_MASK_OFFSET		    0x000C
+#define INT_MASK_MATCH_SHIFT		    2
+#define INT_MASK_MATCH_WIDTH		    1
+#define INT_MASK_PERFM_CNT_SHIFT	    1
+#define INT_MASK_PERFM_CNT_WIDTH	    1
+#define INT_MASK_LATCY_BAD_SHIFT	    0
+#define INT_MASK_LATCY_BAD_WIDTH	    1
+
+#define BUSMON_INT_RAW_OFFSET		    0x0010
+#define INT_RAW_MATCH_SHIFT		    2
+#define INT_RAW_MATCH_WIDTH		    1
+#define INT_RAW_PERFM_CNT_SHIFT		    1
+#define INT_RAW_PERFM_CNT_WIDTH		    1
+#define INT_RAW_LATCY_BAD_SHIFT		    0
+#define INT_RAW_LATCY_BAD_WIDTH		    1
+
+#define BUSMON_INT_REQ_OFFSET		    0x0014
+#define INT_REQ_MATCH_SHIFT		    2
+#define INT_REQ_MATCH_WIDTH		    1
+#define INT_REQ_PERFM_CNT_SHIFT		    1
+#define INT_REQ_PERFM_CNT_WIDTH		    1
+#define INT_REQ_LATCY_BAD_SHIFT		    0
+#define INT_REQ_LATCY_BAD_WIDTH		    1
+
+#define DEBUG_TIMEOUT_TH_OFFSET		    0x0018
+#define DEBUG_TIMEOUT_TH_SHIFT		    0
+#define DEBUG_TIMEOUT_TH_WIDTH		    16
+
+#define MATCH_WIN_CFG_OFFSET		    0x001C
+#define MATCH_ADDR_EXC_EN_SHIFT		    4
+#define MATCH_ADDR_EXC_EN_WIDTH		    1
+#define MATCH_ID_EXC_EN_SHIFT		    3
+#define MATCH_ID_EXC_EN_WIDTH		    1
+#define MATCH_INT_MODE_SHIFT		    2
+#define MATCH_INT_MODE_WIDTH		    1
+#define MATCH_WIN_EN_SHIFT		    1
+#define MATCH_WIN_EN_WIDTH		    1
+#define MATCH_CFG_EN_SHIFT		    0
+#define MATCH_CFG_EN_WIDTH		    1
+
+#define MATCH_MIN_ADDR_H_OFFSET		    0x0020
+#define MATCH_MIN_ADDR_H_SHIFT		    0
+#define MATCH_MIN_ADDR_H_WIDTH		    32
+
+#define MATCH_MIN_ADDR_L_OFFSET		    0x0024
+#define MATCH_MIN_ADDR_L_SHIFT		    0
+#define MATCH_MIN_ADDR_L_WIDTH		    32
+
+#define MATCH_MAX_ADDR_H_OFFSET		    0x0028
+#define MATCH_MAX_ADDR_H_SHIFT		    0
+#define MATCH_MAX_ADDR_H_WIDTH		    32
+
+#define MATCH_MAX_ADDR_L_OFFSET		    0x002C
+#define MATCH_MAX_ADDR_L_SHIFT		    0
+#define MATCH_MAX_ADDR_L_WIDTH		    32
+
+#define MATCH_MIN_ID_OFFSET		    0x0030
+#define MATCH_MIN_ID_SHIFT		    0
+#define MATCH_MIN_ID_WIDTH		    32
+
+#define MATCH_MAX_ID_OFFSET		    0x0034
+#define MATCH_MAX_ID_SHIFT		    0
+#define MATCH_MAX_ID_WIDTH		    32
+
+#define PERFM_WIN_CFG_OFFSET		    0x0038
+#define PERFM_WIN_SW_MODE_SHIFT		    5
+#define PERFM_WIN_SW_MODE_WIDTH		    1
+#define PERFM_WIN_LOOP_MODE_SHIFT	    4
+#define PERFM_WIN_LOOP_MODE_WIDTH	    1
+#define PERFM_WIN_LOOP_EN_SHIFT		    3
+#define PERFM_WIN_LOOP_EN_WIDTH		    1
+#define PERFM_WIN_TRIG_MODE_SHIFT	    2
+#define PERFM_WIN_TRIG_MODE_WIDTH	    1
+#define PERFM_WIN_SW_TRIG_EN_SHIFT	    1
+#define PERFM_WIN_SW_TRIG_EN_WIDTH	    1
+#define PERFM_CFG_EN_SHIFT		    0
+#define PERFM_CFG_EN_WIDTH		    1
+
+#define PERFM_WIN_LEN_OFFSET		    0x003C
+#define PERFM_WIN_LEN_SHIFT		    0
+#define PERFM_WIN_LEN_WIDTH		    32
+
+#define PERFM_LATCY_TH_OFFSET		    0x0040
+#define PERFM_LATCY_TH_SHIFT		    0
+#define PERFM_LATCY_TH_WIDTH		    32
+
+#define PERFM_TIMEOUT_TH_OFFSET		    0x0044
+#define PERFM_TIMEOUT_TH_SHIFT		    0
+#define PERFM_TIMEOUT_TH_WIDTH		    32
+
+#define PERFM_CNT_GRP_EN_OFFSET		    0x0048
+#define PERFM_CNT_GRP_EN_SHIFT		    0
+#define PERFM_CNT_GRP_EN_WIDTH		    8
+
+#define PERFM_CNT_MODE_OFFSET		    0x004C
+#define PERFM_ADDR_EXC_EN0_SHIFT	    31
+#define PERFM_ADDR_EXC_EN0_WIDTH	    1
+#define PERFM_ID_EXC_EN0_SHIFT		    30
+#define PERFM_ID_EXC_EN0_WIDTH		    1
+#define PERFM_ADDR_EXC_EN1_SHIFT	    29
+#define PERFM_ADDR_EXC_EN1_WIDTH	    1
+#define PERFM_ID_EXC_EN1_SHIFT		    28
+#define PERFM_ID_EXC_EN1_WIDTH		    1
+#define PERFM_ADDR_EXC_EN2_SHIFT	    27
+#define PERFM_ADDR_EXC_EN2_WIDTH	    1
+#define PERFM_ID_EXC_EN2_SHIFT		    26
+#define PERFM_ID_EXC_EN2_WIDTH		    1
+#define PERFM_ADDR_EXC_EN3_SHIFT	    25
+#define PERFM_ADDR_EXC_EN3_WIDTH	    1
+#define PERFM_ID_EXC_EN3_SHIFT		    24
+#define PERFM_ID_EXC_EN3_WIDTH		    1
+#define PERFM_ADDR_EXC_EN4_SHIFT	    23
+#define PERFM_ADDR_EXC_EN4_WIDTH	    1
+#define PERFM_ID_EXC_EN4_SHIFT		    22
+#define PERFM_ID_EXC_EN4_WIDTH		    1
+#define PERFM_ADDR_EXC_EN5_SHIFT	    21
+#define PERFM_ADDR_EXC_EN5_WIDTH	    1
+#define PERFM_ID_EXC_EN5_SHIFT		    20
+#define PERFM_ID_EXC_EN5_WIDTH		    1
+#define PERFM_ADDR_EXC_EN6_SHIFT	    19
+#define PERFM_ADDR_EXC_EN6_WIDTH	    1
+#define PERFM_ID_EXC_EN6_SHIFT		    18
+#define PERFM_ID_EXC_EN6_WIDTH		    1
+#define PERFM_ADDR_EXC_EN7_SHIFT	    17
+#define PERFM_ADDR_EXC_EN7_WIDTH	    1
+#define PERFM_ID_EXC_EN7_SHIFT		    16
+#define PERFM_ID_EXC_EN7_WIDTH		    1
+#define PERFM_CNT7_MODE_SHIFT		    14
+#define PERFM_CNT7_MODE_WIDTH		    2
+#define PERFM_CNT6_MODE_SHIFT		    12
+#define PERFM_CNT6_MODE_WIDTH		    2
+#define PERFM_CNT5_MODE_SHIFT		    10
+#define PERFM_CNT5_MODE_WIDTH		    2
+#define PERFM_CNT4_MODE_SHIFT		    8
+#define PERFM_CNT4_MODE_WIDTH		    2
+#define PERFM_CNT3_MODE_SHIFT		    6
+#define PERFM_CNT3_MODE_WIDTH		    2
+#define PERFM_CNT2_MODE_SHIFT		    4
+#define PERFM_CNT2_MODE_WIDTH		    2
+#define PERFM_CNT1_MODE_SHIFT		    2
+#define PERFM_CNT1_MODE_WIDTH		    2
+#define PERFM_CNT0_MODE_SHIFT		    0
+#define PERFM_CNT0_MODE_WIDTH		    2
+
+#define PERFM_MIN_ADDR0_H_OFFSET	    0x0050
+#define PERFM_MIN_ADDR0_H_SHIFT		    0
+#define PERFM_MIN_ADDR0_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR0_L_OFFSET	    0x0054
+#define PERFM_MIN_ADDR0_L_SHIFT		    0
+#define PERFM_MIN_ADDR0_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR0_H_OFFSET	    0x0058
+#define PERFM_MAX_ADDR0_H_SHIFT		    0
+#define PERFM_MAX_ADDR0_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR0_L_OFFSET	    0x005C
+#define PERFM_MAX_ADDR0_L_SHIFT		    0
+#define PERFM_MAX_ADDR0_L_WIDTH		    32
+
+#define PERFM_MIN_ID0_OFFSET		    0x0060
+#define PERFM_MIN_ID0_SHIFT		    0
+#define PERFM_MIN_ID0_WIDTH		    32
+
+#define PERFM_MAX_ID0_OFFSET		    0x0064
+#define PERFM_MAX_ID0_SHIFT		    0
+#define PERFM_MAX_ID0_WIDTH		    32
+
+#define PERFM_MIN_ADDR1_H_OFFSET	    0x0068
+#define PERFM_MIN_ADDR1_H_SHIFT		    0
+#define PERFM_MIN_ADDR1_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR1_L_OFFSET	    0x006C
+#define PERFM_MIN_ADDR1_L_SHIFT		    0
+#define PERFM_MIN_ADDR1_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR1_H_OFFSET	    0x0070
+#define PERFM_MAX_ADDR1_H_SHIFT		    0
+#define PERFM_MAX_ADDR1_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR1_L_OFFSET	    0x0074
+#define PERFM_MAX_ADDR1_L_SHIFT		    0
+#define PERFM_MAX_ADDR1_L_WIDTH		    32
+
+#define PERFM_MIN_ID1_OFFSET		    0x0078
+#define PERFM_MIN_ID1_SHIFT		    0
+#define PERFM_MIN_ID1_WIDTH		    32
+
+#define PERFM_MAX_ID1_OFFSET		    0x007C
+#define PERFM_MAX_ID1_SHIFT		    0
+#define PERFM_MAX_ID1_WIDTH		    32
+
+#define PERFM_MIN_ADDR2_H_OFFSET	    0x0080
+#define PERFM_MIN_ADDR2_H_SHIFT		    0
+#define PERFM_MIN_ADDR2_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR2_L_OFFSET	    0x0084
+#define PERFM_MIN_ADDR2_L_SHIFT		    0
+#define PERFM_MIN_ADDR2_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR2_H_OFFSET	    0x0088
+#define PERFM_MAX_ADDR2_H_SHIFT		    0
+#define PERFM_MAX_ADDR2_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR2_L_OFFSET	    0x008C
+#define PERFM_MAX_ADDR2_L_SHIFT		    0
+#define PERFM_MAX_ADDR2_L_WIDTH		    32
+
+#define PERFM_MIN_ID2_OFFSET		    0x0090
+#define PERFM_MIN_ID2_SHIFT		    0
+#define PERFM_MIN_ID2_WIDTH		    32
+
+#define PERFM_MAX_ID2_OFFSET		    0x0094
+#define PERFM_MAX_ID2_SHIFT		    0
+#define PERFM_MAX_ID2_WIDTH		    32
+
+#define PERFM_MIN_ADDR3_H_OFFSET	    0x0098
+#define PERFM_MIN_ADDR3_H_SHIFT		    0
+#define PERFM_MIN_ADDR3_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR3_L_OFFSET	    0x009C
+#define PERFM_MIN_ADDR3_L_SHIFT		    0
+#define PERFM_MIN_ADDR3_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR3_H_OFFSET	    0x00A0
+#define PERFM_MAX_ADDR3_H_SHIFT		    0
+#define PERFM_MAX_ADDR3_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR3_L_OFFSET	    0x00A4
+#define PERFM_MAX_ADDR3_L_SHIFT		    0
+#define PERFM_MAX_ADDR3_L_WIDTH		    32
+
+#define PERFM_MIN_ID3_OFFSET		    0x00A8
+#define PERFM_MIN_ID3_SHIFT		    0
+#define PERFM_MIN_ID3_WIDTH		    32
+
+#define PERFM_MAX_ID3_OFFSET		    0x00AC
+#define PERFM_MAX_ID3_SHIFT		    0
+#define PERFM_MAX_ID3_WIDTH		    32
+
+#define PERFM_MIN_ADDR4_H_OFFSET	    0x00B0
+#define PERFM_MIN_ADDR4_H_SHIFT		    0
+#define PERFM_MIN_ADDR4_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR4_L_OFFSET	    0x00B4
+#define PERFM_MIN_ADDR4_L_SHIFT		    0
+#define PERFM_MIN_ADDR4_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR4_H_OFFSET	    0x00B8
+#define PERFM_MAX_ADDR4_H_SHIFT		    0
+#define PERFM_MAX_ADDR4_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR4_L_OFFSET	    0x00BC
+#define PERFM_MAX_ADDR4_L_SHIFT		    0
+#define PERFM_MAX_ADDR4_L_WIDTH		    32
+
+#define PERFM_MIN_ID4_OFFSET		    0x00C0
+#define PERFM_MIN_ID4_SHIFT		    0
+#define PERFM_MIN_ID4_WIDTH		    32
+
+#define PERFM_MAX_ID4_OFFSET		    0x00C4
+#define PERFM_MAX_ID4_SHIFT		    0
+#define PERFM_MAX_ID4_WIDTH		    32
+
+#define PERFM_MIN_ADDR5_H_OFFSET	    0x00C8
+#define PERFM_MIN_ADDR5_H_SHIFT		    0
+#define PERFM_MIN_ADDR5_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR5_L_OFFSET	    0x00CC
+#define PERFM_MIN_ADDR5_L_SHIFT		    0
+#define PERFM_MIN_ADDR5_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR5_H_OFFSET	    0x00D0
+#define PERFM_MAX_ADDR5_H_SHIFT		    0
+#define PERFM_MAX_ADDR5_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR5_L_OFFSET	    0x00D4
+#define PERFM_MAX_ADDR5_L_SHIFT		    0
+#define PERFM_MAX_ADDR5_L_WIDTH		    32
+
+#define PERFM_MIN_ID5_OFFSET		    0x00D8
+#define PERFM_MIN_ID5_SHIFT		    0
+#define PERFM_MIN_ID5_WIDTH		    32
+
+#define PERFM_MAX_ID5_OFFSET		    0x00DC
+#define PERFM_MAX_ID5_SHIFT		    0
+#define PERFM_MAX_ID5_WIDTH		    32
+
+#define PERFM_MIN_ADDR6_H_OFFSET	    0x00E0
+#define PERFM_MIN_ADDR6_H_SHIFT		    0
+#define PERFM_MIN_ADDR6_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR6_L_OFFSET	    0x00E4
+#define PERFM_MIN_ADDR6_L_SHIFT		    0
+#define PERFM_MIN_ADDR6_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR6_H_OFFSET	    0x00E8
+#define PERFM_MAX_ADDR6_H_SHIFT		    0
+#define PERFM_MAX_ADDR6_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR6_L_OFFSET	    0x00EC
+#define PERFM_MAX_ADDR6_L_SHIFT		    0
+#define PERFM_MAX_ADDR6_L_WIDTH		    32
+
+#define PERFM_MIN_ID6_OFFSET		    0x00F0
+#define PERFM_MIN_ID6_SHIFT		    0
+#define PERFM_MIN_ID6_WIDTH		    32
+
+#define PERFM_MAX_ID6_OFFSET		    0x00F4
+#define PERFM_MAX_ID6_SHIFT		    0
+#define PERFM_MAX_ID6_WIDTH		    32
+
+#define PERFM_MIN_ADDR7_H_OFFSET	    0x00F8
+#define PERFM_MIN_ADDR7_H_SHIFT		    0
+#define PERFM_MIN_ADDR7_H_WIDTH		    32
+
+#define PERFM_MIN_ADDR7_L_OFFSET	    0x00FC
+#define PERFM_MIN_ADDR7_L_SHIFT		    0
+#define PERFM_MIN_ADDR7_L_WIDTH		    32
+
+#define PERFM_MAX_ADDR7_H_OFFSET	    0x0100
+#define PERFM_MAX_ADDR7_H_SHIFT		    0
+#define PERFM_MAX_ADDR7_H_WIDTH		    32
+
+#define PERFM_MAX_ADDR7_L_OFFSET	    0x0104
+#define PERFM_MAX_ADDR7_L_SHIFT		    0
+#define PERFM_MAX_ADDR7_L_WIDTH		    32
+
+#define PERFM_MIN_ID7_OFFSET		    0x0108
+#define PERFM_MIN_ID7_SHIFT		    0
+#define PERFM_MIN_ID7_WIDTH		    32
+
+#define PERFM_MAX_ID7_OFFSET		    0x10C
+#define PERFM_MAX_ID7_SHIFT		    0
+#define PERFM_MAX_ID7_WIDTH		    32
+
+#define CNT_VLD_4CMD_MATCH_OFFSET	    0x013C
+#define CNT_VLD_4WCMD_MATCH_SHIFT	    3
+#define CNT_VLD_4WCMD_MATCH_WIDTH	    3
+#define CNT_VLD_4RCMD_MATCH_SHIFT	    0
+#define CNT_VLD_4RCMD_MATCH_WIDTH	    3
+
+#define WR_CMD0_MATCH_OFFSET		    0x0140
+#define AWCACHE0_MATCH_SHIFT		    13
+#define AWCACHE0_MATCH_WIDTH		    4
+#define AWLEN0_MATCH_SHIFT		    5
+#define AWLEN0_MATCH_WIDTH		    8
+#define AWSIZE0_MATCH_SHIFT		    2
+#define AWSIZE0_MATCH_WIDTH		    3
+#define AWBURST0_MATCH_SHIFT		    0
+#define AWBURST0_MATCH_WIDTH		    2
+
+#define WR_ADDR0_H_MATCH_OFFSET		    0x0144
+#define WR_ADDR0_H_MATCH_SHIFT		    0
+#define WR_ADDR0_H_MATCH_WIDTH		    32
+
+#define WR_ADDR0_L_MATCH_OFFSET		    0x0148
+#define WR_ADDR0_L_MATCH_SHIFT		    0
+#define WR_ADDR0_L_MATCH_WIDTH		    32
+
+#define WR_ID0_MATCH_OFFSET		    0x014C
+#define WR_ID0_MATCH_SHIFT		    0
+#define WR_ID0_MATCH_WIDTH		    32
+
+#define WR_CMD1_MATCH_OFFSET		    0x0150
+
+#define WR_ADDR1_H_MATCH_OFFSET		    0x0154
+#define WR_ADDR1_H_MATCH_SHIFT		    0
+#define WR_ADDR1_H_MATCH_WIDTH		    32
+
+#define WR_ADDR1_L_MATCH_OFFSET		    0x0158
+#define WR_ADDR1_L_MATCH_SHIFT		    0
+#define WR_ADDR1_L_MATCH_WIDTH		    32
+
+#define WR_ID1_MATCH_OFFSET		    0x015C
+#define WR_ID1_MATCH_SHIFT		    0
+#define WR_ID1_MATCH_WIDTH		    32
+
+#define WR_CMD2_MATCH_OFFSET		    0x0160
+
+#define WR_ADDR2_H_MATCH_OFFSET		    0x0164
+#define WR_ADDR2_H_MATCH_SHIFT		    0
+#define WR_ADDR2_H_MATCH_WIDTH		    32
+
+#define WR_ADDR2_L_MATCH_OFFSET		    0x0168
+#define WR_ADDR2_L_MATCH_SHIFT		    0
+#define WR_ADDR2_L_MATCH_WIDTH		    32
+
+#define WR_CMD3_MATCH_OFFSET		    0x0170
+
+#define WR_ADDR3_H_MATCH_OFFSET		    0x0174
+#define WR_ADDR3_H_MATCH_SHIFT		    0
+#define WR_ADDR3_H_MATCH_WIDTH		    32
+
+#define WR_ADDR3_L_MATCH_OFFSET		    0x0178
+#define WR_ADDR3_L_MATCH_SHIFT		    0
+#define WR_ADDR3_L_MATCH_WIDTH		    32
+
+#define RD_CMD0_MATCH_OFFSET		    0x0180
+#define ARCACHE0_MATCH_SHIFT		    13
+#define ARCACHE0_MATCH_WIDTH		    4
+#define ARLEN0_MATCH_SHIFT		    5
+#define ARLEN0_MATCH_WIDTH		    8
+#define ARSIZE0_MATCH_SHIFT		    2
+#define ARSIZE0_MATCH_WIDTH		    3
+#define ARBURST0_MATCH_SHIFT		    0
+#define ARBURST0_MATCH_WIDTH		    2
+
+#define RD_ADDR0_H_MATCH_OFFSET		    0x0184
+#define RD_ADDR0_H_MATCH_SHIFT		    0
+#define RD_ADDR0_H_MATCH_WIDTH		    32
+
+#define RD_ADDR0_L_MATCH_OFFSET		    0x0188
+#define RD_ADDR0_L_MATCH_SHIFT		    0
+#define RD_ADDR0_L_MATCH_WIDTH		    32
+
+#define RD_ID0_MATCH_OFFSET		    0x018C
+#define RD_ID0_MATCH_SHIFT		    0
+#define RD_ID0_MATCH_WIDTH		    32
+
+#define RD_CMD1_MATCH_OFFSET		    0x0190
+
+#define RD_ADDR1_H_MATCH_OFFSET		    0x0194
+#define RD_ADDR1_H_MATCH_SHIFT		    0
+#define RD_ADDR1_H_MATCH_WIDTH		    32
+
+#define RD_ADDR1_L_MATCH_OFFSET		    0x0198
+#define RD_ADDR1_L_MATCH_SHIFT		    0
+#define RD_ADDR1_L_MATCH_WIDTH		    32
+
+#define RD_ID1_MATCH_OFFSET		    0x019C
+#define RD_ID1_MATCH_SHIFT		    0
+#define RD_ID1_MATCH_WIDTH		    32
+
+#define CNT_OVFW_FLAG1_PERFM_OFFSET	    0x01C0
+#define CNT2_WR_CMD_OVFW_PERFM_SHIFT	    26
+#define CNT2_WR_CMD_OVFW_PERFM_WIDTH	    1
+#define CNT1_WR_CMD_OVFW_PERFM_SHIFT	    25
+#define CNT1_WR_CMD_OVFW_PERFM_WIDTH	    1
+#define CNT0_WR_CMD_OVFW_PERFM_SHIFT	    24
+#define CNT0_WR_CMD_OVFW_PERFM_WIDTH	    1
+#define CNT2_RD_CMD_OVFW_PERFM_SHIFT	    18
+#define CNT2_RD_CMD_OVFW_PERFM_WIDTH	    1
+#define CNT1_RD_CMD_OVFW_PERFM_SHIFT	    17
+#define CNT1_RD_CMD_OVFW_PERFM_WIDTH	    1
+#define CNT0_RD_CMD_OVFW_PERFM_SHIFT	    16
+#define CNT0_RD_CMD_OVFW_PERFM_WIDTH	    1
+#define CNT2_WR_BW_OVFW_PERFM_SHIFT	    10
+#define CNT2_WR_BW_OVFW_PERFM_WIDTH	    1
+#define CNT1_WR_BW_OVFW_PERFM_SHIFT	    9
+#define CNT1_WR_BW_OVFW_PERFM_WIDTH	    1
+#define CNT0_WR_BW_OVFW_PERFM_SHIFT	    8
+#define CNT0_WR_BW_OVFW_PERFM_WIDTH	    1
+#define CNT2_RD_BW_OVFW_PERFM_SHIFT	    2
+#define CNT2_RD_BW_OVFW_PERFM_WIDTH	    1
+#define CNT1_RD_BW_OVFW_PERFM_SHIFT	    1
+#define CNT1_RD_BW_OVFW_PERFM_WIDTH	    1
+#define CNT0_RD_BW_OVFW_PERFM_SHIFT	    0
+#define CNT0_RD_BW_OVFW_PERFM_WIDTH	    1
+
+#define CNT_OVFW_FLAG2_PERFM_OFFSET	    0x01C4
+
+#define CNT_WR_LATCY_ACC_UDFW_PERFM_SHIFT   11
+#define CNT_WR_LATCY_ACC_UDFW_PERFM_WIDTH   1
+#define CNT_RD_LATCY_ACC_UDFW_PERFM_SHIFT   10
+#define CNT_RD_LATCY_ACC_UDFW_PERFM_WIDTH   1
+#define CNT_WR_LATCY_TOTAL_UDFW_PERFM_SHIFT 9
+#define CNT_WR_LATCY_TOTAL_UDFW_PERFM_WIDTH 1
+#define CNT_RD_LATCY_TOTAL_UDFW_PERFM_SHIFT 8
+#define CNT_RD_LATCY_TOTAL_UDFW_PERFM_WIDTH 1
+#define CNT_WR_LATCY_ACC_OVFW_PERFM_SHIFT   7
+#define CNT_WR_LATCY_ACC_OVFW_PERFM_WIDTH   1
+#define CNT_RD_LATCY_ACC_OVFW_PERFM_SHIFT   6
+#define CNT_RD_LATCY_ACC_OVFW_PERFM_WIDTH   1
+#define CNT_WR_LATCY_TOTAL_OVFW_PERFM_SHIFT 5
+#define CNT_WR_LATCY_TOTAL_OVFW_PERFM_WIDTH 1
+#define CNT_RD_LATCY_TOTAL_OVFW_PERFM_SHIFT 4
+#define CNT_RD_LATCY_TOTAL_OVFW_PERFM_WIDTH 1
+
+#define CNT_WR_LATCY_ACC_PERFM_OFFSET	    0x01C8
+#define CNT_WR_LATCY_ACC_PERFM_SHIFT	    0
+#define CNT_WR_LATCY_ACC_PERFM_WIDTH	    32
+
+#define CNT_RD_LATCY_ACC_PERFM_OFFSET	    0x01CC
+#define CNT_RD_LATCY_ACC_PERFM_SHIFT	    0
+#define CNT_RD_LATCY_ACC_PERFM_WIDTH	    32
+
+#define CNT_WR_LATCY_TOTAL_PERFM_OFFSET	    0x01D0
+#define CNT_WR_LATCY_TOTAL_PERFM_SHIFT	    0
+#define CNT_WR_LATCY_TOTAL_PERFM_WIDTH	    32
+
+#define CNT_RD_LATCY_TOTAL_PERFM_OFFSET	    0x01D4
+#define CNT_RD_LATCY_TOTAL_PERFM_SHIFT	    0
+#define CNT_RD_LATCY_TOTAL_PERFM_WIDTH	    32
+
+#define CNT0_WR_CMD_PERFM_OFFSET	    0x01E8
+#define CNT0_WR_CMD_PERFM_SHIFT		    0
+#define CNT0_WR_CMD_PERFM_WIDTH		    32
+
+#define CNT0_RD_CMD_PERFM_OFFSET	    0x01EC
+#define CNT0_RD_CMD_PERFM_SHIFT		    0
+#define CNT0_RD_CMD_PERFM_WIDTH		    32
+
+#define CNT0_WR_BW_PERFM_OFFSET		    0x01F0
+#define CNT0_WR_BW_PERFM_SHIFT		    0
+#define CNT0_WR_BW_PERFM_WIDTH		    32
+
+#define CNT0_RD_BW_PERFM_OFFSET		    0x01F4
+#define CNT0_RD_BW_PERFM_SHIFT		    0
+#define CNT0_RD_BW_PERFM_WIDTH		    32
+
+#define CNT1_WR_CMD_PERFM_OFFSET	    0x02B8
+#define CNT1_WR_CMD_PERFM_SHIFT		    0
+#define CNT1_WR_CMD_PERFM_WIDTH		    32
+
+#define CNT1_RD_CMD_PERFM_OFFSET	    0x02BC
+#define CNT1_RD_CMD_PERFM_SHIFT		    0
+#define CNT1_RD_CMD_PERFM_WIDTH		    32
+
+#define CNT1_WR_BW_PERFM_OFFSET		    0x02C0
+#define CNT1_WR_BW_PERFM_SHIFT		    0
+#define CNT1_WR_BW_PERFM_WIDTH		    32
+
+#define CNT1_RD_BW_PERFM_OFFSET		    0x02C4
+#define CNT1_RD_BW_PERFM_SHIFT		    0
+#define CNT1_RD_BW_PERFM_WIDTH		    32
+/*
+ * interrupt info for DDR_SYS
+ */
+#define INTC_REG_INT_MASK_OFFSET	 0x0004
+#define INTC_REG_INT_RAWSTATUS_OFFSET	 0x0008
+#define INTC_REG_INT_MASKEDSTATUS_OFFSET 0x000C
+#define INTC_REG_INT_EN0_OFFSET		 0x0010
+#define INTC_REG_INT_EN1_OFFSET		 0x0014
+#define INTC_REG_INT_CLEAR_OFFSET	 0x0018
+#define INTC_REG_INT0_TYPE_OFFSET	 0x001C
+#define INTC_REG_INT1_TYPE_OFFSET	 0x0020
+
+#define INTC_INT_EN_DISABLE		 (0)
+#define INTC_INT_EN_IRQ			 (1)
+#define INTC_INT_EN_FIQ			 (2)
+#define INTC_INT_EN_IRQ_FIQ		 (3)
+
+#define INTC_INT_TYPE_HIGH		 (0)
+#define INTC_INT_TYPE_LOW		 (1)
+#define INTC_INT_TYPE_RISE		 (4)
+#define INTC_INT_TYPE_FALL		 (5)
+#define INTC_INT_TYPE_EDGE		 (7)
+
+#define INTC_MAX_INT_CNT		 (21)
+
+#define INTC_REG_INT0_TYPE_GRP_SIZE                                            \
+	(INTC_REG_INT1_TYPE_OFFSET - INTC_REG_INT0_TYPE_OFFSET)
+#define INTC_REG_INT_EN0_INT0_SHIFT  (0)
+#define INTC_REG_INT_EN0_INT0_WIDTH  (2)
+#define INTC_REG_INT_EN0_INT1_SHIFT  (2)
+#define INTC_REG_INT_EN1_INT16_SHIFT (0)
+#define INTC_REG_INT_EN1_INT16_WIDTH (2)
+#define INTC_REG_INT_EN1_INT17_SHIFT (2)
+#define INTC_REG_INT_EN0_INT0_GRP_BITS                                         \
+	(INTC_REG_INT_EN0_INT1_SHIFT - INTC_REG_INT_EN0_INT0_SHIFT)
+#define INTC_REG_INT_EN1_INT16_GRP_BITS                                        \
+	(INTC_REG_INT_EN1_INT17_SHIFT - INTC_REG_INT_EN1_INT16_SHIFT)
+#define INTC_REG_INT_MASK_INT0_SHIFT (0)
+#define INTC_REG_INT_MASK_INT0_WIDTH (1)
+#define INTC_REG_INT_MASK_INT1_SHIFT (1)
+#define INTC_REG_INT_MASK_INT0_GRP_BITS                                        \
+	(INTC_REG_INT_MASK_INT1_SHIFT - INTC_REG_INT_MASK_INT0_SHIFT)
+
+
+
+#define ISP_SYS_TOP_STA2_OFFSET		0x54
+#define ISP_BUSMON3_INT_BUS_HANG_SHIFT	15
+#define ISP_BUSMON3_INT_BUS_HANG_WIDTH	1
+#define ISP_BUSMON2_INT_BUS_HANG_SHIFT	14
+#define ISP_BUSMON2_INT_BUS_HANG_WIDTH	1
+#define ISP_BUSMON1_INT_BUS_HANG_SHIFT	13
+#define ISP_BUSMON1_INT_BUS_HANG_WIDTH	1
+#define ISP_BUSMON0_INT_BUS_HANG_SHIFT	12
+#define ISP_BUSMON0_INT_BUS_HANG_WIDTH	1
+#define ISP_BUSMON3_INT_LATCY_BAD_SHIFT 11
+#define ISP_BUSMON3_INT_LATCY_BAD_WIDTH 1
+#define ISP_BUSMON3_INT_PERFM_CNT_SHIFT 10
+#define ISP_BUSMON3_INT_PERFM_CNT_WIDTH 1
+#define ISP_BUSMON3_INT_MATCH_SHIFT	9
+#define ISP_BUSMON3_INT_MATCH_WIDTH	1
+#define ISP_BUSMON2_INT_LATCY_BAD_SHIFT 8
+#define ISP_BUSMON2_INT_LATCY_BAD_WIDTH 1
+#define ISP_BUSMON2_INT_PERFM_CNT_SHIFT 7
+#define ISP_BUSMON2_INT_PERFM_CNT_WIDTH 1
+#define ISP_BUSMON2_INT_MATCH_SHIFT	6
+#define ISP_BUSMON2_INT_MATCH_WIDTH	1
+#define ISP_BUSMON1_INT_LATCY_BAD_SHIFT 5
+#define ISP_BUSMON1_INT_LATCY_BAD_WIDTH 1
+#define ISP_BUSMON1_INT_PERFM_CNT_SHIFT 4
+#define ISP_BUSMON1_INT_PERFM_CNT_WIDTH 1
+#define ISP_BUSMON1_INT_MATCH_SHIFT	3
+#define ISP_BUSMON1_INT_MATCH_WIDTH	1
+#define ISP_BUSMON0_INT_LATCY_BAD_SHIFT 2
+#define ISP_BUSMON0_INT_LATCY_BAD_WIDTH 1
+#define ISP_BUSMON0_INT_PERFM_CNT_SHIFT 1
+#define ISP_BUSMON0_INT_PERFM_CNT_WIDTH 1
+#define ISP_BUSMON0_INT_MATCH_SHIFT	0
+#define ISP_BUSMON0_INT_MATCH_WIDTH	1
+
+#define ISP_BUSMON_MAX_INT_CNT		16
+
+/***************************************
+ *
+ * ispv4_memorymap
+ *
+ ***************************************/
+
+/*
+ * interrupt info for ISP_SYS
+ */
+#define ISP_SYS_TOP_OFFSET		(ISPV4_ISP_CFG_ADDR_OFFSET + 0xB0000)
+#define ISP_AXI_BUSMON0_OFFSET		(ISPV4_ISP_CFG_ADDR_OFFSET + 0xC0000)
+#define ISP_AXI_BUSMON1_OFFSET		(ISPV4_ISP_CFG_ADDR_OFFSET + 0xC1000)
+#define ISP_AXI_BUSMON2_OFFSET		(ISPV4_ISP_CFG_ADDR_OFFSET + 0xC2000)
+#define ISP_AXI_BUSMON3_OFFSET		(ISPV4_ISP_CFG_ADDR_OFFSET + 0xC3000)
+
+/*isp busmon en*/
+#define ISP_SYS_CFG12_OFFSET	    (0x30)
+#define ISP_SYS_CFG12_OCLA_EN_SHIFT 1
+#define ISP_SYS_CFG12_OCLA_EN_WIDTH 1
+
+/* Address_Space */
+#define ISPV4_AHB_PERIPH_ADDR_OFFSET 0x02000000 /* 32MB */
+#define ISPV4_ISP_CFG_ADDR_OFFSET    0x0C000000 /* 1MB */
+#define ISPV4_APB_PERIPH_ADDR_OFFSET 0x0D400000 /* 64MB */
+
+#define ISPV4_BUSMON_0_ADDR_OFFSET                                             \
+	(ISPV4_APB_PERIPH_ADDR_OFFSET + 0x0006C000) /*16KB*/
+#define ISPV4_BUSMON_1_ADDR_OFFSET                                             \
+	(ISPV4_APB_PERIPH_ADDR_OFFSET + 0x00070000) /*16KB*/
+#define ISPV4_BUSMON_2_ADDR_OFFSET                                             \
+	(ISPV4_APB_PERIPH_ADDR_OFFSET + 0x00074000) /*16KB*/
+#define ISPV4_SYS_DMA_ADDR_OFFSET                                              \
+	(ISPV4_APB_PERIPH_ADDR_OFFSET + 0x00080000) /*256KB*/
+#define ISPV4_MIPI_SYS_ADDR_OFFSET                                             \
+	(ISPV4_APB_PERIPH_ADDR_OFFSET + 0x00400000) /*4MB*/
+#define ISPV4_DDR_SYS_ADDR_OFFSET                                              \
+	(ISPV4_APB_PERIPH_ADDR_OFFSET + 0x01000000) /*16MB*/
+
+/* DDR_SYS */
+#define ISPV4_DDR_INTC_ADDR_OFFSET                                             \
+	(ISPV4_DDR_SYS_ADDR_OFFSET + 0x00D20000) /*4KB*/
+#define ISPV4_DDR_BUSMON0_ADDR_OFFSET                                          \
+	(ISPV4_DDR_SYS_ADDR_OFFSET + 0x00D30000) /*4KB*/
+#define ISPV4_DDR_BUSMON1_ADDR_OFFSET                                          \
+	(ISPV4_DDR_SYS_ADDR_OFFSET + 0x00D31000) /*4KB*/
+#define ISPV4_DDR_BUSMON2_ADDR_OFFSET                                          \
+	(ISPV4_DDR_SYS_ADDR_OFFSET + 0x00D32000) /*4KB*/
+#define ISPV4_DDR_BUSMON3_ADDR_OFFSET                                          \
+	(ISPV4_DDR_SYS_ADDR_OFFSET + 0x00D33000) /*4KB*/
+#define ISPV4_DDR_BUSMON4_ADDR_OFFSET                                          \
+	(ISPV4_DDR_SYS_ADDR_OFFSET + 0x00D34000) /*4KB*/
+/* ======== Generated code END - Do not modify by hand! ======== */
+
+#endif /* __ISPV4_BUSMON_REG_H__ */

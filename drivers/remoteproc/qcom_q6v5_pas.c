@@ -1526,6 +1526,7 @@ static int adsp_probe(struct platform_device *pdev)
 		}
 	}
 
+	//delete it for ssr minidump by xiaomi
 	if (desc->minidump_id)
 		ops = &adsp_minidump_ops;
 

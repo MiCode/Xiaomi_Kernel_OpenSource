@@ -26,6 +26,10 @@
 
 #include <linux/uaccess.h>
 
+#if IS_ENABLED(CONFIG_BRCM_XGBE)
+	#include <linux/delay.h>
+	#include "spi_common.h"
+#endif
 
 /*
  * This supports access to SPI devices using normal userspace I/O calls.
@@ -82,6 +86,10 @@ struct spidev_data {
 
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
+
+#if IS_ENABLED(CONFIG_BRCM_XGBE)
+static struct spidev_data *g_spidev2 = NULL;
+#endif
 
 static unsigned bufsiz = 4096;
 module_param(bufsiz, uint, S_IRUGO);
@@ -317,6 +325,196 @@ done:
 	kfree(k_xfers);
 	return status;
 }
+
+#if IS_ENABLED(CONFIG_BRCM_XGBE)
+int spidev_open_kern(void)
+{
+	int			status = -ENXIO;
+
+	mutex_lock(&device_list_lock);
+
+	if (!g_spidev2->tx_buffer) {
+		g_spidev2->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!g_spidev2->tx_buffer) {
+			dev_dbg(&g_spidev2->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto err_find_dev;
+		}
+	}
+
+	if (!g_spidev2->rx_buffer) {
+		g_spidev2->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!g_spidev2->rx_buffer) {
+			dev_dbg(&g_spidev2->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto err_alloc_rx_buf;
+		}
+	}
+
+	g_spidev2->users++;
+	mutex_unlock(&device_list_lock);
+	return 0;
+
+err_alloc_rx_buf:
+	kfree(g_spidev2->tx_buffer);
+	g_spidev2->tx_buffer = NULL;
+err_find_dev:
+	mutex_unlock(&device_list_lock);
+	return status;
+}
+
+int spidev_release_kern(void)
+{
+	int			dofree;
+
+	spin_lock_irq(&g_spidev2->spi_lock);
+	/* ... after we unbound from the underlying device? */
+	dofree = (g_spidev2->spi == NULL);
+	spin_unlock_irq(&g_spidev2->spi_lock);
+
+	/* last close? */
+	g_spidev2->users--;
+	if (!g_spidev2->users) {
+
+		kfree(g_spidev2->tx_buffer);
+		g_spidev2->tx_buffer = NULL;
+
+		kfree(g_spidev2->rx_buffer);
+		g_spidev2->rx_buffer = NULL;
+
+		if (dofree)
+			kfree(g_spidev2);
+		else
+			g_spidev2->speed_hz = g_spidev2->spi->max_speed_hz;
+	}
+#ifdef CONFIG_SPI_SLAVE
+	if (!dofree)
+		spi_slave_abort(g_spidev2->spi);
+#endif
+	mutex_unlock(&device_list_lock);
+
+	return 0;
+}
+
+int spidev_message_kern(struct spi_ioc_transfer *u_xfers, unsigned n_xfers)
+{
+	struct spi_message	msg;
+	struct spi_transfer	*k_xfers;
+	struct spi_transfer	*k_tmp;
+	struct spi_ioc_transfer *u_tmp;
+	unsigned		n, total, tx_total, rx_total;
+	u8			*tx_buf, *rx_buf;
+	int			status = -EFAULT;
+	struct spidev_data *spidev;
+
+	if (g_spidev2 != NULL) {
+		spidev = g_spidev2;
+	} else {
+		return -ENOMEM;
+	}
+
+	spi_message_init(&msg);
+	k_xfers = kcalloc(n_xfers, sizeof(*k_tmp), GFP_KERNEL);
+	if (k_xfers == NULL)
+		return -ENOMEM;
+
+	/* Construct spi_message, copying any tx data to bounce buffer.
+	 * We walk the array of user-provided transfers, using each one
+	 * to initialize a kernel version of the same transfer.
+	 */
+	tx_buf = spidev->tx_buffer;
+	rx_buf = spidev->rx_buffer;
+	total = 0;
+	tx_total = 0;
+	rx_total = 0;
+	for (n = n_xfers, k_tmp = k_xfers, u_tmp = u_xfers;
+			n;
+			n--, k_tmp++, u_tmp++) {
+		/* Ensure that also following allocations from rx_buf/tx_buf will meet
+		 * DMA alignment requirements.
+		 */
+		unsigned int len_aligned = ALIGN(u_tmp->len, ARCH_KMALLOC_MINALIGN);
+
+		k_tmp->len = u_tmp->len;
+
+		total += k_tmp->len;
+		/* Since the function returns the total length of transfers
+		 * on success, restrict the total to positive int values to
+		 * avoid the return value looking like an error.  Also check
+		 * each transfer length to avoid arithmetic overflow.
+		 */
+		if (total > INT_MAX || k_tmp->len > INT_MAX) {
+			status = -EMSGSIZE;
+			goto done;
+		}
+
+		if (u_tmp->rx_buf) {
+			/* this transfer needs space in RX bounce buffer */
+			rx_total += len_aligned;
+			if (rx_total > bufsiz) {
+				status = -EMSGSIZE;
+				goto done;
+			}
+			k_tmp->rx_buf = rx_buf;
+			rx_buf += len_aligned;
+		}
+		if (u_tmp->tx_buf) {
+			/* this transfer needs space in TX bounce buffer */
+			tx_total += len_aligned;
+			if (tx_total > bufsiz) {
+				status = -EMSGSIZE;
+				goto done;
+			}
+			k_tmp->tx_buf = tx_buf;
+			memcpy(tx_buf, (void*)(uintptr_t)(u_tmp->tx_buf), u_tmp->len);
+			tx_buf += len_aligned;
+		}
+
+		k_tmp->cs_change = !!u_tmp->cs_change;
+		k_tmp->tx_nbits = u_tmp->tx_nbits;
+		k_tmp->rx_nbits = u_tmp->rx_nbits;
+		k_tmp->bits_per_word = u_tmp->bits_per_word;
+		k_tmp->delay.value = u_tmp->delay_usecs;
+		k_tmp->delay.unit = SPI_DELAY_UNIT_USECS;
+		k_tmp->speed_hz = u_tmp->speed_hz;
+		k_tmp->word_delay.value = u_tmp->word_delay_usecs;
+		k_tmp->word_delay.unit = SPI_DELAY_UNIT_USECS;
+		if (!k_tmp->speed_hz)
+			k_tmp->speed_hz = spidev->speed_hz;
+#ifdef VERBOSE
+		dev_dbg(&spidev->spi->dev,
+			" xfer len %u %s%s%s%dbits %u usec %u usec %uHz\n",
+			k_tmp->len,
+			k_tmp->rx_buf ? "rx " : "",
+			k_tmp->tx_buf ? "tx " : "",
+			k_tmp->cs_change ? "cs " : "",
+			k_tmp->bits_per_word ? : spidev->spi->bits_per_word,
+			k_tmp->delay.value,
+			k_tmp->word_delay.value,
+			k_tmp->speed_hz ? : spidev->spi->max_speed_hz);
+#endif
+		spi_message_add_tail(k_tmp, &msg);
+	}
+
+	status = spidev_sync(spidev, &msg);
+	if (status < 0)
+		goto done;
+
+	/* copy any rx data out of bounce buffer */
+	for (n = n_xfers, k_tmp = k_xfers, u_tmp = u_xfers;
+			n;
+			n--, k_tmp++, u_tmp++) {
+		if (u_tmp->rx_buf) {
+			memcpy((void*)(uintptr_t)(u_tmp->rx_buf), k_tmp->rx_buf, u_tmp->len);
+		}
+	}
+	status = total;
+
+done:
+	kfree(k_xfers);
+	return status;
+}
+#endif
 
 static struct spi_ioc_transfer *
 spidev_get_ioc_message(unsigned int cmd, struct spi_ioc_transfer __user *u_ioc,
@@ -727,6 +925,10 @@ static const struct of_device_id spidev_dt_ids[] = {
 	{ .compatible = "cisco,spi-petra", .data = &spidev_of_check },
 	{ .compatible = "micron,spi-authenta", .data = &spidev_of_check },
 	{ .compatible = "qcom,spi-msm-codec-slave", .data = &spidev_of_check },
+	{ .compatible = "brcm,bcm89272", .data = &spidev_of_check },
+	{ .compatible = "qcom,spidev0", .data = &spidev_of_check },
+	{ .compatible = "qcom,spidev1", .data = &spidev_of_check },
+	{ .compatible = "qcom,spidev3", .data = &spidev_of_check },
 	{},
 };
 MODULE_DEVICE_TABLE(of, spidev_dt_ids);
@@ -810,6 +1012,12 @@ static int spidev_probe(struct spi_device *spi)
 	else
 		kfree(spidev);
 
+#if IS_ENABLED(CONFIG_BRCM_XGBE)
+	if (strcmp(spi->dev.of_node->full_name, "spidev@2") == 0) {
+		g_spidev2 = spidev;
+	}
+#endif
+
 	return status;
 }
 
@@ -830,6 +1038,10 @@ static void spidev_remove(struct spi_device *spi)
 	if (spidev->users == 0)
 		kfree(spidev);
 	mutex_unlock(&device_list_lock);
+
+#if IS_ENABLED(CONFIG_BRCM_XGBE)
+	g_spidev2 = NULL;
+#endif
 }
 
 static struct spi_driver spidev_spi_driver = {
@@ -848,8 +1060,6 @@ static struct spi_driver spidev_spi_driver = {
 	 * most issues; the controller driver handles the rest.
 	 */
 };
-
-/*-------------------------------------------------------------------------*/
 
 static int __init spidev_init(void)
 {
@@ -874,6 +1084,10 @@ static int __init spidev_init(void)
 		class_destroy(spidev_class);
 		unregister_chrdev(SPIDEV_MAJOR, spidev_spi_driver.driver.name);
 	}
+
+#if IS_ENABLED(CONFIG_BRCM_XGBE)
+	status = diagnosis_sysfs_init(spidev_spi_driver);
+#endif
 	return status;
 }
 module_init(spidev_init);

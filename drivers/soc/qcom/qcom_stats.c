@@ -970,6 +970,13 @@ static void qcom_create_subsystem_stat_files(struct dentry *root,
 	}
 }
 
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+extern void subsystem_sleep_stats_dbg_register(struct stats_drvdata *prv_data);
+extern void subsystem_sleep_stats_dbg_unregister(void);
+extern void register_mi_cx_stats_get_ss_vote_info(int(*cxvt)(int, struct qcom_stats_cx_vote_info*));
+extern void register_mi_ddr_stats_get_ss_vote_info(int(*ddrvt)(int, struct ddr_stats_ss_vote_info*));
+#endif
+
 static int qcom_stats_probe(struct platform_device *pdev)
 {
 	void __iomem *reg;
@@ -1055,6 +1062,11 @@ static int qcom_stats_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, drv);
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+	subsystem_sleep_stats_dbg_register(drv);
+	register_mi_cx_stats_get_ss_vote_info(cx_stats_get_ss_vote_info);
+	register_mi_ddr_stats_get_ss_vote_info(ddr_stats_get_ss_vote_info);
+#endif
 
 	return 0;
 
@@ -1078,6 +1090,11 @@ static int qcom_stats_remove(struct platform_device *pdev)
 	unregister_chrdev_region(drv->dev_no, 1);
 
 	debugfs_remove_recursive(drv->root);
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+	subsystem_sleep_stats_dbg_unregister();
+	register_mi_cx_stats_get_ss_vote_info(NULL);
+	register_mi_ddr_stats_get_ss_vote_info(NULL);
+#endif
 
 	return 0;
 }
@@ -1089,6 +1106,14 @@ static int qcom_stats_suspend(struct device *dev)
 	void __iomem *reg = NULL;
 	int i;
 	u32 stats_id = 0;
+
+	struct qcom_stats_cx_vote_info vote_info[MAX_DRV];
+	memset(vote_info, 0, (int)sizeof(struct qcom_stats_cx_vote_info)*MAX_DRV);
+	cx_stats_get_ss_vote_info(MAX_DRV, vote_info);
+
+	for(i = 0; i < MAX_DRV; i++){
+		pr_err("owen DRV: %d, vote: %d ", i, vote_info[i].level);
+	}
 
 	if (!subsystem_stats_debug_on)
 		return 0;

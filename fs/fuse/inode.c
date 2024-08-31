@@ -145,7 +145,6 @@ static void fuse_evict_inode(struct inode *inode)
 		WARN_ON(!list_empty(&fi->queued_writes));
 	}
 }
-
 #ifdef CONFIG_FUSE_BPF
 static void fuse_destroy_inode(struct inode *inode)
 {

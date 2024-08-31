@@ -8526,8 +8526,7 @@ static void do_sched_yield(void)
 	long skip = 0;
 
 	trace_android_rvh_before_do_sched_yield(&skip);
-	if (skip)
-		return;
+	if (skip) return;
 
 	rq = this_rq_lock_irq(&rf);
 

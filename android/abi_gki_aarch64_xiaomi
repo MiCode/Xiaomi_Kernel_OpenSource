@@ -1,4 +1,4 @@
-[abi_symbol_list]
+:：q:q:：q:q:：q:qt]
   proc_mkdir_data
   proc_create_seq_private
   i2c_smbus_read_byte_data
@@ -333,6 +333,16 @@
   pci_ioremap_bar
   pci_disable_pcie_error_reporting
 
+#required by brcm_xgbe.ko
+  cpumask_local_spread
+  udp_tunnel_nic_ops
+  netdev_reset_tc
+  netdev_set_num_tc
+  netdev_set_tc_queue
+  pci_select_bars
+  pci_sriov_set_totalvfs
+  pci_num_vf
+
 #required by lock_optimization module
   __traceiter_android_vh_record_pcpu_rwsem_time_early
   __tracepoint_android_vh_record_pcpu_rwsem_time_early
@@ -341,3 +351,13 @@
 #required by zram.ko
   bioset_init
   bioset_exit
+
+#required by bcmdhd.ko
+  vfs_fsync
+  kern_path
+  dget_parent
+  vfs_unlink
+  path_put
+  nla_append
+  sdio_writew
+  sdio_readw

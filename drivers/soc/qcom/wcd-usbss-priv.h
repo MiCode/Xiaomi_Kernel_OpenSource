@@ -17,6 +17,7 @@
 #include <linux/sched.h>
 #include <linux/soc/qcom/wcd939x-i2c.h>
 #include "wcd-usbss-registers.h"
+#include <linux/usb/role.h>
 
 #define WCD_USBSS_SUPPLY_MAX 4
 
@@ -47,6 +48,9 @@ struct wcd_usbss_ctxt {
 	struct mutex switch_update_lock;
 	struct mutex runtime_env_counter_lock;
 	unsigned int version;
+	u32 wcd_equ_bw_settings;
+	u32 wcd_equ_bw_settings_host;
+	enum usb_role u_role;
 	int wcd_standby_status;
 	int runtime_env_counter;
 	struct nvmem_cell *nvmem_cell;

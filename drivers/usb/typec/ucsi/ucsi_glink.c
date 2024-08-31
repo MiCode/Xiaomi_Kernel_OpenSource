@@ -455,7 +455,20 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 		conn_partner_type = UCSI_CONSTAT_PARTNER_TYPE(status->flags);
 
 		switch (conn_partner_type) {
-		case UCSI_CONSTAT_PARTNER_TYPE_AUDIO:
+		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
+ 		case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;
+			entry->constat_info.u_role = USB_ROLE_HOST;
+			break;
+		case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
+			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;
+			entry->constat_info.u_role = USB_ROLE_NONE;
+			break;
+		case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;
+			entry->constat_info.u_role = USB_ROLE_DEVICE;
+			break;
+		 case UCSI_CONSTAT_PARTNER_TYPE_AUDIO:
 			entry->constat_info.acc = TYPEC_ACCESSORY_AUDIO;
 			break;
 		case UCSI_CONSTAT_PARTNER_TYPE_DEBUG:
@@ -463,8 +476,12 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 			break;
 		default:
 			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;
+			entry->constat_info.u_role = USB_ROLE_NONE;
 			break;
 		}
+
+		if (!(UCSI_CONSTAT_PARTNER_FLAGS(status->flags) & UCSI_CONSTAT_PARTNER_FLAG_USB))
+			entry->constat_info.u_role = USB_ROLE_NONE;
 
 		mutex_lock(&udev->notify_lock);
 		list_add_tail(&entry->node, &udev->constat_info_list);
@@ -625,6 +642,8 @@ static int ucsi_probe(struct platform_device *pdev)
 	struct pmic_glink_client_data client_data;
 	struct ucsi_dev *udev;
 	int rc;
+
+	dev_info(dev, "enter %s\n", __func__);
 
 	udev = devm_kzalloc(dev, sizeof(*udev), GFP_KERNEL);
 	if (!udev)

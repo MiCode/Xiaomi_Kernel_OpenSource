@@ -19,6 +19,9 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/debug-regulator.h>
+// MIUI ADD: Power_LogEnhance
+#include <linux/proc_fs.h>
+// END Power_LogEnhance
 
 #include <trace/events/power.h>
 
@@ -602,7 +605,19 @@ static int _regulator_is_enabled(struct regulator_dev *rdev)
 	return rdev->desc->ops->is_enabled(rdev);
 }
 
-static void regulator_debug_print_enabled(struct regulator_dev *rdev)
+// MIUI ADD: Power_LogEnhance
+#define regulator_debug_output(m, fmt, ...)			\
+	do {							\
+		if (m)						\
+			seq_printf(m, fmt, ##__VA_ARGS__);	\
+		else						\
+			pr_warn(fmt, ##__VA_ARGS__);		\
+	} while (0)
+// END Power_LogEnhance
+
+// MIUI MOD: Power_LogEnhance
+static void regulator_debug_print_enabled(struct regulator_dev *rdev, struct seq_file *m)
+// END Power_LogEnhance
 {
 	struct regulator *reg;
 	const char *supply_name;
@@ -618,21 +633,31 @@ static void regulator_debug_print_enabled(struct regulator_dev *rdev)
 		mode = rdev->desc->ops->get_mode(rdev);
 
 	if (uV != -EPERM && mode != -EPERM)
-		pr_info("%s[%u] %d uV, mode=%d\n",
+// MIUI MOD: Power_LogEnhance
+		regulator_debug_output(m, "%s[%u] %d uV, mode=%d\n",
 			rdev_name(rdev), rdev->use_count, uV, mode);
+// END Power_LogEnhance
 	else if (uV != -EPERM)
-		pr_info("%s[%u] %d uV\n",
+// MIUI MOD: Power_LogEnhance
+		regulator_debug_output(m, "%s[%u] %d uV\n",
 			rdev_name(rdev), rdev->use_count, uV);
+// END Power_LogEnhance
 	else if (mode != -EPERM)
-		pr_info("%s[%u], mode=%d\n",
+// MIUI MOD: Power_LogEnhance
+		regulator_debug_output(m, "%s[%u], mode=%d\n",
 			rdev_name(rdev), rdev->use_count, mode);
+// END Power_LogEnhance
 	else
-		pr_info("%s[%u]\n", rdev_name(rdev), rdev->use_count);
+// MIUI MOD: Power_LogEnhance
+		regulator_debug_output(m, "%s[%u]\n", rdev_name(rdev), rdev->use_count);
+// END Power_LogEnhance
 
 	/* Print a header if there are consumers. */
-	if (rdev->open_count)
-		pr_info("  %-32s EN    Min_uV   Max_uV  load_uA\n",
+	if (m != NULL && rdev->open_count)
+// MIUI MOD: Power_LogEnhance
+		regulator_debug_output(m, "  %-32s EN    Min_uV   Max_uV  load_uA\n",
 			"Device-Supply");
+// END Power_LogEnhance
 
 	list_for_each_entry(reg, &rdev->consumer_list, list) {
 		if (reg->supply_name)
@@ -640,13 +665,43 @@ static void regulator_debug_print_enabled(struct regulator_dev *rdev)
 		else
 			supply_name = "(null)-(null)";
 
-		pr_info("  %-32s %d   %8d %8d %8d\n", supply_name,
-			reg->enable_count,
-			reg->voltage[PM_SUSPEND_ON].min_uV,
-			reg->voltage[PM_SUSPEND_ON].max_uV,
-			reg->uA_load);
+// MIUI MOD: Power_LogEnhance
+		if (m != NULL)
+			regulator_debug_output(m, "  %-32s %d   %8d %8d %8d\n", supply_name,
+				reg->enable_count,
+				reg->voltage[PM_SUSPEND_ON].min_uV,
+				reg->voltage[PM_SUSPEND_ON].max_uV,
+				reg->uA_load);
+		else if (reg->enable_count != 0)
+			pr_info("  %-32s", supply_name);
+// END Power_LogEnhance
 	}
 }
+
+// MIUI ADD: Power_LogEnhance
+void regulator_debug_print_enable_regulators(void)
+{
+	struct debug_regulator *dreg;
+
+	pr_info("Enabled regulators:\n");
+	list_for_each_entry(dreg, &debug_reg_list, list)
+// MIUI MOD: Power_LogEnhance
+		regulator_debug_print_enabled(dreg->rdev, NULL);
+// END Power_LogEnhance
+}
+EXPORT_SYMBOL(regulator_debug_print_enable_regulators);
+
+static int enabled_regulators_show(struct seq_file *s, void *unused)
+{
+	struct debug_regulator *dreg;
+
+	regulator_debug_output(s, "Enabled regulators:\n");
+	list_for_each_entry(dreg, &debug_reg_list, list)
+		regulator_debug_print_enabled(dreg->rdev, s);
+
+	return 0;
+}
+// END Power_LogEnhance
 
 static void regulator_debug_suspend_trace_probe(void *unused,
 					const char *action, int val, bool start)
@@ -656,7 +711,9 @@ static void regulator_debug_suspend_trace_probe(void *unused,
 	if (start && val > 0 && !strcmp("machine_suspend", action)) {
 		pr_info("Enabled regulators:\n");
 		list_for_each_entry(dreg, &debug_reg_list, list)
-			regulator_debug_print_enabled(dreg->rdev);
+// MIUI MOD: Power_LogEnhance
+			regulator_debug_print_enabled(dreg->rdev, NULL);
+// END Power_LogEnhance
 	}
 }
 
@@ -718,6 +775,10 @@ static int __init regulator_debug_init(void)
 		pr_err("%s: unable to create regulator debug_suspend debugfs directory, ret=%d\n",
 			__func__, ret);
 	}
+
+// MIUI ADD: Power_LogEnhance
+	proc_create_single_data("regulator_enabled_list", 0444, NULL, enabled_regulators_show, NULL);
+// END Power_LogEnhance
 
 	return 0;
 }

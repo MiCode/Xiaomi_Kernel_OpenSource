@@ -32,9 +32,11 @@ load(":dpm_image.bzl", "define_dpm_image")
 load(":image_opts.bzl", "boot_image_opts")
 load(":target_variants.bzl", "la_variants")
 load(":modules.bzl", "COMMON_GKI_MODULES_LIST")
+load(":merge_list_files.bzl", "merge_list_files")
 
 def _define_build_config(
         msm_target,
+        msm_arch,
         target,
         variant,
         boot_image_opts = boot_image_opts(),
@@ -44,7 +46,8 @@ def _define_build_config(
     Creates a `kernel_build_config` for input to a `kernel_build` rule.
 
     Args:
-      msm_target: name of target platform (e.g. "kalama")
+      msm_target: name of target platform (e.g. "shennong")
+      msm_arch: architecture of target platform (e.g. "pineapple")
       variant: variant of kernel to build (e.g. "gki")
     """
 
@@ -54,7 +57,8 @@ def _define_build_config(
         content = [
             'KERNEL_DIR="msm-kernel"',
             "VARIANTS=({})".format(" ".join(la_variants)),
-            "MSM_ARCH={}".format(msm_target.replace("-", "_")),
+            "MSM_TARGET={}".format(msm_target.replace("-", "_")),
+            "MSM_ARCH={}".format(msm_arch.replace("-", "_")),
             "VARIANT={}".format(variant.replace("-", "_")),
             "ABL_SRC=bootable/bootloader/edk2",
             "BOOT_IMAGE_HEADER_VERSION={}".format(boot_image_opts.boot_image_header_version),
@@ -183,6 +187,7 @@ def _define_kernel_build(
 def _define_image_build(
         target,
         msm_target,
+        msm_arch,
         base_kernel,
         build_boot = True,
         build_dtbo = False,
@@ -202,7 +207,8 @@ def _define_image_build(
 
     Args:
       target: name of main Bazel target (e.g. `kalama_gki`)
-      msm_target: name of target platform (e.g. "kalama")
+      msm_target: name of target platform (e.g. "pineapple")
+      msm_arch: architecture of target platform (e.g. "pineapple")
       base_kernel: kernel_build base kernel
       build_boot: whether to build a boot image
       build_dtbo: whether to build a dtbo image
@@ -229,6 +235,24 @@ def _define_image_build(
         """.format(mod_list = " ".join(in_tree_module_list)),
     )
 
+    # Regenerate the follow  list
+    #   modules.list.msm.{}
+    #   modules.systemdlkm_blocklist.msm.{}
+    #   modules.vendor_blocklist.msm.{}
+    prefixes = [
+        "modules.list.msm",
+        "modules.systemdlkm_blocklist.msm",
+        "modules.vendor_blocklist.msm",
+    ]
+    modules_list_name = {}
+    for prefix in prefixes:
+        modules_list_name[prefix] = "{prefix}.{target}_generated".format(prefix = prefix, target = target)
+        files = [ prefix + ".{}".format(msm_target) ] if msm_target == msm_arch else [
+            prefix + ".{}".format(msm_arch),
+            prefix + ".{}".format(msm_target),
+        ]
+        merge_list_files( name = modules_list_name[prefix], files = files )
+
     kernel_images(
         name = "{}_images".format(target),
         kernel_modules_install = ":{}_modules_install".format(target),
@@ -241,20 +265,20 @@ def _define_image_build(
         build_vendor_kernel_boot = build_vendor_kernel_boot,
         build_vendor_dlkm = build_vendor_dlkm,
         build_system_dlkm = build_system_dlkm,
-        modules_list = "modules.list.msm.{}".format(msm_target),
+        modules_list = ":{}".format(modules_list_name["modules.list.msm"]),
         system_dlkm_modules_list = "android/gki_system_dlkm_modules",
         vendor_dlkm_modules_list = ":{}_vendor_dlkm_modules_list_generated".format(target),
-        system_dlkm_modules_blocklist = "modules.systemdlkm_blocklist.msm.{}".format(msm_target),
-        vendor_dlkm_modules_blocklist = "modules.vendor_blocklist.msm.{}".format(msm_target),
+        system_dlkm_modules_blocklist = "modules.systemdlkm_blocklist.msm.{}".format(msm_arch),
+        vendor_dlkm_modules_blocklist = "modules.vendor_blocklist.msm.{}".format(msm_arch),
         dtbo_srcs = [":{}/".format(target) + d for d in dtbo_list] if dtbo_list else None,
         vendor_ramdisk_binaries = vendor_ramdisk_binaries,
         gki_ramdisk_prebuilt_binary = gki_ramdisk_prebuilt_binary,
         boot_image_outs = boot_image_outs,
         deps = [
-            "modules.list.msm.{}".format(msm_target),
-            "modules.vendor_blocklist.msm.{}".format(msm_target),
-            "modules.systemdlkm_blocklist.msm.{}".format(msm_target),
             "android/gki_system_dlkm_modules",
+            ":{}".format(modules_list_name["modules.list.msm"]),
+            "modules.vendor_blocklist.msm.{}".format(msm_arch),
+            "modules.systemdlkm_blocklist.msm.{}".format(msm_arch),
         ],
     )
 
@@ -421,6 +445,7 @@ def _define_uapi_library(target):
 
 def define_msm_la(
         msm_target,
+        msm_arch,
         variant,
         in_tree_module_list,
         kmi_enforced = True,
@@ -468,6 +493,7 @@ def define_msm_la(
 
     _define_build_config(
         msm_target,
+        msm_arch,
         target,
         variant,
         boot_image_opts = boot_image_opts,
@@ -488,6 +514,7 @@ def define_msm_la(
     _define_image_build(
         target,
         msm_target,
+        msm_arch,
         base_kernel,
         # When building a GKI target, we take the kernel and boot.img directly from
         # common, so no need to build here.

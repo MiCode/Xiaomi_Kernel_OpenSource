@@ -218,6 +218,7 @@ struct geni_i2c_dev {
 	atomic_t is_xfer_in_progress; /* Used to maintain xfer inprogress status */
 	bool bus_recovery_enable; /* To be enabled by client if needed */
 	bool i2c_test_dev; /* Set this DT flag to enable test bus dump for an SE */
+	bool disable_stretch;
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -1243,6 +1244,10 @@ static struct msm_gpi_tre *setup_go_tre(struct geni_i2c_dev *gi2c,
 	if (gi2c->gsi_tx.is_multi_descriptor)
 		gsi_bei = true;
 
+
+	if (gi2c->disable_stretch)
+		stretch = 0;
+
 	go_t->dword[0] = MSM_GPI_I2C_GO_TRE_DWORD0((stretch << 2),
 							   msgs[i].addr, op);
 	go_t->dword[1] = MSM_GPI_I2C_GO_TRE_DWORD1;
@@ -1999,6 +2004,9 @@ static int geni_i2c_execute_xfer(struct geni_i2c_dev *gi2c,
 						     gi2c->i2c_kpi);
 		reinit_completion(&gi2c->xfer);
 
+		if (gi2c->disable_stretch)
+			stretch = 0;
+
 		m_param |= (stretch ? STOP_STRETCH : 0);
 		m_param |= ((msgs[i].addr & 0x7F) << SLV_ADDR_SHFT);
 
@@ -2512,6 +2520,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,i2c-test-dev")) {
 		gi2c->i2c_test_dev = true;
 		dev_info(&pdev->dev, "%s: This is I2C device under test\n", __func__);
+	}
+
+	gi2c->disable_stretch = false;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,dis-mas-stretch")) {
+		gi2c->disable_stretch = true;
+		dev_info(&pdev->dev, "I2C master stretch is disabled\n");
 	}
 
 	gi2c->i2c_rsc.dev = dev;

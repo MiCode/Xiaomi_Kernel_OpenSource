@@ -1,0 +1,1 @@
+source "drivers/xiaomi/dump_display/Kconfig"

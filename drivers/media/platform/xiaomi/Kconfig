@@ -1,0 +1,13 @@
+config MIISP
+    tristate "XIAOMI ISP"
+    depends on PCI
+    depends on PCI_MSM
+    depends on REMOTEPROC
+    help
+      Enable support for XIAOMI ISP
+
+config MIISP_CHIP
+    bool "XIAOMI ISP real CHIP"
+    depends on MIISP
+    help
+      Say Y here to fit systems with XIAOMI ISP real CHIP.

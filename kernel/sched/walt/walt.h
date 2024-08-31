@@ -265,6 +265,11 @@ extern enum sched_boost_policy boost_policy;
 extern unsigned int sysctl_input_boost_ms;
 extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
+//MIUI ADD: Performance_DoubleClickBoost
+extern unsigned int sysctl_double_click_input_boost_ms;
+extern unsigned int sysctl_double_click_input_boost_freq[8];
+extern unsigned int sysctl_double_click_sched_boost_on_input;
+//END Performance_DoubleClickBoost
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 extern unsigned int sysctl_sched_hyst_min_coloc_ns;

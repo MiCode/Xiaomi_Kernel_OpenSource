@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# MI_WIFI_GPIO info
+#
+config MI_WIFI_GPIO
+	tristate "GPIO testing mode driver for sar controler"
+	default n
+	help
+	 Driver for a simple testing mode detection

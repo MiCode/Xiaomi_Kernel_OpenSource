@@ -1,0 +1,20 @@
+config FINGERPRINT_MI_FP
+	tristate "Finger print card mi_fp"
+	default n
+	depends on INPUT_FINGERPRINT
+	help
+	  Say Y here to enable support for retrieving self-test reports.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here.
+
+config FP_HAVE_MULTI_SCREEN
+	bool "Have multi screen"
+	default n
+	help
+	  Enable register two screen in driver
+
+config SIDE_FINGERPRINT
+	bool "Side fingerprint"
+	default n
+	help
+	  Side fingerprint configuration

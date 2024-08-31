@@ -13,6 +13,9 @@
 #include <linux/bitops.h>
 #include <linux/clk/qcom.h>
 #include <linux/mfd/syscon.h>
+// MIUI ADD: Power_LogEnhance
+#include <linux/proc_fs.h>
+// END Power_LogEnhance
 #include <trace/events/power.h>
 
 #define CREATE_TRACE_POINTS
@@ -887,7 +890,7 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 /*
  * clock_debug_print_enabled_clocks() - Print names of enabled clocks
  */
-static void clock_debug_print_enabled_clocks(struct seq_file *s)
+void clock_debug_print_enabled_clocks(struct seq_file *s)
 {
 	struct hw_debug_clk *dclk;
 	int cnt = 0;
@@ -903,6 +906,7 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 		clock_debug_output(s, "No clocks enabled.\n");
 
 }
+EXPORT_SYMBOL(clock_debug_print_enabled_clocks);
 
 static int enabled_clocks_show(struct seq_file *s, void *unused)
 {
@@ -1025,6 +1029,15 @@ static int clk_debug_suspend_atomic_enable_set(void *data, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(clk_debug_suspend_atomic_enable_fops,
 	clk_debug_suspend_atomic_enable_get, clk_debug_suspend_atomic_enable_set, "%llu\n");
 
+int clk_debug_suspend_atomic_enable(u64 val)
+{
+	debug_suspend_atomic = !!val;
+	pr_err("clk_debug_suspend_atomic_enable val=%d\n", val);
+
+	return 0;
+}
+EXPORT_SYMBOL(clk_debug_suspend_atomic_enable);
+
 static void clk_hw_debug_remove(struct hw_debug_clk *dclk)
 {
 	if (dclk) {
@@ -1090,6 +1103,10 @@ int clk_debug_init(void)
 
 	debugfs_create_file("clk_enabled_list", 0444, rootdir,
 			    &clk_hw_debug_list, &clk_enabled_list_fops);
+
+// MIUI ADD: Power_LogEnhance
+	proc_create_single_data("clk_enabled_list", 0444, NULL, enabled_clocks_show, NULL);
+// END Power_LogEnhance
 
 	debugfs_create_file("trace_clocks", 0444, rootdir,
 			    &clk_hw_debug_list, &clk_enabled_trace_fops);

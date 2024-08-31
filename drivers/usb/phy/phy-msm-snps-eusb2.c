@@ -662,7 +662,11 @@ static int msm_eusb2_repeater_reset_and_init(struct msm_eusb2_phy *phy)
 	if (ret)
 		dev_err(phy->phy.dev, "repeater reset failed.\n");
 
+#if IS_ENABLED(CONFIG_MI_NXP_EUSB2_REPEATER)
+	ret = usb_repeater_init(phy->ur, phy->phy.flags);
+#else
 	ret = usb_repeater_init(phy->ur);
+#endif
 	if (ret)
 		dev_err(phy->phy.dev, "repeater init failed.\n");
 
@@ -674,7 +678,7 @@ static int msm_eusb2_phy_init(struct usb_phy *uphy)
 	struct msm_eusb2_phy *phy = container_of(uphy, struct msm_eusb2_phy, phy);
 	int ret;
 
-	dev_dbg(uphy->dev, "phy_flags:%x\n", phy->phy.flags);
+	dev_info(uphy->dev, "phy_flags:%x\n", phy->phy.flags);
 	if (is_eud_debug_mode_active(phy)) {
 		/* if in host mode, disable EUD debug mode */
 		if (phy->phy.flags & PHY_HOST_MODE) {
@@ -931,7 +935,6 @@ static int msm_eusb2_phy_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_ret;
 	}
-
 	ur = devm_usb_get_repeater_by_phandle(dev, "usb-repeater", 0);
 	if (IS_ERR(ur)) {
 		ret = PTR_ERR(ur);

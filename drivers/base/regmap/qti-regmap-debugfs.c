@@ -436,7 +436,7 @@ static ssize_t regmap_data_write_file(struct file *file,
 		return -EINVAL;
 
 	/* Userspace has been fiddling around behind the kernel's back */
-	add_taint(TAINT_USER, LOCKDEP_STILL_OK);
+	//add_taint(TAINT_USER, LOCKDEP_STILL_OK);
 
 	ret = regmap_write(debug_map->regmap, debug_map->dump_address, value);
 	if (ret < 0)

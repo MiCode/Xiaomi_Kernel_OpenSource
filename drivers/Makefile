@@ -189,3 +189,8 @@ obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
 obj-$(CONFIG_PECI)		+= peci/
 obj-$(CONFIG_HTE)		+= hte/
+obj-y				+= xiaomi/
+
+# MIUI ADD: Performance_FramePredictBoost
+obj-$(CONFIG_HYPERENHANCE)	+= hyperenhance/
+# END Performance_FramePredictBoost

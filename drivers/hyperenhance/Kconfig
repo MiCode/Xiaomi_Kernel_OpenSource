@@ -1,0 +1,7 @@
+config MI_HYPERFRAME
+	tristate "Hyper Frame"
+	depends on HYPERENHANCE
+	default n
+	help
+	  Enhance performance and improve fluency
+

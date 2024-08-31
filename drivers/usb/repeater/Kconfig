@@ -22,4 +22,10 @@ config QTI_PMIC_EUSB2_REPEATER
 	  repeater for USB HS/FS/LS functionality where eUSB2 repeater is used.
 
 	  To compile this driver as a module, choose M here.
+
+config MI_NXP_EUSB2_REPEATER
+	tristate "enable nxp repeater"
+	help
+	  Say Y or M here support NXP REPEATER
+
 endmenu

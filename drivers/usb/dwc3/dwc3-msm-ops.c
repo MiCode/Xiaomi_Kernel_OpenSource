@@ -12,12 +12,14 @@
 #include <linux/sched.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/composite.h>
+#include <linux/pm_runtime.h>
 #include "core.h"
 #include "debug-ipc.h"
 #include "gadget.h"
 
 struct kprobe_data {
 	struct dwc3 *dwc;
+	struct usb_ep *ep;
 	int xi0;
 };
 
@@ -54,6 +56,34 @@ static int exit_usb_ep_set_maxpacket_limit(struct kretprobe_instance *ri,
 
 	return 0;
 }
+
+
+static int entry_dwc3_gadget_disconnect_interrupt(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	struct dwc3 *dwc = (struct dwc3 *)regs->regs[0];
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+	data->dwc = dwc;
+
+	return 0;
+}
+
+static int exit_dwc3_gadget_disconnect_interrupt(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+	struct dwc3 *dwc = data->dwc;
+
+	/*
+	 * Request PM idle to address condition where usage count is
+	 * already decremented to zero, but waiting for the disconnect
+	 * interrupt to set dwc->connected to FALSE.
+	*/
+	pm_request_idle(dwc->dev);
+
+	return 0;
+}
+
 
 static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
@@ -248,6 +278,8 @@ static struct kretprobe dwc3_msm_probes[] = {
 	ENTRY(dwc3_gadget_reset_interrupt),
 	ENTRY(__dwc3_gadget_ep_enable),
 	ENTRY_EXIT(dwc3_gadget_pullup),
+	ENTRY_EXIT(usb_ep_set_maxpacket_limit),
+	ENTRY_EXIT(dwc3_gadget_disconnect_interrupt),
 	ENTRY(__dwc3_gadget_start),
 	ENTRY_EXIT(usb_ep_set_maxpacket_limit),
 	ENTRY(trace_event_raw_event_dwc3_log_request),

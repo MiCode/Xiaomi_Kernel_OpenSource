@@ -2106,6 +2106,7 @@ free_interfaces:
 	ret = usb_control_msg_send(dev, 0, USB_REQ_SET_CONFIGURATION, 0,
 				   configuration, 0, NULL, 0,
 				   USB_CTRL_SET_TIMEOUT, GFP_NOIO);
+	
 	if (ret && cp) {
 		/*
 		 * All the old state is gone, so what else can we do?
@@ -2131,6 +2132,8 @@ free_interfaces:
 		return ret;
 	}
 	usb_set_device_state(dev, USB_STATE_CONFIGURED);
+
+	pr_info("%s: enumerate success! usb device status is configured!\n", __func__);
 
 	if (cp->string == NULL &&
 			!(dev->quirks & USB_QUIRK_CONFIG_INTF_STRINGS))

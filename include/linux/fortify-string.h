@@ -34,7 +34,7 @@ void __write_overflow_field(size_t avail, size_t wanted) __compiletime_warning("
 #if defined(CONFIG_KASAN_GENERIC) || defined(CONFIG_KASAN_SW_TAGS)
 extern void *__underlying_memchr(const void *p, int c, __kernel_size_t size) __RENAME(memchr);
 extern int __underlying_memcmp(const void *p, const void *q, __kernel_size_t size) __RENAME(memcmp);
-extern void *__underlying_memcpy(void *p, const void *q, __kernel_size_t size) __RENAME(memcpy);
+extern void *__underlying_memcpy(const void *p, const void *q, __kernel_size_t size) __RENAME(memcpy);
 extern void *__underlying_memmove(void *p, const void *q, __kernel_size_t size) __RENAME(memmove);
 extern void *__underlying_memset(void *p, int c, __kernel_size_t size) __RENAME(memset);
 extern char *__underlying_strcat(char *p, const char *q) __RENAME(strcat);

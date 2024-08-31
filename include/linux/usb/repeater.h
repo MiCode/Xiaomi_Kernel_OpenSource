@@ -9,6 +9,9 @@
 #include <linux/device.h>
 #include <linux/types.h>
 
+#if IS_ENABLED(CONFIG_MI_NXP_EUSB2_REPEATER)
+#define UR_AUTO_RESUME_SUPPORTED	BIT(0)
+#endif
 struct usb_repeater  {
 	struct device		*dev;
 	const char		*label;
@@ -16,6 +19,9 @@ struct usb_repeater  {
 
 	struct list_head	head;
 	int	(*reset)(struct usb_repeater *x, bool bring_out_of_reset);
+#if IS_ENABLED(CONFIG_MI_NXP_EUSB2_REPEATER)
+	int	(*init_nxp)(struct usb_repeater *x, unsigned int flags);
+#endif
 	int	(*init)(struct usb_repeater *x);
 	int	(*suspend)(struct usb_repeater *r, int suspend);
 	int	(*powerup)(struct usb_repeater *r);
@@ -29,7 +35,7 @@ struct usb_repeater *devm_usb_get_repeater_by_phandle(struct device *dev,
 struct usb_repeater *devm_usb_get_repeater_by_node(struct device *dev,
 		struct device_node *node);
 struct usb_repeater *usb_get_repeater_by_phandle(struct device *dev,
-			const char *phandle, u8 index);
+		const char *phandle, u8 index);
 struct usb_repeater *usb_get_repeater_by_node(struct device_node *node);
 void usb_put_repeater(struct usb_repeater *r);
 int usb_add_repeater_dev(struct usb_repeater *r);
@@ -70,6 +76,15 @@ static inline int usb_repeater_reset(struct usb_repeater *r,
 		return 0;
 }
 
+#if IS_ENABLED(CONFIG_MI_NXP_EUSB2_REPEATER)
+static inline int usb_repeater_init(struct usb_repeater *r, unsigned int flags)
+{
+        if (r && r->init_nxp != NULL)
+                return r->init_nxp(r, flags);
+        else
+                return 0;
+}
+#else
 static inline int usb_repeater_init(struct usb_repeater *r)
 {
 	if (r && r->init != NULL)
@@ -77,6 +92,7 @@ static inline int usb_repeater_init(struct usb_repeater *r)
 	else
 		return 0;
 }
+#endif
 
 static inline int usb_repeater_suspend(struct usb_repeater *r, int suspend)
 {

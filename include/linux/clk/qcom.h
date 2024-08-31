@@ -29,4 +29,5 @@ void qcom_clk_bulk_dump(int num_clks, struct clk_bulk_data *clks,
 int qcom_clk_crm_set_rate(struct clk *clk,
 			  enum crm_drv_type client_type, u32 client_idx,
 			  u32 pwr_st, unsigned long rate);
+void clock_debug_print_enabled_clocks(struct seq_file *s);
 #endif  /* __LINUX_CLK_QCOM_H_ */

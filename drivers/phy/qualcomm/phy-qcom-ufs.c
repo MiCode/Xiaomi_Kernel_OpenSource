@@ -18,6 +18,70 @@
 
 #define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
 
+#if defined(CONFIG_UFS_EBUFF) && defined(CONFIG_MI_UFS_MODULE)
+struct ebuffphyha {
+	char name[24];
+	char pname[24];
+	bool enable_flag;
+	u32 value;
+};
+
+struct ebuffphyha ebuffphyha_data[] = {
+	{"REFCLKALWAYSON", "ref_clk_always_on", false, 0 },
+};
+
+static bool str2u32(char *buff, u32 *value)
+{
+	return !kstrtou32((const char *)buff, 0, value);
+}
+
+bool ebuffphyha_value_u32(char *pname, u32 *value)
+{
+	char *ptr = pname;
+	int i = 0;
+	bool enable_flag = false;
+	for (i = 0; i < sizeof(ebuffphyha_data) / sizeof(struct ebuffphyha); i++) {
+		if (ebuffphyha_data[i].enable_flag && !strncmp(ebuffphyha_data[i].pname,
+			ptr, sizeof(ebuffphyha_data[i].pname))) {
+			*value = ebuffphyha_data[i].value;
+			enable_flag = ebuffphyha_data[i].enable_flag;
+			break;
+		}
+	}
+	return enable_flag;
+}
+
+bool of_obtain_ebuffphyha_info(void)
+{
+	struct device_node *ebuff_node;
+	char *buff = NULL;
+	int i = 0;
+	int ret = 0;
+	u32 value = 0;
+	ebuff_node = of_find_node_by_path("/memory/ebuff");
+	if (!ebuff_node)
+		return false;
+	for (i = 0; i < sizeof(ebuffphyha_data) / sizeof(struct ebuffphyha); i++) {
+		ret = of_property_read_string(ebuff_node, ebuffphyha_data[i].name,
+                                              (const char **)&buff);
+		if (ret || !buff)
+			continue;
+
+		if (str2u32(buff, &value)) {
+			ebuffphyha_data[i].value = value;
+			ebuffphyha_data[i].enable_flag = true;
+		}
+		pr_err("ebuff ufs phy host adapter %s %d\n",
+                       ebuffphyha_data[i].name, ebuffphyha_data[i].value);
+	}
+
+	of_node_put(ebuff_node);
+	return true;
+}
+EXPORT_SYMBOL(of_obtain_ebuffphyha_info);
+
+#endif
+
 /**
  * struct ufs_qcom_phy_regs - record the info of ufs qcom phy register domain.
  * @list_head: the list to find all ufs phy register domins.
@@ -579,6 +643,13 @@ out:
 
 static void ufs_qcom_phy_disable_ref_clk(struct ufs_qcom_phy *phy)
 {
+#if defined(CONFIG_UFS_EBUFF) && defined(CONFIG_MI_UFS_MODULE)
+	u32 value = 0;
+	if (ebuffphyha_value_u32("ref_clk_always_on", &value)) {
+		pr_info("%s:ebuff ref_clk_always_on %d\n", __func__, value);
+		return;
+	}
+#endif
 	if (phy->is_ref_clk_enabled) {
 		/*
 		 * "ref_aux_clk" is optional clock and only supported by

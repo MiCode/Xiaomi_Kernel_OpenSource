@@ -60,3 +60,4 @@ dwc3-msm-y				:= dwc3-msm-core.o debug_ipc.o
 ifneq ($(CONFIG_ARM64),)
 dwc3-msm-y				+= dwc3-msm-ops.o
 endif
+obj-$(CONFIG_MI_EXTCON_USB_GPIO)	+= xm-extcon-usb-gpio.o
