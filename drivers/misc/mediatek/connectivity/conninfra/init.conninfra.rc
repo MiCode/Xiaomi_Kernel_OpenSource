@@ -1,0 +1,2 @@
+on boot
+    insmod /vendor/lib/modules/conninfra.ko
