@@ -1,0 +1,5 @@
+
+# load fmradio_drv
+on property:vendor.connsys.driver.ready=yes
+  insmod /vendor/lib/modules/fmradio_drv.ko
+
