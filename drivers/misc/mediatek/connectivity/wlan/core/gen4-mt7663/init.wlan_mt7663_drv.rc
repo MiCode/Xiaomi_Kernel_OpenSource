@@ -1,0 +1,3 @@
+on boot
+    insmod /vendor/lib/modules/wlan_drv_gen4_mt7663_prealloc.ko
+#    insmod /vendor/lib/modules/wlan_drv_gen4_mt7663.ko
