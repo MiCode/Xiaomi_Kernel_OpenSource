@@ -1,0 +1,57 @@
+CONFIG_MODULE_SIG=n
+export KERNEL_SRC := /lib/modules/$(shell uname -r)/build
+
+#################### Configurations ####################
+# For chip interface, driver supports "usb", "sdio", "uart" and "btif"
+MTK_CHIP_IF := uart
+
+ifeq ($(MTK_CHIP_IF), sdio)
+    MOD_NAME = btmtksdio
+    CFILES := btmtk_sdio.c
+    ccflags-y += -DCHIP_IF_SDIO
+else ifeq ($(MTK_CHIP_IF), usb)
+    MOD_NAME = btmtk_usb
+    CFILES := btmtkusb.c
+    ccflags-y += -DCHIP_IF_USB
+else ifeq ($(MTK_CHIP_IF), uart)
+    MOD_NAME = btmtk_uart
+    CFILES := btmtk_uart_main.c btmtk_mt76xx.c
+    ccflags-y += -DCHIP_IF_UART
+else
+    MOD_NAME = btmtkbtif
+    CFILES := btmtk_btif_main.c btmtk_mt66xx.c
+    ccflags-y += -DCHIP_IF_BTIF
+endif
+
+CFILES += btmtk_main.c
+
+ccflags-y += -I$(src)/include/ -I$(src)/
+
+$(MOD_NAME)-objs := $(CFILES:.c=.o)
+
+obj-m += $(MOD_NAME).o
+
+
+#VPATH = /opt/toolchains/gcc-linaro-aarch64-linux-gnu-4.9-2014.09_linux
+#UART_MOD_NAME = btmtk_uart
+#UART_CFILES := \
+#	btmtk_uart_main.c
+#$(UART_MOD_NAME)-objs := $(UART_CFILES:.c=.o)
+###############################################################################
+# Common
+###############################################################################
+#obj-m := $(UART_MOD_NAME).o
+all:
+	make -C $(KERNEL_SRC) M=$(PWD) modules
+clean:
+	make -C $(KERNEL_SRC) M=$(PWD) clean
+# Check coding style
+# export IGNORE_CODING_STYLE_RULES := NEW_TYPEDEFS,LEADING_SPACE,CODE_INDENT,SUSPECT_CODE_INDENT
+ccs:
+	./util/checkpatch.pl --no-tree --show-types --max-line-length=120 --ignore $(IGNORE_CODING_STYLE_RULES) -f btmtk_main.c
+	./util/checkpatch.pl --no-tree --show-types --max-line-length=120 --ignore $(IGNORE_CODING_STYLE_RULES) -f btmtk_sdio.c
+	./util/checkpatch.pl --no-tree --show-types --max-line-length=120 --ignore $(IGNORE_CODING_STYLE_RULES) -f btmtk_sdio.h
+	./util/checkpatch.pl --no-tree --show-types --max-line-length=120 --ignore $(IGNORE_CODING_STYLE_RULES) -f btmtk_config.h
+	./util/checkpatch.pl --no-tree --show-types --max-line-length=120 --ignore $(IGNORE_CODING_STYLE_RULES) -f btmtk_define.h
+	./util/checkpatch.pl --no-tree --show-types --max-line-length=120 --ignore $(IGNORE_CODING_STYLE_RULES) -f btmtk_drv.h
+

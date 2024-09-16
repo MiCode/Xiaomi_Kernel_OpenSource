@@ -1,0 +1,27 @@
+// Please note -- this is a representative set of error suppression
+//                options.  Please adjust to suit your own policies
+//                See  manual (chapter LIVING WITH LINT)
+//                for further details.
+
+
+// MISRA Required Rules
+//
+-e46                    // Bit field type should be 'int'
+-e801   				// Use of goto is deprecated
+-e912                   // Implicit binary conversion from 'type' to 'type'
+-e917                   // Prototype coercion 'type' to 'type'
+-e920                   // Cast from 'type' to void
+-e923                   // Cast from a non-pointer to a pointer or vice versa
+-e971                   // Use of 'char' without 'signed' or 'unsigned'
+-esym(960,54)           // Null statement not in line by itself
+-esym(960,57)           // 'continue' statement detected
+-esym(960,58)           // 'break' used outside of a 'switch'
+-esym(960,69)           // Function has variable number of arguments
+-esym(960,110)          // Bitfields inside union
+-esym(961,44)           // Redundant explicit casting
+-esym(961,60)           // No 'else' at end of 'if ... else if' chain
+-"esym(793,identifiers in one block)"
+                        // ANSI limit of 511 'identifiers in one block'
+                        // exceeded
+
+

@@ -440,3 +440,10 @@ config MTK_CONNSYS_DEDICATED_LOG_PATH
 	     (by EMI or other specific path)
 	  2. The scope may include (but not limited) Wi-Fi firmware log,
 	     BT firmware log, GPS firmware log etc.
+
+config WLAN_DRV_BUILD_IN
+	bool "Build Wlan module in kernel"
+	help
+	  This will build the wlan driver and the corresponding componenets
+	  into the kernel.
+	  If unsure say n

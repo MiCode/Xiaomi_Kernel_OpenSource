@@ -1,0 +1,217 @@
+# Makefile.none: Makefile for build without linux kernel only gcc
+# hif = virtual, empty hif
+# Examples:
+# - Default=wlan_mt6632_virtual:
+# 	make -f Makefile.none
+# - wlan_mt7663_virtual:
+# 	make -f Makefile.none MTK_COMBO_CHIP=MT7663
+# Note: Chip ID must be uppercase. E.g., MT7663
+
+src=$(shell pwd)
+DRIVER_DIR=$(src)
+# compiler choosing
+#CROSS_CC = /mtkoss/gcc-arm-none-eabi/6-2017q2
+#CC_INCLUDE := $(CROSS_CC)/arm-none-eabi/include
+#CC_BIN := $(CROSS_CC)/bin/
+#BIN_PREFIX := arm-none-eabi-
+CC := $(CC_BIN)$(BIN_PREFIX)gcc
+
+# CFLAGS initial
+# by pass undefined reference for linker
+#CFLAGS := -Wl,--warn-unresolved-symbols
+#CFLAGS := -Wfatal-errors -Wall
+#CFLAGS := -Wall
+CFLAGS := -Wl,--warn-once
+#-Wimplicit -O -Wstrict-aliasing=2
+#CFLAGS += -Wshadow # Local variable is shadow by other local var
+# CFG_REMIND_IMPLEMENT:
+# flag for change header file prototype to define
+# to remind user of driver who port this driver to other os
+# need to implement the function
+CFLAGS += -DCFG_REMIND_IMPLEMENT
+CFLAGS += -DCFG_VIRTUAL_OS
+
+# default include path for standard library
+# refer to the define in Linux Makefile
+# LINUX_SRC=/lib/modules/$(shell uname -r)/build
+# /lib is server dependent
+# /usr/include should be fine
+CFLAGS += -I$(CC_INCLUDE)
+#CFLAGS += -I/usr/include
+
+# Build driver default option
+hif := none
+MTK_COMBO_CHIP := MT6632
+
+export MTK_COMBO_CHIP
+export CONFIG_MTK_COMBO_PLATFORM=x86
+export CONFIG_MTK_WIFI_ONLY=m
+export CONFIG_MTK_COMBO=m
+export CONFIG_MTK_COMBO_WIFI=m
+export CONFIG_MTK_COMBO_COMM=m
+export CONFIG_MTK_COMBO_COMM_UART=m
+export CONFIG_MTK_COMBO_COMM_SDIO=m
+export CONFIG_MT_WIFI_CHRDEV=m
+#export MTK_WLAN_SERVICE_PATH=../../wlan_service/
+
+MODULES_NAME := wlan_$(shell echo $(word 1, $(MTK_COMBO_CHIP)) | tr A-Z a-z)
+
+export CONFIG_MTK_COMBO_WIFI_HIF=$(hif)
+
+export CONFIG_MTK_COMBO_PLAT_PATH=x86
+
+export CONFIG_MTK_SUPPORT_OS=none
+
+# leverage Makefile for common build option
+include Makefile
+
+##############################################################
+# Compile options
+##############################################################
+#/***** Common part ******/
+
+# Define maximum different channels supported for ieee80211_iface_combination setting.
+#CFG_NUM_DIFFERENT_CHANNELS_STA=1
+#CFG_NUM_DIFFERENT_CHANNELS_P2P=1
+
+# Define initial driver running mode.
+# 0=RUNNING_P2P_MODE, 1=RUNNING_AP_MODE, 2=RUNNING_DUAL_AP_MODE, 3=RUNNING_P2P_AP_MODE
+#CFG_DRIVER_INITIAL_RUNNING_MODE=3
+
+# Define to enable Android wake_lock
+#CFG_ENABLE_WAKE_LOCK=0
+
+# For wpa_supplicant w/o MTK priv lib
+# y: enable, n: disable
+CFG_ANDROID_AOSP_PRIV_CMD=n
+
+#CFG_DEFAULT_DBG_LEVEL=0xF
+
+CFG_TX_DIRECT_USB=1
+
+CFG_RX_DIRECT_USB=1
+
+CFG_USB_REQ_TX_DATA_FFA_CNT=10
+
+CFG_USB_REQ_TX_DATA_CNT=2
+
+CFG_USB_REQ_RX_DATA_CNT=2
+
+#CFG_SUPPORT_DFS_MASTER=1
+
+#CFG_SUPPORT_SINGLE_SKU_LOCAL_DB=0
+
+# Report all bss networks to cfg80211 when do p2p scan
+CFG_P2P_SCAN_REPORT_ALL_BSS=0
+
+# Support to change sta, p2p, ap interface names
+# y: enable, n: disable
+# eg. insmod wlan_mt76x8_usb.ko sta=wlan p2p=p2p ap=ap
+CFG_DRIVER_INF_NAME_CHANGE=n
+
+# Support firmware auto roaming
+#CFG_SUPPORT_ROAMING=0
+
+ifeq ($(CFG_ANDROID_AOSP_PRIV_CMD), y)
+PLATFORM_FLAGS += -DCFG_ANDROID_AOSP_PRIV_CMD
+endif
+
+# 1: Enable SDIO RX Tasklet De-Aggregation
+# 0: Disable (default)
+CFG_SDIO_RX_AGG_TASKLET=0
+
+#/***** Manage configs into compile options ******/
+ifneq ($(CFG_NUM_DIFFERENT_CHANNELS_STA),)
+PLATFORM_FLAGS += -DCFG_NUM_DIFFERENT_CHANNELS_STA=$(CFG_NUM_DIFFERENT_CHANNELS_STA)
+endif
+
+ifneq ($(CFG_NUM_DIFFERENT_CHANNELS_P2P),)
+PLATFORM_FLAGS += -DCFG_NUM_DIFFERENT_CHANNELS_P2P=$(CFG_NUM_DIFFERENT_CHANNELS_P2P)
+endif
+
+ifneq ($(CFG_DRIVER_INITIAL_RUNNING_MODE),)
+PLATFORM_FLAGS += -DCFG_DRIVER_INITIAL_RUNNING_MODE=$(CFG_DRIVER_INITIAL_RUNNING_MODE)
+endif
+
+ifneq ($(CFG_ENABLE_WAKE_LOCK),)
+PLATFORM_FLAGS += -DCFG_ENABLE_WAKE_LOCK=$(CFG_ENABLE_WAKE_LOCK)
+endif
+
+ifneq ($(CFG_DEFAULT_DBG_LEVEL),)
+PLATFORM_FLAGS += -DCFG_DEFAULT_DBG_LEVEL=$(CFG_DEFAULT_DBG_LEVEL)
+endif
+
+ifneq ($(CFG_TX_DIRECT_USB),)
+PLATFORM_FLAGS += -DCFG_TX_DIRECT_USB=$(CFG_TX_DIRECT_USB)
+endif
+
+ifneq ($(CFG_RX_DIRECT_USB),)
+PLATFORM_FLAGS += -DCFG_RX_DIRECT_USB=$(CFG_RX_DIRECT_USB)
+endif
+
+ifneq ($(CFG_USB_REQ_TX_DATA_FFA_CNT),)
+PLATFORM_FLAGS += -DCFG_USB_REQ_TX_DATA_FFA_CNT=$(CFG_USB_REQ_TX_DATA_FFA_CNT)
+endif
+
+ifneq ($(CFG_USB_REQ_TX_DATA_CNT),)
+PLATFORM_FLAGS += -DCFG_USB_REQ_TX_DATA_CNT=$(CFG_USB_REQ_TX_DATA_CNT)
+endif
+
+ifneq ($(CFG_USB_REQ_RX_DATA_CNT),)
+PLATFORM_FLAGS += -DCFG_USB_REQ_RX_DATA_CNT=$(CFG_USB_REQ_RX_DATA_CNT)
+endif
+
+ifneq ($(CFG_SUPPORT_ROAMING),)
+PLATFORM_FLAGS += -DCFG_SUPPORT_ROAMING=$(CFG_SUPPORT_ROAMING)
+endif
+
+ifneq ($(CFG_SUPPORT_DFS_MASTER),)
+PLATFORM_FLAGS += -DCFG_SUPPORT_DFS_MASTER=$(CFG_SUPPORT_DFS_MASTER)
+endif
+
+ifneq ($(CFG_SUPPORT_SINGLE_SKU_LOCAL_DB),)
+PLATFORM_FLAGS += -DCFG_SUPPORT_SINGLE_SKU_LOCAL_DB=$(CFG_SUPPORT_SINGLE_SKU_LOCAL_DB)
+endif
+
+ifeq ($(CFG_DRIVER_INF_NAME_CHANGE), y)
+PLATFORM_FLAGS += -DCFG_DRIVER_INF_NAME_CHANGE
+endif
+
+ifneq ($(CFG_P2P_SCAN_REPORT_ALL_BSS),)
+PLATFORM_FLAGS += -DCFG_P2P_SCAN_REPORT_ALL_BSS=$(CFG_P2P_SCAN_REPORT_ALL_BSS)
+endif
+
+ifneq ($(CFG_SDIO_RX_AGG_TASKLET),)
+PLATFORM_FLAGS += -DCFG_SDIO_RX_AGG_TASKLET=$(CFG_SDIO_RX_AGG_TASKLET)
+endif
+
+ifeq ($(CONFIG_MTK_COMBO_PLATFORM), x86)
+PLATFORM_FLAGS += -DCFG_BUILD_X86_PLATFORM
+endif
+
+CFLAGS += $(ccflags-y)
+CFLAGS += $(PLATFORM_FLAGS)
+
+OBJS = $($(MODULE_NAME)-objs)
+TARGET = $(MODULES_NAME)_$(hif)
+
+$(info flags: $(CFLAGS))
+$(info CC: $(CC))
+$(info target: $(TARGET))
+
+REBUILDABLES = $(OBJS) $(TARGET)
+
+all : $(TARGET)
+	@echo build pass
+
+$(TARGET) : $(OBJS)
+	@${CC} $(OBJS) $(CFLAGS) -o $@
+%.o : %.c
+	@echo [CC] $@
+	@$(CC) -g -o $@ -c $< $(CFLAGS)
+
+clean :
+	@rm -f $(REBUILDABLES)
+	@echo clean
+
+.PHONY: clean all
