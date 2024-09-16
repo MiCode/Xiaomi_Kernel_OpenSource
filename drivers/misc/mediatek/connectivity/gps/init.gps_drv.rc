@@ -1,0 +1,4 @@
+
+# load gps_drv
+on property:vendor.connsys.driver.ready=yes
+  insmod /vendor/lib/modules/gps_drv.ko
