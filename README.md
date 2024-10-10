@@ -208,4 +208,4 @@
 | breeze-u-oss | Redmi Note 13R | Android U | LA.VENDOR.1.0.r1-24300-WAIPIO.QSSI14.0-1 | [breeze-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/breeze-u-oss) |
 | moon-u-oss | POCO M6/Redmi 13 | Android U | t-alps-release-s0.mp1.tc8sp-cs3-V1.31 | [moon-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/moon-u-oss) |
 | goku-u-oss | Xiaomi MIX Fold 4 | Android U | AU_LINUX_ANDROID_LA.VENDOR.14.3.0.R1.00.00.00.000.093 | [goku-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/goku-u-oss-test ) |
-
+| bsp-rothko-u-oss | Redmi K70 Ultra | Android U | TAG:alps-mp-u0.mp1.tc8sp3-V1 | [bsp-rothko-u-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rothko-u-oss ) |
