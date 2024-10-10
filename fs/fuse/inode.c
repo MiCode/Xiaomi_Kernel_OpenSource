@@ -25,6 +25,11 @@
 #include <linux/pid_namespace.h>
 #include <uapi/linux/magic.h>
 
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+#define CREATE_TRACE_POINTS
+#include <trace/events/mtk_fuse.h>
+#endif
+
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Filesystem in Userspace");
 MODULE_LICENSE("GPL");
@@ -137,6 +142,9 @@ static void fuse_evict_inode(struct inode *inode)
 		if (fi->nlookup) {
 			fuse_queue_forget(fc, fi->forget, fi->nodeid,
 					  fi->nlookup);
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+			trace_mtk_fuse_queue_forget(__func__, __LINE__, fi->nodeid, fi->nlookup);
+#endif
 			fi->forget = NULL;
 		}
 	}
@@ -459,6 +467,10 @@ struct inode *fuse_iget_backing(struct super_block *sb, u64 nodeid,
 	fi = get_fuse_inode(inode);
 	fuse_init_inode(inode, &attr);
 	spin_lock(&fi->lock);
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_nlookup(__func__, __LINE__, inode,
+			fi->nodeid, fi->nlookup, fi->nlookup + 1);
+#endif
 	fi->nlookup++;
 	spin_unlock(&fi->lock);
 
@@ -516,6 +528,10 @@ retry:
 done:
 	fi = get_fuse_inode(inode);
 	spin_lock(&fi->lock);
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_nlookup(__func__, __LINE__, inode,
+			fi->nodeid, fi->nlookup, fi->nlookup + 1);
+#endif
 	fi->nlookup++;
 	spin_unlock(&fi->lock);
 	fuse_change_attributes(inode, attr, attr_valid, attr_version);
@@ -1632,6 +1648,12 @@ static int fuse_fill_super_submount(struct super_block *sb,
 	 * its nlookup should not be incremented.  fuse_iget() does
 	 * that, though, so undo it here.
 	 */
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_nlookup(__func__, __LINE__, root,
+			get_fuse_inode(root)->nodeid,
+			get_fuse_inode(root)->nlookup,
+			get_fuse_inode(root)->nlookup - 1);
+#endif
 	get_fuse_inode(root)->nlookup--;
 	sb->s_d_op = &fuse_dentry_operations;
 	sb->s_root = d_make_root(root);

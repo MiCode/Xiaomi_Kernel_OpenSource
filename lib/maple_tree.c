@@ -1375,7 +1375,11 @@ static void mas_node_count_gfp(struct ma_state *mas, int count, gfp_t gfp)
  */
 static void mas_node_count(struct ma_state *mas, int count)
 {
-	return mas_node_count_gfp(mas, count, GFP_NOWAIT | __GFP_NOWARN);
+	gfp_t gfp = GFP_NOWAIT | __GFP_NOWARN;
+	#ifdef CONFIG_MTK_VM_DEBUG
+	gfp = GFP_KERNEL;
+	#endif
+	return mas_node_count_gfp(mas, count, gfp);
 }
 
 /*

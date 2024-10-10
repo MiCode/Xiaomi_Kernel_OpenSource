@@ -47,7 +47,9 @@
 #include <trace/events/timer.h>
 
 #include "tick-internal.h"
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+#include <linux/sched/clock.h>
+#endif
 /*
  * Masks for selecting the soft and hard context timers from
  * cpu_base->active
@@ -1647,6 +1649,9 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 	enum hrtimer_restart (*fn)(struct hrtimer *);
 	bool expires_in_hardirq;
 	int restart;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 start, end, process_time;
+#endif
 
 	lockdep_assert_held(&cpu_base->lock);
 
@@ -1681,9 +1686,17 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
 	trace_hrtimer_expire_entry(timer, now);
 	expires_in_hardirq = lockdep_hrtimer_enter(timer);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	start = sched_clock();
+#endif
 	restart = fn(timer);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end = sched_clock();
+	process_time = end - start;
+	if (process_time > 5000000L) // > 5ms
+		pr_notice("irq_monitor: function: %pS time: %lld func: %s line: %d "
+			, fn, process_time, __func__, __LINE__);
+#endif
 	lockdep_hrtimer_exit(expires_in_hardirq);
 	trace_hrtimer_expire_exit(timer);
 	raw_spin_lock_irq(&cpu_base->lock);

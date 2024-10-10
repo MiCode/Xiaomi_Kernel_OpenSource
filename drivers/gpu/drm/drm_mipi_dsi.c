@@ -209,7 +209,7 @@ mipi_dsi_device_register_full(struct mipi_dsi_host *host,
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (info->channel > 3) {
+	if (info->channel > 4) {
 		drm_err(host, "invalid virtual channel: %u\n", info->channel);
 		return ERR_PTR(-EINVAL);
 	}

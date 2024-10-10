@@ -207,6 +207,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_util_fits_cpu,
 		int cpu, bool *fits, bool *done),
 	TP_ARGS(util, uclamp_min, uclamp_max, cpu, fits, done), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_update_cpus_allowed,
+	TP_PROTO(struct task_struct *p, cpumask_var_t cpus_requested,
+		 const struct cpumask *new_mask, int *ret),
+	TP_ARGS(p, cpus_requested, new_mask, ret), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_sched_fork_init,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p), 1);
@@ -362,6 +367,15 @@ DECLARE_RESTRICTED_HOOK(android_rvh_find_energy_efficient_cpu,
 DECLARE_HOOK(android_vh_sched_pelt_multiplier,
 	TP_PROTO(unsigned int old, unsigned int cur, int *ret),
 	TP_ARGS(old, cur, ret));
+
+#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
+DECLARE_HOOK(android_vh_do_fork,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
+DECLARE_HOOK(android_vh_do_exit,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
+#endif
 
 struct cpufreq_policy;
 DECLARE_HOOK(android_vh_map_util_freq,

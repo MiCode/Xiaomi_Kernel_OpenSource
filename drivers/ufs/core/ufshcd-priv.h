@@ -292,6 +292,20 @@ static inline int ufshcd_mcq_vops_config_esi(struct ufs_hba *hba)
 	return -EOPNOTSUPP;
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
+static inline void ufshcd_vops_check_bus_status(struct ufs_hba *hba)
+{
+	if (hba->vops && hba->vops->check_bus_status)
+		hba->vops->check_bus_status(hba);
+}
+
+static inline void ufshcd_vops_dbg_dump(struct ufs_hba *hba, u32 latest_cnt)
+{
+	if (hba->vops && hba->vops->dbg_dump)
+		hba->vops->dbg_dump(hba, latest_cnt);
+}
+#endif
+
 extern const struct ufs_pm_lvl_states ufs_pm_lvl_states[];
 
 /**

@@ -281,6 +281,14 @@ static void ufshcd_mcq_process_cqe(struct ufs_hba *hba,
 	int tag = ufshcd_mcq_get_tag(hba, hwq, cqe);
 
 	if (cqe->command_desc_base_addr) {
+	/* For debugging KE at ufshcd_compl_one_cqe() */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
+		/* If OCS Error = FATAL ERROR */
+		if((cqe->status & 0xF) == 0x7) {
+			ufshcd_vops_dbg_register_dump(hba);
+			BUG_ON(1);
+		}
+#endif
 		ufshcd_compl_one_cqe(hba, tag, cqe);
 		/* After processed the cqe, mark it empty (invalid) entry */
 		cqe->command_desc_base_addr = 0;

@@ -2115,19 +2115,38 @@ int count_mounts(struct mnt_namespace *ns, struct mount *mnt)
 	unsigned int mounts = 0;
 	struct mount *p;
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	if (ns->mounts >= max) {
+		pr_notice("[vfs]ns->mounts(%u) max(%u) return ENOSPC\n", ns->mounts, max);
+		return -ENOSPC;
+	}
+
+	max -= ns->mounts;
+	if (ns->pending_mounts >= max) {
+		pr_notice("[vfs]pending_mounts(%u) max(%u) return ENOSPC\n", ns->pending_mounts, max);
+		return -ENOSPC;
+	}
+#else /* #if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 	if (ns->mounts >= max)
 		return -ENOSPC;
 	max -= ns->mounts;
 	if (ns->pending_mounts >= max)
 		return -ENOSPC;
+#endif /* #else #if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 	max -= ns->pending_mounts;
 
 	for (p = mnt; p; p = next_mnt(p, mnt))
 		mounts++;
 
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	if (mounts > max) {
+		pr_notice("[vfs]mounts(%u) max(%u) return ENOSPC\n", mounts, max);
+		return -ENOSPC;
+	}
+#else /* #if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 	if (mounts > max)
 		return -ENOSPC;
-
+#endif /* #else #if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 	ns->pending_mounts += mounts;
 	return 0;
 }

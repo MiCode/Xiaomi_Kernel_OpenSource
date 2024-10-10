@@ -46,7 +46,7 @@ config MTK_PMIC_WRAP
 
 config MTK_SCPSYS
 	bool "MediaTek SCPSYS Support"
-	default ARCH_MEDIATEK
+	depends on ARCH_MEDIATEK
 	depends on OF
 	select REGMAP
 	select MTK_INFRACFG
@@ -57,7 +57,7 @@ config MTK_SCPSYS
 
 config MTK_SCPSYS_PM_DOMAINS
 	bool "MediaTek SCPSYS generic power domain"
-	default ARCH_MEDIATEK
+	depends on ARCH_MEDIATEK
 	depends on PM
 	select PM_GENERIC_DOMAINS
 	select REGMAP
@@ -69,7 +69,7 @@ config MTK_SCPSYS_PM_DOMAINS
 
 config MTK_MMSYS
 	bool "MediaTek MMSYS Support"
-	default ARCH_MEDIATEK
+	depends on ARCH_MEDIATEK
 	depends on HAS_IOMEM
 	help
 	  Say yes here to add support for the MediaTek Multimedia

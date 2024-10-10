@@ -266,13 +266,17 @@ static void sysrq_handle_showallcpus(int key)
 
 		if (in_hardirq())
 			regs = get_irq_regs();
-
+#ifdef CONFIG_MTK_PANIC_ON_WARN
+		preempt_disable();
+#endif
 		pr_info("CPU%d:\n", smp_processor_id());
 		if (regs)
 			show_regs(regs);
 		else
 			show_stack(NULL, NULL, KERN_INFO);
-
+#ifdef CONFIG_MTK_PANIC_ON_WARN
+		preempt_enable();
+#endif
 		schedule_work(&sysrq_showallcpus);
 	}
 }

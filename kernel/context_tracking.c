@@ -335,7 +335,17 @@ void noinstr ct_idle_exit(void)
 	unsigned long flags;
 
 	raw_local_irq_save(flags);
+#ifdef CONFIG_LOCKDEP
+	/*
+	 * Workaround for unannotated irqs-off warning.
+	 * This will be removed when we have an upstream solution.
+	 */
+	lockdep_off();
 	ct_kernel_enter(false, RCU_DYNTICKS_IDX - CONTEXT_IDLE);
+	lockdep_on();
+#else
+	ct_kernel_enter(false, RCU_DYNTICKS_IDX - CONTEXT_IDLE);
+#endif
 	raw_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ct_idle_exit);

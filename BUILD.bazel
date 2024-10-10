@@ -108,6 +108,7 @@ filegroup(
         "android/abi_gki_aarch64_imx",
         "android/abi_gki_aarch64_meizu",
         "android/abi_gki_aarch64_mtk",
+        "android/abi_gki_aarch64_nothing",
         "android/abi_gki_aarch64_oplus",
         "android/abi_gki_aarch64_pixel",
         "android/abi_gki_aarch64_qcom",
@@ -939,3 +940,4 @@ ddk_headers(
     includes = [],
     visibility = ["//visibility:private"],
 )
+

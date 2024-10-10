@@ -13,6 +13,10 @@
 #include <linux/pagemap.h>
 #include <linux/highmem.h>
 
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+#include <trace/events/mtk_fuse.h>
+#endif
+
 static bool fuse_use_readdirplus(struct inode *dir, struct dir_context *ctx)
 {
 	struct fuse_conn *fc = get_fuse_conn(dir);
@@ -221,6 +225,10 @@ retry:
 
 		fi = get_fuse_inode(inode);
 		spin_lock(&fi->lock);
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+		trace_mtk_fuse_nlookup(__func__, __LINE__, inode,
+				fi->nodeid, fi->nlookup, fi->nlookup + 1);
+#endif
 		fi->nlookup++;
 		spin_unlock(&fi->lock);
 
@@ -270,6 +278,10 @@ static void fuse_force_forget(struct file *file, u64 nodeid)
 	struct fuse_mount *fm = get_fuse_mount(inode);
 	struct fuse_forget_in inarg;
 	FUSE_ARGS(args);
+
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_force_forget(__func__, __LINE__, inode, nodeid, 1);
+#endif
 
 	memset(&inarg, 0, sizeof(inarg));
 	inarg.nlookup = 1;

@@ -133,6 +133,9 @@ struct ddebug_class_param {
 int ddebug_add_module(struct _ddebug_info *dyndbg, const char *modname);
 
 extern int ddebug_remove_module(const char *mod_name);
+#if defined(CONFIG_MTK_PRINTK_DEBUG)
+void __dynamic_no_printk(struct _ddebug *descriptor, const char *fmt, ...);
+#endif
 extern __printf(2, 3)
 void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...);
 
@@ -248,6 +251,92 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 #define _dynamic_func_call(fmt, func, ...)				\
 	_dynamic_func_call_cls(_DPRINTK_CLASS_DFLT, fmt, func, ##__VA_ARGS__)
 
+#if defined(CONFIG_MTK_PRINTK_DEBUG)
+#define dynamic_pr_emerg(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
+})
+
+#define dynamic_pr_alert(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
+})
+
+#define dynamic_pr_crit(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
+})
+
+#define dynamic_pr_err(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
+})
+
+#define dynamic_pr_warn(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
+})
+
+#define dynamic_pr_notice(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
+})
+
+#define dynamic_pr_info(fmt, ...)				\
+({ \
+	static bool __print_once __read_mostly; \
+	if (!__print_once) { \
+		__print_once = true; \
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
+			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
+	}   else \
+		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
+})
+#endif
+
 /*
  * A variant that does the same, except that the descriptor is not
  * passed as the first argument to the function; it is only called
@@ -326,6 +415,22 @@ static inline int ddebug_dyndbg_module_param_cb(char *param, char *val,
 	return -EINVAL;
 }
 
+#if defined(CONFIG_MTK_PRINTK_DEBUG)
+#define dynamic_pr_emerg(fmt, ...)                  \
+	do { if (0) printk(KERN_EMERG   pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#define dynamic_pr_alert(fmt, ...)                  \
+	do { if (0) printk(KERN_ALERT   pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#define dynamic_pr_crit(fmt, ...)                   \
+	do { if (0) printk(KERN_CRIT    pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#define dynamic_pr_err(fmt, ...)                    \
+	do { if (0) printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#define dynamic_pr_warn(fmt, ...)                   \
+	do { if (0) printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#define dynamic_pr_notice(fmt, ...)                 \
+	do { if (0) printk(KERN_NOTICE  pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#define dynamic_pr_info(fmt, ...)                   \
+	do { if (0) printk(KERN_INFO    pr_fmt(fmt), ##__VA_ARGS__); } while (0)
+#endif
 #define dynamic_pr_debug(fmt, ...)					\
 	do { if (0) printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__); } while (0)
 #define dynamic_dev_dbg(dev, fmt, ...)					\

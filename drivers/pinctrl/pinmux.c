@@ -689,6 +689,11 @@ static ssize_t pinmux_select(struct file *file, const char __user *user_buf,
 	if (len > PINMUX_SELECT_MAX)
 		return -ENOMEM;
 
+#if IS_ENABLED(CONFIG_MTK_PINCTRL_DEBUG)
+	buf = memdup_user_nul(user_buf, len);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+#else
 	buf = kzalloc(PINMUX_SELECT_MAX, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -697,6 +702,7 @@ static ssize_t pinmux_select(struct file *file, const char __user *user_buf,
 	if (ret < 0)
 		goto exit_free_buf;
 	buf[len-1] = '\0';
+#endif /* #if IS_ENABLED(CONFIG_MTK_PINCTRL_DEBUG) */
 
 	/* remove leading and trailing spaces of input buffer */
 	gname = strstrip(buf);

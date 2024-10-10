@@ -919,7 +919,12 @@ static bool prepare_signal(int sig, struct task_struct *p, bool force)
 
 	if (signal->flags & SIGNAL_GROUP_EXIT) {
 		if (signal->core_state)
+#if IS_ENABLED(CONFIG_MTK_AVOID_TRUNCATE_COREDUMP)
+			pr_info("[%d:%s] skip sig %d due to coredump\n",
+					p->pid, p->comm, sig);
+#else
 			return sig == SIGKILL;
+#endif
 		/*
 		 * The process is in the middle of dying, drop the signal.
 		 */
@@ -4700,6 +4705,9 @@ __weak const char *arch_vma_name(struct vm_area_struct *vma)
 {
 	return NULL;
 }
+#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
+EXPORT_SYMBOL(arch_vma_name);
+#endif
 
 static inline void siginfo_buildtime_checks(void)
 {

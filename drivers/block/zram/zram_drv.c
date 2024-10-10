@@ -634,6 +634,28 @@ static int read_from_bdev_async(struct zram *zram, struct bio_vec *bvec,
 #define IDLE_WRITEBACK (1<<1)
 
 
+#if defined(CONFIG_ZRAM_WRITEBACK) && defined(CONFIG_MI_MEMORY_FREEZE)
+static bool extm_has_disk_quota(struct zram *zram)
+{
+	unsigned long bd_count_result, mf_bd_count_result, mf_bd_count_max, bd_count_diff;
+
+	if (zram->mfz_disk_quota == 0) {
+		return true;
+	}
+
+	//get mfz writeback count and calculate the conut_max
+	bd_count_result = atomic64_read(&zram->stats.bd_count);
+	mf_bd_count_result = atomic64_read(&zram->stats.mf_bd_count);
+	bd_count_diff = bd_count_result - mf_bd_count_result;
+	mf_bd_count_max = zram->nr_pages - zram->mfz_disk_quota;
+
+	if (bd_count_diff >= mf_bd_count_max) {
+		return false;
+	}
+	return true;
+}
+#endif
+
 static ssize_t writeback_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {

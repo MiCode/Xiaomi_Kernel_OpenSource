@@ -546,6 +546,18 @@ enum rproc_features {
  * @cdev_put_on_release: flag to indicate if remoteproc should be shutdown on @char_dev release
  * @features: indicate remoteproc features
  */
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+#define RPROC_UID_FS  0
+#define RPROC_UID_SC  1
+#define RPROC_UID_CAM 2
+#define RPROC_UID_SENIF 3
+#define RPROC_UID_IMG 4
+#define RPROC_UID_IMG_CMDQ 5
+#define RPROC_UID_MMDVFS 6
+#define RPROC_UID_GCE 7
+#define RPROC_UID_MAX 8
+#endif
+
 struct rproc {
 	struct list_head node;
 	struct iommu_domain *domain;
@@ -586,6 +598,9 @@ struct rproc {
 	struct cdev cdev;
 	bool cdev_put_on_release;
 	DECLARE_BITMAP(features, RPROC_MAX_FEATURES);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+	atomic_t bootcnt[RPROC_UID_MAX][5];
+#endif
 };
 
 /**
@@ -686,6 +701,10 @@ rproc_of_resm_mem_entry_init(struct device *dev, u32 of_resm_idx, size_t len,
 
 int rproc_boot(struct rproc *rproc);
 int rproc_shutdown(struct rproc *rproc);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+int rproc_bootx(struct rproc *rproc, unsigned int uid);
+int rproc_shutdownx(struct rproc *rproc, unsigned int uid);
+#endif
 int rproc_detach(struct rproc *rproc);
 int rproc_set_firmware(struct rproc *rproc, const char *fw_name);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);

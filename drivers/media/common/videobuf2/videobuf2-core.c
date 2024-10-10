@@ -31,7 +31,11 @@
 
 #include <trace/events/vb2.h>
 
+#if IS_ENABLED(CONFIG_MTK_VIDEOBUF2_DEBUG)
+static int debug = 1;
+#else
 static int debug;
+#endif
 module_param(debug, int, 0644);
 
 #define dprintk(q, level, fmt, arg...)					\

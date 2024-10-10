@@ -298,7 +298,7 @@ static void print_wakeup_sources(void)
 }
 
 static ssize_t last_resume_reason_show(struct kobject *kobj,
-				       struct kobj_attribute *attr, char *buf)
+					struct kobj_attribute *attr, char *buf)
 {
 	ssize_t buf_offset = 0;
 	struct wakeup_irq_node *n;

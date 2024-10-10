@@ -35,3 +35,11 @@ config VIDEO_MEDIATEK_VCODEC
 
 	  To compile this driver as modules, choose M here: the
 	  modules will be called mtk-vcodec-dec and mtk-vcodec-enc.
+
+config MTK_VIDEOBUF2_DEBUG
+	tristate "Enable videobuf2 debug log"
+	help
+	  MTK_VIDEOBUF2_DEBUG is the kernel configuration for videobuf2 debug logs.
+	  When this is enabled, it sets the videobuf2 log level to 1 for debugging.
+	  At log level 1, error logs are printed for debugging purposes.
+	  By default, the log level is set to 0, and at this level, error logs are hidden.

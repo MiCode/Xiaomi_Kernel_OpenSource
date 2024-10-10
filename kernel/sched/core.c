@@ -162,6 +162,16 @@ const_debug unsigned int sysctl_sched_nr_migrate = SCHED_NR_MIGRATE_BREAK;
 
 __read_mostly int scheduler_running;
 
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+void (*mtk_irq_log_store)(const char *, int) = NULL;
+void mtk_register_irq_log_store(void (*fn)(const char*, int))
+{
+	mtk_irq_log_store = fn;
+}
+EXPORT_SYMBOL_GPL(mtk_register_irq_log_store);
+#endif
+
 #ifdef CONFIG_SCHED_CORE
 
 DEFINE_STATIC_KEY_FALSE(__sched_core_enabled);
@@ -2610,7 +2620,6 @@ static int migration_cpu_stop(void *data)
 	struct rq *rq = this_rq();
 	bool complete = false;
 	struct rq_flags rf;
-
 	/*
 	 * The original target CPU might have gone down and we might
 	 * be on another CPU but it doesn't matter.
@@ -2696,8 +2705,8 @@ static int migration_cpu_stop(void *data)
 out:
 	if (pending)
 		pending->stop_pending = false;
-	task_rq_unlock(rq, p, &rf);
 
+	task_rq_unlock(rq, p, &rf);
 	if (complete)
 		complete_all(&pending->done);
 
@@ -2952,7 +2961,6 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 {
 	struct set_affinity_pending my_pending = { }, *pending = NULL;
 	bool stop_pending, complete = false;
-
 	/* Can the task run on the task's current CPU? If so, we're done */
 	if (cpumask_test_cpu(task_cpu(p), &p->cpus_mask)) {
 		struct task_struct *push_task = NULL;
@@ -3045,7 +3053,6 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 			p->migration_flags &= ~MDF_PUSH;
 
 		task_rq_unlock(rq, p, rf);
-
 		if (!stop_pending) {
 			stop_one_cpu_nowait(cpu_of(rq), migration_cpu_stop,
 					    &pending->arg, &pending->stop_work);
@@ -3069,9 +3076,7 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 		if (complete)
 			complete_all(&pending->done);
 	}
-
 	wait_for_completion(&pending->done);
-
 	if (refcount_dec_and_test(&pending->refs))
 		wake_up_var(&pending->refs); /* No UaF, just an address */
 
@@ -3339,6 +3344,10 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #ifdef CONFIG_SCHED_DEBUG
 	unsigned int state = READ_ONCE(p->__state);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/*
 	 * We should never call set_task_cpu() on a blocked task,
 	 * ttwu() will sort out the placement.
@@ -3367,6 +3376,10 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 	 */
 	WARN_ON_ONCE(debug_locks && !(lockdep_is_held(&p->pi_lock) ||
 				      lockdep_is_held(__rq_lockp(task_rq(p)))));
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 #endif
 	/*
 	 * Clearly, migrating tasks to offline CPUs is a fairly daft thing.
@@ -3375,19 +3388,34 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 
 	WARN_ON_ONCE(is_migration_disabled(p));
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	trace_sched_migrate_task(p, new_cpu);
 
 	if (task_cpu(p) != new_cpu) {
-		if (p->sched_class->migrate_task_rq)
+		if (p->sched_class->migrate_task_rq) {
 			p->sched_class->migrate_task_rq(p, new_cpu);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if (mtk_irq_log_store)
+				mtk_irq_log_store(__func__, __LINE__);
+#endif
+		}
 		p->se.nr_migrations++;
 		rseq_migrate(p);
 		perf_event_task_migrate(p);
 		trace_android_rvh_set_task_cpu(p, new_cpu);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	__set_task_cpu(p, new_cpu);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 }
 EXPORT_SYMBOL_GPL(set_task_cpu);
 
@@ -3767,10 +3795,25 @@ ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
 static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 			   struct rq_flags *rf)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	check_preempt_curr(rq, p, wake_flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	WRITE_ONCE(p->__state, TASK_RUNNING);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	trace_sched_wakeup(p);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 #ifdef CONFIG_SMP
 	if (p->sched_class->task_woken) {
 		/*
@@ -3781,7 +3824,10 @@ static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 		p->sched_class->task_woken(rq, p);
 		rq_repin_lock(rq, rf);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (rq->idle_stamp) {
 		u64 delta = rq_clock(rq) - rq->idle_stamp;
 		u64 max = 2*rq->max_idle_balance_cost;
@@ -3797,6 +3843,10 @@ static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 		rq->idle_stamp = 0;
 	}
 #endif
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 }
 
 static void
@@ -3805,11 +3855,18 @@ ttwu_do_activate(struct rq *rq, struct task_struct *p, int wake_flags,
 {
 	int en_flags = ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (wake_flags & WF_SYNC)
 		en_flags |= ENQUEUE_WAKEUP_SYNC;
 
 	lockdep_assert_rq_held(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (p->sched_contributes_to_load)
 		rq->nr_uninterruptible--;
 
@@ -3822,9 +3879,20 @@ ttwu_do_activate(struct rq *rq, struct task_struct *p, int wake_flags,
 		delayacct_blkio_end(p);
 		atomic_dec(&task_rq(p)->nr_iowait);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	activate_task(rq, p, en_flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	ttwu_do_wakeup(rq, p, wake_flags, rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 }
 
 /*
@@ -3881,6 +3949,10 @@ void sched_ttwu_pending(void *arg)
 	if (!llist)
 		return;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/*
 	 * rq::ttwu_pending racy indication of out-standing wakeups.
 	 * Races such that false-negatives are possible, since they
@@ -3889,8 +3961,15 @@ void sched_ttwu_pending(void *arg)
 	WRITE_ONCE(rq->ttwu_pending, 0);
 
 	rq_lock_irqsave(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	update_rq_clock(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	llist_for_each_entry_safe(p, t, llist, wake_entry.llist) {
 		if (WARN_ON_ONCE(p->on_cpu))
 			smp_cond_load_acquire(&p->on_cpu, !VAL);
@@ -3900,8 +3979,15 @@ void sched_ttwu_pending(void *arg)
 
 		ttwu_do_activate(rq, p, p->sched_remote_wakeup ? WF_MIGRATED : 0, &rf);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	rq_unlock_irqrestore(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 }
 
 void send_call_function_single_ipi(int cpu)
@@ -4214,6 +4300,10 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	unsigned long flags;
 	int cpu, success = 0;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	preempt_disable();
 	if (p == current) {
 		/*
@@ -4235,7 +4325,10 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		trace_sched_wakeup(p);
 		goto out;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
 	 * need to ensure that CONDITION=1 done by the caller can not be
@@ -4243,7 +4336,15 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	 * in set_current_state() that the waiting thread does.
 	 */
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	smp_mb__after_spinlock();
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (!ttwu_state_match(p, state, &success))
 		goto unlock;
 
@@ -4303,7 +4404,10 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	 * care about it's own p->state. See the comment in __schedule().
 	 */
 	smp_acquire__after_ctrl_dep();
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/*
 	 * We're doing the wakeup (@success == 1), they did a dequeue (p->on_rq
 	 * == 0), which means we need to do an enqueue, change p->state to
@@ -4335,6 +4439,10 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	    ttwu_queue_wakelist(p, task_cpu(p), wake_flags))
 		goto unlock;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/*
 	 * If the owning (remote) CPU is still in the middle of schedule() with
 	 * this task as prev, wait until it's done referencing the task.
@@ -4347,8 +4455,15 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	smp_cond_load_acquire(&p->on_cpu, !VAL);
 
 	trace_android_rvh_try_to_wake_up(p);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	cpu = select_task_rq(p, p->wake_cpu, wake_flags | WF_TTWU);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (task_cpu(p) != cpu) {
 		if (p->in_iowait) {
 			delayacct_blkio_end(p);
@@ -4362,9 +4477,16 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 #else
 	cpu = task_cpu(p);
 #endif /* CONFIG_SMP */
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	ttwu_queue(p, cpu, wake_flags);
 unlock:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 out:
 	if (success) {
@@ -4372,7 +4494,10 @@ out:
 		ttwu_stat(p, task_cpu(p), wake_flags);
 	}
 	preempt_enable();
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	return success;
 }
 
@@ -5665,37 +5790,92 @@ void scheduler_tick(void)
 	unsigned long thermal_pressure;
 	u64 resched_latency;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (housekeeping_cpu(cpu, HK_TYPE_TICK))
 		arch_scale_freq_tick();
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 
 	sched_clock_tick();
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	rq_lock(rq, &rf);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	update_rq_clock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	trace_android_rvh_tick_entry(rq);
 
 	thermal_pressure = arch_scale_thermal_pressure(cpu_of(rq));
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	update_thermal_load_avg(rq_clock_thermal(rq), rq, thermal_pressure);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	curr->sched_class->task_tick(rq, curr, 0);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (sched_feat(LATENCY_WARN))
 		resched_latency = cpu_resched_latency(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	calc_global_load_tick(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	sched_core_tick(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	rq_unlock(rq, &rf);
 
 	if (sched_feat(LATENCY_WARN) && resched_latency)
 		resched_latency_warn(cpu, resched_latency);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	perf_event_task_tick();
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 #ifdef CONFIG_SMP
 	rq->idle_balance = idle_cpu(cpu);
 	trigger_load_balance(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 #endif
 
 	trace_android_vh_scheduler_tick(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 }
 
 #ifdef CONFIG_NO_HZ_FULL
@@ -5955,6 +6135,9 @@ static noinline void __schedule_bug(struct task_struct *prev)
 
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 
 /*
@@ -5976,6 +6159,9 @@ static inline void schedule_debug(struct task_struct *prev, bool preempt)
 			prev->comm, prev->pid, prev->non_block_count);
 		dump_stack();
 		add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		BUG();
+#endif
 	}
 #endif
 
@@ -10159,6 +10345,9 @@ void __might_resched(const char *file, int line, unsigned int offsets)
 
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 EXPORT_SYMBOL(__might_resched);
 
@@ -10187,6 +10376,9 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
 	debug_show_held_locks(current);
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 EXPORT_SYMBOL_GPL(__cant_sleep);
 
@@ -10219,6 +10411,9 @@ void __cant_migrate(const char *file, int line)
 	debug_show_held_locks(current);
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 EXPORT_SYMBOL_GPL(__cant_migrate);
 #endif
