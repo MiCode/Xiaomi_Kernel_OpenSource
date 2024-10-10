@@ -2554,7 +2554,6 @@ static int bq2597x_charger_probe(struct i2c_client *client,
 {
 	struct bq2597x *bq;
 	int ret;
-    bq_err("enter cp successfully-cxl");
 	bq = devm_kzalloc(&client->dev, sizeof(struct bq2597x), GFP_KERNEL);
 	if (!bq)
 		return -ENOMEM;
