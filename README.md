@@ -54,7 +54,7 @@
 | gucci-kk-oss | Redmi Note Dual SIM | Android KK | LNX.LA.3.7.2.1.c6-01400-8x16.0 | [gucci-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gucci-kk-oss) |
 | gauguin-q-oss | Redmi Note 9 Pro | Android Q | LA.UM.8.13.r1-09200-SAIPAN.0 | [gauguin-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gauguin-q-oss) |
 | gauguin-r-oss | Redmi Note 9 Pro | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [gauguin-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gauguin-r-oss) |
-| hennessy-l-oss | Redmi Note3,Redmi Note2,Redmi Note2 Pro | Android L | MTK | [hennessy-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hennessy-l-oss) |
+| hennessy-l-oss | Redmi Note 3, Redmi Note 2, Redmi Note 2 Pro | Android L | MTK | [hennessy-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hennessy-l-oss) |
 | haydn-r-oss | Redmi K40 Pro | Android R | LA.UM.9.14.r1-11500-LAHAINA.0 | [haydn-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/haydn-r-oss) |
 | hydrogen-m-oss | Mi Max, Mi Max Pro | Android M | LA.BR.1.3.4-05310-8976.0 | [hydrogen-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hydrogen-m-oss) |
 | ido-l-oss | Redmi 2, Redmi 3 | Android L | LA.BR.1.2.4-04410-8x16.0 | [ido-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ido-l-oss) |
