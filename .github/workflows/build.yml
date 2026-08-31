@@ -1,0 +1,106 @@
+name: POCO M4 5G - KernelSU Next
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: light-u-oss
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc \
+            bison \
+            build-essential \
+            flex \
+            libssl-dev \
+            libelf-dev \
+            libncurses5-dev \
+            git \
+            curl \
+            zip \
+            unzip \
+            python3 \
+            rsync \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi \
+            clang \
+            lld \
+            llvm
+
+      - name: Integrate KernelSU Next
+        run: |
+          curl -LSs \
+            "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" \
+            | bash -s legacy
+
+      - name: Configure kernel
+        run: |
+          make ARCH=arm64 light_defconfig
+
+          ./scripts/config --file .config \
+            -e CONFIG_KPROBES \
+            -e CONFIG_HAVE_KPROBES \
+            -e CONFIG_KPROBE_EVENTS \
+            -e CONFIG_KSU_KPROBE_HOOKS \
+            -e CONFIG_KSU
+
+          make ARCH=arm64 olddefconfig
+
+          echo "===== KernelSU configuration ====="
+          grep -E \
+            'CONFIG_(KPROBES|HAVE_KPROBES|KPROBE_EVENTS|KSU_KPROBE_HOOKS|KSU)=' \
+            .config || true
+
+      - name: Build kernel
+        env:
+          HOSTCFLAGS: "-Wno-error=deprecated-declarations"
+          HOSTCXXFLAGS: "-Wno-error=deprecated-declarations"
+        run: |
+          make -j$(nproc) \
+            ARCH=arm64 \
+            SUBARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            CC=clang \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
+            HOSTCFLAGS="$HOSTCFLAGS" \
+            HOSTCXXFLAGS="$HOSTCXXFLAGS"
+
+      - name: Show kernel output
+        if: always()
+        run: |
+          echo "===== Kernel output ====="
+          find arch/arm64/boot -maxdepth 3 -type f \
+            \( -name "Image*" -o -name "*.dtb" -o -name "*.dtbo" \) \
+            -print || true
+
+      - name: Upload kernel artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: POCO-M4-5G-KernelSU-Next
+          path: |
+            arch/arm64/boot/Image
+            arch/arm64/boot/Image.gz
+            arch/arm64/boot/Image.gz-dtb
+            arch/arm64/boot/dts/**/*.dtb
+            arch/arm64/boot/dts/**/*.dtbo
+          if-no-files-found: warn
