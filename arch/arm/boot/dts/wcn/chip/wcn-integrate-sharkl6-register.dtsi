@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			cpwcn-btwf {
+				wcn-dump {
+					btwf-dump {
+						/* base    size    offset    domain*/
+						sprd,btwf-share-mem = <0 0x800000 0x87000000 0>;
+					};
+				};
+			};
+		};
+	};
+};
+
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			cpwcn-gnss {
+				wcn-dump {
+					gnss-dump {
+						/* Ordered according to gnssdump parse script */
+						sprd,aon-control = <0x40C00000 0x64 0x11000000 0>;
+						sprd,aon-ahb-sys = <0x40B18000 0x42C 0x11000000 0>;
+						sprd,aon-apb-peri = <0x40BC8000 0x2E4 0x11000000 0>;
+						sprd,aon-wcn-gnss-clk = <0x40BD8000 0x54 0x11000000 0>;
+
+						sprd,gnss-iram-pchannel = <0x40E40000 0x20000 0 0>;
+						sprd,gnss-iram = <0x40A50000 0x8000 0 0>;
+						sprd,gnss-sipc-buff = <0x88240000 0x40000 0 0>;
+						sprd,gnss-share-mem = <0 0x200000 0x87600000 0>;
+					};
+				};
+			};
+		};
+	};
+};

@@ -4362,12 +4362,6 @@ findFirstRetry:
 			pSMB->FileName[name_len] = 0;
 			pSMB->FileName[name_len+1] = 0;
 			name_len += 2;
-		} else if (!searchName[0]) {
-			pSMB->FileName[0] = CIFS_DIR_SEP(cifs_sb);
-			pSMB->FileName[1] = 0;
-			pSMB->FileName[2] = 0;
-			pSMB->FileName[3] = 0;
-			name_len = 4;
 		}
 	} else {
 		name_len = copy_path_name(pSMB->FileName, searchName);
@@ -4379,10 +4373,6 @@ findFirstRetry:
 			pSMB->FileName[name_len] = '*';
 			pSMB->FileName[name_len+1] = 0;
 			name_len += 2;
-		} else if (!searchName[0]) {
-			pSMB->FileName[0] = CIFS_DIR_SEP(cifs_sb);
-			pSMB->FileName[1] = 0;
-			name_len = 2;
 		}
 	}
 

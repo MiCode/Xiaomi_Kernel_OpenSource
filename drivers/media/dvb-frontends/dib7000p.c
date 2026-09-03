@@ -2200,9 +2200,6 @@ static int w7090p_tuner_write_serpar(struct i2c_adapter *i2c_adap, struct i2c_ms
 	u16 i = 1000;
 	u16 serpar_num = msg[0].buf[0];
 
-	if (msg[0].len < 3)
-		return -EOPNOTSUPP;
-
 	while (n_overflow == 1 && i) {
 		n_overflow = (dib7000p_read_word(state, 1984) >> 1) & 0x1;
 		i--;
@@ -2222,9 +2219,6 @@ static int w7090p_tuner_read_serpar(struct i2c_adapter *i2c_adap, struct i2c_msg
 	u16 i = 1000;
 	u16 serpar_num = msg[0].buf[0];
 	u16 read_word;
-
-	if (msg[0].len < 1 || msg[1].len < 2)
-		return -EOPNOTSUPP;
 
 	while (n_overflow == 1 && i) {
 		n_overflow = (dib7000p_read_word(state, 1984) >> 1) & 0x1;
@@ -2267,12 +2261,8 @@ static int dib7090p_rw_on_apb(struct i2c_adapter *i2c_adap,
 	u16 word;
 
 	if (num == 1) {		/* write */
-		if (msg[0].len < 3)
-			return -EOPNOTSUPP;
 		dib7000p_write_word(state, apb_address, ((msg[0].buf[1] << 8) | (msg[0].buf[2])));
 	} else {
-		if (msg[1].len < 2)
-			return -EOPNOTSUPP;
 		word = dib7000p_read_word(state, apb_address);
 		msg[1].buf[0] = (word >> 8) & 0xff;
 		msg[1].buf[1] = (word) & 0xff;

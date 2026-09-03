@@ -1,0 +1,87 @@
+KERNEL_DIR=${KERNEL_DIR}"/.."
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki.aarch64
+
+BUILD_SYSTEM_DLKM=0
+DEFCONFIG=ums9650_gki_defconfig
+FRAGMENT_CONFIG=${KERNEL_DIR}/arch/arm64/configs/sprd_gki_qogirn7.fragment
+PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG} \
+${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/${FRAGMENT_CONFIG}"
+POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG}"
+
+EXT_MODULES="
+../modules/kernel5.15/sample
+../modules/kernel5.15/gpu/natt
+../modules/kernel5.15/touchscreen/focaltech_ft8756_spi
+../modules/kernel5.15/touchscreen/novatek_nt36xxx
+../modules/kernel5.15/wcn/bsp/unisoc_wcn_bsp
+../modules/kernel5.15/wcn/gnss/unisoc_gnss/gnss_common_ctl
+../modules/kernel5.15/wcn/gnss/unisoc_gnss/gnss_dbg
+../modules/kernel5.15/wcn/gnss/unisoc_gnss/gnss_pmnotify_ctl
+../modules/kernel5.15/wcn/wlan/wlan_combo
+../modules/kernel5.15/wcn/fm/driver
+../modules/kernel5.15/wcn/bluetooth/driver
+../modules/kernel5.15/display/dispc
+../modules/kernel5.15/display/gsp
+../modules/kernel5.15/dmabufheap
+../modules/kernel5.15/video/sprd-vpu
+../modules/kernel5.15/video/sprd-vpu-power
+../modules/kernel5.15/video/sprd-jpg
+../modules/kernel5.15/audio/sprd_audio/audiomem
+../modules/kernel5.15/audio/sprd_audio/agdsp_pd
+../modules/kernel5.15/audio/sprd_audio/audiosipc
+../modules/kernel5.15/audio/sprd_audio/audiodvfs
+../modules/kernel5.15/audio/sprd_audio/audio_pipe
+../modules/kernel5.15/audio/sprd_audio/audiodspdump
+../modules/kernel5.15/audio/sprd_audio/audiocpboot
+../modules/kernel5.15/audio/sprd_audio/mcdt/mcdt_r2p0
+../modules/kernel5.15/audio/sprd_audio/audiopipe
+../modules/kernel5.15/audio/sprd_audio/usb_adaptive
+../modules/kernel5.15/audio/sprd/machine/sprd_card
+../modules/kernel5.15/audio/sprd/platform/platform_routing
+../modules/kernel5.15/audio/sprd/platform/dmaengine_pcm
+../modules/kernel5.15/audio/sprd/platform/compr_2stage_dma
+../modules/kernel5.15/audio/sprd/dai/vbc/v4/vbc_dai
+../modules/kernel5.15/audio/sprd/dai/vbc/v4/fe_dai
+../modules/kernel5.15/vender/audio/fsa4480
+../modules/kernel5.15/audio/sprd/codec/dummy-codec
+../modules/kernel5.15/audio/sprd/codec/sprd/ump9620/codec
+../modules/kernel5.15/audio/sprd/codec/sprd/ump9620/power
+../modules/kernel5.15/audio/sprd/codec/sprd/ump9620/power_dev
+../modules/kernel5.15/audio/sprd/codec/sprd/ucp1301
+../modules/kernel5.15/audio/sprd/codec/sprd/pdm_r2p0
+../modules/kernel5.15/audio/sprd/dai/tdm
+../modules/common/camera/power
+../modules/common/camera/cam_sys
+../modules/common/camera/cpp
+../modules/common/camera/flash/ocp8137
+../modules/common/camera/flash/flash_drv
+../modules/common/camera/sensor
+../modules/common/camera/mmdvfs
+"
+#camera module version config
+export BSP_BOARD_CAMERA_MODULE_ISP_VERSION="isp2.6"
+export BSP_BOARD_CAMERA_MODULE_ISP_ADAPT_VERSION="qogirn6l"
+export BSP_BOARD_CAMERA_MODULE_CPP_VERSION="lite_r6p0"
+export BSP_BOARD_CAMERA_MODULE_CSI_VERSION="receiver_r3p2"
+export BSP_BOARD_CAMERA_MODULE_DVFS="qogirn6l"
+
+DTC_FLAGS+="-@"
+
+MAKE_GOALS="${MAKE_GOALS}
+dtbs
+"
+
+FILES="${FILES}
+arch/arm64/boot/dts/sprd/ums9650-base.dtb
+arch/arm64/boot/dts/sprd/ums9650-haps-overlay.dtbo
+vmlinux
+"
+#KMI_SYMBOL_LIST=android/abi_gki_aarch64_unisoc
+GKI_MODULES_LIST=android/gki_aarch64_modules
+
+#KO STRIP
+export DO_NOT_STRIP_MODULES=0
+
+MODULES_ORDER=""
+TRIM_NONLISTED_KMI=""
+KMI_SYMBOL_LIST_STRICT_MODE=""

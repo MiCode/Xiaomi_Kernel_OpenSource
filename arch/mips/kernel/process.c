@@ -511,7 +511,7 @@ static int __init frame_info_init(void)
 
 	/*
 	 * Without schedule() frame info, result given by
-	 * thread_saved_pc() and __get_wchan() are not reliable.
+	 * thread_saved_pc() and get_wchan() are not reliable.
 	 */
 	if (schedule_mfi.pc_offset < 0)
 		printk("Can't analyze schedule() prologue at %p\n", schedule);
@@ -652,9 +652,9 @@ unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
 #endif
 
 /*
- * __get_wchan - a maintenance nightmare^W^Wpain in the ass ...
+ * get_wchan - a maintenance nightmare^W^Wpain in the ass ...
  */
-unsigned long __get_wchan(struct task_struct *task)
+unsigned long get_wchan(struct task_struct *task)
 {
 	unsigned long pc = 0;
 #ifdef CONFIG_KALLSYMS
@@ -662,6 +662,8 @@ unsigned long __get_wchan(struct task_struct *task)
 	unsigned long ra = 0;
 #endif
 
+	if (!task || task == current || task_is_running(task))
+		goto out;
 	if (!task_stack_page(task))
 		goto out;
 
@@ -688,19 +690,17 @@ unsigned long mips_stack_top(void)
 	}
 
 	/* Space for the VDSO, data page & GIC user page */
-	if (current->thread.abi) {
-		top -= PAGE_ALIGN(current->thread.abi->vdso->size);
-		top -= PAGE_SIZE;
-		top -= mips_gic_present() ? PAGE_SIZE : 0;
-
-		/* Space to randomize the VDSO base */
-		if (current->flags & PF_RANDOMIZE)
-			top -= VDSO_RANDOMIZE_SIZE;
-	}
+	top -= PAGE_ALIGN(current->thread.abi->vdso->size);
+	top -= PAGE_SIZE;
+	top -= mips_gic_present() ? PAGE_SIZE : 0;
 
 	/* Space for cache colour alignment */
 	if (cpu_has_dc_aliases)
 		top -= shm_align_mask + 1;
+
+	/* Space to randomize the VDSO base */
+	if (current->flags & PF_RANDOMIZE)
+		top -= VDSO_RANDOMIZE_SIZE;
 
 	return top;
 }

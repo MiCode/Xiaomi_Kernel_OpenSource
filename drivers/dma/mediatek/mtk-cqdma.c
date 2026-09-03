@@ -421,11 +421,15 @@ static struct virt_dma_desc *mtk_cqdma_find_active_desc(struct dma_chan *c,
 {
 	struct mtk_cqdma_vchan *cvc = to_cqdma_vchan(c);
 	struct virt_dma_desc *vd;
+	unsigned long flags;
 
+	spin_lock_irqsave(&cvc->pc->lock, flags);
 	list_for_each_entry(vd, &cvc->pc->queue, node)
 		if (vd->tx.cookie == cookie) {
+			spin_unlock_irqrestore(&cvc->pc->lock, flags);
 			return vd;
 		}
+	spin_unlock_irqrestore(&cvc->pc->lock, flags);
 
 	list_for_each_entry(vd, &cvc->vc.desc_issued, node)
 		if (vd->tx.cookie == cookie)
@@ -449,11 +453,9 @@ static enum dma_status mtk_cqdma_tx_status(struct dma_chan *c,
 	if (ret == DMA_COMPLETE || !txstate)
 		return ret;
 
-	spin_lock_irqsave(&cvc->pc->lock, flags);
-	spin_lock(&cvc->vc.lock);
+	spin_lock_irqsave(&cvc->vc.lock, flags);
 	vd = mtk_cqdma_find_active_desc(c, cookie);
-	spin_unlock(&cvc->vc.lock);
-	spin_unlock_irqrestore(&cvc->pc->lock, flags);
+	spin_unlock_irqrestore(&cvc->vc.lock, flags);
 
 	if (vd) {
 		cvd = to_cqdma_vdesc(vd);

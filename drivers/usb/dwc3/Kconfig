@@ -51,6 +51,15 @@ config USB_DWC3_DUAL_ROLE
 
 endchoice
 
+comment "SPRD DWC3 CORE"
+
+config USB_DWC3_SPRD_CORE
+        tristate "Unisoc USB3.0 core"
+        depends on ARCH_SPRD || COMPILE_TEST
+        help
+          Say 'Y' or 'M' here if your system has a Dual Role SuperSpeed USB controller
+          based on the DesignWare USB3 IP Core integrated by SPRD
+
 comment "Platform Glue Driver Support"
 
 config USB_DWC3_OMAP
@@ -156,6 +165,15 @@ config USB_DWC3_XILINX
 	help
 	  Support Xilinx SoCs with DesignWare Core USB3 IP.
 	  This driver handles both ZynqMP and Versal SoC operations.
+	  Say 'Y' or 'M' if you have one such device.
+
+config USB_DWC3_SPRD
+	tristate "Unisoc USB3.0 Platforms"
+	depends on ARCH_SPRD || COMPILE_TEST
+	default USB_DWC3_SPRD_CORE
+	help
+	  which can be configured for device-only, host-only and Dual-Role
+	  operation.
 	  Say 'Y' or 'M' if you have one such device.
 
 endif

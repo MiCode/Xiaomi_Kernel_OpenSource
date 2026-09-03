@@ -217,11 +217,6 @@ static int rt1711h_probe(struct i2c_client *client,
 {
 	int ret;
 	struct rt1711h_chip *chip;
-	const u16 alert_mask = TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_DISCARDED |
-			       TCPC_ALERT_TX_FAILED | TCPC_ALERT_RX_HARD_RST |
-			       TCPC_ALERT_RX_STATUS | TCPC_ALERT_POWER_STATUS |
-			       TCPC_ALERT_CC_STATUS | TCPC_ALERT_RX_BUF_OVF |
-			       TCPC_ALERT_FAULT;
 
 	ret = rt1711h_check_revision(client);
 	if (ret < 0) {
@@ -263,12 +258,6 @@ static int rt1711h_probe(struct i2c_client *client,
 					dev_name(chip->dev), chip);
 	if (ret < 0)
 		return ret;
-
-	/* Enable alert interrupts */
-	ret = rt1711h_write16(chip, TCPC_ALERT_MASK, alert_mask);
-	if (ret < 0)
-		return ret;
-
 	enable_irq_wake(client->irq);
 
 	return 0;

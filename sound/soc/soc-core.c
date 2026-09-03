@@ -959,9 +959,6 @@ static int soc_dai_link_sanity_check(struct snd_soc_card *card,
 void snd_soc_remove_pcm_runtime(struct snd_soc_card *card,
 				struct snd_soc_pcm_runtime *rtd)
 {
-	if (!rtd)
-		return;
-
 	lockdep_assert_held(&client_mutex);
 
 	/* release machine specific resources */

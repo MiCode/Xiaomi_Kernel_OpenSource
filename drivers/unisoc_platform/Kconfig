@@ -1,0 +1,111 @@
+#
+# UNISOC Display drivers
+#
+menu "Unisoc SOC drivers"
+
+config SPRD_PMIC_SMPL
+	tristate "Spreadtrum PMIC SMPL driver"
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
+        help
+          Say Y here to enable smpl module.
+
+config SPRD_PMIC_DUMP
+	tristate "Spreadtrum PMIC DUMP driver"
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
+        help
+          Say Y here to include support for the UNISOC pmic dump controller.
+	  This driver is used to control ordinary rotor motors.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called sprd_pmic_dump.
+
+config SPRD_PMIC_SYSCON
+	tristate "Unisoc PMIC global driver"
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
+	help
+		Enable this configuration option to enable pmic global driver.
+
+config SPRD_UNISOC_MANUFACTURER_MODULE
+        tristate "Spread unisoc manufacturer module driver"
+        depends on ARCH_SPRD || COMPILE_TEST
+        help
+          Say Y here to enable smpl module.
+
+config UNISOC_7SRESET
+        tristate "Unisoc PMIC 7s reset driver"
+	depends on ARCH_SPRD || COMPILE_TEST
+	help
+	  This driver support for 7Sreset of PMIC(2731,2730)
+
+config SPRD_MEMDISK
+	tristate "SPRD memdisk driver"
+	depends on ARCH_SPRD
+	default n
+	help
+		This option can support sprd memdisk driver,
+		which can use a block of DDR memory as a disk.
+		we can load the android image to this disk when
+		mmc driver is not ready, for example in vdk and FPGA platform.
+
+config SPRD_MEMDISK_PARTITION
+	tristate "SPRD memdisk partition driver"
+	depends on SPRD_MEMDISK
+	default y
+	help
+		This option will divide memdisk
+		into multiple partitions,
+		used to load different android images
+		on the haps platform.
+
+config SPRD_SKYNET
+	bool "SPRD Skynet"
+	default n
+	help
+		This option is debug flag for skynet version
+		Say y here to enable Debug support.
+		When in doubt, say n
+		on the all platform.
+
+# NOTE: Keep order __alphabetically__ PLEASE!! #
+
+source "drivers/unisoc_platform/binder/Kconfig"
+source "drivers/unisoc_platform/cpufreq/Kconfig"
+source "drivers/unisoc_platform/debug/Kconfig"
+source "drivers/unisoc_platform/debug_log/Kconfig"
+source "drivers/unisoc_platform/dmabufheap/Kconfig"
+source "drivers/unisoc_platform/iommu/Kconfig"
+source "drivers/unisoc_platform/io/Kconfig"
+source "drivers/unisoc_platform/irq_monitor/Kconfig"
+source "drivers/unisoc_platform/kts_sync/Kconfig"
+source "drivers/unisoc_platform/mm/Kconfig"
+source "drivers/unisoc_platform/modem/Kconfig"
+source "drivers/unisoc_platform/net/Kconfig"
+source "drivers/unisoc_platform/preemptirq_warn/Kconfig"
+source "drivers/unisoc_platform/printk_cpuid/Kconfig"
+source "drivers/unisoc_platform/pub/Kconfig"
+source "drivers/unisoc_platform/sched/Kconfig"
+source "drivers/unisoc_platform/sfp/Kconfig"
+source "drivers/unisoc_platform/sla/Kconfig"
+source "drivers/unisoc_platform/sprd_bcl/Kconfig"
+source "drivers/unisoc_platform/sprd_disp/Kconfig"
+source "drivers/unisoc_platform/sprd_freq_limit/Kconfig"
+source "drivers/unisoc_platform/sprd_gnss/Kconfig"
+source "drivers/unisoc_platform/sprd_map/Kconfig"
+source "drivers/unisoc_platform/sprd_time_sync/Kconfig"
+source "drivers/unisoc_platform/sprdwcn/Kconfig"
+source "drivers/unisoc_platform/sysdump/Kconfig"
+source "drivers/unisoc_platform/thermal/Kconfig"
+source "drivers/unisoc_platform/power/Kconfig"
+source "drivers/unisoc_platform/hang_debug/Kconfig"
+source "drivers/unisoc_platform/userlog/Kconfig"
+source "drivers/unisoc_platform/performance/Kconfig"
+source "drivers/unisoc_platform/sprd_coresight/Kconfig"
+source "drivers/unisoc_platform/past_record/Kconfig"
+source "drivers/unisoc_platform/usbpinmux/Kconfig"
+source "drivers/unisoc_platform/sprd_cache_print/Kconfig"
+source "drivers/unisoc_platform/autotest/Kconfig"
+source "drivers/unisoc_platform/shutdown_detect/Kconfig"
+source "drivers/unisoc_platform/cachedump/Kconfig"
+source "drivers/unisoc_platform/pur/Kconfig"
+
+endmenu

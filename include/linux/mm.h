@@ -752,17 +752,6 @@ static inline bool vma_can_speculate(struct vm_area_struct *vma,
 	return false;
 }
 
-static inline bool is_shared_maywrite(vm_flags_t vm_flags)
-{
-	return (vm_flags & (VM_SHARED | VM_MAYWRITE)) ==
-		(VM_SHARED | VM_MAYWRITE);
-}
-
-static inline bool vma_is_shared_maywrite(struct vm_area_struct *vma)
-{
-	return is_shared_maywrite(vma->vm_flags);
-}
-
 #ifdef CONFIG_SHMEM
 /*
  * The vma_is_shmem is not inline because it is used only by slow
@@ -2565,6 +2554,12 @@ extern void si_meminfo_node(struct sysinfo *val, int nid);
 extern unsigned long arch_reserved_kernel_pages(void);
 #endif
 
+#ifdef CONFIG_E_SHOW_MEM
+extern void enhanced_show_mem(void);
+extern int register_e_show_mem_notifier(struct notifier_block *nb);
+extern int unregister_e_show_mem_notifier(struct notifier_block *nb);
+#endif
+
 extern __printf(3, 4)
 void warn_alloc(gfp_t gfp_mask, nodemask_t *nodemask, const char *fmt, ...);
 
@@ -3354,57 +3349,34 @@ void mem_dump_obj(void *object);
 static inline void mem_dump_obj(void *object) {}
 #endif
 
-static inline bool is_write_sealed(int seals)
-{
-	return seals & (F_SEAL_WRITE | F_SEAL_FUTURE_WRITE);
-}
-
 /**
- * is_readonly_sealed - Checks whether write-sealed but mapped read-only,
- *                      in which case writes should be disallowing moving
- *                      forwards.
- * @seals: the seals to check
- * @vm_flags: the VMA flags to check
- *
- * Returns whether readonly sealed, in which case writess should be disallowed
- * going forward.
- */
-static inline bool is_readonly_sealed(int seals, vm_flags_t vm_flags)
-{
-	/*
-	 * Since an F_SEAL_[FUTURE_]WRITE sealed memfd can be mapped as
-	 * MAP_SHARED and read-only, take care to not allow mprotect to
-	 * revert protections on such mappings. Do this only for shared
-	 * mappings. For private mappings, don't need to mask
-	 * VM_MAYWRITE as we still want them to be COW-writable.
-	 */
-	if (is_write_sealed(seals) &&
-	    ((vm_flags & (VM_SHARED | VM_WRITE)) == VM_SHARED))
-		return true;
-
-	return false;
-}
-
-/**
- * seal_check_write - Check for F_SEAL_WRITE or F_SEAL_FUTURE_WRITE flags and
- *                    handle them.
+ * seal_check_future_write - Check for F_SEAL_FUTURE_WRITE flag and handle it
  * @seals: the seals to check
  * @vma: the vma to operate on
  *
- * Check whether F_SEAL_WRITE or F_SEAL_FUTURE_WRITE are set; if so, do proper
- * check/handling on the vma flags.  Return 0 if check pass, or <0 for errors.
+ * Check whether F_SEAL_FUTURE_WRITE is set; if so, do proper check/handling on
+ * the vma flags.  Return 0 if check pass, or <0 for errors.
  */
-static inline int seal_check_write(int seals, struct vm_area_struct *vma)
+static inline int seal_check_future_write(int seals, struct vm_area_struct *vma)
 {
-	if (!is_write_sealed(seals))
-		return 0;
+	if (seals & F_SEAL_FUTURE_WRITE) {
+		/*
+		 * New PROT_WRITE and MAP_SHARED mmaps are not allowed when
+		 * "future write" seal active.
+		 */
+		if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_WRITE))
+			return -EPERM;
 
-	/*
-	 * New PROT_WRITE and MAP_SHARED mmaps are not allowed when
-	 * write seals are active.
-	 */
-	if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_WRITE))
-		return -EPERM;
+		/*
+		 * Since an F_SEAL_FUTURE_WRITE sealed memfd can be mapped as
+		 * MAP_SHARED and read-only, take care to not allow mprotect to
+		 * revert protections on such mappings. Do this only for shared
+		 * mappings. For private mappings, don't need to mask
+		 * VM_MAYWRITE as we still want them to be COW-writable.
+		 */
+		if (vma->vm_flags & VM_SHARED)
+			vma->vm_flags &= ~(VM_MAYWRITE);
+	}
 
 	return 0;
 }
@@ -3460,5 +3432,19 @@ void put_vma(struct vm_area_struct *vma);
 #endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
 #endif	/* CONFIG_MMU */
 
+#ifdef CONFIG_PROCESS_RECLAIM
+struct reclaim_param {
+	struct vm_area_struct *vma;
+	/* Number of pages scanned */
+	int nr_scanned;
+	/* max pages to reclaim */
+	int nr_to_reclaim;
+	/* pages reclaimed */
+	int nr_reclaimed;
+	bool is_task_anon;
+};
+extern struct reclaim_param reclaim_task_anon(struct task_struct *task,
+		int nr_to_reclaim);
+#endif
 #endif /* __KERNEL__ */
 #endif /* _LINUX_MM_H */

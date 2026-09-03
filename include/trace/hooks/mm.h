@@ -37,14 +37,6 @@ struct compact_control;
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
-DECLARE_RESTRICTED_HOOK(android_rvh_perform_reclaim,
-			TP_PROTO(int order, gfp_t gfp_mask, nodemask_t *nodemask,
-				 unsigned long *progress, bool *skip),
-			TP_ARGS(order, gfp_mask, nodemask, progress, skip), 4);
-DECLARE_RESTRICTED_HOOK(android_rvh_do_traversal_lruvec_ex,
-			TP_PROTO(struct mem_cgroup *memcg, struct lruvec *lruvec,
-				 bool *stop),
-			TP_ARGS(memcg, lruvec, stop), 3);
 DECLARE_RESTRICTED_HOOK(android_rvh_set_gfp_zone_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
@@ -203,35 +195,12 @@ DECLARE_HOOK(android_vh_rmqueue,
 		unsigned int alloc_flags, int migratetype),
 	TP_ARGS(preferred_zone, zone, order,
 		gfp_flags, alloc_flags, migratetype));
-DECLARE_HOOK(android_vh_pagecache_get_page,
-	TP_PROTO(struct address_space *mapping, pgoff_t index,
-		int fgp_flags, gfp_t gfp_mask, struct page *page),
-	TP_ARGS(mapping, index, fgp_flags, gfp_mask, page));
 DECLARE_HOOK(android_vh_kmalloc_slab,
 	TP_PROTO(unsigned int index, gfp_t flags, struct kmem_cache **s),
 	TP_ARGS(index, flags, s));
 DECLARE_HOOK(android_vh_madvise_cold_or_pageout,
 	TP_PROTO(struct vm_area_struct *vma, bool *allow_shared),
 	TP_ARGS(vma, allow_shared));
-DECLARE_HOOK(android_vh_meminfo_cache_adjust,
-	TP_PROTO(unsigned long *cached),
-	TP_ARGS(cached));
-DECLARE_HOOK(android_vh_si_mem_available_adjust,
-	TP_PROTO(unsigned long *available),
-	TP_ARGS(available));
-DECLARE_HOOK(android_vh_si_meminfo_adjust,
-	TP_PROTO(unsigned long *totalram, unsigned long *freeram),
-	TP_ARGS(totalram, freeram));
-DECLARE_HOOK(android_vh_filemap_pages,
-	TP_PROTO(struct page *page),
-	TP_ARGS(page));
-DECLARE_HOOK(android_vh_lru_gen_add_page_skip,
-	TP_PROTO(struct lruvec *lruvec, struct page *page, bool *skip),
-	TP_ARGS(lruvec, page, skip));
-DECLARE_HOOK(android_vh_lru_gen_del_page_skip,
-	TP_PROTO(struct lruvec *lruvec, struct page *page, bool *skip),
-	TP_ARGS(lruvec, page, skip));
-
 DECLARE_RESTRICTED_HOOK(android_rvh_ctl_dirty_rate,
 	TP_PROTO(void *unused),
 	TP_ARGS(unused), 1);
@@ -299,9 +268,6 @@ DECLARE_HOOK(android_vh_alloc_pages_entry,
 DECLARE_HOOK(android_vh_isolate_freepages,
 	TP_PROTO(struct compact_control *cc, struct page *page, bool *bypass),
 	TP_ARGS(cc, page, bypass));
-DECLARE_HOOK(android_vh_mem_cgroup_charge,
-	TP_PROTO(struct page *page, struct mem_cgroup **memcg),
-	TP_ARGS(page, memcg));
 DECLARE_HOOK(android_vh_should_fault_around,
 	TP_PROTO(struct vm_fault *vmf, bool *should_around),
 	TP_ARGS(vmf, should_around));
@@ -321,9 +287,6 @@ DECLARE_HOOK(android_vh_do_swap_page_spf,
 DECLARE_HOOK(android_vh_tune_fault_around_bytes,
 	TP_PROTO(unsigned long *fault_around_bytes),
 	TP_ARGS(fault_around_bytes));
-DECLARE_HOOK(android_vh_count_workingset_refault,
-	TP_PROTO(struct page *page),
-	TP_ARGS(page));
 DECLARE_HOOK(android_vh_swapmem_gather_init,
 	TP_PROTO(struct mm_struct *mm),
 	TP_ARGS(mm));
@@ -367,25 +330,6 @@ DECLARE_HOOK(android_vh_page_cache_miss,
 		pgoff_t start, pgoff_t len,
 		pgoff_t index, bool buffer),
 	TP_ARGS(file, start, len, index, buffer));
-DECLARE_HOOK(android_vh_lru_cache_add_page_activate,
-	TP_PROTO(struct page *page, bool *bypass),
-	TP_ARGS(page, bypass));
-DECLARE_HOOK(android_vh_filemap_fault_pre_page_locked,
-	TP_PROTO(struct page *page),
-	TP_ARGS(page));
-DECLARE_HOOK(android_vh_filemap_page_mapped,
-	TP_PROTO(struct page *page),
-	TP_ARGS(page));
-DECLARE_HOOK(android_vh_zap_pte_range_page_remove_rmap,
-	TP_PROTO(struct page *page),
-	TP_ARGS(page));
-DECLARE_HOOK(android_vh_filemap_add_to_page_cache,
-	TP_PROTO(struct address_space *mapping, struct page *page,
-		pgoff_t offset),
-	TP_ARGS(mapping, page, offset));
-DECLARE_HOOK(android_vh_init_adjust_zone_wmark,
-	TP_PROTO(struct zone *zone, u64 interval),
-	TP_ARGS(zone, interval));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */

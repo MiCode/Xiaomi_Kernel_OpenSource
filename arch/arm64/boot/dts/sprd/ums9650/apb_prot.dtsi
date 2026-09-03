@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc busmonitor dts file
+ *
+ * Copyright (C) 2022, Unisoc Inc.
+ *
+ */
+
+&aon {
+	aon_apb_prot: aon-apb-prot {
+		compatible = "sprd,apb-prot";
+		sprd,apb-syscon = <&aon_apb_regs>;
+		interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>;
+		/* sprd,panic; */
+		sprd,lock_magic = <0x6896>;
+		/* sprd,glb_lock; */
+		/* sprd,lock_id = <0x0>; */
+		sprd,lock_but_write_int;
+		sprd,record_last;
+	};
+
+	pmu_apb_prot: pmu-apb-prot {
+		compatible = "sprd,apb-prot";
+		sprd,apb-syscon = <&pmu_apb_regs>;
+		interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
+		/* sprd,panic; */
+		sprd,lock_magic = <0x6896>;
+		/* sprd,glb_lock; */
+		/* sprd,lock_id = <0x0>; */
+		sprd,lock_but_write_int;
+		sprd,record_last;
+	};
+};

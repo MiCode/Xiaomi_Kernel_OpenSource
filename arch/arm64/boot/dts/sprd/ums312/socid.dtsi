@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc SOCID dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/soc/sprd,sharkl5-regs.h>
+#include <dt-bindings/soc/sprd,sharkl5-mask.h>
+&aon {
+	socid: socid {
+			compatible = "sprd,soc-id";
+			chip-id = <&aon_apb_regs REG_AON_APB_AON_CHIP_ID0
+				MASK_AON_APB_AON_CHIP_ID0>;
+			plat-id = <&aon_apb_regs REG_AON_APB_AON_PLAT_ID0
+				MASK_AON_APB_AON_PLAT_ID0>;
+			implement-id = <&aon_apb_regs REG_AON_APB_AON_IMPL_ID
+				MASK_AON_APB_AON_IMPL_ID>;
+			manufacture-id = <&aon_apb_regs  REG_AON_APB_AON_MFT_ID
+				MASK_AON_APB_AON_MFT_ID>;
+			version-id = <&aon_apb_regs REG_AON_APB_AON_VER_ID
+				MASK_AON_APB_AON_VER_ID>;
+	};
+};

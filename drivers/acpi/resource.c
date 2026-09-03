@@ -443,13 +443,6 @@ static const struct dmi_system_id asus_laptop[] = {
 		},
 	},
 	{
-		/* Asus Vivobook X1404VAP */
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
-			DMI_MATCH(DMI_BOARD_NAME, "X1404VAP"),
-		},
-	},
-	{
 		/* Asus Vivobook X1504VAP */
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
@@ -561,12 +554,6 @@ static const struct dmi_system_id maingear_laptop[] = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Eluktronics Inc."),
 			DMI_MATCH(DMI_BOARD_NAME, "RP-15"),
-		},
-	},
-	{
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Eluktronics Inc."),
-			DMI_MATCH(DMI_BOARD_NAME, "MECH-17"),
 		},
 	},
 	{

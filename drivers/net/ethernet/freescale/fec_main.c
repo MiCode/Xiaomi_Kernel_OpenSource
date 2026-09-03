@@ -635,12 +635,7 @@ static int fec_enet_txq_submit_skb(struct fec_enet_priv_tx_q *txq,
 	txq->bd.cur = bdp;
 
 	/* Trigger transmission start */
-	if (!(fep->quirks & FEC_QUIRK_ERR007885) ||
-	    !readl(txq->bd.reg_desc_active) ||
-	    !readl(txq->bd.reg_desc_active) ||
-	    !readl(txq->bd.reg_desc_active) ||
-	    !readl(txq->bd.reg_desc_active))
-		writel(0, txq->bd.reg_desc_active);
+	writel(0, txq->bd.reg_desc_active);
 
 	return 0;
 }
@@ -766,8 +761,6 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
 	struct fec_enet_private *fep = netdev_priv(ndev);
 	int hdr_len, total_len, data_left;
 	struct bufdesc *bdp = txq->bd.cur;
-	struct bufdesc *tmp_bdp;
-	struct bufdesc_ex *ebdp;
 	struct tso_t tso;
 	unsigned int index = 0;
 	int ret;
@@ -841,34 +834,7 @@ static int fec_enet_txq_submit_tso(struct fec_enet_priv_tx_q *txq,
 	return 0;
 
 err_release:
-	/* Release all used data descriptors for TSO */
-	tmp_bdp = txq->bd.cur;
-
-	while (tmp_bdp != bdp) {
-		/* Unmap data buffers */
-		if (tmp_bdp->cbd_bufaddr &&
-		    !IS_TSO_HEADER(txq, fec32_to_cpu(tmp_bdp->cbd_bufaddr)))
-			dma_unmap_single(&fep->pdev->dev,
-					 fec32_to_cpu(tmp_bdp->cbd_bufaddr),
-					 fec16_to_cpu(tmp_bdp->cbd_datlen),
-					 DMA_TO_DEVICE);
-
-		/* Clear standard buffer descriptor fields */
-		tmp_bdp->cbd_sc = 0;
-		tmp_bdp->cbd_datlen = 0;
-		tmp_bdp->cbd_bufaddr = 0;
-
-		/* Handle extended descriptor if enabled */
-		if (fep->bufdesc_ex) {
-			ebdp = (struct bufdesc_ex *)tmp_bdp;
-			ebdp->cbd_esc = 0;
-		}
-
-		tmp_bdp = fec_enet_get_nextdesc(tmp_bdp, &txq->bd);
-	}
-
-	dev_kfree_skb_any(skb);
-
+	/* TODO: Release all used data descriptors for TSO */
 	return ret;
 }
 
@@ -2033,8 +1999,7 @@ static void fec_enet_phy_reset_after_clk_enable(struct net_device *ndev)
 		 */
 		phy_dev = of_phy_find_device(fep->phy_node);
 		phy_reset_after_clk_enable(phy_dev);
-		if (phy_dev)
-			put_device(&phy_dev->mdio.dev);
+		put_device(&phy_dev->mdio.dev);
 	}
 }
 
@@ -2728,25 +2693,27 @@ static int fec_enet_us_to_itr_clock(struct net_device *ndev, int us)
 static void fec_enet_itr_coal_set(struct net_device *ndev)
 {
 	struct fec_enet_private *fep = netdev_priv(ndev);
-	u32 rx_itr = 0, tx_itr = 0;
-	int rx_ictt, tx_ictt;
+	int rx_itr, tx_itr;
 
-	rx_ictt = fec_enet_us_to_itr_clock(ndev, fep->rx_time_itr);
-	tx_ictt = fec_enet_us_to_itr_clock(ndev, fep->tx_time_itr);
+	/* Must be greater than zero to avoid unpredictable behavior */
+	if (!fep->rx_time_itr || !fep->rx_pkts_itr ||
+	    !fep->tx_time_itr || !fep->tx_pkts_itr)
+		return;
 
-	if (rx_ictt > 0 && fep->rx_pkts_itr > 1) {
-		/* Enable with enet system clock as Interrupt Coalescing timer Clock Source */
-		rx_itr = FEC_ITR_EN | FEC_ITR_CLK_SEL;
-		rx_itr |= FEC_ITR_ICFT(fep->rx_pkts_itr);
-		rx_itr |= FEC_ITR_ICTT(rx_ictt);
-	}
+	/* Select enet system clock as Interrupt Coalescing
+	 * timer Clock Source
+	 */
+	rx_itr = FEC_ITR_CLK_SEL;
+	tx_itr = FEC_ITR_CLK_SEL;
 
-	if (tx_ictt > 0 && fep->tx_pkts_itr > 1) {
-		/* Enable with enet system clock as Interrupt Coalescing timer Clock Source */
-		tx_itr = FEC_ITR_EN | FEC_ITR_CLK_SEL;
-		tx_itr |= FEC_ITR_ICFT(fep->tx_pkts_itr);
-		tx_itr |= FEC_ITR_ICTT(tx_ictt);
-	}
+	/* set ICFT and ICTT */
+	rx_itr |= FEC_ITR_ICFT(fep->rx_pkts_itr);
+	rx_itr |= FEC_ITR_ICTT(fec_enet_us_to_itr_clock(ndev, fep->rx_time_itr));
+	tx_itr |= FEC_ITR_ICFT(fep->tx_pkts_itr);
+	tx_itr |= FEC_ITR_ICTT(fec_enet_us_to_itr_clock(ndev, fep->tx_time_itr));
+
+	rx_itr |= FEC_ITR_EN;
+	tx_itr |= FEC_ITR_EN;
 
 	writel(tx_itr, fep->hwp + FEC_TXIC0);
 	writel(rx_itr, fep->hwp + FEC_RXIC0);

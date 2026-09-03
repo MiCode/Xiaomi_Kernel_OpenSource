@@ -1,0 +1,5 @@
+config SPRD_SHUTDOWN_DETECT
+	tristate "UNISOC Soc SHUTDOWN_DETECT Module"
+	depends on ARCH_SPRD
+	help
+	  Choose this option can support unisoc shutdowndect driver

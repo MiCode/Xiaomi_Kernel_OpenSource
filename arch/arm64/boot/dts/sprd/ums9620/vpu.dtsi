@@ -1,0 +1,234 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc VPU SoC dts file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&mm {
+	vpu_pd_top: power-domain@0 {
+		compatible = "sprd,vpu-pd";
+		pmu-vpu-force-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_DPU_VSP_CFG_0
+			MASK_PMU_APB_PD_DPU_VSP_FORCE_SHUTDOWN>;
+		pmu-vpu-auto-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_DPU_VSP_CFG_0
+			MASK_PMU_APB_PD_DPU_VSP_AUTO_SHUTDOWN_EN>;
+		pmu-pwr-status-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_8
+			MASK_PMU_APB_PD_DPU_VSP_STATE>;
+		pmu-apb-pixelpll-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PIXELPLL_REL_CFG
+			MASK_PMU_APB_PIXELPLL_AP_SEL>;
+		vpu-domain-eb-syscon = <&aon_apb_regs
+			REG_AON_APB_APB_EB0
+			MASK_AON_APB_DPU_VSP_EB>;
+		#power-domain-cells = <0>;
+		label = "vpu_pd_top";
+		status = "disabled";
+	};
+
+	vpu_pd_enc0: power-domain@1 {
+		compatible = "sprd,vpu-pd";
+		pmu-vpu-force-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_VENC0_CFG_0
+			MASK_PMU_APB_PD_VENC0_FORCE_SHUTDOWN>;
+		pmu-vpu-auto-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_VENC0_CFG_0
+			MASK_PMU_APB_PD_VENC0_AUTO_SHUTDOWN_EN>;
+		pmu-pwr-status-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_9
+			MASK_PMU_APB_PD_VENC0_STATE>;
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+		label = "vpu_pd_enc0";
+		status = "disabled";
+	};
+
+	vpu_pd_enc1: power-domain@2 {
+		compatible = "sprd,vpu-pd";
+		pmu-vpu-force-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_VENC1_CFG_0
+			MASK_PMU_APB_PD_VENC1_FORCE_SHUTDOWN>;
+		pmu-vpu-auto-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_VENC1_CFG_0
+			MASK_PMU_APB_PD_VENC1_AUTO_SHUTDOWN_EN>;
+		pmu-pwr-status-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_9
+			MASK_PMU_APB_PD_VENC1_STATE>;
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+		label = "vpu_pd_enc1";
+		status = "disabled";
+	};
+
+	vpu_pd_dec: power-domain@3 {
+		compatible = "sprd,vpu-pd";
+		pmu-vpu-force-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_VDEC_CFG_0
+			MASK_PMU_APB_PD_VDEC_FORCE_SHUTDOWN>;
+		pmu-vpu-auto-shutdown-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PD_VDEC_CFG_0
+			MASK_PMU_APB_PD_VDEC_AUTO_SHUTDOWN_EN>;
+		pmu-pwr-status-syscon = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_9
+			MASK_PMU_APB_PD_VDEC_STATE>;
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+		label = "vpu_pd_dec";
+		status = "disabled";
+	};
+
+	vpu_enc0: video-codec@32000000 {
+		compatible = "sprd,vpu-enc-core0";
+		reg = <0 0x32000000 0 0xc000>;
+		interrupts = <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
+		sprd,video_ip_version = <21>;
+		reset-syscon = <&dpu_vsp_apb_regs
+			REG_DPU_VSP_APB_RST
+			(MASK_DPU_VSP_APB_VPU_ENC0_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_ENC0_VPP_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_ENC0_VSP_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_ENC0_VAU_SOFT_RST)>;
+		vsp-domain-eb-syscon = <&aon_apb_regs
+			REG_AON_APB_APB_EB0
+			MASK_AON_APB_DPU_VSP_EB>;
+		iommus = <&iommu_vpuenc0>;
+		power-domains = <&vpu_pd_enc0>;
+		status = "disabled";
+		clock-names = "clk_domain_eb",
+			"clk_dev_eb",
+			"clk_ckg_eb",
+			"clk_ahb_vsp",
+			"clk_ahb_vsp_parent",
+			"clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_384m",
+			"clk_src_512m",
+			"clk_vsp";
+		clocks = <&aonapb_gate CLK_DPU_VSP_EB>,
+			<&dpu_vsp_gate CLK_VPU_ENC0_EB>,
+			<&dpu_vsp_gate CLK_DPU_CKG_EB>,
+			<&dpu_vsp_clk CLK_VPU_MTX>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&g5l_pll CLK_TGPLL_256M>,
+			<&g5l_pll CLK_TGPLL_307M2>,
+			<&g5l_pll CLK_TGPLL_384M>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&dpu_vsp_clk CLK_VPU_ENC>;
+	};
+
+	iommu_vpuenc0: iommu@32000000 {
+		compatible = "unisoc,iommuvaul6p-vsp1";
+		reg = <0x0 0x32000000 0x0 0x80>,
+			  <0x0 0x32000000 0x0 0x80>;
+		iova-base = <0x20000000>;
+		iova-size = <0x20000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	vpu_enc1: enc-core1@32100000{
+		compatible = "sprd,vpu-enc-core1";
+		reg = <0 0x32100000 0 0xc000>;
+		sprd,video_ip_version = <21>;
+		interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
+		reset-syscon = <&dpu_vsp_apb_regs
+			REG_DPU_VSP_APB_RST
+			(MASK_DPU_VSP_APB_VPU_ENC1_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_ENC1_VPP_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_ENC1_VSP_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_ENC1_VAU_SOFT_RST)>;
+		vsp-domain-eb-syscon = <&aon_apb_regs
+			REG_AON_APB_APB_EB0
+			MASK_AON_APB_DPU_VSP_EB>;
+		iommus = <&iommu_vpuenc1>;
+		power-domains = <&vpu_pd_enc1>;
+		status = "disabled";
+		clock-names = "clk_domain_eb",
+			"clk_dev_eb",
+			"clk_ckg_eb",
+			"clk_ahb_vsp",
+			"clk_ahb_vsp_parent",
+			"clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_384m",
+			"clk_src_512m",
+			"clk_vsp";
+		clocks = <&aonapb_gate CLK_DPU_VSP_EB>,
+			<&dpu_vsp_gate CLK_VPU_ENC1_EB>,
+			<&dpu_vsp_gate CLK_DPU_CKG_EB>,
+			<&dpu_vsp_clk CLK_VPU_MTX>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&g5l_pll CLK_TGPLL_256M>,
+			<&g5l_pll CLK_TGPLL_307M2>,
+			<&g5l_pll CLK_TGPLL_384M>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&dpu_vsp_clk CLK_VPU_ENC>;
+	};
+
+	iommu_vpuenc1: iommu@32100000 {
+		compatible = "unisoc,iommuvaul6p-vsp2";
+		reg = <0x0 0x32100000 0x0 0x80>,
+			  <0x0 0x32100000 0x0 0x80>;
+		iova-base = <0x20000000>;
+		iova-size = <0x20000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	vpu_dec: video-codec@32200000 {
+		compatible = "sprd,vpu-dec-core0";
+		reg = <0 0x32200000 0 0xc000>;
+		interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
+		sprd,video_ip_version = <21>;
+		reset-syscon = <&dpu_vsp_apb_regs
+			REG_DPU_VSP_APB_RST
+			(MASK_DPU_VSP_APB_VPU_DEC_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_DEC_VPP_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_DEC_VSP_SOFT_RST |
+			MASK_DPU_VSP_APB_VPU_DEC_VAU_SOFT_RST)>;
+		vsp-domain-eb-syscon = <&aon_apb_regs
+			REG_AON_APB_APB_EB0
+			MASK_AON_APB_DPU_VSP_EB>;
+		iommus = <&iommu_vpudec>;
+		power-domains = <&vpu_pd_dec>;
+		status = "disabled";
+		clock-names = "clk_domain_eb",
+			"clk_dev_eb",
+			"clk_ckg_eb",
+			"clk_ahb_vsp",
+			"clk_ahb_vsp_parent",
+			"clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_384m",
+			"clk_src_512m",
+			"clk_src_680m",
+			"clk_vsp";
+		clocks = <&aonapb_gate CLK_DPU_VSP_EB>,
+			<&dpu_vsp_gate CLK_VPU_DEC_EB>,
+			<&dpu_vsp_gate CLK_DPU_CKG_EB>,
+			<&dpu_vsp_clk CLK_VPU_MTX>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&g5l_pll CLK_TGPLL_256M>,
+			<&g5l_pll CLK_TGPLL_307M2>,
+			<&g5l_pll CLK_TGPLL_384M>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&g5r_pll CLK_PIXELPLL_668M25>,
+			<&dpu_vsp_clk CLK_VPU_DEC>;
+	};
+
+	iommu_vpudec: iommu@32200000 {
+		compatible = "unisoc,iommuvaul6p-vsp";
+		reg = <0x0 0x32200000 0x0 0x80>,
+			  <0x0 0x32200000 0x0 0x80>;
+		iova-base = <0x20000000>;
+		iova-size = <0x40000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+};

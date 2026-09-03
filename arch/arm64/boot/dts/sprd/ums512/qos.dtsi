@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum Sharkl5Pro board common DTS file
+ *
+ * Copyright (C) 2020~2021, Unisoc Communications Inc.
+ */
+
+
+/ { qos {
+	#address-cells=<1>;
+	#size-cells=<0>;
+
+	dpu_qos: qos@0 {
+		reg = <0>;
+		awqos-high	= [0a];
+		awqos-low	= [0a];
+		arqos-high	= [0d];
+		arqos-low	= [0c];
+		arqos-threshold = [0c];
+		awqos-threshold = [0f];
+	};
+
+	mm {
+		#address-cells=<1>;
+		#size-cells=<0>;
+		dcam_qos: qos@0 {
+			reg = <0>;
+			arqos		= [0a];
+			awqos-high	= [0d];
+			awqos-low	= [0c];
+		};
+		isp_qos: qos@1 {
+			reg = <1>;
+			awqos-high	= [07];
+			awqos-low	= [06];
+			arqos-high	= [07];
+			arqos-low	= [06];
+		};
+		cpp_qos: qos@2 {
+			reg = <2>;
+			awrqos		= [01];
+		};
+		fd_qos: qos@3 {
+			reg = <3>;
+			arqos		= [01];
+			awqos		= [01];
+		};
+		jpg_qos: qos@4 {
+			reg = <4>;
+			arqos-high	= [07];
+			arqos-low	= [01];
+			awqos		= [01];
+		};
+		mm_qos_threshold: qos@5 {
+			reg = <5>;
+			arqos-threshold = [06];
+			awqos-threshold = [06];
+		};
+	};
+}; };

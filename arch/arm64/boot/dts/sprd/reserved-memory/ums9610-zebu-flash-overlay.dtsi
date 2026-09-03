@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * ums9610-zebu-flash-overlay.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&reserved_memory {
+	widevine_reserved: widevine@e3800000 {
+		reg = <0x0 0xe3800000 0x0 0x0c800000>;
+	};
+
+	fd_reserved: faceid-mem@ff9f0000 {
+		reg = <0x0 0xff9f0000 0x0 0x00500000>;
+	};
+};
+

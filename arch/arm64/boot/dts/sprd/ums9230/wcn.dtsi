@@ -1,0 +1,221 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2020, Unisoc Inc.
+ */
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			wcn_btwf: cpwcn-btwf {
+				compatible = "unisoc,integrate_marlin";
+				sprd,name = "wcn_btwf";
+				sprd,syscon-ap-apb = <&aon_apb_regs>;
+				sprd,syscon-ap-pmu = <&pmu_apb_regs>;
+				sprd,syscon-wcn-aon-apb = <&wcncp_aon_apb_regs>;
+				sprd,syscon-wcn-aon-ahb = <&wcncp_aon_ahb_regs>;
+				sprd,syscon-ap-pub-apb = <&pub_apb_regs>;
+				sprd,syscon-wcn-btwf-ahb = <&wcncp_btwf_ahb_regs>;
+				/* Boot Up group:
+				 * <Wcn addr remap,
+				 * PMU shutdown clear, PMU force sleep clear,
+				 * PMU auto shutdown clear,
+				 * WCN BTWF Reset, Cmstar Boot Sel, BTWF SNYC set
+				 * CMStar ResetRelease>
+				 */
+				sprd,ctrl-probe-num = <1>;
+				sprd,ctrl-reg = <0x9018 0x23a8 0x2818 0x23a8 0x90 0x98 0x0c 0x1410 0x004c 0x0c>;
+				sprd,ctrl-mask = <0x00003fff 0x02000000 0x80 0x01000000 0x40000000 0x100f
+						  0x55 0x03000000 0xffffffff 0x55>;
+				sprd,ctrl-value = <0x00000070 0x02000000 0x80 0x01000000 0x40000000 0x0 0x55
+						   0x03000000 0x007fdc00 0x0>;
+				sprd,ctrl-rw-offset = <0x1000 0x2000 0x2000 0x2000 0x0 0x0 0x0
+							0x1000 0x0000 0x0000>;
+				sprd,ctrl-us-delay = <1000 1000 1000 2000 1000 1000 1000 1000 1000 1000>;
+				/* pub_apb, pmu aon_apb, pmu aon_apb */
+				/* btwf_ahb, wcn_aon_ahb wcn_aon_ahb */
+				sprd,ctrl-type = <0x2 0x1 0x1 0x1 0xa 0xa 0x9 0x7 0x9 0x9>;
+				/* Add shutdown group:WCN rst */
+				sprd,ctrl-shutdown-reg = <0x0098>;
+				sprd,ctrl-shutdown-mask = <0x1000>;
+				sprd,ctrl-shutdown-value = <0x1000>;
+				sprd,ctrl-shutdown-rw-offset = <0x0>;
+				sprd,ctrl-shutdown-us-delay = <10>;
+				sprd,ctrl-shutdown-type = <0xa>;
+				reg = <0x0 0x87000000 0x0 0x200000
+					/* Debug bus to DDR */
+					/* 0x0 0x87210000 0x0 0x2800 */
+					0x0 0x7C00A000 0x0 0x74>; /* Debug bus REG */
+				sprd,debugbus-to-ddr-disable;
+				sprd,file-name ="/dev/block/platform/soc/soc:ap-apb/201d0000.sdio/by-name/wcnmodem";
+				sprd,file-name-ufs ="/dev/block/platform/soc/soc:ap-apb/20200000.ufs/by-name/wcnmodem";
+				sprd,firmware-path = "/vendor/firmware/";
+				sprd,file-length = <0x200000>;
+				/*0:Default,rst optimize off  1:rst optimize on*/
+				/*2:1K8PullUp                 4:4K7PullUp*/
+				/* CP2 support from W23.10.4*/
+				sprd,rstpad-setting = <4>;
+				/* for btwf: cpu addr 0 map to ddr 0m */
+				sprd,apcp-sync-addr = <0x007fdc00>;
+				sprd,wcn-sipc-ver = <1>;
+				vddwcn-supply = <&vddwcn>;
+				dcxo1v8-supply = <&vddsim2>;
+				vddwifipa-supply = <&vddwifipa>;
+				merlion-chip-en-gpios = <&ap_gpio 118 GPIO_ACTIVE_HIGH>;
+				merlion-rst-gpios = <&ap_gpio 117 GPIO_ACTIVE_HIGH>;
+//				#address-cells = <1>;
+				nvmem-cells = <&wcn_alpha>;
+				nvmem-cell-names = "wcn_efuse_blk0";
+
+				#address-cells = <2>;
+				#size-cells = <2>;
+				sprd_wlan: wlan {
+					compatible = "sprd,sc2355-sipc-wifi";
+					/*sipc region <maped-addr size>*/
+					reg = <0x0 0x87380000 0x0 0x00280000>;
+				};
+				/* Custom Channel Argument For Sipc-Sblock
+				 * index tx-blksize tx-blknum rx-blksize rx-blknum
+				 */
+				wcn-sblk-reset-bus-chn {
+					sprd,wcn-wifi-data0-tx = <18 64 512 896 512>;
+					sprd,wcn-wifi-data0-rx = <19 64 512 896 512>;
+				};
+
+			};
+
+			wcn_gnss: cpwcn-gnss {
+				compatible = "unisoc,integrate_gnss";
+				sprd,name = "wcn_gnss";
+				sprd,syscon-ap-apb = <&aon_apb_regs>;
+				sprd,syscon-ap-pmu = <&pmu_apb_regs>;
+				sprd,syscon-wcn-aon-apb = <&wcncp_aon_apb_regs>;
+				sprd,syscon-wcn-aon-ahb = <&wcncp_aon_ahb_regs>;
+				sprd,syscon-ap-pub-apb = <&pub_apb_regs>;
+				sprd,syscon-wcn-gnss-ahb = <&wcncp_gnss_ahb_regs>;
+				/* Boot Up group:
+				 * <Wcn addr remap,
+				 * PMU shutdown clear, PMU force sleep clear,
+				 * PMU auto shutdown clear,
+				 * WCN GNSS Reset, Cmstar Boot Sel, GNSS SNYC set
+				 * CMStar ResetRelease>
+				 */
+				sprd,ctrl-probe-num = <1>;
+				sprd,ctrl-reg = <0x9018 0x23a8 0x2818 0x23a8 0x90 0xc8 0x000c
+						 0x1404 0x0050 0x000c>;
+				sprd,ctrl-mask = <0x00003fff 0x02000000 0x80 0x01000000 0x40000000 0x100f
+						  0x22 0x01ffffff 0xffffffff 0x22>;
+				sprd,ctrl-value = <0x00000070 0x02000000 0x80 0x01000000 0x40000000 0 0x22
+						   0x01600000 0x1ffc00 0x0>;
+				sprd,ctrl-rw-offset = <0x1000 0x2000 0x2000 0x2000 0x0 0x0 0x0
+							0x1000 0x0 0x0>;
+				sprd,ctrl-us-delay = <1000 1000 1000 2000 1000 1000 1000 1000 1000 1000>;
+				/* pub_apb, pmu aon_apb, pmu aon_apb, gnss_sys_ahb*/
+				/* wcn_aon_ahb, wcn_aon_ahb */
+				sprd,ctrl-type = <0x2 0x1 0x1 0x1 0xa 0xa 0x9 0x8 0x9 0x9>;
+				/* Add shutdown group:WCN Rst */
+				sprd,ctrl-shutdown-reg = <0x00c8>;
+				sprd,ctrl-shutdown-mask = <0x1000>;
+				sprd,ctrl-shutdown-value = <0x1000>;
+				sprd,ctrl-shutdown-rw-offset = <0x0000>;
+				sprd,ctrl-shutdown-us-delay = <10>;
+				sprd,ctrl-shutdown-type = <0xa>;
+				reg = <0x0 0x87600000 0x0 0x180000>;
+				sprd,file-name ="/dev/block/platform/soc/soc:ap-apb/201d0000.sdio/by-name/gnssmodem";
+				sprd,file-name-ext ="/dev/block/platform/soc/soc:ap-apb/201d0000.sdio/by-name/gnssmodem";
+				sprd,file-name-ufs ="/dev/block/platform/soc/soc:ap-apb/20200000.ufs/by-name/gnssmodem";
+				sprd,file-name-ext-ufs ="/dev/block/platform/soc/soc:ap-apb/20200000.ufs/by-name/gnssmodem";
+				sprd,file-length = <0x180000>;
+				/*0:Default,rst optimize off  1:rst optimize on*/
+				/*2:1K8PullUp                 4:4K7PullUp*/
+				/* CP2 support from W23.10.4*/
+				sprd,rstpad-setting = <4>;
+				/* for gnss: cpu addr 0 map to ddr 6m */
+				sprd,apcp-sync-addr = <0x1ffc00>;
+				sprd,wcn-sipc-ver = <1>;
+				vddwcn-supply = <&vddwcn>;
+				dcxo1v8-supply = <&vddsim2>;
+				merlion-chip-en-gpios = <&ap_gpio 118 GPIO_ACTIVE_HIGH>;
+				merlion-rst-gpios = <&ap_gpio 117 GPIO_ACTIVE_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				nvmem-cells = <&wcn_alpha>;
+				nvmem-cell-names = "gnss_efuse_blk0";
+			};
+
+			gnss_common_ctl {
+				compatible = "sprd,gnss";
+				sprd,name = "gnss_common_ctl";
+			};
+
+		};
+	};
+};
+
+/*
+ * quote sipc: sipc-virt bus node
+ * This is a child node
+ * core@3 is wcn, mailbox id is 8
+ */
+
+
+&sipc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	sipc_wcn: core@3 {
+		compatible = "sprd,sipc";
+		/* endpoint id - should be same with mailbox channel id */
+		reg = <3>;
+		label = "sipc-wcn";
+		/* <&mailbox  channel_id  is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 8 0>;
+		/* This is temporary plan*/
+		sprd,smem-info = <0x87240000 0x00240000 0x140000>;
+
+		wcn_bt {
+			compatible = "sprd,wcn_internal_chip";
+			sprd,name = "ttyBT";
+			sprd,dst = <3>;
+			sprd,channel = <4>;
+			sprd,tx_bufid = <11>;
+			sprd,rx_bufid = <10>;
+		};
+
+		wcn_fm {
+			compatible = "sprd,wcn_fm_internal_chip";
+			sprd,name = "fm";
+			sprd,dst = <3>;
+			sprd,tx_channel = <4>;
+			sprd,rx_channel = <4>;
+			sprd,tx_bufid = <14>;
+			sprd,rx_bufid = <13>;
+		};
+	};
+	sipc_gnss: core@4 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* endpoint id - should be same with mailbox channel id */
+		reg = <4>;
+		label = "sipc-gnss";
+		/* <&mailbox  channel_id  is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 7 0>;
+		/* This is temporary plan*/
+		sprd,smem-info =  <0x8749b000 0x11b000 0x32000>,
+			<0x88240000 0xc40000 0x32000>;
+
+		/* these nodes of channel should be probed by its parent node */
+		sttygnss0: channel@4 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <4>;
+			sprd,smem = <1>;
+			label = "sttygnss0";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x19000>;    /* 100*1024 */
+			sprd,size-txbuf = <0xc800>;     /* 50*1024 */
+		};
+	};
+};
+

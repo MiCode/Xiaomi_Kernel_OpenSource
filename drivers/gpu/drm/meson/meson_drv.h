@@ -31,7 +31,7 @@ struct meson_drm_match_data {
 };
 
 struct meson_drm_soc_limits {
-	unsigned long long max_hdmi_phy_freq;
+	unsigned int max_hdmi_phy_freq;
 };
 
 struct meson_drm {

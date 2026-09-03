@@ -2487,12 +2487,6 @@ struct net *dev_net(const struct net_device *dev)
 }
 
 static inline
-struct net *dev_net_rcu(const struct net_device *dev)
-{
-	return read_pnet_rcu(&dev->nd_net);
-}
-
-static inline
 void dev_net_set(struct net_device *dev, struct net *net)
 {
 	write_pnet(&dev->nd_net, net);
@@ -3003,8 +2997,6 @@ static inline struct net_device *first_net_device_rcu(struct net *net)
 }
 
 int netdev_boot_setup_check(struct net_device *dev);
-struct net_device *dev_getbyhwaddr(struct net *net, unsigned short type,
-				   const char *hwaddr);
 struct net_device *dev_getbyhwaddr_rcu(struct net *net, unsigned short type,
 				       const char *hwaddr);
 struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type);

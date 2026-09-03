@@ -26,10 +26,9 @@ static ssize_t is_enabled_show(struct kobject *kobj, struct kobj_attribute *attr
 	obj = get_wmiobj_pointer(instance_id, DELL_WMI_BIOS_PASSOBJ_ATTRIBUTE_GUID);
 	if (!obj)
 		return -EIO;
-	if (obj->type != ACPI_TYPE_PACKAGE || obj->package.count < PO_MIN_ELEMENTS ||
-	    obj->package.elements[IS_PASS_SET].type != ACPI_TYPE_INTEGER) {
+	if (obj->package.elements[IS_PASS_SET].type != ACPI_TYPE_INTEGER) {
 		kfree(obj);
-		return -EIO;
+		return -EINVAL;
 	}
 	ret = snprintf(buf, PAGE_SIZE, "%lld\n", obj->package.elements[IS_PASS_SET].integer.value);
 	kfree(obj);
@@ -46,7 +45,7 @@ static ssize_t current_password_store(struct kobject *kobj,
 	int length;
 
 	length = strlen(buf);
-	if (length && buf[length - 1] == '\n')
+	if (buf[length-1] == '\n')
 		length--;
 
 	/* firmware does verifiation of min/max password length,

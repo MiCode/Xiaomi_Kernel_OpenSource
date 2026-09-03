@@ -883,12 +883,11 @@ static void pci_set_bus_msi_domain(struct pci_bus *bus)
 static int pci_register_host_bridge(struct pci_host_bridge *bridge)
 {
 	struct device *parent = bridge->dev.parent;
-	struct resource_entry *window, *next, *n;
+	struct resource_entry *window, *n;
 	struct pci_bus *bus, *b;
-	resource_size_t offset, next_offset;
+	resource_size_t offset;
 	LIST_HEAD(resources);
-	struct resource *res, *next_res;
-	bool bus_registered = false;
+	struct resource *res;
 	char addr[64], *fmt;
 	const char *name;
 	int err;
@@ -909,10 +908,6 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
 		bus->domain_nr = pci_bus_find_domain_nr(bus, parent);
 	else
 		bus->domain_nr = bridge->domain_nr;
-	if (bus->domain_nr < 0) {
-		err = bus->domain_nr;
-		goto free;
-	}
 #endif
 
 	b = pci_find_bus(pci_domain_nr(bus), bridge->busnr);
@@ -931,9 +926,10 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
 		goto free;
 
 	err = device_add(&bridge->dev);
-	if (err)
+	if (err) {
+		put_device(&bridge->dev);
 		goto free;
-
+	}
 	bus->bridge = get_device(&bridge->dev);
 	device_enable_async_suspend(bus->bridge);
 	pci_set_bus_of_node(bus);
@@ -952,7 +948,6 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
 	name = dev_name(&bus->dev);
 
 	err = device_register(&bus->dev);
-	bus_registered = true;
 	if (err)
 		goto unregister;
 
@@ -975,36 +970,11 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
 	if (nr_node_ids > 1 && pcibus_to_node(bus) == NUMA_NO_NODE)
 		dev_warn(&bus->dev, "Unknown NUMA node; performance will be reduced\n");
 
-	/* Coalesce contiguous windows */
-	resource_list_for_each_entry_safe(window, n, &resources) {
-		if (list_is_last(&window->node, &resources))
-			break;
-
-		next = list_next_entry(window, node);
-		offset = window->offset;
-		res = window->res;
-		next_offset = next->offset;
-		next_res = next->res;
-
-		if (res->flags != next_res->flags || offset != next_offset)
-			continue;
-
-		if (res->end + 1 == next_res->start) {
-			next_res->start = res->start;
-			res->flags = res->start = res->end = 0;
-		}
-	}
-
 	/* Add initial resources to the bus */
 	resource_list_for_each_entry_safe(window, n, &resources) {
+		list_move_tail(&window->node, &bridge->windows);
 		offset = window->offset;
 		res = window->res;
-		if (!res->flags && !res->start && !res->end) {
-			release_resource(res);
-			continue;
-		}
-
-		list_move_tail(&window->node, &bridge->windows);
 
 		if (res->flags & IORESOURCE_BUS)
 			pci_bus_insert_busn_res(bus, bus->number, res->end);
@@ -1035,15 +1005,9 @@ static int pci_register_host_bridge(struct pci_host_bridge *bridge)
 unregister:
 	put_device(&bridge->dev);
 	device_del(&bridge->dev);
-free:
-#ifdef CONFIG_PCI_DOMAINS_GENERIC
-	pci_bus_release_domain_nr(bus, parent);
-#endif
-	if (bus_registered)
-		put_device(&bus->dev);
-	else
-		kfree(bus);
 
+free:
+	kfree(bus);
 	return err;
 }
 
@@ -1152,10 +1116,7 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
 add_dev:
 	pci_set_bus_msi_domain(child);
 	ret = device_register(&child->dev);
-	if (WARN_ON(ret < 0)) {
-		put_device(&child->dev);
-		return NULL;
-	}
+	WARN_ON(ret < 0);
 
 	pcibios_add_bus(child);
 

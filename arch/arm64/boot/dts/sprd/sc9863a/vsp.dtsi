@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc SC9863A SoC DTS file
+ *
+ * Copyright (C) 2019, Unisoc Inc.
+ */
+
+&soc {
+	vsp_pd: vsp-power-domain {
+			compatible = "sprd,vsp-pd";
+			pmu-vsp-force-shutdown-syscon = <&pmu_apb_regs
+					REG_PMU_APB_PD_MM_VSP_CFG
+					MASK_PMU_APB_PD_MM_VSP_FORCE_SHUTDOWN>;
+			pmu-vsp-auto-shutdown-syscon = <&pmu_apb_regs
+					REG_PMU_APB_PD_MM_VSP_CFG
+					MASK_PMU_APB_PD_MM_VSP_AUTO_SHUTDOWN_EN>;
+			pmu-pwr-status-syscon = <&pmu_apb_regs
+					REG_PMU_APB_PWR_STATUS5_DBG
+					MASK_PMU_APB_PD_MM_VSP_STATE>;
+			vsp-domain-eb-syscon = <&aon_apb_regs
+					REG_AON_APB_APB_EB1
+					MASK_AON_APB_MM_VSP_EB>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+	};
+
+};
+
+&mm {
+	vsp: video-codec@62200000{
+			compatible = "sprd,sharkl3-vsp";
+			reg = <0 0x62200000 0 0xc000>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			sprd,video_ip_version = <16>;
+			reset-syscon = <&mm_vsp_ahb_regs  REG_MM_VSP_AHB_AHB_RST
+				(MASK_MM_VSP_AHB_VSP_SOFT_RST |
+				MASK_MM_VSP_AHB_VSP_GLB_SOFT_RST)>;
+			vsp-domain-eb-syscon = <&aon_apb_regs
+				REG_AON_APB_APB_EB1
+				MASK_AON_APB_MM_VSP_EB>;
+			iommus = <&iommu_vsp>;
+			power-domains = <&vsp_pd>;
+			status = "disabled";
+			clock-names = "clk_mm_eb",
+					"clk_ahb_gate_vsp_eb",
+					"clk_axi_gate_vsp",
+					"clk_vsp_ahb_mmu_eb",
+					"clk_ahb_vsp",
+					"clk_ahb_vsp_parent",
+					"clk_emc_vsp",
+					"clk_emc_vsp_parent",
+					"clk_src_76m8",
+					"clk_src_128m",
+					"clk_src_256m",
+					"clk_src_307m2",
+					"clk_src_384m",
+					"clk_vsp";
+
+			clocks = <&aonapb_gate CLK_MM_VSP_EB>,
+					<&aonapb_gate CLK_MM_VSP_EMC_EB>,
+					<&vspahb_gate CLK_VCKG_EB>,
+					<&vspahb_gate CLK_VVSP_EB>,
+					<&aon_clk CLK_MM_VAHB>,
+					<&pll CLK_TWPLL_153M6>,
+					<&aon_clk CLK_MM_VEMC>,
+					<&pll CLK_ISPPLL_468M>,
+					<&pll CLK_TWPLL_76M8>,
+					<&pll CLK_TWPLL_128M>,
+					<&pll CLK_TWPLL_256M>,
+					<&pll CLK_TWPLL_307M2>,
+					<&pll CLK_TWPLL_384M>,
+					<&aon_clk CLK_VSP>;
+	};
+};

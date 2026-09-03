@@ -13,9 +13,10 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
-#include <linux/property.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/regmap.h>
@@ -457,6 +458,7 @@ static int rockchip_usb_phy_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct rockchip_usb_phy_base *phy_base;
 	struct phy_provider *phy_provider;
+	const struct of_device_id *match;
 	struct device_node *child;
 	int err;
 
@@ -464,11 +466,13 @@ static int rockchip_usb_phy_probe(struct platform_device *pdev)
 	if (!phy_base)
 		return -ENOMEM;
 
-	phy_base->pdata = device_get_match_data(dev);
-	if (!phy_base->pdata) {
+	match = of_match_device(dev->driver->of_match_table, dev);
+	if (!match || !match->data) {
 		dev_err(dev, "missing phy data\n");
 		return -EINVAL;
 	}
+
+	phy_base->pdata = match->data;
 
 	phy_base->dev = dev;
 	phy_base->reg_base = ERR_PTR(-ENODEV);

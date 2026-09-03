@@ -119,9 +119,7 @@ const struct vmbus_device vmbus_devs[] = {
 	},
 
 	/* File copy */
-	/* fcopy always uses 16KB ring buffer size and is working well for last many years */
-	{ .pref_ring_size = 0x4000,
-	  .dev_type = HV_FCOPY,
+	{ .dev_type = HV_FCOPY,
 	  HV_FCOPY_GUID,
 	  .perf_device = false,
 	  .allowed_in_isolated = false,
@@ -141,19 +139,12 @@ const struct vmbus_device vmbus_devs[] = {
 	  .allowed_in_isolated = false,
 	},
 
-	/*
-	 * Unknown GUID
-	 * 64 KB ring buffer + 4 KB header should be sufficient size for any Hyper-V device apart
-	 * from HV_NIC and HV_SCSI. This case avoid the fallback for unknown devices to allocate
-	 * much bigger (2 MB) of ring size.
-	 */
-	{ .pref_ring_size = 0x11000,
-	  .dev_type = HV_UNKNOWN,
+	/* Unknown GUID */
+	{ .dev_type = HV_UNKNOWN,
 	  .perf_device = false,
 	  .allowed_in_isolated = false,
 	},
 };
-EXPORT_SYMBOL_GPL(vmbus_devs);
 
 static const struct {
 	guid_t guid;
@@ -468,7 +459,7 @@ void hv_process_channel_removal(struct vmbus_channel *channel)
 	 * init_vp_index() can (re-)use the CPU.
 	 */
 	if (hv_is_perf_channel(channel))
-		hv_clear_allocated_cpu(channel->target_cpu);
+		hv_clear_alloced_cpu(channel->target_cpu);
 
 	/*
 	 * Upon suspend, an in-use hv_sock channel is marked as "rescinded" and
@@ -742,7 +733,7 @@ static void init_vp_index(struct vmbus_channel *channel)
 	bool perf_chn = hv_is_perf_channel(channel);
 	u32 i, ncpu = num_online_cpus();
 	cpumask_var_t available_mask;
-	struct cpumask *allocated_mask;
+	struct cpumask *alloced_mask;
 	u32 target_cpu;
 	int numa_node;
 
@@ -759,7 +750,7 @@ static void init_vp_index(struct vmbus_channel *channel)
 		 */
 		channel->target_cpu = VMBUS_CONNECT_CPU;
 		if (perf_chn)
-			hv_set_allocated_cpu(VMBUS_CONNECT_CPU);
+			hv_set_alloced_cpu(VMBUS_CONNECT_CPU);
 		return;
 	}
 
@@ -774,22 +765,22 @@ static void init_vp_index(struct vmbus_channel *channel)
 				continue;
 			break;
 		}
-		allocated_mask = &hv_context.hv_numa_map[numa_node];
+		alloced_mask = &hv_context.hv_numa_map[numa_node];
 
-		if (cpumask_weight(allocated_mask) ==
+		if (cpumask_weight(alloced_mask) ==
 		    cpumask_weight(cpumask_of_node(numa_node))) {
 			/*
 			 * We have cycled through all the CPUs in the node;
-			 * reset the allocated map.
+			 * reset the alloced map.
 			 */
-			cpumask_clear(allocated_mask);
+			cpumask_clear(alloced_mask);
 		}
 
-		cpumask_xor(available_mask, allocated_mask,
+		cpumask_xor(available_mask, alloced_mask,
 			    cpumask_of_node(numa_node));
 
 		target_cpu = cpumask_first(available_mask);
-		cpumask_set_cpu(target_cpu, allocated_mask);
+		cpumask_set_cpu(target_cpu, alloced_mask);
 
 		if (channel->offermsg.offer.sub_channel_index >= ncpu ||
 		    i > ncpu || !hv_cpuself_used(target_cpu, channel))

@@ -1,0 +1,17 @@
+Spreadtrum pmic Watchdog timer
+
+Required properties:
+- compatible: should be one of following:
+	"sprd,sc2723t-wdt",
+	"sprd,sc2731-wdt",
+	"sprd,sc2730-wdt",
+	"sprd,sc2721-wdt",
+	"sprd,sc2720-wdt",
+	"sprd,ump9620-wdt",
+- reg : Specifies base physical address and size of the registers.
+
+Example:
+	pmic_wdt: watchdog@40 {
+			  compatible = "sprd,sc27xx-wdt", "sprd,sc2721-wdt";
+			  reg = <0x40>;
+	};

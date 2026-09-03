@@ -351,9 +351,10 @@ int ext4_check_blockref(const char *function, unsigned int line,
 {
 	__le32 *bref = p;
 	unsigned int blk;
-	journal_t *journal = EXT4_SB(inode->i_sb)->s_journal;
 
-	if (journal && inode == journal->j_inode)
+	if (ext4_has_feature_journal(inode->i_sb) &&
+	    (inode->i_ino ==
+	     le32_to_cpu(EXT4_SB(inode->i_sb)->s_es->s_journal_inum)))
 		return 0;
 
 	while (bref < p+max) {

@@ -364,11 +364,8 @@ more_data:
 		if (!psock->cork) {
 			psock->cork = kzalloc(sizeof(*psock->cork),
 					      GFP_ATOMIC | __GFP_NOWARN);
-			if (!psock->cork) {
-				sk_msg_free(sk, msg);
-				*copied = 0;
+			if (!psock->cork)
 				return -ENOMEM;
-			}
 		}
 		memcpy(psock->cork, msg, sizeof(*msg));
 		return 0;

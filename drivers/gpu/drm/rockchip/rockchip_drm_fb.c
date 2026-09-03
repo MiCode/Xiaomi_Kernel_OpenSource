@@ -81,9 +81,16 @@ rockchip_fb_create(struct drm_device *dev, struct drm_file *file,
 	}
 
 	if (drm_is_afbc(mode_cmd->modifier[0])) {
+		int ret, i;
+
 		ret = drm_gem_fb_afbc_init(dev, mode_cmd, afbc_fb);
 		if (ret) {
-			drm_framebuffer_put(&afbc_fb->base);
+			struct drm_gem_object **obj = afbc_fb->base.obj;
+
+			for (i = 0; i < info->num_planes; ++i)
+				drm_gem_object_put(obj[i]);
+
+			kfree(afbc_fb);
 			return ERR_PTR(ret);
 		}
 	}

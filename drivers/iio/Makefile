@@ -42,3 +42,4 @@ obj-y += resolver/
 obj-y += temperature/
 obj-y += test/
 obj-y += trigger/
+obj-$(CONFIG_SPRD_SENSOR_HUB) += sprd_hub/

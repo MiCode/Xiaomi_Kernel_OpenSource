@@ -510,7 +510,6 @@ static int function_stat_show(struct seq_file *m, void *v)
 	static struct trace_seq s;
 	unsigned long long avg;
 	unsigned long long stddev;
-	unsigned long long stddev_denom;
 #endif
 	mutex_lock(&ftrace_profile_lock);
 
@@ -532,19 +531,23 @@ static int function_stat_show(struct seq_file *m, void *v)
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	seq_puts(m, "    ");
 
-	/*
-	 * Variance formula:
-	 * s^2 = 1 / (n * (n-1)) * (n * \Sum (x_i)^2 - (\Sum x_i)^2)
-	 * Maybe Welford's method is better here?
-	 * Divide only by 1000 for ns^2 -> us^2 conversion.
-	 * trace_print_graph_duration will divide by 1000 again.
-	 */
-	stddev = 0;
-	stddev_denom = rec->counter * (rec->counter - 1) * 1000;
-	if (stddev_denom) {
+	/* Sample standard deviation (s^2) */
+	if (rec->counter <= 1)
+		stddev = 0;
+	else {
+		/*
+		 * Apply Welford's method:
+		 * s^2 = 1 / (n * (n-1)) * (n * \Sum (x_i)^2 - (\Sum x_i)^2)
+		 */
 		stddev = rec->counter * rec->time_squared -
 			 rec->time * rec->time;
-		stddev = div64_ul(stddev, stddev_denom);
+
+		/*
+		 * Divide only 1000 for ns^2 -> us^2 conversion.
+		 * trace_print_graph_duration will divide 1000 again.
+		 */
+		stddev = div64_ul(stddev,
+				  rec->counter * (rec->counter - 1) * 1000);
 	}
 
 	trace_seq_init(&s);
@@ -3824,17 +3827,13 @@ ftrace_regex_open(struct ftrace_ops *ops, int flag,
 	        } else {
 			iter->hash = alloc_and_copy_ftrace_hash(size_bits, hash);
 		}
-	} else {
-		if (hash)
-			iter->hash = alloc_and_copy_ftrace_hash(hash->size_bits, hash);
-		else
-			iter->hash = EMPTY_HASH;
-	}
 
-	if (!iter->hash) {
-		trace_parser_put(&iter->parser);
-		goto out_unlock;
-	}
+		if (!iter->hash) {
+			trace_parser_put(&iter->parser);
+			goto out_unlock;
+		}
+	} else
+		iter->hash = hash;
 
 	ret = 0;
 
@@ -5703,6 +5702,9 @@ int ftrace_regex_release(struct inode *inode, struct file *file)
 		ftrace_hash_move_and_update_ops(iter->ops, orig_hash,
 						      iter->hash, filter_hash);
 		mutex_unlock(&ftrace_lock);
+	} else {
+		/* For read only, the hash is the ops hash */
+		iter->hash = NULL;
 	}
 
 	mutex_unlock(&iter->ops->func_hash->regex_lock);
@@ -6090,7 +6092,6 @@ ftrace_graph_set_hash(struct ftrace_hash *hash, char *buffer)
 				}
 			}
 		}
-		cond_resched();
 	} while_for_each_ftrace_rec();
 out:
 	mutex_unlock(&ftrace_lock);
@@ -6468,10 +6469,9 @@ void ftrace_release_mod(struct module *mod)
 
 	mutex_lock(&ftrace_lock);
 
-	/*
-	 * To avoid the UAF problem after the module is unloaded, the
-	 * 'mod_map' resource needs to be released unconditionally.
-	 */
+	if (ftrace_disabled)
+		goto out_unlock;
+
 	list_for_each_entry_safe(mod_map, n, &ftrace_mod_maps, list) {
 		if (mod_map->mod == mod) {
 			list_del_rcu(&mod_map->list);
@@ -6479,9 +6479,6 @@ void ftrace_release_mod(struct module *mod)
 			break;
 		}
 	}
-
-	if (ftrace_disabled)
-		goto out_unlock;
 
 	/*
 	 * Each module has its own ftrace_pages, remove

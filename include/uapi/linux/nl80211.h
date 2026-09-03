@@ -56,6 +56,7 @@
 #define NL80211_EDMG_BW_CONFIG_MAX	15
 #define NL80211_EDMG_CHANNELS_MIN	1
 #define NL80211_EDMG_CHANNELS_MAX	0x3c /* 0b00111100 */
+#define NL80211_WAPI_VERSION_1  (1 << 3)
 
 /**
  * DOC: Station handling

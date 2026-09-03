@@ -178,7 +178,6 @@ static int ch9200_mdio_read(struct net_device *netdev, int phy_id, int loc)
 {
 	struct usbnet *dev = netdev_priv(netdev);
 	unsigned char buff[2];
-	int ret;
 
 	netdev_dbg(netdev, "%s phy_id:%02x loc:%02x\n",
 		   __func__, phy_id, loc);
@@ -186,10 +185,8 @@ static int ch9200_mdio_read(struct net_device *netdev, int phy_id, int loc)
 	if (phy_id != 0)
 		return -ENODEV;
 
-	ret = control_read(dev, REQUEST_READ, 0, loc * 2, buff, 0x02,
-			   CONTROL_TIMEOUT_MS);
-	if (ret < 0)
-		return ret;
+	control_read(dev, REQUEST_READ, 0, loc * 2, buff, 0x02,
+		     CONTROL_TIMEOUT_MS);
 
 	return (buff[0] | buff[1] << 8);
 }

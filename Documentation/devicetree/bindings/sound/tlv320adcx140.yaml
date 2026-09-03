@@ -176,12 +176,13 @@ patternProperties:
        4 - Drive weak low and active high
        5 - Drive Hi-Z and active high
 
-    $ref: /schemas/types.yaml#/definitions/uint32-array
-    minItems: 2
-    maxItems: 2
-    items:
-      maximum: 15
-    default: [2, 2]
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32-array
+      - minItems: 2
+        maxItems: 2
+        items:
+          maximum: 15
+        default: [2, 2]
 
 required:
   - compatible

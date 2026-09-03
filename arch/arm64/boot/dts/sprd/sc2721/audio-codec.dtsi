@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc SC2721 PMIC audio-codec dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&sc2721_pmic {
+	sprd_audio_codec_ana: audio-codec@700 {
+		compatible = "unisoc,sc2721-audio-codec",
+			"unisoc,sc2731-audio-codec";
+		#sound-dai-cells = <1>;
+		reg = <0x700>;
+		interrupts = <6>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		status = "disabled";
+	};
+};

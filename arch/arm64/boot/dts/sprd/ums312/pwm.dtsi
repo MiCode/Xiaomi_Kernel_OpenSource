@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS312 PWM DTS file
+ *
+ * Copyright (C) 2022, Unisoc Inc.
+ */
+
+&aon {
+	pwms: pwm@32260000 {
+		compatible = "sprd,ums312-pwm", "sprd,ums512-pwm";
+		reg = <0 0x32260000 0 0x10000>;
+		clock-names = "pwm0", "enable0",
+			      "pwm1", "enable1",
+			      "pwm2", "enable2";
+		clocks = <&aon_clk CLK_PWM0>, <&aonapb_gate CLK_PWM0_EB>,
+			 <&aon_clk CLK_PWM1>, <&aonapb_gate CLK_PWM1_EB>,
+			 <&aon_clk CLK_PWM2>, <&aonapb_gate CLK_PWM2_EB>;
+		assigned-clocks = <&aon_clk CLK_PWM0>,
+				  <&aon_clk CLK_PWM1>,
+				  <&aon_clk CLK_PWM2>;
+		assigned-clock-parents = <&ext_26m>,
+					 <&ext_26m>,
+					 <&ext_26m>;
+		counter-bits = "10bit",
+			       "10bit",
+			       "10bit";
+		#pwm-cells = <2>;
+	};
+};
+

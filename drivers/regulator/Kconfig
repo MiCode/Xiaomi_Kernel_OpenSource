@@ -1110,12 +1110,71 @@ config REGULATOR_S5M8767
 	 via I2C bus. S5M8767A have 9 Bucks and 28 LDOs output and
 	 supports DVS mode with 8bits of output voltage control.
 
+config REGULATOR_SC2720
+	tristate "Spreadtrum SC2720 power regulator driver"
+	depends on (ARM && MFD_SC27XX_PMIC) || COMPILE_TEST
+	help
+	  This driver provides support for the voltage regulators on the
+	  SC2720 PMIC.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called sc2720-regulator.
+
+config REGULATOR_SC2721
+	tristate "Spreadtrum SC2721 power regulator driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	help
+	  This driver provides support for the voltage regulators on the
+	  SC2721 PMIC.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called sc2721-regulator.
+
+config REGULATOR_SC2730
+	tristate "Spreadtrum SC2730 power regulator driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	help
+	  This driver provides support for the voltage regulators on the
+	  SC2730 PMIC.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called sc2730-regulator.
+
 config REGULATOR_SC2731
 	tristate "Spreadtrum SC2731 power regulator driver"
 	depends on MFD_SC27XX_PMIC || COMPILE_TEST
 	help
 	  This driver provides support for the voltage regulators on the
 	  SC2731 PMIC.
+
+config REGULATOR_UMP9620
+	tristate "Unisoc UMP9620 power regulator driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	help
+	  This driver provides support for the voltage regulators on the
+	  UMP9620 PMIC.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called ump9620-regulator.
+
+config REGULATOR_UMP9621
+	tristate "Unisoc UMP9621 power regulator driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	help
+	  This driver provides support for the voltage regulators on the
+	  UMP9621 PMIC.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called ump9621-regulator.
+
+config REGULATOR_ADD_OTG_VBUS
+	tristate "Unisoc add power regulator driver about otg"
+	help
+	  This driver provides support for the otg platform power regulators.
+          This driver controls the vbus through gpio.
+
+          This driver can also be built as a module. If so, the module
+	  will be called add-otg-regulator.
 
 config REGULATOR_SKY81452
 	tristate "Skyworks Solutions SKY81452 voltage regulator"

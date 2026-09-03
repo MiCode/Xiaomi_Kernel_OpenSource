@@ -236,4 +236,10 @@ source "drivers/interconnect/Kconfig"
 source "drivers/counter/Kconfig"
 
 source "drivers/most/Kconfig"
+
+source "drivers/unisoc_platform/Kconfig"
+
+source "drivers/trusty/Kconfig"
 endmenu
+
+source "drivers/nfc/Kconfig"

@@ -25,7 +25,7 @@ typedef __u16 __bitwise __hc16;
 #endif
 
 /* statistics can be kept for tuning/monitoring */
-#ifdef CONFIG_DYNAMIC_DEBUG
+#if defined(CONFIG_DYNAMIC_DEBUG) && !defined(CONFIG_GKI_HACKS_TO_FIX)
 #define EHCI_STATS
 #endif
 
@@ -243,7 +243,7 @@ struct ehci_hcd {			/* one per controller */
 #endif
 
 	/* debug files */
-#ifdef CONFIG_DYNAMIC_DEBUG
+#if defined(CONFIG_DYNAMIC_DEBUG) && !defined(CONFIG_GKI_HACKS_TO_FIX)
 	struct dentry		*debug_dir;
 #endif
 

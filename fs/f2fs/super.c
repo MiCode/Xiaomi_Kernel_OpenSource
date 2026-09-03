@@ -62,31 +62,21 @@ const char *f2fs_fault_name[FAULT_MAX] = {
 	[FAULT_LOCK_OP]		= "lock_op",
 };
 
-int f2fs_build_fault_attr(struct f2fs_sb_info *sbi, unsigned long rate,
-							unsigned long type)
+void f2fs_build_fault_attr(struct f2fs_sb_info *sbi, unsigned int rate,
+							unsigned int type)
 {
 	struct f2fs_fault_info *ffi = &F2FS_OPTION(sbi).fault_info;
 
 	if (rate) {
-		if (rate > INT_MAX)
-			return -EINVAL;
 		atomic_set(&ffi->inject_ops, 0);
-		ffi->inject_rate = (int)rate;
+		ffi->inject_rate = rate;
 	}
 
-	if (type) {
-		if (type >= BIT(FAULT_MAX))
-			return -EINVAL;
-		ffi->inject_type = (unsigned int)type;
-	}
+	if (type)
+		ffi->inject_type = type;
 
 	if (!rate && !type)
 		memset(ffi, 0, sizeof(struct f2fs_fault_info));
-	else
-		f2fs_info(sbi,
-			"build fault injection attr: rate: %lu, type: 0x%lx",
-								rate, type);
-	return 0;
 }
 #endif
 
@@ -126,7 +116,6 @@ enum {
 	Opt_noinline_data,
 	Opt_data_flush,
 	Opt_reserve_root,
-	Opt_reserve_node,
 	Opt_resgid,
 	Opt_resuid,
 	Opt_mode,
@@ -172,7 +161,6 @@ enum {
 	Opt_nogc_merge,
 	Opt_discard_unit,
 	Opt_memory_mode,
-	Opt_lookup_mode,
 	Opt_err,
 };
 
@@ -205,7 +193,6 @@ static match_table_t f2fs_tokens = {
 	{Opt_noinline_data, "noinline_data"},
 	{Opt_data_flush, "data_flush"},
 	{Opt_reserve_root, "reserve_root=%u"},
-	{Opt_reserve_node, "reserve_node=%u"},
 	{Opt_resgid, "resgid=%u"},
 	{Opt_resuid, "resuid=%u"},
 	{Opt_mode, "mode=%s"},
@@ -252,7 +239,6 @@ static match_table_t f2fs_tokens = {
 	{Opt_nogc_merge, "nogc_merge"},
 	{Opt_discard_unit, "discard_unit=%s"},
 	{Opt_memory_mode, "memory=%s"},
-	{Opt_lookup_mode, "lookup_mode=%s"},
 	{Opt_err, NULL},
 };
 
@@ -323,30 +309,22 @@ static void f2fs_destroy_casefold_cache(void) { }
 
 static inline void limit_reserve_root(struct f2fs_sb_info *sbi)
 {
-	block_t block_limit = min((sbi->user_block_count >> 3),
+	block_t limit = min((sbi->user_block_count >> 3),
 			sbi->user_block_count - sbi->reserved_blocks);
-	block_t node_limit = sbi->total_node_count >> 3;
 
 	/* limit is 12.5% */
 	if (test_opt(sbi, RESERVE_ROOT) &&
-			F2FS_OPTION(sbi).root_reserved_blocks > block_limit) {
-		F2FS_OPTION(sbi).root_reserved_blocks = block_limit;
+			F2FS_OPTION(sbi).root_reserved_blocks > limit) {
+		F2FS_OPTION(sbi).root_reserved_blocks = limit;
 		f2fs_info(sbi, "Reduce reserved blocks for root = %u",
 			  F2FS_OPTION(sbi).root_reserved_blocks);
 	}
-	if (test_opt(sbi, RESERVE_NODE) &&
-			F2FS_OPTION(sbi).root_reserved_nodes > node_limit) {
-		F2FS_OPTION(sbi).root_reserved_nodes = node_limit;
-		f2fs_info(sbi, "Reduce reserved nodes for root = %u",
-			  F2FS_OPTION(sbi).root_reserved_nodes);
-	}
-	if (!test_opt(sbi, RESERVE_ROOT) && !test_opt(sbi, RESERVE_NODE) &&
+	if (!test_opt(sbi, RESERVE_ROOT) &&
 		(!uid_eq(F2FS_OPTION(sbi).s_resuid,
 				make_kuid(&init_user_ns, F2FS_DEF_RESUID)) ||
 		!gid_eq(F2FS_OPTION(sbi).s_resgid,
 				make_kgid(&init_user_ns, F2FS_DEF_RESGID))))
-		f2fs_info(sbi, "Ignore s_resuid=%u, s_resgid=%u w/o reserve_root"
-				" and reserve_node",
+		f2fs_info(sbi, "Ignore s_resuid=%u, s_resgid=%u w/o reserve_root",
 			  from_kuid_munged(&init_user_ns,
 					   F2FS_OPTION(sbi).s_resuid),
 			  from_kgid_munged(&init_user_ns,
@@ -872,17 +850,6 @@ static int parse_options(struct super_block *sb, char *options, bool is_remount)
 				set_opt(sbi, RESERVE_ROOT);
 			}
 			break;
-		case Opt_reserve_node:
-			if (args->from && match_int(args, &arg))
-				return -EINVAL;
-			if (test_opt(sbi, RESERVE_NODE)) {
-				f2fs_info(sbi, "Preserve previous reserve_node=%u",
-					  F2FS_OPTION(sbi).root_reserved_nodes);
-			} else {
-				F2FS_OPTION(sbi).root_reserved_nodes = arg;
-				set_opt(sbi, RESERVE_NODE);
-			}
-			break;
 		case Opt_resuid:
 			if (args->from && match_int(args, &arg))
 				return -EINVAL;
@@ -941,17 +908,14 @@ static int parse_options(struct super_block *sb, char *options, bool is_remount)
 		case Opt_fault_injection:
 			if (args->from && match_int(args, &arg))
 				return -EINVAL;
-			if (f2fs_build_fault_attr(sbi, arg,
-					F2FS_ALL_FAULT_TYPE))
-				return -EINVAL;
+			f2fs_build_fault_attr(sbi, arg, F2FS_ALL_FAULT_TYPE);
 			set_opt(sbi, FAULT_INJECTION);
 			break;
 
 		case Opt_fault_type:
 			if (args->from && match_int(args, &arg))
 				return -EINVAL;
-			if (f2fs_build_fault_attr(sbi, 0, arg))
-				return -EINVAL;
+			f2fs_build_fault_attr(sbi, 0, arg);
 			set_opt(sbi, FAULT_INJECTION);
 			break;
 #else
@@ -1065,9 +1029,9 @@ static int parse_options(struct super_block *sb, char *options, bool is_remount)
 				return -ENOMEM;
 
 			if (!strcmp(name, "default")) {
-				f2fs_set_alloc_mode(sbi, ALLOC_MODE_DEFAULT);
+				F2FS_OPTION(sbi).alloc_mode = ALLOC_MODE_DEFAULT;
 			} else if (!strcmp(name, "reuse")) {
-				f2fs_set_alloc_mode(sbi, ALLOC_MODE_REUSE);
+				F2FS_OPTION(sbi).alloc_mode = ALLOC_MODE_REUSE;
 			} else {
 				kfree(name);
 				return -EINVAL;
@@ -1327,23 +1291,6 @@ static int parse_options(struct super_block *sb, char *options, bool is_remount)
 			} else if (!strcmp(name, "low")) {
 				F2FS_OPTION(sbi).memory_mode =
 						MEMORY_MODE_LOW;
-			} else {
-				kfree(name);
-				return -EINVAL;
-			}
-			kfree(name);
-			break;
-
-		case Opt_lookup_mode:
-			name = match_strdup(&args[0]);
-			if (!name)
-				return -ENOMEM;
-			if (!strcmp(name, "perf")) {
-				f2fs_set_lookup_mode(sbi, LOOKUP_PERF);
-			} else if (!strcmp(name, "compat")) {
-				f2fs_set_lookup_mode(sbi, LOOKUP_COMPAT);
-			} else if (!strcmp(name, "auto")) {
-				f2fs_set_lookup_mode(sbi, LOOKUP_AUTO);
 			} else {
 				kfree(name);
 				return -EINVAL;
@@ -1796,32 +1743,26 @@ static int f2fs_statfs_project(struct super_block *sb,
 
 	limit = min_not_zero(dquot->dq_dqb.dqb_bsoftlimit,
 					dquot->dq_dqb.dqb_bhardlimit);
-	limit >>= sb->s_blocksize_bits;
+	if (limit)
+		limit >>= sb->s_blocksize_bits;
 
-	if (limit) {
-		uint64_t remaining = 0;
-
+	if (limit && buf->f_blocks > limit) {
 		curblock = (dquot->dq_dqb.dqb_curspace +
 			    dquot->dq_dqb.dqb_rsvspace) >> sb->s_blocksize_bits;
-		if (limit > curblock)
-			remaining = limit - curblock;
-
-		buf->f_blocks = min(buf->f_blocks, limit);
-		buf->f_bfree = min(buf->f_bfree, remaining);
-		buf->f_bavail = min(buf->f_bavail, remaining);
+		buf->f_blocks = limit;
+		buf->f_bfree = buf->f_bavail =
+			(buf->f_blocks > curblock) ?
+			 (buf->f_blocks - curblock) : 0;
 	}
 
 	limit = min_not_zero(dquot->dq_dqb.dqb_isoftlimit,
 					dquot->dq_dqb.dqb_ihardlimit);
 
-	if (limit) {
-		uint64_t remaining = 0;
-
-		if (limit > dquot->dq_dqb.dqb_curinodes)
-			remaining = limit - dquot->dq_dqb.dqb_curinodes;
-
-		buf->f_files = min(buf->f_files, limit);
-		buf->f_ffree = min(buf->f_ffree, remaining);
+	if (limit && buf->f_files > limit) {
+		buf->f_files = limit;
+		buf->f_ffree =
+			(buf->f_files > dquot->dq_dqb.dqb_curinodes) ?
+			 (buf->f_files - dquot->dq_dqb.dqb_curinodes) : 0;
 	}
 
 	spin_unlock(&dquot->dq_dqb_lock);
@@ -1876,9 +1817,9 @@ static int f2fs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_fsid    = u64_to_fsid(id);
 
 #ifdef CONFIG_QUOTA
-	if (is_inode_flag_set(d_inode(dentry), FI_PROJ_INHERIT) &&
+	if (is_inode_flag_set(dentry->d_inode, FI_PROJ_INHERIT) &&
 			sb_has_quota_limits_enabled(sb, PRJQUOTA)) {
-		f2fs_statfs_project(sb, F2FS_I(d_inode(dentry))->i_projid, buf);
+		f2fs_statfs_project(sb, F2FS_I(dentry->d_inode)->i_projid, buf);
 	}
 #endif
 	return 0;
@@ -2055,11 +1996,9 @@ static int f2fs_show_options(struct seq_file *seq, struct dentry *root)
 	else if (F2FS_OPTION(sbi).fs_mode == FS_MODE_FRAGMENT_BLK)
 		seq_puts(seq, "fragment:block");
 	seq_printf(seq, ",active_logs=%u", F2FS_OPTION(sbi).active_logs);
-	if (test_opt(sbi, RESERVE_ROOT) || test_opt(sbi, RESERVE_NODE))
-		seq_printf(seq, ",reserve_root=%u,reserve_node=%u,resuid=%u,"
-				"resgid=%u",
+	if (test_opt(sbi, RESERVE_ROOT))
+		seq_printf(seq, ",reserve_root=%u,resuid=%u,resgid=%u",
 				F2FS_OPTION(sbi).root_reserved_blocks,
-				F2FS_OPTION(sbi).root_reserved_nodes,
 				from_kuid_munged(&init_user_ns,
 					F2FS_OPTION(sbi).s_resuid),
 				from_kgid_munged(&init_user_ns,
@@ -2096,9 +2035,9 @@ static int f2fs_show_options(struct seq_file *seq, struct dentry *root)
 	if (sbi->sb->s_flags & SB_INLINECRYPT)
 		seq_puts(seq, ",inlinecrypt");
 
-	if (f2fs_get_alloc_mode(sbi) == ALLOC_MODE_DEFAULT)
+	if (F2FS_OPTION(sbi).alloc_mode == ALLOC_MODE_DEFAULT)
 		seq_printf(seq, ",alloc_mode=%s", "default");
-	else if (f2fs_get_alloc_mode(sbi) == ALLOC_MODE_REUSE)
+	else if (F2FS_OPTION(sbi).alloc_mode == ALLOC_MODE_REUSE)
 		seq_printf(seq, ",alloc_mode=%s", "reuse");
 
 	if (test_opt(sbi, DISABLE_CHECKPOINT))
@@ -2134,13 +2073,6 @@ static int f2fs_show_options(struct seq_file *seq, struct dentry *root)
 	else if (F2FS_OPTION(sbi).memory_mode == MEMORY_MODE_LOW)
 		seq_printf(seq, ",memory=%s", "low");
 
-	if (f2fs_get_lookup_mode(sbi) == LOOKUP_PERF)
-		seq_show_option(seq, "lookup_mode", "perf");
-	else if (f2fs_get_lookup_mode(sbi) == LOOKUP_COMPAT)
-		seq_show_option(seq, "lookup_mode", "compat");
-	else if (f2fs_get_lookup_mode(sbi) == LOOKUP_AUTO)
-		seq_show_option(seq, "lookup_mode", "auto");
-
 	return 0;
 }
 
@@ -2155,11 +2087,6 @@ static void default_options(struct f2fs_sb_info *sbi)
 	F2FS_OPTION(sbi).inline_xattr_size = DEFAULT_INLINE_XATTR_ADDRS;
 	F2FS_OPTION(sbi).whint_mode = WHINT_MODE_OFF;
 	F2FS_OPTION(sbi).alloc_mode = ALLOC_MODE_DEFAULT;
-	if (le32_to_cpu(F2FS_RAW_SUPER(sbi)->segment_count_main) <=
-							SMALL_VOLUME_SEGMENTS)
-		f2fs_set_alloc_mode(sbi, ALLOC_MODE_REUSE);
-	else
-		f2fs_set_alloc_mode(sbi, ALLOC_MODE_DEFAULT);
 	F2FS_OPTION(sbi).fsync_mode = FSYNC_MODE_POSIX;
 	F2FS_OPTION(sbi).s_resuid = make_kuid(&init_user_ns, F2FS_DEF_RESUID);
 	F2FS_OPTION(sbi).s_resgid = make_kgid(&init_user_ns, F2FS_DEF_RESGID);
@@ -2198,8 +2125,6 @@ static void default_options(struct f2fs_sb_info *sbi)
 #endif
 
 	f2fs_build_fault_attr(sbi, 0, 0);
-
-	f2fs_set_lookup_mode(sbi, LOOKUP_PERF);
 }
 
 #ifdef CONFIG_QUOTA
@@ -3547,7 +3472,6 @@ int f2fs_sanity_check_ckpt(struct f2fs_sb_info *sbi)
 	block_t user_block_count, valid_user_blocks;
 	block_t avail_node_count, valid_node_count;
 	unsigned int nat_blocks, nat_bits_bytes, nat_bits_blocks;
-	unsigned int sit_blk_cnt;
 	int i, j;
 
 	total = le32_to_cpu(raw_super->segment_count);
@@ -3656,13 +3580,6 @@ skip_cross:
 		nat_bitmap_size != ((nat_segs / 2) << log_blocks_per_seg) / 8) {
 		f2fs_err(sbi, "Wrong bitmap size: sit: %u, nat:%u",
 			 sit_bitmap_size, nat_bitmap_size);
-		return 1;
-	}
-
-	sit_blk_cnt = DIV_ROUND_UP(main_segs, SIT_ENTRY_PER_BLOCK);
-	if (sit_bitmap_size * 8 < sit_blk_cnt) {
-		f2fs_err(sbi, "Wrong bitmap size: sit: %u, sit_blk_cnt:%u",
-			 sit_bitmap_size, sit_blk_cnt);
 		return 1;
 	}
 

@@ -32,7 +32,6 @@ commands:
                              Disable option directly after other option
 	--module-after|-M beforeopt option
                              Turn option into module directly after other option
-	--refresh            Refresh the config using old settings
 
 	commands can be repeated multiple times
 
@@ -125,22 +124,16 @@ undef_var() {
 	txt_delete "^# $name is not set" "$FN"
 }
 
-FN=.config
-CMDS=()
-while [[ $# -gt 0 ]]; do
-	if [ "$1" = "--file" ]; then
-		if [ "$2" = "" ]; then
-			usage
-		fi
-		FN="$2"
-		shift 2
-	else
-		CMDS+=("$1")
-		shift
+if [ "$1" = "--file" ]; then
+	FN="$2"
+	if [ "$FN" = "" ] ; then
+		usage
 	fi
-done
+	shift 2
+else
+	FN=.config
+fi
 
-set -- "${CMDS[@]}"
 if [ "$1" = "" ] ; then
 	usage
 fi
@@ -224,8 +217,9 @@ while [ "$1" != "" ] ; do
 		set_var "${CONFIG_}$B" "${CONFIG_}$B=m" "${CONFIG_}$A"
 		;;
 
+	# undocumented because it ignores --file (fixme)
 	--refresh)
-		yes "" | make oldconfig KCONFIG_CONFIG=$FN
+		yes "" | make oldconfig
 		;;
 
 	*)

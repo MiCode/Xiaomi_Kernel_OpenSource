@@ -1,0 +1,456 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum Qogirn6pro board common DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/dts-v1/;
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include "reserved-memory/ums9610-common.dtsi"
+#include "ums9610/ums9610.dtsi"
+#include "ump9620/ump9620.dtsi"
+#include "ump9621/ump9621.dtsi"
+#include "ump9622/ump9622.dtsi"
+#include "trusty/ums9610.dtsi"
+#include "battery/battery-common.dtsi"
+#include "thermal/ntc-common.dtsi"
+#include "sound/fe-be.dtsi"
+#include "sound/virtual-devices.dtsi"
+
+/{
+	model = "Unisoc UMS9610-base Board";
+
+	compatible = "sprd,ums512-base", "sprd,ums9610";
+
+	sprd,sc-id = "ums9610 1000 1000";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c7 = &i2c7;
+		i2c8 = &i2c8;
+		i2c9 = &i2c9;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi4 = &adi_bus;
+		pmic_efuse0 = &ump9620_efuse;
+		pmic_efuse1 = &ump9621_efuse;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x2 0x00000000>;
+	};
+
+	chosen: chosen {
+		stdout-path = "serial1:115200n8";
+		bootargs = "earlycon=sprd_serial,0x20210000,115200n8 console=ttyS1,115200n8 loglevel=1 log_buf_len=1M kpti=0 firmware_class.path=/vendor/firmware,/odm/firmware init=/init root=/dev/ram0 rw printk.devkmsg=on pcie_ports=compat swiotlb=1 initcall_debug=1";
+	};
+
+	pwm_backlight: backlight {
+		compatible = "sprd,qogirn6pro-backlight";
+		pwms = <&pwms 0 40000>;
+		pwm-names = "backlight";
+		sprd,max-brightness-level = <880>;
+		default-brightness-level = <250>;
+		sprd,brightness-scale = <1023>;
+		brightness-levels = <
+					  0   3   4   5   6   7
+			  8   9  10  11  12  13  14  15  16  17
+			 18  19  20  21  22  23  24  25  26  27
+			 28  29  31  33  35  37  39  41  43  45
+			 46  48  50  52  54  56  58  60  62  64
+			 66  68  70  72  74  76  78  80  82  84
+			 86  88  90  92  94  96  98 100 102 104
+			106 108 110 112 114 116 118 120 122 124
+			126 128 130 132 134 136 138 140 142 144
+			146 148 150 152 154 156 158 160 162 164
+			166 169 172 175 178 181 184 187 190 193
+			196 199 202 205 208 211 214 217 220 223
+			226 229 232 235 238 241 244 247 250 253
+			256 259 262 265 268 271 274 277 280 283
+			286 290 294 298 302 306 310 314 318 322
+			326 330 334 338 342 346 350 354 358 362
+			366 370 374 378 382 386 390 394 398 402
+			406 410 414 418 422 426 430 434 438 442
+			446 451 456 461 466 471 476 481 486 491
+			496 501 506 511 516 521 526 531 536 541
+			546 551 556 561 566 571 576 581 586 591
+			596 601 606 611 616 621 626 631 636 641
+			646 652 658 664 670 676 682 688 694 700
+			706 712 718 724 730 736 742 748 754 760
+			766 772 778 784 790 796 802 808 814 820
+			826 832 838 844 850 856 862 868 874 880
+		>;
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,nr_modem,nr_phy,l_agdsp,pm_sys";
+			};
+		};
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&vddldo0 {
+	regulator-always-on;
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&extcon_gpio>;
+	sprd,hsphy-device-eye-pattern = <0x067bd1c0>;
+	sprd,hsphy-host-eye-pattern = <0x067bd1c0>;
+	status = "okay";
+};
+
+&usb {
+	extcon = <&extcon_gpio>, <&pmic_typec>;
+	status = "okay";
+};
+
+&dpu {
+	sprd,logo-memory = <&logo_reserved>;
+	sprd,backlight = <&pwm_backlight>;
+	status = "okay";
+};
+
+&iommu_dispc {
+	status = "okay";
+};
+
+&iommu_gsp {
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		sprd,backlight = <&pwm_backlight>;
+		sprd,sr-width = <720>;
+		sprd,sr-height = <1600>;
+		avdd-gpio = <&ap_gpio 192 GPIO_ACTIVE_HIGH>;
+		avee-gpio = <&ap_gpio 191 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&ap_gpio 11 GPIO_ACTIVE_HIGH>;
+
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	ucp1301_spk: ucp1301@58 {
+		compatible = "unisoc,ucp1301-spk";
+		reg = <0x58>;
+		reset-gpios = <&ap_gpio 120 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <1>;
+	};
+};
+
+&pdm_dmic {
+	status = "okay";
+};
+
+&sprd_headset {
+	status = "okay";
+	extcon = <&pmic_typec>;
+	mic-gpios = <&ap_gpio 62 GPIO_ACTIVE_HIGH>;
+	lr-gpios = <&ap_gpio 61 GPIO_ACTIVE_HIGH>;
+	sprd,3pole-adc-threshold = <112>;
+	nvmem-cells = <&headset_adc_fir_1>, <&headset_adc_fir_2>,<&headset_adc_sec>;
+	nvmem-cell-names = "hp_adc_fir_calib_1","hp_adc_fir_calib_2", "hp_adc_sec_calib";
+};
+
+&sound_vbc_v4_sprd_codec {
+	status = "okay";
+	sprd,syscon-agcp-ahb = <&audcp_glb_regs>;
+
+	sprd-audio-card,routing =
+		"HPMIC Pin", "HP Mic Jack",
+		"MIC Pin", "Mic Jack",
+		"MIC2 Pin", "Aux Mic Jack",
+		"MIC3 Pin", "Aux Mic2 Jack",
+		"HeadPhone Jack", "HP Pin",
+		"Ext Spk", "SPK Pin",
+		"UCP1301 SPK ON", "SPK Pin",
+		"Ext Spk", "UCP1301 SPK",
+		"PDM DMIC2 ON", "SPK Pin",
+		"Ext Spk", "PDM_DMIC2",
+		"DMIC Pin", "DMic Jack",
+		"DMIC1 Pin", "DMic1 Jack",
+		"Ext Ear", "EAR Pin";
+
+	/* 35: ucp1301 normal ap01 */
+	sprd-audio-card,dai-link@53 {
+		ignore-suspend = <1>;
+		link-name = "BE_NORMAL_AP01_UCPSPK";
+		stream-name = "BE_ST_NORMAL_AP01_UCPSPK";
+		no-pcm = <1>;
+		dpcm-playback = <1>;
+		be-id = <0>;
+		dai-format = "i2s";
+		plat {
+			sound-dai = <&sprd_route_pcm>;
+		};
+		cpu {
+			sound-dai = <&vbc_v4 31>;
+		};
+		codec {
+			sound-dai = <&ucp1301_spk 0>;
+		};
+	};
+
+	/*
+	 * node 54 and node 55 (index 36 and 37) are reserved for
+	 * "ucp1301-spk2" and "ucp1301-rcv"
+	 * nodes from 56 to 67 (index from 38 to 49) are used by HIFI
+	 */
+	/* 63: pdm dmic */
+	sprd-audio-card,dai-link@81 {
+		ignore-suspend = <1>;
+		link-name = "BE_PDM_DMIC";
+		stream-name = "BE_ST_PDM_DMIC";
+		no-pcm = <1>;
+		dpcm-capture = <1>;
+		be-id = <0>;
+		//dai-format = "i2s";
+		plat {
+			sound-dai = <&sprd_route_pcm>;
+		};
+		cpu {
+			sound-dai = <&vbc_v4 31>;
+		};
+		codec {
+			sound-dai = <&pdm_dmic 0>;
+		};
+	};
+};
+
+&agdsp_domain {
+	status = "okay";
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	hp-use-inter-pa = <1>;
+	fixed-sample-rate = <48000 48000 48000>;
+	digital-codec = <&sprd_audio_codec_dig>;
+	set-offset = <0x1000>;
+	clr-offset = <0x2000>;
+	lrdat-sel = <0x1>;
+	power-domains = <&agdsp_domain>;
+};
+
+&dphy {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&iommu_isp {
+	status = "okay";
+};
+
+&dcam {
+	status = "okay";
+};
+
+&iommu_dcam {
+	status = "okay";
+};
+
+&dcam_lite {
+	status = "okay";
+};
+
+&iommu_dcam_lite {
+	status = "okay";
+};
+
+&cpp {
+	status = "okay";
+};
+
+&iommu_cpp {
+	status = "okay";
+};
+
+&iommu_fd {
+	status = "okay";
+};
+
+&cpp {
+	status = "okay";
+};
+
+&vpu_pd_top {
+	status = "okay";
+};
+
+&vpu_pd_enc0 {
+	status = "okay";
+};
+
+&vpu_pd_dec {
+	status = "okay";
+};
+
+&vpu_enc0 {
+	status = "okay";
+};
+
+&iommu_vpuenc0 {
+	status = "okay";
+};
+
+&vpu_dec {
+	status = "okay";
+};
+
+&iommu_vpudec {
+	status = "okay";
+};
+/*
+&iommu_vdsp_msti {
+	status = "okay";
+};
+
+&iommu_vdsp_idma {
+	status = "okay";
+};
+
+&iommu_vdsp_vdma {
+	status = "okay";
+};
+
+&vdsp_mailbox {
+	status = "okay";
+};
+
+&vdsp {
+	status = "okay";
+};
+*/
+&dsp_mem_dump {
+	/* for cmd para addr, fix bug 1740522*/
+	sprd,dspdumpmem = <0x56200000 0x3000
+			   0x65009400 0x1000
+			   0x89300000 0x5f000>;
+};
+
+&sprd_pcm_iis {
+	dmas = <&ap_dma 5 &ap_dma 6 &agcp_dma 21 &agcp_dma 22>;
+	dma-names = "iis0_tx", "iis0_rx", "tdm_tx", "tdm_rx";
+};
+
+&sound_sprd_ap_alliis {
+	status = "okay";
+	sprd,syscon-agcp-ahb = <&audcp_glb_regs>;
+	sprd,syscon-clk-rf = <&audcp_clk_rf_regs>;
+	sprd,syscon-dvfs-apb = <&audcp_dvfs_apb_rf_regs>;
+	sprd,syscon-aon-apb = <&aon_apb_regs>;
+	sprd-audio-card,dai-link@0 {
+		plat {
+			sound-dai = <&sprd_pcm_iis>;
+		};
+		cpu {
+			sound-dai = <&sprd_tdm>;
+		};
+		codec {
+			sound-dai = <0 0>;
+		};
+	};
+};
+
+&sprd_tdm {
+	sprd,duplex_mode = <0>;
+	sprd,slave_timeout = <0x1E00>;
+	sprd,tdm_fs = <48000>;
+	sprd,trx_mst_mode = <1>;/* master */
+	sprd,trx_threshold = <128>;
+	sprd,trx_data_width = <0>;/* 16bit */
+	sprd,trx_data_mode = <0>;/* iis */
+	sprd,trx_slot_width = <0>;/* 16bclk */
+	sprd,trx_slot_num = <0>;/* 2 chn */
+	sprd,trx_msb_mode = <0>;/* lsb */
+	sprd,trx_pulse_mode = <0>;/* 50% */
+	sprd,tdm_slot_valid = <3>;
+	sprd,trx_sync_mode = <1>;
+	status = "okay";
+};
+
+&jpg {
+	status = "okay";
+};
+
+&power_debug {
+	status = "okay";
+	memory-region = <&pdbg_reserved>;
+};
+
+&iommu_jpg {
+	status = "okay";
+};

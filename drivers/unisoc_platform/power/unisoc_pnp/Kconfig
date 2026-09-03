@@ -1,0 +1,11 @@
+#
+# SPRD Soc Pnp drivers
+#
+menuconfig SPRD_PNP_DEBUG
+	tristate "Unisoc PNP debug driver"
+	depends on PM_SLEEP && ARCH_SPRD
+	default n
+	help
+		Select this to enable PNP debug driver for sprd soc. This driver
+		is only used to cellect working information of pnp.
+		these information will heip to analysis pnp issues.

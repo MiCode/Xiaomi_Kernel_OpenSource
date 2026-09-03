@@ -51,14 +51,14 @@ void dsp_hwec_enable(struct dsp *dsp, const char *arg)
 		goto _do;
 
 	{
-		char *dup, *next, *tok, *name, *val;
+		char *dup, *tok, *name, *val;
 		int tmp;
 
-		dup = next = kstrdup(arg, GFP_ATOMIC);
+		dup = kstrdup(arg, GFP_ATOMIC);
 		if (!dup)
 			return;
 
-		while ((tok = strsep(&next, ","))) {
+		while ((tok = strsep(&dup, ","))) {
 			if (!strlen(tok))
 				continue;
 			name = strsep(&tok, "=");

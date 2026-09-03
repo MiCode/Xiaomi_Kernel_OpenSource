@@ -310,11 +310,10 @@ static int tcan4x5x_can_probe(struct spi_device *spi)
 	priv = cdev_to_priv(mcan_class);
 
 	priv->power = devm_regulator_get_optional(&spi->dev, "vsup");
-	if (IS_ERR(priv->power)) {
-		if (PTR_ERR(priv->power) == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			goto out_m_can_class_free_dev;
-		}
+	if (PTR_ERR(priv->power) == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
+		goto out_m_can_class_free_dev;
+	} else {
 		priv->power = NULL;
 	}
 

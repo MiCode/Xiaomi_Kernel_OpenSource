@@ -1,0 +1,40 @@
+#
+# SPRD Soc autotest support
+#
+config SPRD_AUTOTEST
+  tristate "Spreadtrum autotest support"
+  depends on ARCH_SPRD
+    help
+      Userspace will use the open and ioctl function interface to
+      operate gpio. the open handle opens the file node. userspace can
+      manipulate the output direction and output high and low level by
+      operate the ioctl handle.
+
+      Say M here to enable autotest module.
+
+config SPRD_AUTOTEST_GPIO
+  tristate "Spreadtrum gpio autotest support"
+  depends on SPRD_AUTOTEST
+    help
+      Enable this to support gpio autotest. Each gpio can be configured
+      as an input to obtain external level status.It can also be configured
+      as an output,the direction is configured as an output high or low level.
+      Say M here to enable gpio module.
+
+config SPRD_AUTOTEST_PINCTRL
+  tristate "Spreadtrum pinctrl autotest support"
+  depends on SPRD_AUTOTEST
+    help
+      Enable this to support pinctrl autotest.Each gpio pin has multiplexing function,
+      the default function is not necessarily gpio. we need to switch the pin function
+      to gpio function before operating gpio.
+
+      Say M here to enable pinctrl module.
+
+config SPRD_AUTOTEST_OTG
+  tristate "Spreadtrum otg autotest support"
+  depends on SPRD_AUTOTEST
+    help
+      Enable this to support otg autotest.
+
+      Say M here to enable otg module.

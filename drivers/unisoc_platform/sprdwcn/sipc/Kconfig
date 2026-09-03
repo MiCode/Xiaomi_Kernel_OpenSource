@@ -1,0 +1,9 @@
+config WCN_SIPC
+	tristate "WCN SIPC Support"
+	depends on WCN_INTEG
+	default y
+	help
+	  Enable this module for Unisoc WCN integration
+	  chip sipc Support.
+	  Please insmod this module before any other
+	  WCN subsystems. Thanks.

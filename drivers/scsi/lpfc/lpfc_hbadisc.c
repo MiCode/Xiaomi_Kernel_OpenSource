@@ -5086,7 +5086,7 @@ lpfc_check_sli_ndlp(struct lpfc_hba *phba,
 		case CMD_GEN_REQUEST64_CR:
 			if (iocb->context_un.ndlp == ndlp)
 				return 1;
-			break;
+			fallthrough;
 		case CMD_ELS_REQUEST64_CR:
 			if (icmd->un.elsreq64.remoteID == ndlp->nlp_DID)
 				return 1;
@@ -5631,7 +5631,6 @@ static struct lpfc_nodelist *
 __lpfc_findnode_did(struct lpfc_vport *vport, uint32_t did)
 {
 	struct lpfc_nodelist *ndlp;
-	struct lpfc_nodelist *np = NULL;
 	uint32_t data1;
 
 	list_for_each_entry(ndlp, &vport->fc_nodes, nlp_listp) {
@@ -5646,20 +5645,14 @@ __lpfc_findnode_did(struct lpfc_vport *vport, uint32_t did)
 					 ndlp, ndlp->nlp_DID,
 					 ndlp->nlp_flag, data1, ndlp->nlp_rpi,
 					 ndlp->active_rrqs_xri_bitmap);
-
-			/* Check for new or potentially stale node */
-			if (ndlp->nlp_state != NLP_STE_UNUSED_NODE)
-				return ndlp;
-			np = ndlp;
+			return ndlp;
 		}
 	}
 
-	if (!np)
-		/* FIND node did <did> NOT FOUND */
-		lpfc_printf_vlog(vport, KERN_INFO, LOG_NODE,
-				 "0932 FIND node did x%x NOT FOUND.\n", did);
-
-	return np;
+	/* FIND node did <did> NOT FOUND */
+	lpfc_printf_vlog(vport, KERN_INFO, LOG_NODE,
+			 "0932 FIND node did x%x NOT FOUND.\n", did);
+	return NULL;
 }
 
 struct lpfc_nodelist *
@@ -6961,9 +6954,7 @@ lpfc_unregister_fcf_rescan(struct lpfc_hba *phba)
 	if (rc)
 		return;
 	/* Reset HBA FCF states after successful unregister FCF */
-	spin_lock_irq(&phba->hbalock);
 	phba->fcf.fcf_flag = 0;
-	spin_unlock_irq(&phba->hbalock);
 	phba->fcf.current_rec.flag = 0;
 
 	/*

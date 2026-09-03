@@ -43,7 +43,6 @@
 #include <asm/io_bitmap.h>
 #include <asm/proto.h>
 #include <asm/frame.h>
-#include <asm/unwind.h>
 
 #include "process.h"
 
@@ -84,12 +83,7 @@ EXPORT_PER_CPU_SYMBOL_GPL(__tss_limit_invalid);
  */
 int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 {
-	/* init_task is not dynamically sized (incomplete FPU state) */
-	if (unlikely(src == &init_task))
-		memcpy_and_pad(dst, arch_task_struct_size, src, sizeof(init_task), 0);
-	else
-		memcpy(dst, src, arch_task_struct_size);
-
+	memcpy(dst, src, arch_task_struct_size);
 #ifdef CONFIG_VM86
 	dst->thread.vm86 = NULL;
 #endif
@@ -138,7 +132,6 @@ int copy_thread(unsigned long clone_flags, unsigned long sp, unsigned long arg,
 	frame->ret_addr = (unsigned long) ret_from_fork;
 	p->thread.sp = (unsigned long) fork_frame;
 	p->thread.io_bitmap = NULL;
-	clear_tsk_thread_flag(p, TIF_IO_BITMAP);
 	p->thread.iopl_warn = 0;
 	memset(p->thread.ptrace_bps, 0, sizeof(p->thread.ptrace_bps));
 
@@ -413,11 +406,6 @@ void native_tss_update_io_bitmap(void)
 		*base = IO_BITMAP_OFFSET_VALID_ALL;
 	} else {
 		struct io_bitmap *iobm = t->io_bitmap;
-
-		if (WARN_ON_ONCE(!iobm)) {
-			clear_thread_flag(TIF_IO_BITMAP);
-			native_tss_invalidate_io_bitmap();
-		}
 
 		/*
 		 * Only copy bitmap data when the sequence number differs. The
@@ -837,11 +825,6 @@ static int prefer_mwait_c1_over_halt(const struct cpuinfo_x86 *c)
  */
 static __cpuidle void mwait_idle(void)
 {
-	if (need_resched())
-		return;
-
-	x86_idle_clear_cpu_buffers();
-
 	if (!current_set_polling_and_test()) {
 		if (this_cpu_has(X86_BUG_CLFLUSH_MONITOR)) {
 			mb(); /* quirk */
@@ -850,17 +833,13 @@ static __cpuidle void mwait_idle(void)
 		}
 
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
-		if (need_resched()) {
+		if (!need_resched())
+			__sti_mwait(0, 0);
+		else
 			raw_local_irq_enable();
-			goto out;
-		}
-
-		__sti_mwait(0, 0);
 	} else {
 		raw_local_irq_enable();
 	}
-
-out:
 	__current_clr_polling();
 }
 
@@ -970,27 +949,60 @@ unsigned long arch_randomize_brk(struct mm_struct *mm)
  * because the task might wake up and we might look at a stack
  * changing under us.
  */
-unsigned long __get_wchan(struct task_struct *p)
+unsigned long get_wchan(struct task_struct *p)
 {
-	struct unwind_state state;
-	unsigned long addr = 0;
+	unsigned long start, bottom, top, sp, fp, ip, ret = 0;
+	int count = 0;
+
+	if (p == current || task_is_running(p))
+		return 0;
 
 	if (!try_get_task_stack(p))
 		return 0;
 
-	for (unwind_start(&state, p, NULL, NULL); !unwind_done(&state);
-	     unwind_next_frame(&state)) {
-		addr = unwind_get_return_address(&state);
-		if (!addr)
-			break;
-		if (in_sched_functions(addr))
-			continue;
-		break;
-	}
+	start = (unsigned long)task_stack_page(p);
+	if (!start)
+		goto out;
 
+	/*
+	 * Layout of the stack page:
+	 *
+	 * ----------- topmax = start + THREAD_SIZE - sizeof(unsigned long)
+	 * PADDING
+	 * ----------- top = topmax - TOP_OF_KERNEL_STACK_PADDING
+	 * stack
+	 * ----------- bottom = start
+	 *
+	 * The tasks stack pointer points at the location where the
+	 * framepointer is stored. The data on the stack is:
+	 * ... IP FP ... IP FP
+	 *
+	 * We need to read FP and IP, so we need to adjust the upper
+	 * bound by another unsigned long.
+	 */
+	top = start + THREAD_SIZE - TOP_OF_KERNEL_STACK_PADDING;
+	top -= 2 * sizeof(unsigned long);
+	bottom = start;
+
+	sp = READ_ONCE(p->thread.sp);
+	if (sp < bottom || sp > top)
+		goto out;
+
+	fp = READ_ONCE_NOCHECK(((struct inactive_task_frame *)sp)->bp);
+	do {
+		if (fp < bottom || fp > top)
+			goto out;
+		ip = READ_ONCE_NOCHECK(*(unsigned long *)(fp + sizeof(unsigned long)));
+		if (!in_sched_functions(ip)) {
+			ret = ip;
+			goto out;
+		}
+		fp = READ_ONCE_NOCHECK(*(unsigned long *)fp);
+	} while (count++ < 16 && !task_is_running(p));
+
+out:
 	put_task_stack(p);
-
-	return addr;
+	return ret;
 }
 
 long do_arch_prctl_common(struct task_struct *task, int option,

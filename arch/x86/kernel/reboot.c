@@ -874,11 +874,15 @@ void nmi_shootdown_cpus(nmi_shootdown_cb callback)
 	shootdown_callback = callback;
 
 	atomic_set(&waiting_for_crash_ipi, num_online_cpus() - 1);
-
+	/* Would it be better to replace the trap vector here? */
+	if (register_nmi_handler(NMI_LOCAL, crash_nmi_callback,
+				 NMI_FLAG_FIRST, "crash"))
+		return;		/* Return what? */
 	/*
-	 * Set emergency handler to preempt other handlers.
+	 * Ensure the new callback function is set before sending
+	 * out the NMI
 	 */
-	set_emergency_nmi_handler(NMI_LOCAL, crash_nmi_callback);
+	wmb();
 
 	apic_send_IPI_allbutself(NMI_VECTOR);
 

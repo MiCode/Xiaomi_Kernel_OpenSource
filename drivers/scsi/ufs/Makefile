@@ -24,3 +24,14 @@ obj-$(CONFIG_SCSI_UFSHCD_PLATFORM) += ufshcd-pltfrm.o
 obj-$(CONFIG_SCSI_UFS_HISI) += ufs-hisi.o
 obj-$(CONFIG_SCSI_UFS_MEDIATEK) += ufs-mediatek.o
 obj-$(CONFIG_SCSI_UFS_TI_J721E) += ti-j721e-ufs.o
+
+obj-$(CONFIG_SCSI_UFS_SPRD) += ufs_sprd.o
+ufs_sprd-y += ufs-sprd.o
+ufs_sprd-y += ufs-sprd-ioctl.o
+ufs_sprd-y += ufs-sprd-rpmb.o
+ufs_sprd-y += ufs-sprd-bootdevice.o
+ufs_sprd-y += ufs-sprd-debug.o
+ufs_sprd-y += ufs-sprd-health-device.o
+ufs_sprd-y += ufs-sprd-pwr-debug.o
+ufs_sprd-y += ufs-sprd-qogirn6pro.o ufs-sprd-qogirn6l.o ufs-sprd-qogirl6.o
+

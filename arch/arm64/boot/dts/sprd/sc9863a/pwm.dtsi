@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc PWM dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+
+&aon {
+	pwms: pwm@40260000 {
+		compatible = "sprd,s9863a-pwm", "sprd,ums512-pwm";
+		reg = <0 0x40260000 0 0x10000>;
+		clock-names = "pwm0", "enable0",
+			"pwm1", "enable1",
+			"pwm2", "enable2";
+		clocks = <&aon_clk CLK_PWM0>, <&aonapb_gate CLK_PWM0_EB>,
+			<&aon_clk CLK_PWM1>, <&aonapb_gate CLK_PWM1_EB>,
+			<&aon_clk CLK_PWM2>, <&aonapb_gate CLK_PWM2_EB>;
+		assigned-clocks = <&aon_clk CLK_PWM0>,
+			<&aon_clk CLK_PWM1>,
+			<&aon_clk CLK_PWM2>;
+		assigned-clock-parents = <&ext_26m>,
+			<&ext_26m>,
+			<&ext_26m>;
+		counter-bits = "10bit",
+			"10bit",
+			"10bit";
+		#pwm-cells = <2>;
+	};
+};
+

@@ -44,8 +44,11 @@
 #include <linux/kthread.h>
 #include <linux/init.h>
 #include <linux/mmu_notifier.h>
+#ifdef CONFIG_SPRD_PAGE_OWNER
+#include <linux/page_owner.h>
+#include <linux/memblock.h>
+#endif
 #include <linux/cred.h>
-#include <linux/nmi.h>
 
 #include <asm/tlb.h>
 #include "internal.h"
@@ -437,15 +440,10 @@ static void dump_tasks(struct oom_control *oc)
 		mem_cgroup_scan_tasks(oc->memcg, dump_task, oc);
 	else {
 		struct task_struct *p;
-		int i = 0;
 
 		rcu_read_lock();
-		for_each_process(p) {
-			/* Avoid potential softlockup warning */
-			if ((++i & 1023) == 0)
-				touch_softlockup_watchdog();
+		for_each_process(p)
 			dump_task(p, oc);
-		}
 		rcu_read_unlock();
 	}
 }
@@ -461,6 +459,57 @@ static void dump_oom_summary(struct oom_control *oc, struct task_struct *victim)
 	pr_cont(",task=%s,pid=%d,uid=%d\n", victim->comm, victim->pid,
 		from_kuid(&init_user_ns, task_uid(victim)));
 }
+
+#ifdef CONFIG_SPRD_PAGE_OWNER
+static void sprd_show_page_owner(void)
+{
+	unsigned long pfn;
+	struct page *page;
+
+	pfn = min_low_pfn;
+
+	/* Find a valid PFN or the start of a MAX_ORDER_NR_PAGES area */
+	while (!pfn_valid(pfn) && (pfn & (MAX_ORDER_NR_PAGES - 1)) != 0)
+		pfn++;
+
+	for (; pfn < max_pfn; pfn++) {
+		/*
+		 * If the new page is in a new MAX_ORDER_NR_PAGES area,
+		 * validate the area as existing, skip it if not
+		 */
+		if ((pfn & (MAX_ORDER_NR_PAGES - 1)) == 0 && !pfn_valid(pfn)) {
+			pfn += MAX_ORDER_NR_PAGES - 1;
+			continue;
+		}
+
+		page = pfn_to_online_page(pfn);
+
+		/* skip reserved page */
+		if (PageReserved(page))
+			continue;
+
+		/* skip page in LRU */
+		if (PageLRU(page))
+			continue;
+
+		/* skip compound/higher-order page */
+		if (PageCompound(page)) {
+			pfn += compound_nr(page);
+			continue;
+		}
+
+		/* skip order0 slab page */
+		if (PageSlab(page))
+			continue;
+
+		/* skip zspage/vmalloc/privatte page */
+		if (PagePrivate(page))
+			continue;
+
+		__dump_page_owner(page);
+	}
+}
+#endif
 
 static void dump_header(struct oom_control *oc, struct task_struct *p)
 {
@@ -482,6 +531,16 @@ static void dump_header(struct oom_control *oc, struct task_struct *p)
 		dump_tasks(oc);
 	if (p)
 		dump_oom_summary(oc, p);
+
+#ifdef CONFIG_E_SHOW_MEM
+	enhanced_show_mem();
+#endif
+
+#ifdef CONFIG_SPRD_PAGE_OWNER
+	if (current->signal->oom_score_adj < 0)
+		sprd_show_page_owner();
+#endif
+
 }
 
 /*

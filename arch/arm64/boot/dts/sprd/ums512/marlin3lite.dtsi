@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc WCN dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+&sprd_marlin3 {
+	m2-wakeup-ap-gpios = <&ap_gpio 32 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&ap_gpio 97 GPIO_ACTIVE_LOW>;
+	enable-gpios = <&ap_gpio 143 GPIO_ACTIVE_LOW>;
+	m2-to-ap-irq-gpios = <&ap_gpio 96 GPIO_ACTIVE_LOW>;
+	avdd12-supply = <&vddwcn>;
+	avdd33-supply = <&vddwifipa>;
+	dcxo18-supply = <&vddsim2>;
+
+	clock-names = "clk_32k","source","enable";
+	clocks = <&aon_clk CLK_AUX0>,
+		<&ext_32k>,
+		<&aonapb_gate CLK_AUX0_EB>;
+
+	extcon = <&sdio1>;
+	sdhci-name = <&sdio1>;
+
+	sprd,btwf-file-name = "/dev/block/platform/soc/soc:ap-apb/71400000.sdio/by-name/wcnmodem";
+	sprd,gnss-file-name = "/vendor/firmware/gnssmodem.bin";
+	adma-tx;
+	adma-rx;
+	/*
+	* bound parameter:
+	* [0]:addr offset, [1]:mask, [2]:unboundval, [3]:boundval
+	*/
+	avdd12-parent-bound-chip = <REG_ANA_SLP_DCDC_PD_CTRL MASK_ANA_SLP_DCDCGEN1_PD_EN 0x0 MASK_ANA_SLP_DCDCGEN1_PD_EN>;
+	avdd12-bound-wbreq = <REG_ANA_LDO_XTL_EN10 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN>;
+	avdd33-bound-wbreq = <REG_ANA_LDO_XTL_EN11 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN>;
+
+	wlan {
+		compatible = "sprd,sc2355-sdio-wifi";
+	};
+
+	gnss {
+		compatible = "sprd,gnss";
+	};
+
+	sprd-mtty {
+		compatible = "sprd,mtty";
+		sprd,name = "ttyBT";
+	};
+
+	sprd-fm {
+		compatible = "sprd,marlin3-fm";
+		sprd,name = "sprd-fm";
+	};
+
+};
+

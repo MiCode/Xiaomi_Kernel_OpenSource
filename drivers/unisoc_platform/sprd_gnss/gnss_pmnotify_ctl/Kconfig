@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Makefile for Unisoc wcn platform configuration
+#
+
+config UNISOC_GNSS_PMNOTIFY_CTL
+	tristate "Gnss pmnotify ctl support"
+	help
+	Choose Y here if you want to support gnss_pmnotify_ctl function
+        for unisoc wcn sc23xx series chip.
+
+	In order to control your ext wcn chip, you will need enable it.
+	that include "boot, log, procfs, debugfs, at cmd, loopcheck, dumpmem,
+	reset, reboot,etc"
+

@@ -1,0 +1,36 @@
+#
+# near field communication driver configuration
+#
+
+config NXP_NFC_I2C
+	tristate "NXP NCI based NFC I2C Slave Driver for SNxxx"
+	depends on I2C
+	help
+	  This enables the NFC driver for SNxxx based devices.
+	  This is for I2C connected version. NCI protocol logic
+	  resides in the usermode and it has no other NFC dependencies.
+
+	  If unsure, say N.
+
+config NXP_COLD_RESET
+	tristate "NXP NCI based NFC I2C Slave Driver for SNxxx"
+	depends on I2C
+	help
+	  This enables the NFC driver for SNxxx based devices.
+	  This is for I2C connected version. NCI protocol logic
+	  resides in the usermode and it has no other NFC dependencies.
+
+	  If unsure, say N.
+
+config NXP_NFC_VBAT_MONITOR
+	tristate "NXP NCI based NFC I2C Slave Driver for SNxxx"
+	depends on I2C
+	help
+	  This enables the NFC driver for SNxxx based devices.
+	  This is for I2C connected version. NCI protocol logic
+	  resides in the usermode and it has no other NFC dependencies.
+
+	  If unsure, say N.
+
+
+

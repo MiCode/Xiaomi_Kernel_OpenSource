@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config UNISOC_GSP
+	tristate "SPRD DRM GSP driver"
+	depends on ARCH_SPRD
+	depends on UNISOC_DISP
+	help
+	  GSP is hardware which not only can compose multiple layers
+	  but also can transform and scale layers.

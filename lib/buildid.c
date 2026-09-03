@@ -5,7 +5,6 @@
 #include <linux/elf.h>
 #include <linux/kernel.h>
 #include <linux/pagemap.h>
-#include <linux/secretmem.h>
 
 #define BUILD_ID 3
 
@@ -157,10 +156,6 @@ int build_id_parse(struct vm_area_struct *vma, unsigned char *build_id,
 	/* only works for page backed storage  */
 	if (!vma->vm_file)
 		return -EINVAL;
-
-	/* reject secretmem folios created with memfd_secret() */
-	if (vma_is_secretmem(vma))
-		return -EFAULT;
 
 	page = find_get_page(vma->vm_file->f_mapping, 0);
 	if (!page)

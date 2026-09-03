@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * ums9230-4h10-go-overlay.dtsi - Unisoc platform device
+ *
+ * Copyright 2023 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&reserved_memory {
+
+	/*Increase support for protected_heap*/
+	protected_reserved: protected-mem@80003000 {
+		reg = <0x0 0x80003000 0x0 0x00002000>;
+	};
+
+	fd_reserved: faceid-mem@ffa70000 {
+		reg = <0x0 0xffa70000 0x0 0x00500000>;
+	};
+};

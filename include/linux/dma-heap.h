@@ -12,6 +12,21 @@
 #include <linux/cdev.h>
 #include <linux/types.h>
 
+#if (IS_ENABLED(CONFIG_UNISOC_MM_ENHANCE_MEMINFO)) || (IS_ENABLED(CONFIG_E_SHOW_MEM))
+#include <linux/sched.h>
+
+void get_sysbuffer_user_info(int fd, bool map);
+
+#define MAX_MAP_USER  15
+struct dmabuf_map_info {
+	pid_t pid;
+	char task_name[TASK_COMM_LEN];
+	int fd;
+	bool valid;
+	struct timespec64 map_ts;
+};
+#endif
+
 struct dma_heap;
 
 /**

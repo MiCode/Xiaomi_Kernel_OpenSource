@@ -58,6 +58,8 @@ obj-$(CONFIG_MTD_NAND_ARASAN)		+= arasan-nand-controller.o
 obj-$(CONFIG_MTD_NAND_INTEL_LGM)	+= intel-nand-controller.o
 obj-$(CONFIG_MTD_NAND_ROCKCHIP)		+= rockchip-nand-controller.o
 obj-$(CONFIG_MTD_NAND_PL35X)		+= pl35x-nand-controller.o
+obj-$(CONFIG_MTD_NAND_SPRD)		+= sprd_nand.o sprd_nfc.o sprd_snfc.o
+obj-$(CONFIG_MTD_NAND_SPRD_DEBUG)	+= sprd_nfc_dbg.o
 
 nand-objs := nand_base.o nand_legacy.o nand_bbt.o nand_timings.o nand_ids.o
 nand-objs += nand_onfi.o

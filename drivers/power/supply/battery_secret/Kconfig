@@ -1,0 +1,5 @@
+config LC_BATTERY_SECRET
+	tristate "lc battery secret ic drivers"
+	default n
+	help
+		It needs a onewire physical controller to work.

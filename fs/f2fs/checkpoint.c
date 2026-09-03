@@ -36,6 +36,13 @@ void f2fs_stop_checkpoint(struct f2fs_sb_info *sbi, bool end_io,
 
 		f2fs_handle_stop(sbi, reason);
 	}
+
+#ifdef CONFIG_UNISOC_DEBUG
+	/* debug mechanism for data partition in non-shutdown and non-umount processes. */
+	if ((reason != STOP_CP_REASON_SHUTDOWN) && test_opt(sbi, RESERVE_ROOT) &&
+			(atomic_read(&sbi->sb->s_active) != 0))
+		BUG_ON(1);
+#endif
 }
 
 /*

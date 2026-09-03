@@ -584,6 +584,116 @@ ext_put_continue:
 	return 0;
 }
 
+#ifdef CONFIG_SPRD_PAGE_OWNER
+static ssize_t
+sprd_read_page_owner(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+{
+	unsigned long pfn;
+	struct page *page;
+	struct page_ext *page_ext;
+	struct page_owner *page_owner;
+	depot_stack_handle_t handle;
+
+	if (!static_branch_unlikely(&page_owner_inited))
+		return -EINVAL;
+
+	page = NULL;
+	pfn = min_low_pfn + *ppos;
+
+	/* Find a valid PFN or the start of a MAX_ORDER_NR_PAGES area */
+	while (!pfn_valid(pfn) && (pfn & (MAX_ORDER_NR_PAGES - 1)) != 0)
+		pfn++;
+
+	drain_all_pages(NULL);
+
+	/* Find an allocated page and skip LRU,SLAB,ZRAM,compound page */
+	for (; pfn < max_pfn; pfn++) {
+		/*
+		 * If the new page is in a new MAX_ORDER_NR_PAGES area,
+		 * validate the area as existing, skip it if not
+		 */
+		if ((pfn & (MAX_ORDER_NR_PAGES - 1)) == 0 && !pfn_valid(pfn)) {
+			pfn += MAX_ORDER_NR_PAGES - 1;
+			continue;
+		}
+
+		page = pfn_to_online_page(pfn);
+
+		if (PageBuddy(page)) {
+			unsigned long freepage_order = buddy_order_unsafe(page);
+
+			if (freepage_order < MAX_ORDER)
+				pfn += (1UL << freepage_order) - 1;
+			continue;
+		}
+
+		/* skip reserved page */
+		if (PageReserved(page))
+			continue;
+
+		/* skip page in LRU */
+		if (PageLRU(page))
+			continue;
+
+		/* skip compound/higher-order page */
+		if (PageCompound(page)) {
+			pfn += compound_nr(page);
+			continue;
+		}
+
+		/* skip order0 slab page */
+		if (PageSlab(page))
+			continue;
+
+		/* skip zspage/vmalloc/privatte page */
+		if (PagePrivate(page))
+			continue;
+
+		page_ext = lookup_page_ext(page);
+		if (unlikely(!page_ext))
+			continue;
+
+		/*
+		 * Some pages could be missed by concurrent allocation or free,
+		 * because we don't hold the zone lock.
+		 */
+		if (!test_bit(PAGE_EXT_OWNER, &page_ext->flags))
+			continue;
+
+		/*
+		 * Although we do have the info about past allocation of free
+		 * pages, it's not relevant for current memory usage.
+		 */
+		if (!test_bit(PAGE_EXT_OWNER_ALLOCATED, &page_ext->flags))
+			continue;
+
+		page_owner = get_page_owner(page_ext);
+
+		/*
+		 * Don't print "tail" pages of high-order allocations as that
+		 * would inflate the stats.
+		 */
+		if (!IS_ALIGNED(pfn, 1 << page_owner->order))
+			continue;
+		/*
+		 * Access to page_ext->handle isn't synchronous so we should
+		 * be careful to access it.
+		 */
+		handle = READ_ONCE(page_owner->handle);
+		if (!handle)
+			continue;
+
+		/* Record the next PFN to read in the file offset */
+		*ppos = (pfn - min_low_pfn) + 1;
+
+		return print_page_owner(buf, count, pfn, page,
+				page_owner, handle);
+	}
+
+	return 0;
+}
+#endif
+
 static void init_pages_in_zone(pg_data_t *pgdat, struct zone *zone)
 {
 	unsigned long pfn = zone->zone_start_pfn;
@@ -678,6 +788,12 @@ static const struct file_operations proc_page_owner_operations = {
 	.read		= read_page_owner,
 };
 
+#ifdef CONFIG_SPRD_PAGE_OWNER
+static const struct file_operations proc_sprd_page_owner_operations = {
+	.read		= sprd_read_page_owner,
+};
+#endif
+
 static int __init pageowner_init(void)
 {
 	if (!static_branch_unlikely(&page_owner_inited)) {
@@ -687,6 +803,11 @@ static int __init pageowner_init(void)
 
 	debugfs_create_file("page_owner", 0400, NULL, NULL,
 			    &proc_page_owner_operations);
+
+#ifdef CONFIG_SPRD_PAGE_OWNER
+	debugfs_create_file("sprd_page_owner", 0400, NULL, NULL,
+			    &proc_sprd_page_owner_operations);
+#endif
 
 	return 0;
 }

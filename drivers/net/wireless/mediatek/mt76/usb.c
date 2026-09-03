@@ -34,9 +34,9 @@ static int __mt76u_vendor_request(struct mt76_dev *dev, u8 req,
 
 		ret = usb_control_msg(udev, pipe, req, req_type, val,
 				      offset, buf, len, MT_VEND_REQ_TOUT_MS);
-		if (ret == -ENODEV || ret == -EPROTO)
+		if (ret == -ENODEV)
 			set_bit(MT76_REMOVED, &dev->phy.state);
-		if (ret >= 0 || ret == -ENODEV || ret == -EPROTO)
+		if (ret >= 0 || ret == -ENODEV)
 			return ret;
 		usleep_range(5000, 10000);
 	}

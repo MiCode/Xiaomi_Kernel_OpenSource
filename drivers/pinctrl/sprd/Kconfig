@@ -11,6 +11,9 @@ config PINCTRL_SPRD
 	select GENERIC_PINMUX_FUNCTIONS
 	help
 	  Say Y here to enable Spreadtrum pinctrl driver
+	  PINCTRL_SPRD=y for buildin
+	  PINCTRL_SPRD=m for KO
+	  PINCTRL_SPRD is not set for no building
 
 config PINCTRL_SPRD_SC9860
 	tristate "Spreadtrum SC9860 pinctrl driver"
@@ -19,3 +22,94 @@ config PINCTRL_SPRD_SC9860
 	select PINCTRL_SPRD
 	help
 	  Say Y here to enable Spreadtrum SC9860 pinctrl driver
+	  PINCTRL_SPRD_SC9860=y for buildin
+	  PINCTRL_SPRD_SC9860=m for KO
+	  PINCTRL_SPRD_SC9860 is not set for no building
+
+config PINCTRL_SPRD_SHARKL3
+	tristate "Spreadtrum sharkl3 pinctrl driver"
+	depends on OF
+	depends on ARCH_SPRD || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum sharkl3 pinctrl driver
+	  PINCTRL_SPRD_SHARKL3=y for buildin
+	  PINCTRL_SPRD_SHARKL3=m for KO
+	  PINCTRL_SPRD_SHARKL3 is not set for no building
+
+config PINCTRL_SPRD_SHARKL5
+        tristate "Spreadtrum sharkl5 pinctrl driver"
+        depends on OF
+        depends on ARCH_SPRD || COMPILE_TEST
+        select PINCTRL_SPRD
+        help
+	  Say Y here to enable Spreadtrum sharkl5 pinctrl driver
+	  PINCTRL_SPRD_SHARKL5=y for buildin
+	  PINCTRL_SPRD_SHARKL5=m for KO
+	  PINCTRL_SPRD_SHARKL5 is not set for no building
+
+config PINCTRL_SPRD_SHARKL5PRO
+	tristate "Spreadtrum sharkl5pro pinctrl driver"
+	depends on OF
+	depends on ARCH_SPRD || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum sharkl5pro pinctrl driver
+	  PINCTRL_SPRD_SHARKL5PRO=y for buildin
+	  PINCTRL_SPRD_SHARKL5PRO=m for KO
+	  PINCTRL_SPRD_SHARKL5PRO is not set for no building
+
+config PINCTRL_SPRD_PIKE2
+	tristate "Spreadtrum pike2 pinctrl driver"
+	depends on OF
+	depends on (ARM && ARCH_SPRD) || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum pike2 pinctrl driver
+	  PINCTRL_SPRD_PIKE2=y for buildin
+	  PINCTRL_SPRD_PIKE2=m for KO
+	  PINCTRL_SPRD_PIKE2 is not set for no building
+
+config PINCTRL_SPRD_SHARKLE
+	tristate "Spreadtrum sharkle pinctrl driver"
+	depends on OF
+	depends on (ARM && ARCH_SPRD) || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum sharkle pinctrl driver
+	  PINCTRL_SPRD_SHARKLE=y for buildin
+	  PINCTRL_SPRD_SHARKLE=m for KO
+	  PINCTRL_SPRD_SHARKLE is not set for no building
+
+config PINCTRL_SPRD_QOGIRL6
+	tristate "Spreadtrum qogirl6 pinctrl driver"
+	depends on OF
+	depends on ARCH_SPRD || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum qogirl6 pinctrl driver
+	  PINCTRL_SPRD_QOGIRL6=y for buildin
+	  PINCTRL_SPRD_QOGIRL6=m for KO
+	  PINCTRL_SPRD_QOGIRL6 is not set for no building
+
+config PINCTRL_SPRD_QOGIRL6PRO
+	tristate "Spreadtrum qogirl6pro pinctrl driver"
+	depends on OF
+	depends on ARCH_SPRD || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum qogirl6pro pinctrl driver
+	  PINCTRL_SPRD_QOGIRL6PRO=y for buildin
+	  PINCTRL_SPRD_QOGIRL6PRO=m for KO
+	  PINCTRL_SPRD_QOGIRL6PRO is not set for no building
+
+config PINCTRL_SPRD_QOGIRN6LITE
+	tristate "Spreadtrum qogirn6lite pinctrl driver"
+	depends on OF
+	depends on ARCH_SPRD || COMPILE_TEST
+	select PINCTRL_SPRD
+	help
+	  Say Y here to enable Spreadtrum qogirn6lite pinctrl driver
+	  PINCTRL_SPRD_QOGIRN6LITE=y for buildin
+	  PINCTRL_SPRD_QOGIRN6LITE=m for KO
+	  PINCTRL_SPRD_QOGIRN6LITE is not set for no building

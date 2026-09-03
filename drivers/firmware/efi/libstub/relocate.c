@@ -62,9 +62,6 @@ efi_status_t efi_low_alloc_above(unsigned long size, unsigned long align,
 		if (desc->type != EFI_CONVENTIONAL_MEMORY)
 			continue;
 
-		if (desc->attribute & EFI_MEMORY_HOT_PLUGGABLE)
-			continue;
-
 		if (efi_soft_reserve_enabled() &&
 		    (desc->attribute & EFI_MEMORY_SP))
 			continue;

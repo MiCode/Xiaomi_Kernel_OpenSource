@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc CSI dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&mm {
+	mipi_csi_phy0: mipi-csi-phy0 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <0>;
+		sprd,phyname = "4lane";
+		status = "disabled";
+	};
+
+	mipi_csi_phy1: mipi-csi-phy1 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <1>;
+		sprd,phyname = "4lane1";
+		status = "disabled";
+	};
+
+	mipi_csi_phy2: mipi-csi-phy2 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <2>;
+		sprd,phyname = "2p2";
+		status = "disabled";
+	};
+
+	mipi_csi_phy3: mipi-csi-phy3 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <3>;
+		sprd,phyname = "2p2ro";
+		status = "disabled";
+	};
+
+	mipi_csi_phy2_m: mipi-csi-phy2-m {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <4>;
+		sprd,phyname = "2p2_m";
+		status = "disabled";
+	};
+
+	mipi_csi_phy2_s: mipi-csi-phy2-s {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <5>;
+		sprd,phyname = "2p2_s";
+		status = "disabled";
+	};
+
+	mipi_csi_phy3_m: mipi-csi-phy3_m {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <6>;
+		sprd,phyname = "2p2ro_m";
+		status = "disabled";
+	};
+
+	mipi_csi_phy3_s: mipi-csi-phy3-s {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <7>;
+		sprd,phyname = "2p2ro_s";
+		status = "disabled";
+	};
+
+	mipi_csi_phy0_c: mipi-csi-phy0_c {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <8>;
+		sprd,phyname = "cphy0";
+		status = "disabled";
+	};
+
+	mipi_csi_phy1_c: mipi-csi-phy1_c {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <9>;
+		sprd,phyname = "cphy1";
+		status = "disabled";
+	};
+
+	csi0: csi00@3e200000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x3e200000 0 0x1000>;
+		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = /*"clk_mipi_csi_gate_eb",*/
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = /*<&mm_gate CLK_MM_MIPI_CSI0_EB>,*/
+			<&mm_gate CLK_CSI0_EN>, /*CLK_MM_CSI0_EB>,*/
+			<&mm_gate CLK_IPA_EN>;/*CLK_MIPI_CSI0>;*/
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g4l_controller = <&anlg_phy_g4l_regs>;
+		sprd,anlg_phy_g4_controller = <&anlg_phy_g4_regs>;
+		sprd,csi-id = <0>;
+		sprd,dcam-id = <0>;
+		sprd,ip-version = <0x301>;
+		status = "okay";
+	};
+
+	csi1: csi01@3e300000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x3e300000 0 0x1000>;
+		interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = /*"clk_mipi_csi_gate_eb",*/
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = /*<&mm_gate CLK_MM_MIPI_CSI1_EB>,*/
+			<&mm_gate CLK_CSI1_EN>,/*CLK_MM_CSI1_EB>,*/
+			<&mm_gate CLK_IPA_EN>;/*CLK_MIPI_CSI1>;*/
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g4_controller = <&anlg_phy_g4_regs>;
+		sprd,anlg_phy_g4l_controller = <&anlg_phy_g4l_regs>;
+		sprd,csi-id = <1>;
+		sprd,dcam-id = <1>;
+		sprd,ip-version = <0x301>;
+		status = "okay";
+	};
+
+	csi2: csi02@3e400000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x3e400000 0 0x1000>;
+		interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = /*"clk_mipi_csi_gate_eb",*/
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = /*<&mm_gate CLK_MM_MIPI_CSI2_EB>,*/
+			<&mm_gate CLK_CSI2_EN>,/*CLK_MM_CSI2_EB>,*/
+			<&mm_gate CLK_IPA_EN>;/*CLK_MIPI_CSI2>;*/
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g4l_controller = <&anlg_phy_g4l_regs>;
+		sprd,anlg_phy_g4_controller = <&anlg_phy_g4_regs>;
+		sprd,csi-id = <2>;
+		sprd,dcam-id = <2>;
+		sprd,ip-version = <0x301>;
+		status = "okay";
+	};
+
+	csi3: csi03@3e500000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x3e500000 0 0x1000>;
+		interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = /*"clk_mipi_csi_gate_eb",*/
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = /*<&mm_gate CLK_MM_MIPI_CSI2_EB>,*/
+			<&mm_gate CLK_CSI3_EN>,/*CLK_MM_CSI2_EB>,*/
+			<&mm_gate CLK_IPA_EN>;/*CLK_MIPI_CSI2>;*/
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g4_controller = <&anlg_phy_g4_regs>;
+		sprd,anlg_phy_g4l_controller = <&anlg_phy_g4l_regs>;
+		sprd,csi-id = <3>;
+		sprd,dcam-id = <3>;
+		sprd,ip-version = <0x301>;
+		status = "okay";
+	};
+};

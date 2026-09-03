@@ -608,18 +608,15 @@ static int cdns_dsi_check_conf(struct cdns_dsi *dsi,
 	struct phy_configure_opts_mipi_dphy *phy_cfg = &output->phy_opts.mipi_dphy;
 	unsigned long dsi_hss_hsa_hse_hbp;
 	unsigned int nlanes = output->dev->lanes;
-	int mode_clock = (mode_valid_check ? mode->clock : mode->crtc_clock);
 	int ret;
 
 	ret = cdns_dsi_mode2cfg(dsi, mode, dsi_cfg, mode_valid_check);
 	if (ret)
 		return ret;
 
-	ret = phy_mipi_dphy_get_default_config(mode_clock * 1000,
-					       mipi_dsi_pixel_format_to_bpp(output->dev->format),
-					       nlanes, phy_cfg);
-	if (ret)
-		return ret;
+	phy_mipi_dphy_get_default_config(mode->crtc_clock * 1000,
+					 mipi_dsi_pixel_format_to_bpp(output->dev->format),
+					 nlanes, phy_cfg);
 
 	ret = cdns_dsi_adjust_phy_config(dsi, dsi_cfg, phy_cfg, mode, mode_valid_check);
 	if (ret)
@@ -789,9 +786,8 @@ static void cdns_dsi_bridge_enable(struct drm_bridge *bridge)
 	struct phy_configure_opts_mipi_dphy *phy_cfg = &output->phy_opts.mipi_dphy;
 	unsigned long tx_byte_period;
 	struct cdns_dsi_cfg dsi_cfg;
-	u32 tmp, reg_wakeup, div, status;
+	u32 tmp, reg_wakeup, div;
 	int nlanes;
-	int i;
 
 	if (WARN_ON(pm_runtime_get_sync(dsi->base.dev) < 0))
 		return;
@@ -803,19 +799,6 @@ static void cdns_dsi_bridge_enable(struct drm_bridge *bridge)
 
 	cdns_dsi_hs_init(dsi);
 	cdns_dsi_init_link(dsi);
-
-	/*
-	 * Now that the DSI Link and DSI Phy are initialized,
-	 * wait for the CLK and Data Lanes to be ready.
-	 */
-	tmp = CLK_LANE_RDY;
-	for (i = 0; i < nlanes; i++)
-		tmp |= DATA_LANE_RDY(i);
-
-	if (readl_poll_timeout(dsi->regs + MCTL_MAIN_STS, status,
-			       (tmp == (status & tmp)), 100, 500000))
-		dev_err(dsi->base.dev,
-			"Timed Out: DSI-DPhy Clock and Data Lanes not ready.\n");
 
 	writel(HBP_LEN(dsi_cfg.hbp) | HSA_LEN(dsi_cfg.hsa),
 	       dsi->regs + VID_HSIZE1);
@@ -977,7 +960,7 @@ static int cdns_dsi_attach(struct mipi_dsi_host *host,
 		bridge = drm_panel_bridge_add_typed(panel,
 						    DRM_MODE_CONNECTOR_DSI);
 	} else {
-		bridge = of_drm_find_bridge(np);
+		bridge = of_drm_find_bridge(dev->dev.of_node);
 		if (!bridge)
 			bridge = ERR_PTR(-EINVAL);
 	}

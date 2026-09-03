@@ -1,0 +1,5 @@
+config CPUMAXFREQ_SUPPORT
+	tristate "Xiaomi get cpumaxfreq"
+	default n
+	help
+	  Say 'm' here to support cpumaxfreq node

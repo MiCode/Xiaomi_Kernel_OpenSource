@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc SP9863A-1h10 boards DTS file
+ *
+ * Copyright (C) 2019, Unisoc Inc.
+ */
+
+/dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include "battery/battery-common.dtsi"
+#include "reserved-memory/sp9863a-common.dtsi"
+#include "sc9863a/sc9863a.dtsi"
+#include "trusty/sp9863a.dtsi"
+#include "sc2721/sc2721.dtsi"
+#include "sound/sound-sharkl.dtsi"
+#include "thermal/ntc-common.dtsi"
+
+/ {
+	model = "Spreadtrum SP9863A-1H10 Board";
+
+	compatible = "sprd,sp9863a-1h10", "sprd,sc9863a";
+
+	sprd,sc-id = "sp9863a 1h10 1000";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		spi4 = &adi_bus;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c7 = &i2c7;
+		mmc0 = &sdio3;
+		mmc1 = &sdio0;
+		pmic_pwroff = &pmic_pwroff;
+};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+
+	chosen: chosen {
+		stdout-path = "serial1:921600n8";
+		bootargs = "earlycon console=ttyS1,921600n8 loop.max_part=7
+			    loglevel=1 log_buf_len=1M init=/init root=/dev/ram0 printk.devkmsg=on
+			    firmware_class.path=/odm/firmware,/vendor/firmware rw
+			    dummy_hcd.num=0 swiotlb=1 initcall_debug=1 kpti=0
+			    rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops";
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 0>;
+		};
+
+	firmware {
+		android {
+		compatible = "android,firmware";
+		vbmeta {
+		compatible = "android,vbmeta";
+		parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,l_modem,pm_sys,l_ldsp,l_gdsp";
+		};
+		};
+	};
+
+	autotest: autotest {
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	rebootescrow@0 {
+		compatible = "pmem-region";
+		reg = <0x0 0xfff70000 0x0 0x00010000>;
+	};
+
+	sprd-map-user {
+		compatible = "unisoc,map-user";
+	};
+
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&adi_bus {
+	sprd,hw-channels = <33 0x8c20>, <35 0x8cc4>, <36 0x8cd0>,
+			<19 0x8c44>, <20 0x8c44>, <21 0x8c44>, <22 0x8c44>;
+	sprd,psci-reboot = <1>;
+};
+
+&pmic_pwroff {
+	sprd,psci-poweroff = <1>;
+};
+
+&vdd18 {
+	regulator-always-on;
+};
+
+&vddrf18 {
+	regulator-always-on;
+};
+
+&vddrf125 {
+	regulator-always-on;
+};
+
+&vddldomem {
+	regulator-always-on;
+};
+
+&vddsim2 {
+	status = "disabled";
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&pmic_typec>;
+	/* first value is device eye-patt setting, the second is host */
+	sprd,hsphy-tunehsamp = /bits/ 8 <0x03 0x03>;
+	sprd,hsphy-tuneeq = /bits/ 8 <0x00 0x00>;
+	sprd,hsphy-tfregres = /bits/ 8 <0x1e 0x1e>;
+	status = "okay";
+};
+
+&usb {
+	extcon = <&extcon_gpio>;
+	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	digital-codec = <&sprd_audio_codec_dig>;
+};
+
+&sprd_headset {
+	status = "okay";
+};
+
+&sound_vbc_r1p0v3_sprd_codec {
+	status = "okay";
+};
+
+&sound_sprd_ap_alliis {
+	status = "okay";
+};
+
+&dpu {
+	sprd,logo-memory = <&logo_reserved>;
+	status = "okay";
+};
+
+&iommu_dispc {
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&dphy {
+	status = "okay";
+};
+
+&vsp {
+	status = "okay";
+};
+
+&vsp_pd {
+	status = "okay";
+};
+
+&iommu_vsp {
+	status = "okay";
+};
+
+&jpg {
+	status = "okay";
+};
+
+&power_debug {
+	status = "okay";
+	memory-region = <&pdbg_reserved>;
+};
+
+&iommu_jpg {
+	status = "okay";
+};

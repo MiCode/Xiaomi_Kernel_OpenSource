@@ -399,7 +399,7 @@ static long pcf8563_clkout_round_rate(struct clk_hw *hw, unsigned long rate,
 		if (clkout_rates[i] <= rate)
 			return clkout_rates[i];
 
-	return clkout_rates[0];
+	return 0;
 }
 
 static int pcf8563_clkout_set_rate(struct clk_hw *hw, unsigned long rate,

@@ -368,8 +368,7 @@ static unsigned long via_mode_filter(struct ata_device *dev, unsigned long mask)
 	}
 
 	if (dev->class == ATA_DEV_ATAPI &&
-	    (dmi_check_system(no_atapi_dma_dmi_table) ||
-	     config->id == PCI_DEVICE_ID_VIA_6415)) {
+	    dmi_check_system(no_atapi_dma_dmi_table)) {
 		ata_dev_warn(dev, "controller locks up on ATAPI DMA, forcing PIO\n");
 		mask &= ATA_MASK_PIO;
 	}

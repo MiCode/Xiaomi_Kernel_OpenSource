@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc audio dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&apapb {
+	i2s0: i2s@d00000 {
+		compatible = "unisoc,i2s";
+		reg = <0xd00000 0x100000>;
+		sprd,dai_name = "i2s_bt_sco0";
+		sprd,hw_port = <0>;
+		sprd,syscon-ap-apb = <&ap_apb_regs>;
+		#sound-dai-cells = <1>;
+		status = "disable";
+		clock-names ="clk_iis0", "clk_twpll_128m", "clk_twpll_153m6";
+		clocks = <&ap_clk CLK_AP_IIS0>,
+			<&pll CLK_TWPLL_128M>,
+			<&pll CLK_TWPLL_153M6>;
+	};
+};

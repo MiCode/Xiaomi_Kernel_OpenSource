@@ -333,8 +333,11 @@ int vsnprintf(char *string, acpi_size size, const char *format, va_list args)
 
 	pos = string;
 
-	size = ACPI_MIN(size, ACPI_PTR_DIFF(ACPI_MAX_PTR, string));
-	end = string + size;
+	if (size != ACPI_UINT32_MAX) {
+		end = string + size;
+	} else {
+		end = ACPI_CAST_PTR(char, ACPI_UINT32_MAX);
+	}
 
 	for (; *format; ++format) {
 		if (*format != '%') {

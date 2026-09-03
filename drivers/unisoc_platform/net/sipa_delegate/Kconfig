@@ -1,0 +1,13 @@
+menu "SIPA_DELEGATE modules"
+config UNISOC_SIPA_DELEGATE
+	tristate "UNISOC SIPA_DELEGATE for modem"
+	default n
+	depends on UNISOC_SIPA_V3
+	depends on UNISOC_SIPC
+	help
+	  This option enables delegate for modem side sipa.
+
+	  This function is used to synchronize resource status with CP,
+	  ensure the synchronization of the power-on and power-off status
+	  between AP and CP.
+endmenu

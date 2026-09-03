@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SHOW_UREGS_WITH_PHYSICAL
+	tristate "SPRD userspace debug: show uregs with phys"
+	depends on ARM64
+	help
+	  This option enables process show user regs with their physcial
+          address before coredump
+
+config SPRD_SCREEN_ONOFF_CHECK
+	tristate "SPRD userspace debug: screen onoff timeout check"
+	depends on ARCH_SPRD
+	help
+	  This option enables screen onoff timeout checking while
+	  powerkey pressed.
+

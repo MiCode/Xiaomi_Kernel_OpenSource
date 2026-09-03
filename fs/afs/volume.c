@@ -73,11 +73,15 @@ static void afs_remove_volume_from_cell(struct afs_volume *volume)
  */
 static struct afs_volume *afs_alloc_volume(struct afs_fs_context *params,
 					   struct afs_vldb_entry *vldb,
-					   struct afs_server_list **_slist)
+					   unsigned long type_mask)
 {
 	struct afs_server_list *slist;
 	struct afs_volume *volume;
-	int ret = -ENOMEM, i;
+	int ret = -ENOMEM, nr_servers = 0, i;
+
+	for (i = 0; i < vldb->nr_servers; i++)
+		if (vldb->fs_mask[i] & type_mask)
+			nr_servers++;
 
 	volume = kzalloc(sizeof(struct afs_volume), GFP_KERNEL);
 	if (!volume)
@@ -96,16 +100,13 @@ static struct afs_volume *afs_alloc_volume(struct afs_fs_context *params,
 	rwlock_init(&volume->cb_v_break_lock);
 	memcpy(volume->name, vldb->name, vldb->name_len + 1);
 
-	for (i = 0; i < AFS_MAXTYPES; i++)
-		volume->vids[i] = vldb->vid[i];
-
-	slist = afs_alloc_server_list(volume, params->key, vldb);
+	slist = afs_alloc_server_list(params->cell, params->key, vldb, type_mask);
 	if (IS_ERR(slist)) {
 		ret = PTR_ERR(slist);
 		goto error_1;
 	}
 
-	*_slist = slist;
+	refcount_set(&slist->usage, 1);
 	rcu_assign_pointer(volume->servers, slist);
 	trace_afs_volume(volume->vid, 1, afs_volume_trace_alloc);
 	return volume;
@@ -121,19 +122,17 @@ error_0:
  * Look up or allocate a volume record.
  */
 static struct afs_volume *afs_lookup_volume(struct afs_fs_context *params,
-					    struct afs_vldb_entry *vldb)
+					    struct afs_vldb_entry *vldb,
+					    unsigned long type_mask)
 {
-	struct afs_server_list *slist;
 	struct afs_volume *candidate, *volume;
 
-	candidate = afs_alloc_volume(params, vldb, &slist);
+	candidate = afs_alloc_volume(params, vldb, type_mask);
 	if (IS_ERR(candidate))
 		return candidate;
 
 	volume = afs_insert_volume_into_cell(params->cell, candidate);
-	if (volume == candidate)
-		afs_attach_volume_to_servers(volume, slist);
-	else
+	if (volume != candidate)
 		afs_put_volume(params->net, candidate, afs_volume_trace_put_cell_dup);
 	return volume;
 }
@@ -214,7 +213,8 @@ struct afs_volume *afs_create_volume(struct afs_fs_context *params)
 		goto error;
 	}
 
-	volume = afs_lookup_volume(params, vldb);
+	type_mask = 1UL << params->type;
+	volume = afs_lookup_volume(params, vldb, type_mask);
 
 error:
 	kfree(vldb);
@@ -226,17 +226,14 @@ error:
  */
 static void afs_destroy_volume(struct afs_net *net, struct afs_volume *volume)
 {
-	struct afs_server_list *slist = rcu_access_pointer(volume->servers);
-
 	_enter("%p", volume);
 
 #ifdef CONFIG_AFS_FSCACHE
 	ASSERTCMP(volume->cache, ==, NULL);
 #endif
 
-	afs_detach_volume_from_servers(volume, slist);
 	afs_remove_volume_from_cell(volume);
-	afs_put_serverlist(net, slist);
+	afs_put_serverlist(net, rcu_access_pointer(volume->servers));
 	afs_put_cell(volume->cell, afs_cell_trace_put_vol);
 	trace_afs_volume(volume->vid, refcount_read(&volume->ref),
 			 afs_volume_trace_free);
@@ -355,7 +352,8 @@ static int afs_update_volume_status(struct afs_volume *volume, struct key *key)
 	}
 
 	/* See if the volume's server list got updated. */
-	new = afs_alloc_server_list(volume, key, vldb);
+	new = afs_alloc_server_list(volume->cell, key,
+				    vldb, (1 << volume->type));
 	if (IS_ERR(new)) {
 		ret = PTR_ERR(new);
 		goto error_vldb;
@@ -376,11 +374,9 @@ static int afs_update_volume_status(struct afs_volume *volume, struct key *key)
 
 	volume->update_at = ktime_get_real_seconds() + afs_volume_record_life;
 	write_unlock(&volume->servers_lock);
-
-	if (discard == old)
-		afs_reattach_volume_to_servers(volume, new, old);
-	afs_put_serverlist(volume->cell->net, discard);
 	ret = 0;
+
+	afs_put_serverlist(volume->cell->net, discard);
 error_vldb:
 	kfree(vldb);
 error:

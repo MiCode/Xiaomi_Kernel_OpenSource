@@ -60,12 +60,13 @@ static bool ex_handler_fault(const struct exception_table_entry *fixup,
 static bool ex_handler_fprestore(const struct exception_table_entry *fixup,
 				 struct pt_regs *regs)
 {
+	regs->ip = ex_fixup_addr(fixup);
+
 	WARN_ONCE(1, "Bad FPU state detected at %pB, reinitializing FPU registers.",
 		  (void *)instruction_pointer(regs));
 
 	__restore_fpregs_from_fpstate(&init_fpstate, xfeatures_mask_fpstate());
-
-	return ex_handler_default(fixup, regs);
+	return true;
 }
 
 static bool ex_handler_uaccess(const struct exception_table_entry *fixup,

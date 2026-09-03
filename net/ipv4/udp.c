@@ -937,9 +937,9 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4,
 		const int hlen = skb_network_header_len(skb) +
 				 sizeof(struct udphdr);
 
-		if (hlen + min(datalen, cork->gso_size) > cork->fragsize) {
+		if (hlen + cork->gso_size > cork->fragsize) {
 			kfree_skb(skb);
-			return -EMSGSIZE;
+			return -EINVAL;
 		}
 		if (datalen > cork->gso_size * UDP_MAX_SEGMENTS) {
 			kfree_skb(skb);

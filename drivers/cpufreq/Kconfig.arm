@@ -357,3 +357,53 @@ config ARM_PXA2xx_CPUFREQ
 	  This add the CPUFreq driver support for Intel PXA2xx SOCs.
 
 	  If in doubt, say N.
+
+choice
+	tristate "SPRD cpufreq driver select"
+	optional
+	default ARM_SPRD_CPUFREQ_V2 if CPU_FREQ
+	help
+	  Select cpufreq driver support method for Spreadtrum SoCs, whether
+	  it is implemented in software or hardware. If using software
+	  cpufreq,select ARM_SPRD_SW_CPUFREQ. If using hardware cpufreq,
+	  select ARM_SPRD_CPUFREQ_V2.
+
+	  If compile this driver, choose M here.
+
+config ARM_SPRD_SW_CPUFREQ
+	tristate "Software cpufreq driver"
+	depends on ARCH_SPRD && CPU_FREQ && ARM
+	select PM_OPP
+	help
+	  This adds software cpufreq driver support for Spreadtrum SoCs.
+	  The driver works for scaling the voltage and frequency of cpu
+	  and cluster based on Regulator and clk functions independently.
+	  Besides hw cpufreq driver, software cpufreq driver provides
+	  another choice for scaling voltage and frequency.
+
+	  If in doubt, say N.
+
+config ARM_SPRD_CPUFREQ_V2
+	tristate "Sprd apcpu hardware dvfs driver"
+	depends on ARCH_SPRD && CPU_FREQ && SPRD_SIP_FW
+	select PM_OPP
+	help
+	  This driver enable hardware to adjust the voltage and frequency
+	  automatically for DSU cluster and cores in sprd platforms that
+	  support hardware dvfs.
+
+	  If in doubt, say N.
+endchoice
+
+if ARM_SPRD_SW_CPUFREQ
+config ARM_SPRD_SW_CPUFREQ_MAXFREQ
+	bool "Enable sw dvfs on boot stage in ARM"
+	default n
+	help
+	  This option is used for software cpufreq on boot stage in ARM. If
+	  need fix the frequency to the highest frequency when starting up,
+	  choose it.
+
+	  If in doubt, say N.
+endif
+

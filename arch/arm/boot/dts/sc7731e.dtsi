@@ -1,0 +1,683 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum SC7731e SoC DTS file
+ *
+ * Copyright (C) 2019, Spreadtrum Communications Inc.
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/clock/sprd,sc7731e-clk.h>
+#include "pike2.dtsi"
+#include "sc7731e-modem.dtsi"
+/ {
+	cpuinfo_hardware = "Unisoc SC7731E";
+	soc-module = "SC7731E";
+	soc-manufacturer = "Spreadtrum";
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+				core1 {
+					cpu = <&cpu1>;
+				};
+				core2 {
+					cpu = <&cpu2>;
+				};
+				core3 {
+					cpu = <&cpu3>;
+				};
+			};
+		};
+
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			enable-method = "psci";
+			reg = <0x0>;
+			cpufreq-data-v1 = <&cpufreq_clus0>;
+			cpu-idle-states = <&LIGHT_SLEEP>;
+			dynamic-power-coefficient = <82>;
+			#cooling-cells = <2>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			enable-method = "psci";
+			reg = <0x1>;
+			cpufreq-data-v1 = <&cpufreq_clus0>;
+			cpu-idle-states = <&LIGHT_SLEEP>;
+			dynamic-power-coefficient = <82>;
+			#cooling-cells = <2>;
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			enable-method = "psci";
+			reg = <0x2>;
+			cpufreq-data-v1 = <&cpufreq_clus0>;
+			cpu-idle-states = <&LIGHT_SLEEP>;
+			dynamic-power-coefficient = <82>;
+			#cooling-cells = <2>;
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			enable-method = "psci";
+			reg = <0x3>;
+			cpufreq-data-v1 = <&cpufreq_clus0>;
+			cpu-idle-states = <&LIGHT_SLEEP>;
+			dynamic-power-coefficient = <82>;
+			#cooling-cells = <2>;
+		};
+	};
+
+	idle-states {
+		LIGHT_SLEEP: light_sleep {
+			compatible = "sprd,pike2-idle-state";
+			entry-latency-us = <20>;
+			exit-latency-us = <10>;
+			min-residency-us = <50>;
+			local-timer-stop;
+		};
+		HEAVY_SLEEP: heavy_sleep {
+			compatible = "sprd,pike2-idle-state";
+			entry-latency-us = <400>;
+			exit-latency-us = <700>;
+			min-residency-us = <1200>;
+			local-timer-stop;
+		};
+	};
+
+	cpufreq_clus0: cpufreq-clus0 {
+		clocks = <&apahb_gate CLK_MCU>,
+			<&pll CLK_TWPLL_768M>,
+			<&pll CLK_MPLL>;
+		clock-names = "core_clk",
+				"low_freq_clk_parent",
+				"high_freq_clk_parent";
+		clock-latency = <50000>;
+		sprd,cpu-gpu-share-volt;
+		gpu-target-volt-syscon = <&aon_apb_regs
+			REG_AON_APB_RES_REG4
+			MASK_AON_APB_RES_REG4>;
+		cpu-target-volt-syscon = <&aon_apb_regs
+			REG_AON_APB_RES_REG5
+			MASK_AON_APB_RES_REG5>;
+		voltage-tolerance = <0>;
+		default-efuse-blk-binning = <1>;
+		sprd,efuse-blk-binning = <43 0xf00>;
+		sprd,thmzone-names = "cpu-thmzone";
+		nvmem-cells = <&dvfs_bin_cpu0>;
+		nvmem-cell-names = "dvfs_bin";
+		sprd,cpufreq-temp-threshold = <50>;
+		cpufreq-cluster-cpumask = <0xf>;
+		operating-points = <
+			/* kHz  uV */
+			1300000 1021875
+			1200000 990625
+			1150000 975000
+			1100000 962500
+			1000000 931250
+			900000  900000
+			768000  900000>;
+		operating-points-0 = <
+			/* kHz	uV */
+			1300000 1021875
+			1200000 990625
+			1150000 975000
+			1100000 962500
+			1000000 931250
+			900000  900000
+			768000  900000>;
+		operating-points-1 = <
+			/* kHz  uV */
+			1300000 950000
+			1200000 925000
+			1150000 912500
+			1100000 900000
+			1000000 900000
+			900000  900000
+			768000  900000>;
+		operating-points-2 = <
+			/* kHz	uV */
+			1300000 990625
+			1200000 962500
+			1150000 946875
+			1100000 931250
+			1000000 900000
+			900000  900000
+			768000  900000>;
+		operating-points-3 = <
+			/* kHz	uV */
+			1300000 1021875
+			1200000 990625
+			1150000 975000
+			1100000 962500
+			1000000 931250
+			900000  900000
+			768000  900000>;
+		operating-points-4 = <
+			/* kHz	uV */
+			1300000 1050000
+			1200000 1021875
+			1150000 1006250
+			1100000 990625
+			1000000 962500
+			900000  931250
+			768000  900000>;
+		operating-points-0-50 = <
+			/* kHz	uV */
+			1300000 1040625
+			1200000 1006250
+			1150000 987500
+			1100000 971875
+			1000000 937500
+			900000  900000
+			768000  900000>;
+		operating-points-1-50 = <
+			/* kHz	uV */
+			1300000 971875
+			1200000 937500
+			1150000 918750
+			1100000 900000
+			1000000 900000
+			900000  900000
+			768000  900000>;
+		operating-points-2-50 = <
+			/* kHz	uV */
+			1300000 1012500
+			1200000 975000
+			1150000 956250
+			1100000 937500
+			1000000 900000
+			900000  900000
+			768000  900000>;
+		operating-points-3-50 = <
+			/* kHz	uV */
+			1300000 1040625
+			1200000 1006250
+			1150000 987500
+			1100000 971875
+			1000000 937500
+			900000  900000
+			768000  900000>;
+		operating-points-4-50 = <
+			/* kHz	uV */
+			1200000 1037500
+			1150000 1021875
+			1100000 1003125
+			1000000 968750
+			900000  934375
+			768000  900000>;
+	};
+
+	sprd_swdvfs: sprd-swdvfs {
+		compatible = "sprd,pike2-swdvfs";
+	};
+
+	debug_stat: debugstat {
+		compatible = "sprd,debugstat";
+		soc_slp_cnt_reg = <&pmu_apb_regs REG_AON_APB_DCXO_LC_REG1 0xffff>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	power: power-debug {
+		compatible = "sprd,power-debug-pike2";
+
+		sprd,enable = <1>;
+		sprd,scan-interval = <30>;
+
+		sprd,sys-ap-ahb = <&ap_ahb_regs>;
+		sprd,sys-ap-apb = <&ap_apb_regs>;
+		sprd,sys-pmu-apb = <&pmu_apb_regs>;
+		sprd,sys-aon-apb = <&aon_apb_regs>;
+		sprd,sys-ap-intc = <&intc0_controller &intc1_controller
+				&intc2_controller &intc3_controller
+				&aon_intc_regs>;
+	};
+
+	gsp: sprd-gsp {
+		compatible = "sprd,gsp-lite_r2p0-pike2";
+		name = "sprd-gsp";
+		core-cnt = <1>;
+		io-cnt = <7>;
+		cores = <&gsp_core0>;
+	};
+
+	soc {
+		funnel_soc: funnel-soc@10001000 {
+			compatible = "arm,coresight-funnel", "arm,primecell";
+			reg = <0x10001000 0x1000>;
+			clocks = <&ext_26m>;
+			clock-names = "apb_pclk";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					funnel_soc_out_port: endpoint {
+						remote-endpoint = <&etb_in>;
+					};
+				};
+				port@1 {
+					reg = <0>;
+					funnel_soc_in_port: endpoint {
+						slave-mode;
+						remote-endpoint = <&funnel_core_out_port>;
+					};
+				};
+			};
+		};
+
+		etb: tmc-etb@10003000 {
+			compatible = "arm,coresight-tmc", "arm,primecell";
+			reg = <0x10003000 0x1000>;
+			clocks = <&ext_26m>;
+			clock-names = "apb_pclk";
+			port {
+				etb_in: endpoint {
+					slave-mode;
+					remote-endpoint = <&funnel_soc_out_port>;
+				};
+			};
+		};
+
+		ts: cs-ts@10009000 {
+			compatible = "arm,coresight-ts", "arm,primecell";
+			reg = <0x10009000 0x1000>;
+		};
+
+		funnel_core: funnel-core@10220000 {
+			compatible = "arm,coresight-funnel", "arm,primecell";
+			reg = <0x10220000 0x1000>;
+			clocks = <&ext_26m>;
+			clock-names = "apb_pclk";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				/* funnel output port */
+				port@0 {
+					reg = <0>;
+					funnel_core_out_port: endpoint {
+						remote-endpoint = <&funnel_soc_in_port>;
+					};
+				};
+				/* funnel input ports */
+				port@1 {
+					reg = <0>;
+					funnel_core_in_port0: endpoint {
+						slave-mode;
+						remote-endpoint = <&etm0_out>;
+					};
+				};
+				port@2 {
+					reg = <1>;
+					funnel_core_in_port1: endpoint {
+						slave-mode;
+						remote-endpoint = <&etm1_out>;
+					};
+				};
+				port@3 {
+					reg = <2>;
+					funnel_core_in_port2: endpoint {
+						slave-mode;
+						remote-endpoint = <&etm2_out>;
+					};
+				};
+				port@4 {
+					reg = <3>;
+					funnel_core_in_port3: endpoint {
+						slave-mode;
+						remote-endpoint = <&etm3_out>;
+					};
+				};
+			};
+		};
+
+		etm_core0: etm-core0@1025c000 {
+			compatible = "arm,coresight-etm3x", "arm,primecell";
+			reg = <0x1025c000 0x1000>;
+			cpu = <&cpu0>;
+			clocks = <&aon_clk CLK_AON_APB>, <&aon_clk CLK_CSSYS>, <&pll CLK_TWPLL_512M>;
+			clock-names = "apb_pclk", "clk_cs", "cs_src";
+			port {
+				etm0_out: endpoint {
+					remote-endpoint = <&funnel_core_in_port0>;
+				};
+			};
+		};
+
+		etm_core1: etm-core1@1025d000 {
+			compatible = "arm,coresight-etm3x", "arm,primecell";
+			reg = <0x1025d000 0x1000>;
+			cpu = <&cpu1>;
+			clocks = <&aon_clk CLK_AON_APB>, <&aon_clk CLK_CSSYS>, <&pll CLK_TWPLL_512M>;
+			clock-names = "apb_pclk", "clk_cs", "cs_src";
+			port {
+				etm1_out: endpoint {
+					remote-endpoint = <&funnel_core_in_port1>;
+				};
+			};
+		};
+
+		etm_core2: etm-core2@1025e000 {
+			compatible = "arm,coresight-etm3x", "arm,primecell";
+			reg = <0x1025e000 0x1000>;
+			cpu = <&cpu2>;
+			clocks = <&aon_clk CLK_AON_APB>, <&aon_clk CLK_CSSYS>, <&pll CLK_TWPLL_512M>;
+			clock-names = "apb_pclk", "clk_cs", "cs_src";
+			port {
+				etm2_out: endpoint {
+					remote-endpoint = <&funnel_core_in_port2>;
+				};
+			};
+		};
+
+		etm_core3: etm-core3@1025f000 {
+			compatible = "arm,coresight-etm3x", "arm,primecell";
+			reg = <0x1025f000 0x1000>;
+			cpu = <&cpu3>;
+			clocks = <&aon_clk CLK_AON_APB>, <&aon_clk CLK_CSSYS>, <&pll CLK_TWPLL_512M>;
+			clock-names = "apb_pclk", "clk_cs", "cs_src";
+			port {
+				etm3_out: endpoint {
+					remote-endpoint = <&funnel_core_in_port3>;
+				};
+			};
+		};
+
+		pmu_gate: pmu-gate {
+			compatible = "sprd,sc7731e-pmu-gate"; /* 0x402b0000 */
+			sprd,syscon = <&pmu_apb_regs>;
+			clock-names = "ext-26m";
+			clocks = <&ext_26m>;
+			#clock-cells = <1>;
+		};
+
+		pll: pll {
+			compatible = "sprd,sc7731e-pll";
+			sprd,syscon = <&aon_apb_regs>; /* 0x402e0000 */
+			clock-names = "ext-26m", "bbpll";
+			clocks = <&ext_26m>, <&bbpll>;
+			#clock-cells = <1>;
+		};
+
+		apahb_gate: apahb-gate {
+			compatible = "sprd,sc7731e-apahb-gate";
+			sprd,syscon = <&ap_ahb_regs>; /* 0x20e00000 */
+			clock-names = "ext-26m";
+			clocks = <&ext_26m>;
+			#clock-cells = <1>;
+		};
+
+		ap_clk: clock-controller@21500000 {
+			compatible = "sprd,sc7731e-ap-clk"; /* 0x21500000 */
+			reg = <0x21500000 0x1000>;
+			clock-names = "ext-26m";
+			clocks = <&ext_26m>;
+			#clock-cells = <1>;
+		};
+
+		aon_clk: clock-controller@402d0000 {
+			compatible = "sprd,sc7731e-aon-clk"; /* 0x402d0000 */
+			reg = <0x402d0000 0x1000>;
+			clock-names = "ext-32k", "ext-26m";
+			clocks = <&ext_32k>, <&ext_26m>;
+			#clock-cells = <1>;
+		};
+
+		aonapb_gate: aonapb-gate {
+			compatible = "sprd,sc7731e-aonapb-gate"; /* 0x402e0000 */
+			sprd,syscon = <&aon_apb_regs>;
+			clock-names = "ext-32k", "ext-26m";
+			clocks = <&ext_32k>, <&ext_26m>;
+			#clock-cells = <1>;
+		};
+
+		gpu_clk: clock-controller@60100000 {
+			compatible = "sprd,sc7731e-gpu-clk"; /* 0x60100000 */
+			sprd,syscon = <&gpu_ahb_regs>;
+			#clock-cells = <1>;
+		};
+
+		mm_clk: clock-controller@60e00000 {
+			compatible = "sprd,sc7731e-mm-clk";
+			reg = <0x60e00000 0x1000>; /* 0x60e00000 */
+			clock-names = "ext-26m";
+			clocks = <&ext_26m>;
+			syscons = <&aon_apb_regs REG_AON_APB_APB_EB0
+					MASK_AON_APB_MM_EB>,
+				  <&pmu_apb_regs REG_PMU_APB_PD_MM_TOP_CFG
+					MASK_PMU_APB_PD_MM_TOP_FORCE_SHUTDOWN>;
+			#clock-cells = <1>;
+		};
+
+		mm_gate: mm-gate {
+			compatible = "sprd,sc7731e-mm-gate";
+			sprd,syscon = <&mm_ahb_regs>; /* 0x60d00000 */
+			clock-names = "ext-26m";
+			clocks = <&ext_26m>;
+			#clock-cells = <1>;
+		};
+
+		apapb_gate: apapb-gate {
+			compatible = "sprd,sc7731e-apapb-gate";
+			sprd,syscon = <&ap_apb_regs>; /* 0x71300000 */
+			clock-names = "ext-26m";
+			clocks = <&ext_26m>;
+			#clock-cells = <1>;
+			#reset-cells = <1>;
+		};
+	};
+
+	gic: interrupt-controller@12001000 {
+		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+		#interrupt-cells = <3>;
+		#address-cells = <0>;
+		interrupt-controller;
+		reg = <0x12001000 0x1000>,
+			<0x12002000 0x1000>;
+	};
+
+	arch_timer: timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+		clock-frequency = <26000000>;
+		arm,no-tick-in-suspend;
+	};
+
+	pmu {
+		compatible = "arm,cortex-a7-pmu";
+		interrupts =
+			<GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
+
+&hwlock {
+	clock-names = "enable";
+	clocks = <&aonapb_gate CLK_SPLK_EB>;
+};
+
+&i2c0 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C0_EB>,
+	<&ap_clk CLK_AP_I2C0>, <&ext_26m>;
+};
+
+&i2c1 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C1_EB>,
+	<&ap_clk CLK_AP_I2C1>, <&ext_26m>;
+};
+
+&i2c2 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C2_EB>,
+	<&ap_clk CLK_AP_I2C2>, <&ext_26m>;
+};
+
+&spi0 {
+	clock-names ="enable", "spi", "source";
+	clocks = <&apapb_gate CLK_SPI0_EB>,
+	<&ap_clk CLK_AP_SPI0>, <&ext_26m>;
+};
+
+&spi1 {
+	clock-names ="enable", "spi", "source";
+	clocks = <&aonapb_gate CLK_AP_HS_SPI_EB>,
+	<&aon_clk CLK_AP_HS_SPI>, <&ext_26m>;
+};
+
+&dpu {
+	clock-names = "clk_src_96m",
+			"clk_src_100m",
+			"clk_src_128m",
+			"clk_src_153m6",
+			"clk_src_192m",
+			"clk_src_256m",
+			"clk_src_320m",
+			"clk_src_384m",
+			"clk_dpu_core",
+			"clk_dpu_dpi",
+			"clk_ap_ahb_disp_eb";
+
+	clocks = <&pll CLK_TWPLL_96M>,
+		<&pll CLK_CPPLL_100M>,
+		<&pll CLK_TWPLL_128M>,
+		<&pll CLK_TWPLL_153M6>,
+		<&pll CLK_TWPLL_192M>,
+		<&pll CLK_TWPLL_256M>,
+		<&pll CLK_CPPLL_320M>,
+		<&pll CLK_TWPLL_384M>,
+		<&ap_clk CLK_DISPC0>,
+		<&ap_clk CLK_DISPC0_DPI>,
+		<&apahb_gate CLK_DISPC_EB>;
+};
+
+&dsi {
+	clock-names = "clk_ap_ahb_dsi_eb";
+	clocks = <&apahb_gate CLK_DSI_EB>;
+};
+
+&gpu {
+	clocks = <&aonapb_gate CLK_GPU_EB>,
+		   <&gpu_clk CLK_GPU>,
+		   <&pll CLK_TWPLL_153M6>, <&pll CLK_TWPLL_192M>,
+		   <&pll CLK_TWPLL_256M>, <&pll CLK_TWPLL_307M2>,
+		   <&pll CLK_TWPLL_384M>, <&pll CLK_TWPLL_512M>,
+		   <&pll CLK_GPLL>;
+};
+
+&cam_domain {
+	clock-names = "clk_gate_eb",
+			"clk_mm_eb",
+			"clk_mm_ahb",
+			"clk_mm_ahb_parent";
+	clocks = <&mm_gate CLK_MM_CKG_EB>,
+			<&aonapb_gate CLK_MM_EB>,
+			<&mm_clk CLK_MM_AHB>,
+			<&pll CLK_TWPLL_153M6>;
+};
+
+&dcam {
+	clock-names = "dcam_eb",
+		"clk_gate_eb",
+		"dcam_axi_eb",
+		"dcam_clk",
+		"dcam_clk_parent",
+		"dcam_axi_clk",
+		"dcam_axi_clk_parent";
+	clocks = <&mm_gate CLK_DCAM_EB>,
+		<&mm_gate CLK_MM_CKG_EB>,
+		<&mm_gate CLK_MDCAM_AXI_EB>,
+		<&mm_clk CLK_DCAM_IF>,
+		<&pll CLK_TWPLL_307M2>,
+		<&mm_clk CLK_DCAM_AXI>,
+		<&pll CLK_TWPLL_512M>;
+};
+
+&isp {
+	clock-names = "isp_eb",
+		"isp_axi_eb",
+		"isp_clk",
+		"isp_clk_high_parent",
+		"isp_clk_low_parent",
+		"isp_axi_clk",
+		"isp_axi_clk_parent";
+	clocks = <&mm_gate CLK_ISP_EB>,
+		<&mm_gate CLK_MISP_AXI_EB>,
+		<&mm_clk CLK_ISP>,
+		<&pll CLK_TWPLL_307M2>,
+		<&pll CLK_TWPLL_256M>,
+		<&mm_clk CLK_ISP_AXI>,
+		<&pll CLK_TWPLL_512M>;
+};
+
+&csi0 {
+	clock-names = "clk_mipi_csi_gate_eb",
+		"clk_csi_eb",
+		"clk_cphy_cfg_gate_eb",
+		"mipi_csi_src_eb";
+	clocks =<&mm_gate CLK_CSI_EB>,
+		<&mm_gate CLK_MMIPI_CSI_EB>,
+		<&mm_gate CLK_MCPHY_CFG_EB>,
+		<&mm_clk CLK_MIPI_CSI>;
+};
+
+&jpg {
+	clock-names = "jpg_domain_eb",
+				"clk_vsp_mq_ahb_eb",
+				"jpg_ckg_eb",
+				"jpg_dev_eb",
+				"clk_src_76m8",
+				"clk_src_128m",
+				"clk_src_256m",
+				"jpg_clk";
+	clocks = <&aonapb_gate CLK_MM_EB>,
+				<&mm_gate CLK_VSP_MQ_EB>,
+				<&mm_gate CLK_MM_CKG_EB>,
+				<&mm_gate CLK_JPG_EB>,
+				<&pll CLK_TWPLL_76M8>,
+				<&pll CLK_TWPLL_128M>,
+				<&pll CLK_TWPLL_256M>,
+				<&mm_clk CLK_JPG>;
+};
+
+&vsp {
+	clock-names = "clk_mm_eb",
+				"clk_vsp_mq_ahb_eb",
+				"clk_axi_gate_vsp",
+				"clk_ahb_gate_vsp_eb",
+				"clk_src_128m",
+				"clk_src_256m",
+				"clk_src_307m2",
+				"clk_vsp";
+	clocks = <&aonapb_gate CLK_MM_VSP_EB>,
+				<&mm_gate CLK_VSP_MQ_EB>,
+				<&mm_gate CLK_MM_CKG_EB>,
+				<&mm_gate CLK_VSP_EB>,
+				<&pll CLK_TWPLL_128M>,
+				<&pll CLK_TWPLL_256M>,
+				<&pll CLK_TWPLL_307M2>,
+				<&mm_clk CLK_VSP>;
+};

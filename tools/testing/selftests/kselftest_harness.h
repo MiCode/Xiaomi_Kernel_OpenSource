@@ -701,33 +701,33 @@
 		/* Report with actual signedness to avoid weird output. */ \
 		switch (is_signed_type(__exp) * 2 + is_signed_type(__seen)) { \
 		case 0: { \
-			uintmax_t __exp_print = (uintmax_t)__exp; \
-			uintmax_t __seen_print = (uintmax_t)__seen; \
-			__TH_LOG("Expected %s (%ju) %s %s (%ju)", \
+			unsigned long long __exp_print = (uintptr_t)__exp; \
+			unsigned long long __seen_print = (uintptr_t)__seen; \
+			__TH_LOG("Expected %s (%llu) %s %s (%llu)", \
 				 _expected_str, __exp_print, #_t, \
 				 _seen_str, __seen_print); \
 			break; \
 			} \
 		case 1: { \
-			uintmax_t __exp_print = (uintmax_t)__exp; \
-			intmax_t  __seen_print = (intmax_t)__seen; \
-			__TH_LOG("Expected %s (%ju) %s %s (%jd)", \
+			unsigned long long __exp_print = (uintptr_t)__exp; \
+			long long __seen_print = (intptr_t)__seen; \
+			__TH_LOG("Expected %s (%llu) %s %s (%lld)", \
 				 _expected_str, __exp_print, #_t, \
 				 _seen_str, __seen_print); \
 			break; \
 			} \
 		case 2: { \
-			intmax_t  __exp_print = (intmax_t)__exp; \
-			uintmax_t __seen_print = (uintmax_t)__seen; \
-			__TH_LOG("Expected %s (%jd) %s %s (%ju)", \
+			long long __exp_print = (intptr_t)__exp; \
+			unsigned long long __seen_print = (uintptr_t)__seen; \
+			__TH_LOG("Expected %s (%lld) %s %s (%llu)", \
 				 _expected_str, __exp_print, #_t, \
 				 _seen_str, __seen_print); \
 			break; \
 			} \
 		case 3: { \
-			intmax_t  __exp_print = (intmax_t)__exp; \
-			intmax_t  __seen_print = (intmax_t)__seen; \
-			__TH_LOG("Expected %s (%jd) %s %s (%jd)", \
+			long long __exp_print = (intptr_t)__exp; \
+			long long __seen_print = (intptr_t)__seen; \
+			__TH_LOG("Expected %s (%lld) %s %s (%lld)", \
 				 _expected_str, __exp_print, #_t, \
 				 _seen_str, __seen_print); \
 			break; \

@@ -1,0 +1,12 @@
+menu "SIPA_SYS modules"
+config UNISOC_SIPA_SYS
+	tristate "UNISOC SIPA_SYS Power Management"
+	default n
+	select PM_GENERIC_DOMAINS if PM
+	help
+	  Sipa sys is a module that manages ipa low power, realized by creating
+	  a power domain.
+
+	  When you select this feature, it will enable the pm generic
+	  power domain for ipa_sys module.
+endmenu

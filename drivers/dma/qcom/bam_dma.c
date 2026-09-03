@@ -1253,17 +1253,13 @@ static int bam_dma_probe(struct platform_device *pdev)
 	if (bdev->controlled_remotely) {
 		ret = of_property_read_u32(pdev->dev.of_node, "num-channels",
 					   &bdev->num_channels);
-		if (ret) {
+		if (ret)
 			dev_err(bdev->dev, "num-channels unspecified in dt\n");
-			return ret;
-		}
 
 		ret = of_property_read_u32(pdev->dev.of_node, "qcom,num-ees",
 					   &bdev->num_ees);
-		if (ret) {
+		if (ret)
 			dev_err(bdev->dev, "num-ees unspecified in dt\n");
-			return ret;
-		}
 	}
 
 	if (bdev->controlled_remotely)

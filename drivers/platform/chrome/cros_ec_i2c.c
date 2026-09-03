@@ -313,9 +313,7 @@ static int cros_ec_i2c_remove(struct i2c_client *client)
 {
 	struct cros_ec_device *ec_dev = i2c_get_clientdata(client);
 
-	cros_ec_unregister(ec_dev);
-
-	return 0;
+	return cros_ec_unregister(ec_dev);
 }
 
 #ifdef CONFIG_PM_SLEEP

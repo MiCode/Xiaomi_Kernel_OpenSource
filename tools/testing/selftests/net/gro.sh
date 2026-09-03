@@ -95,6 +95,5 @@ trap cleanup EXIT
 if [[ "${test}" == "all" ]]; then
   run_all_tests
 else
-  exit_code=$(run_test "${proto}" "${test}")
-  exit $exit_code
+  run_test "${proto}" "${test}"
 fi;

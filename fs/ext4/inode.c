@@ -149,7 +149,7 @@ static int ext4_meta_trans_blocks(struct inode *inode, int lblocks,
  */
 int ext4_inode_is_fast_symlink(struct inode *inode)
 {
-	if (!ext4_has_feature_ea_inode(inode->i_sb)) {
+	if (!(EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL)) {
 		int ea_blocks = EXT4_I(inode)->i_file_acl ?
 				EXT4_CLUSTER_SIZE(inode->i_sb) >> 9 : 0;
 
@@ -410,11 +410,10 @@ static int __check_block_validity(struct inode *inode, const char *func,
 				unsigned int line,
 				struct ext4_map_blocks *map)
 {
-	journal_t *journal = EXT4_SB(inode->i_sb)->s_journal;
-
-	if (journal && inode == journal->j_inode)
+	if (ext4_has_feature_journal(inode->i_sb) &&
+	    (inode->i_ino ==
+	     le32_to_cpu(EXT4_SB(inode->i_sb)->s_es->s_journal_inum)))
 		return 0;
-
 	if (!ext4_inode_block_valid(inode, map->m_pblk, map->m_len)) {
 		ext4_error_inode(inode, func, line, map->m_pblk,
 				 "lblock %lu mapped to illegal pblock %llu "
@@ -4625,43 +4624,22 @@ static inline u64 ext4_inode_peek_iversion(const struct inode *inode)
 		return inode_peek_iversion(inode);
 }
 
-static int check_igot_inode(struct inode *inode, ext4_iget_flags flags,
-			    const char *function, unsigned int line)
+static const char *check_igot_inode(struct inode *inode, ext4_iget_flags flags)
+
 {
-	const char *err_str;
-
 	if (flags & EXT4_IGET_EA_INODE) {
-		if (!(EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL)) {
-			err_str = "missing EA_INODE flag";
-			goto error;
-		}
+		if (!(EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL))
+			return "missing EA_INODE flag";
 		if (ext4_test_inode_state(inode, EXT4_STATE_XATTR) ||
-		    EXT4_I(inode)->i_file_acl) {
-			err_str = "ea_inode with extended attributes";
-			goto error;
-		}
+		    EXT4_I(inode)->i_file_acl)
+			return "ea_inode with extended attributes";
 	} else {
-		if ((EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL)) {
-			/*
-			 * open_by_handle_at() could provide an old inode number
-			 * that has since been reused for an ea_inode; this does
-			 * not indicate filesystem corruption
-			 */
-			if (flags & EXT4_IGET_HANDLE)
-				return -ESTALE;
-			err_str = "unexpected EA_INODE flag";
-			goto error;
-		}
+		if ((EXT4_I(inode)->i_flags & EXT4_EA_INODE_FL))
+			return "unexpected EA_INODE flag";
 	}
-	if (is_bad_inode(inode) && !(flags & EXT4_IGET_BAD)) {
-		err_str = "unexpected bad inode w/o EXT4_IGET_BAD";
-		goto error;
-	}
-	return 0;
-
-error:
-	ext4_error_inode(inode, function, line, 0, err_str);
-	return -EFSCORRUPTED;
+	if (is_bad_inode(inode) && !(flags & EXT4_IGET_BAD))
+		return "unexpected bad inode w/o EXT4_IGET_BAD";
+	return NULL;
 }
 
 struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
@@ -4673,6 +4651,7 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 	struct ext4_inode_info *ei;
 	struct ext4_super_block *es = EXT4_SB(sb)->s_es;
 	struct inode *inode;
+	const char *err_str;
 	journal_t *journal = EXT4_SB(sb)->s_journal;
 	long ret;
 	loff_t size;
@@ -4701,10 +4680,10 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 	if (!(inode->i_state & I_NEW)) {
-		ret = check_igot_inode(inode, flags, function, line);
-		if (ret) {
+		if ((err_str = check_igot_inode(inode, flags)) != NULL) {
+			ext4_error_inode(inode, function, line, 0, err_str);
 			iput(inode);
-			return ERR_PTR(ret);
+			return ERR_PTR(-EFSCORRUPTED);
 		}
 		return inode;
 	}
@@ -4816,8 +4795,7 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 		ei->i_file_acl |=
 			((__u64)le16_to_cpu(raw_inode->i_file_acl_high)) << 32;
 	inode->i_size = ext4_isize(sb, raw_inode);
-	size = i_size_read(inode);
-	if (size < 0 || size > ext4_get_maxbytes(inode)) {
+	if ((size = i_size_read(inode)) < 0) {
 		ext4_error_inode(inode, function, line, 0,
 				 "iget: bad i_size value: %lld", size);
 		ret = -EFSCORRUPTED;
@@ -4980,21 +4958,13 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 		ret = -EFSCORRUPTED;
 		goto bad_inode;
 	}
-	ret = check_igot_inode(inode, flags, function, line);
-	/*
-	 * -ESTALE here means there is nothing inherently wrong with the inode,
-	 * it's just not an inode we can return for an fhandle lookup.
-	 */
-	if (ret == -ESTALE) {
-		brelse(iloc.bh);
-		unlock_new_inode(inode);
-		iput(inode);
-		return ERR_PTR(-ESTALE);
-	}
-	if (ret)
+	if ((err_str = check_igot_inode(inode, flags)) != NULL) {
+		ext4_error_inode(inode, function, line, 0, err_str);
+		ret = -EFSCORRUPTED;
 		goto bad_inode;
-	brelse(iloc.bh);
+	}
 
+	brelse(iloc.bh);
 	unlock_new_inode(inode);
 	return inode;
 

@@ -1407,14 +1407,14 @@ int drm_fb_helper_set_par(struct fb_info *info)
 }
 EXPORT_SYMBOL(drm_fb_helper_set_par);
 
-static void pan_set(struct drm_fb_helper *fb_helper, int dx, int dy)
+static void pan_set(struct drm_fb_helper *fb_helper, int x, int y)
 {
 	struct drm_mode_set *mode_set;
 
 	mutex_lock(&fb_helper->client.modeset_mutex);
 	drm_client_for_each_modeset(mode_set, &fb_helper->client) {
-		mode_set->x += dx;
-		mode_set->y += dy;
+		mode_set->x = x;
+		mode_set->y = y;
 	}
 	mutex_unlock(&fb_helper->client.modeset_mutex);
 }
@@ -1423,18 +1423,16 @@ static int pan_display_atomic(struct fb_var_screeninfo *var,
 			      struct fb_info *info)
 {
 	struct drm_fb_helper *fb_helper = info->par;
-	int ret, dx, dy;
+	int ret;
 
-	dx = var->xoffset - info->var.xoffset;
-	dy = var->yoffset - info->var.yoffset;
-	pan_set(fb_helper, dx, dy);
+	pan_set(fb_helper, var->xoffset, var->yoffset);
 
 	ret = drm_client_modeset_commit_locked(&fb_helper->client);
 	if (!ret) {
 		info->var.xoffset = var->xoffset;
 		info->var.yoffset = var->yoffset;
 	} else
-		pan_set(fb_helper, -dx, -dy);
+		pan_set(fb_helper, info->var.xoffset, info->var.yoffset);
 
 	return ret;
 }

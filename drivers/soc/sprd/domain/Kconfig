@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+config SPRD_DISP_PM_DOMAIN_SHARKL3
+	tristate "SPRD Display PM Generic Domain for SharkL3"
+	default m
+	depends on ARCH_SPRD || COMPILE_TEST
+	select PM_GENERIC_DOMAINS if PM
+	help
+	  When you select this feature, it will enable the pm generic
+	  power domain for SharkL3 display module.

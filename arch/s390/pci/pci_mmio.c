@@ -222,7 +222,7 @@ static inline int __pcilg_mio_inuser(
 		[ioaddr_len] "+&d" (ioaddr_len.pair),
 		[cc] "+d" (cc), [val] "=d" (val),
 		[dst] "+a" (dst), [cnt] "+d" (cnt), [tmp] "=d" (tmp),
-		[shift] "+a" (shift)
+		[shift] "+d" (shift)
 		:: "cc", "memory");
 
 	/* did we write everything to the user space buffer? */

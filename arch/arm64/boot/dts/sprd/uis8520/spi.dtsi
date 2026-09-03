@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * unisoc SPI dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+
+&apapb {
+	spi0: spi@160000{
+		compatible = "sprd,uis8520-spi",
+				"sprd,sc9860-spi";
+		reg = <0x160000 0x100>;
+		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI0_EB>,
+			<&aonapb_clk CLK_SPI0>, <&g2_pll CLK_TGPLL_192M>;
+		/*
+		 *dma-names = "rx_chn", "tx_chn";
+		 *dmas = <&ap_dma 6>, <&ap_dma 7>;
+		 */
+		status = "disabled";
+	};
+	spi1: spi@170000{
+		compatible = "sprd,uis8520-spi",
+				"sprd,sc9860-spi";
+		reg = <0x170000 0x100>;
+		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI1_EB>,
+			<&aonapb_clk CLK_SPI1>, <&g2_pll CLK_TGPLL_192M>;
+		/*
+		 *dma-names = "rx_chn", "tx_chn";
+		 *dmas = <&ap_dma 8>, <&ap_dma 9>;
+		 */
+		status = "disabled";
+	};
+	spi2: spi@180000{
+		compatible = "sprd,uis8520-spi",
+				"sprd,sc9860-spi";
+		reg = <0x180000 0x100>;
+		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI2_EB>,
+			<&aonapb_clk CLK_SPI2>, <&g2_pll CLK_TGPLL_192M>;
+		/*
+		 *dma-names = "rx_chn", "tx_chn";
+		 *dmas = <&ap_dma 10>, <&ap_dma 11>;
+		 */
+		status = "disabled";
+	};
+	spi3: spi@90000{
+		compatible = "sprd,uis8520-spi",
+				"sprd,sc9860-spi";
+		reg = <0x90000 0x100>;
+		interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI3_EB>,
+			<&aonapb_clk CLK_SPI3>, <&g2_pll CLK_TGPLL_192M>;
+		/*
+		 *dma-names = "rx_chn", "tx_chn";
+		 *dmas = <&ap_dma 12>, <&ap_dma 13>;
+		 */
+		status = "disabled";
+	};
+	spi4: spi@a0000{
+		compatible = "sprd,uis8520-spi",
+				"sprd,sc9860-spi";
+		reg = <0xa0000 0x100>;
+		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI4_EB>,
+			<&aonapb_clk CLK_SPI4>, <&g2_pll CLK_TGPLL_192M>;
+		/*
+		 *dma-names = "rx_chn", "tx_chn";
+		 *dmas = <&ap_dma 14>, <&ap_dma 15>;
+		 */
+		status = "disabled";
+	};
+	spi5: spi@1b0000{
+		compatible = "sprd,uis8520-spi",
+				"sprd,sc9860-spi";
+		reg = <0xb0000 0x100>;
+		interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI5_EB>,
+			<&aonapb_clk CLK_SPI5>, <&g2_pll CLK_TGPLL_192M>;
+		/*
+		 *dma-names = "rx_chn", "tx_chn";
+		 *dmas = <&ap_dma 16>, <&ap_dma 17>;
+		 */
+		status = "disabled";
+	};
+};
+

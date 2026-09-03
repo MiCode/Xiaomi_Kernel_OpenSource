@@ -1,0 +1,321 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum SC9832e modem board DTSI file
+ * These dt is used for modem drivers
+ *
+ * Copyright (C) 2021, Spreadtrum Communications Inc.
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+/ {
+	aliases {
+		v2-modem0 = &pmsys;
+		v2-modem1 = &modem;
+		seth0 = &seth_ch7;
+		seth1 = &seth_ch8;
+		seth2 = &seth_ch9;
+		seth3 = &seth_ch18;
+		seth4 = &seth_ch19;
+		seth5 = &seth_ch20;
+		seth6 = &seth_ch24;
+		seth7 = &seth_ch25;
+		seth8 = &seth_ch26;
+		seth9 = &seth_ch27;
+		seth10 = &seth_ch28;
+		seth11 = &seth_ch29;
+		seth12 = &seth_ch30;
+		seth13 = &seth_ch31;
+	};
+
+	pmsys: modem@0 {
+		compatible = "unisoc,modem";
+		/* 0xff is invalid register offset */
+		syscon0 = <&aon_apb_regs 0xff 0x0>;
+		syscon1 = <&pmu_apb_regs 0xff 0x0>;
+		syscon2 = <&aon_apb_regs 0x114 0x1>;
+		syscon3 = <&aon_apb_regs 0xff 0x0>;
+		syscon4 = <&aon_apb_regs 0xff 0x0>;
+		syscon-names = "shutdown", "deepsleep", "corereset",
+					"sysreset", "getstatus";
+		sprd,version = <0x02>;
+	};
+
+	modem: modem@1 {
+		compatible = "unisoc,modem";
+		sprd,decoup = "cproc-use-decoup";
+		/* 0xff is invalid register offset */
+		syscon0 = <&pmu_apb_regs 0x48 0x2000000>;
+		syscon1 = <&pmu_apb_regs 0xcc 0x40000>;
+		syscon2 = <&aon_apb_regs 0x284 0x400>;
+		syscon3 = <&pmu_apb_regs 0xb0 0x2>;
+		syscon4 = <&aon_apb_regs 0xff 0x0>;
+		syscon5 = <&aon_apb_regs 0x130 0x30000>;
+		syscon-names = "shutdown", "deepsleep", "corereset",
+				"sysreset", "getstatus", "dspreset";
+		sprd,version = <0x02>;
+	};
+};
+
+/*
+ * quote sipc: sipc-virt bus node
+ * This is a child node
+ * core@5 is cp
+ * core@6 is sp
+ * core@1 is ldsp
+ */
+&sipc {
+	sipc_lte: core@5 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* endpoint id - should be same with sipc processor id */
+		reg = <5>;
+		label = "sipc-lte";
+		/* <&mailbox  channel_id  is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 2 0>;
+		/* This is temporary plan*/
+		sprd,smem-info = <0x8e000000 0x8e000000 0x4d0000>;
+
+		imsbr_data: channel@2 {
+			compatible = "sprd,spool";
+			reg = <2>;
+			label = "imsbr_data";
+			sprd,tx-blksize = <0x5F4>;
+			sprd,tx-blknum = <64>;
+			sprd,rx-blksize = <0x5F4>;
+			sprd,rx-blknum = <64>;
+		};
+
+		imsbr_ctrl: channel@3 {
+			compatible = "sprd,spool";
+			reg = <3>;
+			label = "imsbr_ctrl";
+			sprd,tx-blksize = <0x80>;
+			sprd,tx-blknum = <64>;
+			sprd,rx-blksize = <0x80>;
+			sprd,rx-blknum = <64>;
+		};
+
+		/* these nodes of channel should be probed by its parent node */
+		spipe_lte: channel@4 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <4>;
+			label = "spipe_lte";
+			sprd,ringnr = <20>;
+			sprd,size-rxbuf = <0x1000>;	/* 4*1024 */
+			sprd,size-txbuf = <0x1000>;	/* 4*1024 */
+		};
+
+		stty_lte: channel@6 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <6>;
+			label = "stty_lte";
+			sprd,ringnr = <32>;
+			sprd,size-rxbuf = <0x0800>;	/* 2*1024 */
+			sprd,size-txbuf = <0x0800>;	/* 2*1024 */
+		};
+
+		sdiag_lte: channel@21 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <21>;
+			label = "sdiag_lte";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x20000>;	/* 128*1024 */
+			sprd,size-txbuf = <0x8000>;	/* 32*1024 */
+		};
+
+		slog_lte: channel@5 {
+			compatible = "sprd,spool";
+			/* channel number */
+			reg = <5>;
+			label = "slog_lte";
+			sprd,tx-blksize = <0>;
+			sprd,tx-blknum = <0>;
+			sprd,rx-blksize = <0x1000>; /* 4k */
+			sprd,rx-blknum = <256>;
+		};
+
+		sipx: route@0 {
+			compatible = "sprd,sipx";
+			reg = <0>;
+			label = "sipx_lte";
+			sprd,dl-pool = <512>;
+			sprd,dl-ack-pool = <64>;
+			sprd,ul-pool = <1024>;
+			sprd,ul-ack-pool = <1024>;
+		};
+
+		seth_ch7: channel@7 {
+			compatible = "sprd,seth";
+			/* reg channel number */
+			reg = <7>;
+			/* sprd,router no using, Just show the relationship */
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch8: channel@8 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <8>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch9: channel@9 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <9>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch18: channel@18 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <18>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch19: channel@19 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <19>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch20: channel@20 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <20>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch24: channel@24 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <24>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch25: channel@25 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <25>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch26: channel@26 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <26>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch27: channel@27 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <27>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch28: channel@28 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <28>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch29: channel@29 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <29>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch30: channel@30 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <30>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+
+		seth_ch31: channel@31 {
+			compatible = "sprd,seth";
+			/* channel number */
+			reg = <31>;
+			sprd,router = <&sipx>;
+			sprd,blknum = <256>;
+		};
+	};
+
+	sipc_sp: core@6 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* endpoint id - should be same with sipc processor id */
+		reg = <6>;
+		label = "sipc-pmsys";
+		/* <&mailbox channel_id is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 1 0>, <&mailbox 7 1>;
+		/* This is temporary plan*/
+		sprd,smem-info = <0xe400 0x2000e400 0x800>;
+
+		slog_pm: channel@5 {
+			compatible = "sprd,spipe";
+			label = "slog_pm";
+			/* channel number */
+			reg = <5>;
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x200>;
+			sprd,size-txbuf = <0x0>;
+		};
+
+		sctl_pm: channel@6 {
+			compatible = "sprd,spipe";
+			label = "sctl_pm";
+			/* channel number */
+			reg = <6>;
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0xc0>;
+			sprd,size-txbuf = <0x40>;
+		};
+
+		stime_pm: channel@41 {
+			compatible = "sprd,spipe";
+			label = "stime_pm";
+			/* channel number */
+			reg = <41>;
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x40>;
+			sprd,size-txbuf = <0x80>;
+		};
+	};
+
+	sbridge-log {
+		/* use usb get modem log ,put to PC*/
+		compatible = "sprd,slog_bridge";
+		sprd,name = "slog_bridge";
+		sprd,tx_is_usb = <1>;
+		sprd,tx_dst = <0>;
+		sprd,rx_dst = <5>;
+		sprd,priority = <86>;
+	};
+
+	time_sync {
+		compatible = "sprd,time-sync";
+	};
+};

@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc USB dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	hsphy: hsphy@300000 {
+		compatible = "sprd,qogirn6lite-phy";
+		reg = <0x300000 0x10000>;
+		sprd,syscon-enable = <&aon_apb_regs>;
+		sprd,syscon-anag0 = <&anlg_phy_g0l_regs>;
+		sprd,vdd-voltage = <3300000>;
+		#phy-cells = <0>;
+		refclk_cfg = <&pmu_apb_regs
+			REG_PMU_APB_USB31PLLV_REL_CFG
+			MASK_PMU_APB_USB31PLLV_PUB_SEL
+			MASK_PMU_APB_USB31PLLV_AUDIO_SEL>;
+	};
+
+	usb: usb@a00000 {
+		compatible = "sprd,qogirn6lite-musb";
+		reg = <0xa00000 0x2000>;
+		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "mc";
+		clocks =
+			<&aonapb_gate CLK_AON_USB2_TOP_EB>,
+			<&aonapb_clk CLK_USB>,
+			<&g5l_pll CLK_TGPLL_128M>,
+			<&pmu_gate CLK_RCO_100M_25M>;
+		clock-names =
+			"core_clk",
+			"hclk_source_sel",
+			"hclk_default_source",
+			"hclk_suspend_source";
+		pubsys_bypass = <&pmu_apb_regs
+			REG_PMU_APB_PUB_DEEP_SLEEP_POLL_7
+			MASK_PMU_APB_AON_PUB_DEEP_SLEEP_POLL>;
+		suspend_clk_source_frc_on = <&pmu_apb_regs
+			REG_PMU_APB_RCO100M_REL_CFG
+			MASK_PMU_APB_RCO100M_FRC_ON>;
+		usb-phy = <&hsphy>;
+		phy-names = "usb";
+		dr-mode = "peripheral";
+		multipoint = "true";
+		wakeup-source;
+	};
+};

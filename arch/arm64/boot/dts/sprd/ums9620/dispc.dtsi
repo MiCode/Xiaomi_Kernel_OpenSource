@@ -1,0 +1,603 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * dispc.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&dpuvsp {
+	dpu: dpu@31000000 {
+		compatible = "sprd,qogirn6pro-dpu";
+		reg = <0x0 0x31000000 0x0 0x3000>,
+		       <0x0 0x30120000 0x0 0x100>;
+		resets = <&dpu_vsp_gate RESET_DPU_VSP_APB_DPU_SOFT_RST>,
+			<&dpu_vsp_gate RESET_DPU_VSP_APB_DPU_VAU_SOFT_RST>;
+		reset-names = "dpu_ctx_rst", "dpu_vau_rst";
+		interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+		iommus = <&iommu_dispc>;
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+		dpu_port: port {
+			dpu_out: endpoint {
+				remote-endpoint = <&dsi_in>;
+			};
+		};
+	};
+
+	iommu_dispc: iommu@31001800 {
+		compatible = "unisoc,iommuvaul6p-dispc";
+		reg = <0x0 0x31000000 0x0 0x80>,
+		      <0x0 0x31001800 0x0 0x80>;
+		iova-base = <0x10000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	perf_dpu: perf_dpu@31000000 {
+		compatible = "sprd,perf_dpu";
+		reg = <0x0 0x31000000 0x0 0x3000>,
+		       <0x0 0x30120000 0x0 0x100>;
+		resets = <&dpu_vsp_gate RESET_DPU_VSP_APB_DPU_SOFT_RST>,
+			<&dpu_vsp_gate RESET_DPU_VSP_APB_DPU_VAU_SOFT_RST>;
+		reset-names = "dpu_ctx_rst", "dpu_vau_rst";
+		interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+		iommus = <&iommu_dispc>;
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+		perf_dpu_port: port {
+			perf_dpu_out: endpoint {
+				remote-endpoint = <&perf_connector_in>;
+			};
+		};
+	};
+
+	perf_connector: perf_connector {
+		compatible = "sprd,perf-connector";
+		status = "okay";
+
+		port {
+			perf_connector_in: endpoint {
+				remote-endpoint = <&perf_dpu_out>;
+			};
+		};
+	};
+
+	gsp0_core0: gsp@31100000 {
+		compatible = "sprd,gsp-core";
+		reg = <0 0x31100000 0 0x2000>;
+		core-id = <0>;
+		kcfg-num = <16>;
+		real-time = <1>;
+		interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
+		iommus = <&iommu_gsp>;
+
+		clock-names = "clk_src_512m",
+			      "clk_gsp0_eb",
+			      "clk_dpuvsp_eb",
+			      "clk_gsp0";
+
+		clocks = <&g5l_pll CLK_TGPLL_512M>,
+			 <&dpu_vsp_gate CLK_GSP0_EB>,
+			 <&aonapb_gate CLK_DPU_VSP_EB>,
+			 <&dpu_vsp_clk CLK_GSP0>;
+
+		sprd,pmu-apb = <&pmu_apb_regs>;
+	};
+
+	iommu_gsp: iommu@31101000 {
+		compatible = "unisoc,iommuvaul6p-gsp";
+		reg = <0x0 0x31100000 0x0 0x80>,
+		      <0x0 0x31101000 0x0 0x80>;
+		iova-base = <0x20000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	gsp1_core0: gsp@31200000 {
+		compatible = "sprd,gsp-core";
+		reg = <0 0x31200000 0 0x2000>;
+		core-id = <0>;
+		kcfg-num = <16>;
+		real-time = <1>;
+		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
+		iommus = <&iommu_gsp1>;
+
+		clock-names = "clk_src_512m",
+			      "clk_gsp1_eb",
+			      "clk_dpuvsp_eb",
+			      "clk_gsp1";
+
+		clocks = <&g5l_pll CLK_TGPLL_512M>,
+		         <&dpu_vsp_gate CLK_GSP1_EB>,
+			 <&aonapb_gate CLK_DPU_VSP_EB>,
+			 <&dpu_vsp_clk CLK_GSP1>;
+	};
+
+	iommu_gsp1: iommu@31200000 {
+		compatible = "unisoc,iommuvaul6p-gsp1";
+		reg = <0x0 0x31200000 0x0 0x80>,
+		      <0x0 0x31201000 0x0 0x80>;
+		iova-base = <0x40000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	dsi1: dsi1@31400000 {
+		compatible = "sprd,qogirn6pro-dsi1-host";
+		reg = <0x0 0x31400000 0x0 0x1000>;
+		reset = <&dpu_vsp_apb_regs REG_DPU_VSP_APB_RST
+		MASK_DPU_VSP_APB_DSI1_SOFT_RST>;
+		syscon-names = "reset";
+		interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
+
+		status = "disabled";
+		dev-id = <1>;
+		sprd,ip = "sprd,dsi-ctrl", "r3p1";
+		sprd,soc = "qogirn6pro_s";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dsi1_out: endpoint {
+					remote-endpoint = <&dphy1_in>;
+				};
+			};
+		};
+	};
+
+	dsi: dsi@31300000 {
+		compatible = "sprd,qogirn6pro-dsi-host";
+		reg = <0x0 0x31300000 0x0 0x1000>;
+		resets = <&dpu_vsp_gate RESET_DPU_VSP_APB_DSI0_SOFT_RST>;
+		reset-names = "dsi_rst";
+		interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dsi_out: endpoint {
+					remote-endpoint = <&dphy_in>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				dsi_in: endpoint {
+					remote-endpoint = <&dpu_out>;
+				};
+			};
+		};
+	};
+
+	dphy1: dphy1 {
+		compatible = "sprd,qogirn6pro-dsi1-phy";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0 0x31400000 0x0 0x1000>;
+		enable-syscon = <&dpu_vsp_apb_regs REG_DPU_VSP_APB_MISC_CKG_EB
+			(MASK_DPU_VSP_APB_DPHY1_REF_CKG_EN |
+			MASK_DPU_VSP_APB_DPHY1_CFG_CKG_EN)>;
+		power-syscon = <&pmu_apb_regs REG_PMU_APB_RF_ANALOG_PHY_PD_CFG
+			MASK_PMU_APB_RF_DSI1_PD_REG>;
+		syscon-names = "enable", "power";
+		status = "disabled";
+		dev-id = <1>;
+		sprd,ip = "sprd,megacores-sharkl5";
+		sprd,soc = "qogirn6pro_s";
+		sprd,mipi-drive-capability = <7>;
+		/* input port*/
+		port@1 {
+			reg = <1>;
+			dphy1_in: endpoint {
+				remote-endpoint = <&dsi1_out>;
+			};
+		};
+	};
+
+	dphy: dphy {
+		compatible = "sprd,qogirn6pro-dsi-phy";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0 0x31300000 0x0 0x1000>;
+		enable-syscon = <&dpu_vsp_apb_regs REG_DPU_VSP_APB_MISC_CKG_EB
+			(MASK_DPU_VSP_APB_DPHY0_REF_CKG_EN |
+			MASK_DPU_VSP_APB_DPHY0_CFG_CKG_EN)>;
+		power-syscon = <&pmu_apb_regs REG_PMU_APB_RF_ANALOG_PHY_PD_CFG
+			MASK_PMU_APB_RF_DSI0_PD_REG>;
+		aod_mode-syscon = <&aon_apb_regs REG_AON_APB_MIPI_DSI8_CTRL
+			(MASK_AON_APB_MIPI_DSI_8LANE_DSI_AOD_EN_M |
+			MASK_AON_APB_MIPI_DSI_8LANE_DSI_AOD_MOD_M)>;
+		aod_pd-syscon = <&aon_apb_regs REG_AON_APB_MIPI_DSI8_CTRL
+			MASK_AON_APB_MIPI_DSI_8LANE_DSI_AOD_PD_M>;
+		status = "disabled";
+		sprd,mipi-drive-capability = <7>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dphy_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				dphy_in: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+&ipaapb {
+	dpu1: dpu1@31880000 {
+		compatible = "sprd,qogirn6pro-dpu1";
+		reg = <0x0 0x31880000 0x0 0x3000>;
+		reset-syscon = <&ipa_dispc_regs REG_DISPC1_GLB_APB_APB_RST
+						MASK_DISPC1_GLB_APB_DPU1_SOFT_RST>;
+		force-shutdown-syscon = <&pmu_apb_regs REG_PMU_APB_PD_DPU_DP_CFG_0
+						MASK_PMU_APB_PD_DPU_DP_FORCE_SHUTDOWN>;
+		interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disable";
+		iommus = <&iommu_dispc1>;
+
+		sprd,initial-stop-state;
+
+		power-domains = <&pd_ipa_sys>;
+		clock-names = "clk_src_128m",
+				"clk_src_192m",
+				"clk_src_256m",
+				"clk_pixelpll",
+				"clk_src_307m2",
+				"clk_src_384m",
+				"clk_src_512m",
+				"clk_dpu_core",
+				"clk_dpu_dpi",
+				"clk_dpuvsp_disp_eb",
+				"clk_ipa_apb_dispc1_eb";
+		clocks = <&g5l_pll CLK_TGPLL_128M>,
+				  <&g5l_pll CLK_TGPLL_192M>,
+				  <&g5l_pll CLK_TGPLL_256M>,
+				  <&g5r_pll CLK_PIXELPLL>,
+				  <&g5l_pll CLK_TGPLL_307M2>,
+				  <&g5l_pll CLK_TGPLL_384M>,
+				  <&g5l_pll CLK_TGPLL_512M>,
+				  <&ipa_clk CLK_IPA_DPU>,
+				  <&ipa_clk CLK_IPA_DPI>,
+				  <&aonapb_gate CLK_DPU_VSP_EB>,
+				  <&ipadispc_gate CLK_IPA_DPU1_EB>;
+		dpu1_port: port {
+			dpu1_out: endpoint {
+				remote-endpoint = <&dptx_in>;
+			};
+		};
+	};
+
+	iommu_dispc1: iommu@31880000 {
+		compatible = "unisoc,iommuvaul6p-dispc1";
+		reg = <0x0 0x31880000 0x0 0x80>,
+		      <0x0 0x31880800 0x0 0x80>;
+		iova-base = <0x30000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_reg";
+		status = "disable";
+		#iommu-cells = <0>;
+	};
+
+	dptx: dptx@31890000 {
+		compatible = "sprd,dptx";
+		reg = <0x0 0x31890000 0x0 0x70000>;
+		sprd,syscon-aon-apb = <&aon_apb_regs>;
+		sprd,syscon-usb31-dp-phy = <&ipa_usb31_dp_regs>;
+		sprd,syscon-ipa-dispc1-glb-apb = <&ipa_dispc_regs>;
+		sprd,syscon-ipa-apb = <&ipa_apb_regs>;
+		sprd,syscon-force-shutdown = <&pmu_apb_regs>;
+		status = "disable";
+		interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&pd_ipa_sys>;
+		clock-names = "clk_ipa_apb_dpu1_eb",
+				"clk_ipa_apb_dptx_eb",
+				"clk_ipa_apb_tca_eb",
+				"clk_ipa_apb_usb31pll_eb";
+		clocks = <&ipadispc_gate CLK_IPA_DPU1_EB>,
+			<&ipadispc_gate CLK_IPA_DPTX_EB>,
+			<&ipadispc_gate CLK_IPA_TCA_EB>,
+			<&ipadispc_gate CLK_IPA_USB31PLL_EB>;
+		extcon = <&pmic_pd>;
+		dp-usbphy = <&ssphy>, <&ssphy>;
+		#sound-dai-cells = <1>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@1 {
+				reg = <1>;
+				dptx_in: endpoint {
+					remote-endpoint = <&dpu1_out>;
+				};
+			};
+		};
+	};
+};
+
+/ {
+	gsp0: sprd-gsp0@31100000 {
+		compatible = "sprd,gsp-r9p0-qogirn6pro";
+		reg = <0 0x30130000 0 0x300>;
+		name = "sprd-gsp0";
+		core-cnt = <1>;
+		io-cnt = <7>;
+		cores = <&gsp0_core0>;
+
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+	};
+
+	gsp1: sprd-gsp1@31200000 {
+		compatible = "sprd,gsp-lite-r4p0-qogirn6pro";
+		name = "sprd-gsp1";
+		core-cnt = <1>;
+		io-cnt = <7>;
+		cores = <&gsp1_core0>;
+
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+	};
+
+	perf_dummy_crtc: perf_dummy_crtc{
+		compatible = "sprd,perf-dummy-crtc";
+		status = "okay";
+		reg = <0x0 0x31000000 0x0 0x1000>;
+
+		dma-coherent;
+		perf_dummy_crtc_port: port {
+			perf_dummy_crtc_out: endpoint {
+				remote-endpoint = <&perf_dummy_connector_in>;
+			};
+		};
+	};
+
+	perf_dummy_connector: perf_dummy_connector {
+		compatible = "sprd,perf-dummy-connector";
+		status = "okay";
+
+		port {
+			perf_dummy_connector_in: endpoint {
+				remote-endpoint = <&perf_dummy_crtc_out>;
+			};
+		};
+	};
+
+	display-subsystem {
+		compatible = "sprd,display-subsystem";
+		ports = <&dpu_port>, <&dpu1_port>;
+		gsp = <&gsp0>, <&gsp1>;
+		perf_ports = <&perf_dpu_port>;
+		perf_dummy_ports = <&perf_dummy_crtc_port>;
+	};
+};
+
+&dpu {
+	clock-names = "clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_312m5",
+			"clk_src_384m",
+			"clk_src_409m6",
+			"clk_src_416m7",
+			"clk_src_512m",
+			"clk_src_614m4",
+			"clk_dpu_core",
+			"clk_dpu_dpi",
+			"clk_dpuvsp_eb",
+			"clk_dpuvsp_disp_eb",
+			"clk_master_div6_eb";
+
+	clocks = <&g5l_pll CLK_TGPLL_256M>,
+		<&g5l_pll CLK_TGPLL_307M2>,
+		<&dphy_312m5>,
+		<&g5l_pll CLK_TGPLL_384M>,
+		<&g5l_pll CLK_V4NRPLL_409M6>,
+		<&dphy_416m7>,
+		<&g5l_pll CLK_TGPLL_512M>,
+		<&g5l_pll CLK_V4NRPLL_614M4>,
+		<&dpu_vsp_clk CLK_DISPC0>,
+		<&dpu_vsp_clk CLK_DISPC0_DPI>,
+		<&aonapb_gate CLK_DPU_VSP_EB>,
+		<&dpu_vsp_gate CLK_DPU_EB>,
+		<&dpu_vsp_gate CLK_M_DIV6CLK_GATE_EN>;
+};
+
+&perf_dpu {
+	clock-names = "clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_312m5",
+			"clk_src_384m",
+			"clk_src_409m6",
+			"clk_src_416m7",
+			"clk_src_512m",
+			"clk_src_614m4",
+			"clk_dpu_core",
+			"clk_dpu_dpi",
+			"clk_dpuvsp_eb",
+			"clk_dpuvsp_disp_eb",
+			"clk_master_div6_eb";
+
+	clocks = <&g5l_pll CLK_TGPLL_256M>,
+		<&g5l_pll CLK_TGPLL_307M2>,
+		<&dphy_312m5>,
+		<&g5l_pll CLK_TGPLL_384M>,
+		<&g5l_pll CLK_V4NRPLL_409M6>,
+		<&dphy_416m7>,
+		<&g5l_pll CLK_TGPLL_512M>,
+		<&g5l_pll CLK_V4NRPLL_614M4>,
+		<&dpu_vsp_clk CLK_DISPC0>,
+		<&dpu_vsp_clk CLK_DISPC0_DPI>,
+		<&aonapb_gate CLK_DPU_VSP_EB>,
+		<&dpu_vsp_gate CLK_DPU_EB>,
+		<&dpu_vsp_gate CLK_M_DIV6CLK_GATE_EN>;
+};
+
+
+&perf_connector {
+	sprd,dummy-panel-work-mode = <1>;
+	sprd,dummy-panel-color-format = "rgb888";
+	sprd,dpi-clk-pixelpll;
+	sprd,width-mm = <68>;
+	sprd,height-mm = <152>;
+
+	sprd,hw-vrr-en;
+	sprd,vrr-enabled;
+	sprd,vrr-max-layers = <2>;
+
+	sprd,slice-width = <540>;
+	sprd,slice-height = <20>;
+	sprd,output-bpc = <8>;
+	sprd,dsc-enable = <0>;
+	sprd,dual-dsi-enable = <0>;
+
+	sprd,sr-width = <720>;
+	sprd,sr-height = <1640>;
+
+	display-timings {
+		native-mode = <&dummy_timing0>;
+
+		dummy_timing0: timing0 {
+			clock-frequency = <384000000>;
+			hactive = <1080>;
+			vactive = <2408>; /*2408*/
+			hback-porch = <56>;
+			hfront-porch = <130>;
+			vback-porch = <30>;
+			vfront-porch = <2559>;
+			hsync-len = <12>;
+			vsync-len = <10>;
+		};
+
+		dummy_timing1: timing1 {
+			clock-frequency = <384000000>;
+			hactive = <1080>;
+			vactive = <2408>; /*2408*/
+			hback-porch = <56>;
+			hfront-porch = <130>;
+			vback-porch = <30>;
+			vfront-porch = <890>;
+			hsync-len = <12>;
+			vsync-len = <10>;
+		};
+
+		dummy_timing2: timing2 {
+			clock-frequency = <384000000>;
+			hactive = <1080>;
+			vactive = <2408>; /*2408*/
+			hback-porch = <56>;
+			hfront-porch = <130>;
+			vback-porch = <30>;
+			vfront-porch = <46>;
+			hsync-len = <12>;
+			vsync-len = <10>;
+		};
+	};
+};
+
+&perf_dummy_connector {
+	sprd,dummy-panel-work-mode = <1>;
+	sprd,dummy-panel-color-format = "rgb888";
+	sprd,dpi-clk-pixelpll;
+	sprd,width-mm = <68>;
+	sprd,height-mm = <152>;
+
+	sprd,hw-vrr-en;
+	sprd,vrr-enabled;
+	sprd,vrr-max-layers = <2>;
+
+	sprd,sr-width = <720>;
+	sprd,sr-height = <1640>;
+
+	display-timings {
+		native-mode = <&dummy_crtc_timing0>;
+
+		dummy_crtc_timing0: timing0 {
+			clock-frequency = <384000000>;
+			hactive = <1080>;
+			vactive = <2408>; /*2408*/
+			hback-porch = <56>;
+			hfront-porch = <130>;
+			vback-porch = <30>;
+			vfront-porch = <2559>;
+			hsync-len = <12>;
+			vsync-len = <10>;
+		};
+
+		dummy_crtc_timing1: timing1 {
+			clock-frequency = <384000000>;
+			hactive = <1080>;
+			vactive = <2408>; /*2408*/
+			hback-porch = <56>;
+			hfront-porch = <130>;
+			vback-porch = <30>;
+			vfront-porch = <890>;
+			hsync-len = <12>;
+			vsync-len = <10>;
+		};
+
+		dummy_crtc_timing2: timing2 {
+			clock-frequency = <384000000>;
+			hactive = <1080>;
+			vactive = <2408>; /*2408*/
+			hback-porch = <56>;
+			hfront-porch = <130>;
+			vback-porch = <30>;
+			vfront-porch = <46>;
+			hsync-len = <12>;
+			vsync-len = <10>;
+		};
+	};
+};
+
+&dsi {
+	clock-names = "clk_dsi0_eb",
+			"clk_dpu_dpi",
+			"clk_src_384m",
+			"clk_dpuvsp_eb",
+			"clk_dpuvsp_disp_eb";
+	clocks = <&dpu_vsp_gate CLK_DSI0_EB>,
+		<&dpu_vsp_clk CLK_DISPC0_DPI>,
+		<&g5l_pll CLK_TGPLL_384M>,
+		<&aonapb_gate CLK_DPU_VSP_EB>,
+		<&dpu_vsp_gate CLK_DPU_EB>;
+};
+
+&dsi1 {
+	clock-names = "clk_dsi1_eb";
+	clocks = <&dpu_vsp_gate CLK_DSI1_EB>;
+};

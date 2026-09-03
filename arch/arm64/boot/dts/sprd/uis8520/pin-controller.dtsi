@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc pin-controller dts file
+ *
+ * Copyright (C) 2022, Unisoc Inc.
+ *
+ */
+
+&aon {
+	pin_controller: pinctrl@2e0000 {
+		compatible = "sprd,qogirn6pro-pinctrl";
+		reg = <0x2e0000 0x10000>;
+
+		vbc_iis3_0: vbc-iis3-0 {
+			pins = "QOGIRN6PRO_IIS_INF0_SYS_SEL";
+			sprd,control = <0xb>;
+		};
+
+		vbc_iism0_0: vbc-iism0-0 {
+			pins = "QOGIRN6PRO_IIS_INF0_SYS_SEL";
+			sprd,control = <0xd>;
+		};
+
+		vbc_iis_to_pad: vbc-iis-to-pad {
+			pins = "QOGIRN6PRO_VBC_IIS_INF_SYS_SEL";
+			sprd,control = <0x0>;
+		};
+
+		vbc_iis_to_aon_usb: vbc-iis-to-aon-usb {
+			pins = "QOGIRN6PRO_VBC_IIS_INF_SYS_SEL";
+			sprd,control = <0x1>;
+		};
+
+		vbc_iism0_1: vbc-iism0-1 {
+			pins = "QOGIRN6PRO_IIS_INF1_SYS_SEL";
+			sprd,control = <0xd>;
+		};
+
+		vbc_iism0_3: vbc-iism0-3 {
+			pins = "QOGIRN6PRO_IIS_INF3_SYS_SEL";
+			sprd,control = <0xd>;
+		};
+
+		vbc_iis0_3: vbc-iis0-3 {
+			pins = "QOGIRN6PRO_IIS_INF3_SYS_SEL";
+			sprd,control = <0x8>;
+		};
+
+		vbc_iis1_3: vbc-iis1-3 {
+			pins = "QOGIRN6PRO_IIS_INF3_SYS_SEL";
+			sprd,control = <0x9>;
+		};
+
+		vbc_iis2_3: vbc-iis2-3 {
+			pins = "QOGIRN6PRO_IIS_INF3_SYS_SEL";
+			sprd,control = <0xa>;
+		};
+
+		vbc_iis3_3: vbc-iis3-3 {
+			pins = "QOGIRN6PRO_IIS_INF3_SYS_SEL";
+			sprd,control = <0xb>;
+		};
+
+		ap_iis0_3: ap-iis0-3 {
+			pins = "QOGIRN6PRO_IIS_INF3_SYS_SEL";
+			sprd,control = <0x0>;
+		};
+
+		audcp_tdm3_4: audcp-tdm3-4 {
+			pins = "QOGIRN6PRO_IIS_INF4_SYS_SEL";
+			sprd,control = <0x7>;
+		};
+
+		audcp_tdm4_4: audcp-tdm4-4 {
+			pins = "QOGIRN6PRO_IIS_INF4_SYS_SEL";
+			sprd,control = <0x10>;
+		};
+
+		ap_iis0_5: ap-iis0-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x0>;
+		};
+
+		ap_iis1_5: ap-iis1-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x1>;
+		};
+
+		ap_iis2_5: ap-iis2-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x2>;
+		};
+
+		aon_iis0_5: aon-iis0-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x3>;
+		};
+
+		audcp_iis0_5: audcp-iis0-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x4>;
+		};
+
+		audcp_iis1_5: audcp-iis1-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x5>;
+		};
+
+		audcp_iis2_5: audcp-iis2-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x6>;
+		};
+
+		audcp_tdm3_5: audcp-tdm3-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x7>;
+		};
+
+		vbc_iis0_5: vbc-iis0-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x8>;
+		};
+
+		vbc_iis1_5: vbc-iis1-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x9>;
+		};
+
+		vbc_iis2_5: vbc-iis2-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0xa>;
+		};
+
+		vbc_iis3_5: vbc-iis3-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0xb>;
+		};
+
+		vbc_iis4_5: vbc-iis4-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0xc>;
+		};
+
+		vbc_mst_iis0_5: vbc-mst-iis0-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0xd>;
+		};
+
+		vbc_mst_iis1_5: vbc-mst-iis1-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0xe>;
+		};
+
+		vbc_mst_iis2_5: vbc-mst-iis2-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0xf>;
+		};
+
+		audcp_tdm4_5: audcp-tdm4-5 {
+			pins = "QOGIRN6PRO_IIS_INF5_SYS_SEL";
+			sprd,control = <0x10>;
+		};
+
+		vad_din_sel_add0: vad-din-sel-add0 {
+			pins = "QOGIRN6PRO_VAD_DIN_SEL";
+			sprd,control = <0x0>;
+		};
+
+		vad_din_sel_add1: vad-din-sel-add1 {
+			pins = "QOGIRN6PRO_VAD_DIN_SEL";
+			sprd,control = <0x1>;
+		};
+	};
+};

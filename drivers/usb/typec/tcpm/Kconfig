@@ -9,6 +9,15 @@ config TYPEC_TCPM
 	  The Type-C Port Controller Manager provides a USB PD and USB Type-C
 	  state machine for use with Type-C Port Controllers.
 
+config SPRD_TYPEC_TCPM
+	tristate "USB Type-C Port Controller Manager For Sprd"
+	depends on USB
+	select USB_ROLE_SWITCH
+	select POWER_SUPPLY
+	help
+	  The Type-C Port Controller Manager provides a USB PD and USB Type-C
+	  state machine for use with Type-C Port Controllers.
+
 if TYPEC_TCPM
 
 config TYPEC_TCPCI
@@ -51,6 +60,13 @@ config TYPEC_FUSB302
 	  The Fairchild FUSB302 Type-C chip driver that works with
 	  Type-C Port Controller Manager to provide USB PD and USB
 	  Type-C functionalities.
+
+config SC27XX_PD
+	tristate "Spreadtrum SC27XX Serials PMICs Power Delivery Controller Driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST || MFD_UMP96XX_PMIC
+	help
+	  Sc27xx Power Delivery Driver that works with
+	  Type-C Port Controller Manager to provide USB PD functionalities.
 
 config TYPEC_WCOVE
 	tristate "Intel WhiskeyCove PMIC USB Type-C PHY driver"

@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc JPG SoC dts file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&mm {
+	jpg: jpg-codec@62700000 {
+		compatible = "sprd,sharkl5pro-jpg";
+		reg = <0 0x62700000 0 0xc000>;
+		interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+		reset-syscon = <&mm_ahb_regs
+			REG_MM_AHB_RF_AHB_RST
+			MASK_MM_AHB_RF_JPG_SOFT_RST>;
+		aon-apb-eb-syscon = <&aon_apb_regs
+			REG_AON_APB_RF_APB_EB0
+			MASK_AON_APB_RF_MM_EB>;
+		iommus = <&iommu_jpg>;
+		power-domains = <&mm_domain>;
+		sprd,qos = <&jpg_qos>;
+
+		clock-names = "jpg_domain_eb",
+			"jpg_dev_eb",
+			"jpg_ckg_eb",
+			"jpg_clk",
+			"clk_src_76m8",
+			"clk_src_128m",
+			"clk_src_256m",
+			"clk_src_384m";
+
+		clocks = <&aonapb_gate CLK_MM_EB>,
+			<&mm_gate CLK_MM_JPG_EB>,
+			<&mm_gate CLK_MM_CKG_EB>,
+			<&mm_clk CLK_JPG>,
+			<&pll2 CLK_TWPLL_76M8>,
+			<&pll2 CLK_TWPLL_128M>,
+			<&pll2 CLK_TWPLL_256M>,
+			<&pll2 CLK_TWPLL_384M>;
+	};
+
+	iommu_jpg: iommu@62700300 {
+		compatible = "unisoc,iommuvaul5p-jpg";
+		reg = <0x0 0x62700300 0x0 0x80>,
+			<0x0 0x62700300 0x0 0x80>;
+		iova-base = <0x60000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_reg";
+		#iommu-cells = <0>;
+	};
+};

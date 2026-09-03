@@ -15,6 +15,10 @@
 	.set noat
 	.cfi_sections	.debug_frame
 
+/* Stack offsets.  */
+#define SP_OFF			184
+#define SWITCH_STACK_SIZE	320
+
 .macro	CFI_START_OSF_FRAME	func
 	.align	4
 	.globl	\func
@@ -195,8 +199,8 @@ CFI_END_OSF_FRAME entArith
 CFI_START_OSF_FRAME entMM
 	SAVE_ALL
 /* save $9 - $15 so the inline exception code can manipulate them.  */
-	subq	$sp, 64, $sp
-	.cfi_adjust_cfa_offset	64
+	subq	$sp, 56, $sp
+	.cfi_adjust_cfa_offset	56
 	stq	$9, 0($sp)
 	stq	$10, 8($sp)
 	stq	$11, 16($sp)
@@ -211,7 +215,7 @@ CFI_START_OSF_FRAME entMM
 	.cfi_rel_offset	$13, 32
 	.cfi_rel_offset	$14, 40
 	.cfi_rel_offset	$15, 48
-	addq	$sp, 64, $19
+	addq	$sp, 56, $19
 /* handle the fault */
 	lda	$8, 0x3fff
 	bic	$sp, $8, $8
@@ -224,7 +228,7 @@ CFI_START_OSF_FRAME entMM
 	ldq	$13, 32($sp)
 	ldq	$14, 40($sp)
 	ldq	$15, 48($sp)
-	addq	$sp, 64, $sp
+	addq	$sp, 56, $sp
 	.cfi_restore	$9
 	.cfi_restore	$10
 	.cfi_restore	$11
@@ -232,7 +236,7 @@ CFI_START_OSF_FRAME entMM
 	.cfi_restore	$13
 	.cfi_restore	$14
 	.cfi_restore	$15
-	.cfi_adjust_cfa_offset	-64
+	.cfi_adjust_cfa_offset	-56
 /* finish up the syscall as normal.  */
 	br	ret_from_sys_call
 CFI_END_OSF_FRAME entMM
@@ -379,8 +383,8 @@ entUnaUser:
 	.cfi_restore	$0
 	.cfi_adjust_cfa_offset	-256
 	SAVE_ALL		/* setup normal kernel stack */
-	lda	$sp, -64($sp)
-	.cfi_adjust_cfa_offset	64
+	lda	$sp, -56($sp)
+	.cfi_adjust_cfa_offset	56
 	stq	$9, 0($sp)
 	stq	$10, 8($sp)
 	stq	$11, 16($sp)
@@ -396,7 +400,7 @@ entUnaUser:
 	.cfi_rel_offset	$14, 40
 	.cfi_rel_offset	$15, 48
 	lda	$8, 0x3fff
-	addq	$sp, 64, $19
+	addq	$sp, 56, $19
 	bic	$sp, $8, $8
 	jsr	$26, do_entUnaUser
 	ldq	$9, 0($sp)
@@ -406,7 +410,7 @@ entUnaUser:
 	ldq	$13, 32($sp)
 	ldq	$14, 40($sp)
 	ldq	$15, 48($sp)
-	lda	$sp, 64($sp)
+	lda	$sp, 56($sp)
 	.cfi_restore	$9
 	.cfi_restore	$10
 	.cfi_restore	$11
@@ -414,7 +418,7 @@ entUnaUser:
 	.cfi_restore	$13
 	.cfi_restore	$14
 	.cfi_restore	$15
-	.cfi_adjust_cfa_offset	-64
+	.cfi_adjust_cfa_offset	-56
 	br	ret_from_sys_call
 CFI_END_OSF_FRAME entUna
 

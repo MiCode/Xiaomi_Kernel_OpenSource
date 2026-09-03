@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2020, Unisoc Inc.
+ */
+
+#include "modem-4g-common.dtsi"
+
+&reserved_memory {
+
+    pmic_reserved: pmic-mem@80005000 {
+			reg = <0x0 0x80005000 0x0 0x00001000>;
+	};
+
+	wcn_reserved: wcn-mem@87000000 {
+		reg = <0x0 0x87000000 0x0 0x00800000>;
+	};
+
+	sp_ddr_reserved: sp_ddr-mem@88000000 {
+		reg = <0x0 0x88000000 0x0 0x00300000>;
+	};
+
+	audiodsp_reserved: audiodsp-mem@88f00000 {
+		reg = <0x0 0x88f00000 0x0 0x00700000>;
+	};
+
+	audio_reserved: audio-mem@94100000 {
+		reg = <0x0 0x94100000 0x0 0x00300000>;
+	};
+
+	/* double logo_reserved memory size to support buffer swap in LK */
+	/* the @addr value is not accurate on UMS9230, please refer to the reg value */
+	logobuffer@9e000000 {
+		reg = <0x0 0x9caa8000 0x0 0x013d8000>;
+	};
+};

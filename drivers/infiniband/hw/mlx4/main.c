@@ -392,10 +392,10 @@ static int mlx4_ib_del_gid(const struct ib_gid_attr *attr, void **context)
 	}
 	spin_unlock_bh(&iboe->lock);
 
-	if (gids)
+	if (!ret && hw_update) {
 		ret = mlx4_ib_update_gids(gids, ibdev, attr->port_num);
-
-	kfree(gids);
+		kfree(gids);
+	}
 	return ret;
 }
 

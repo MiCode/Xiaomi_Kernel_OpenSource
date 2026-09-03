@@ -580,7 +580,7 @@ ieee80211_get_sband_iftype_data(const struct ieee80211_supported_band *sband,
 {
 	int i;
 
-	if (WARN_ON(iftype >= NUM_NL80211_IFTYPES))
+	if (WARN_ON(iftype >= NL80211_IFTYPE_MAX))
 		return NULL;
 
 	if (iftype == NL80211_IFTYPE_AP_VLAN)

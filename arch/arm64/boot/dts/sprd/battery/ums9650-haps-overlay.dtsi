@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc nt36672e Truly LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+#include <dt-bindings/usb/pd.h>
+
+&bat {
+	compatible = "simple-battery";
+	status = "okay";
+	charge-full-design-microamp-hours = <2950000>;
+	charge-full-microamp-hours = <2950000>;
+	charge-term-current-microamp = <60000>;
+	constant-charge-voltage-max-microvolt = <4340000>;
+	factory-internal-resistance-micro-ohms = <252000>;
+	voltage-min-design-microvolt = <3450000>;
+
+	fast-charge-threshold-microvolt = <4100000>;
+	fullbatt-voltage = <4300000>;
+	fullbatt-current = <120000>;
+	first-fullbatt-current = <150000>;
+	fullbatt-track-end-vol = <4295000>;
+	fullbatt-track-end-cur = <130000>;
+	first-calib-voltage = <3580000>;
+	first-calib-capacity = <50>;
+
+	ir-cv-offset-microvolt = <100000>;
+	ir-rc-micro-ohms = <20000>;
+	ir-us-upper-limit-microvolt = <4500000>;
+
+	ocv-capacity-celsius = <20>;
+	ocv-capacity-table-0 = <4313000 100>, <4254000 95>, <4201000 90>,
+				<4151000 85>, <4102000 80>, <4060000 75>,
+				<4006000 70>, <3973000 65>, <3930000 60>,
+				<3882000 55>, <3851000 50>, <3829000 45>,
+				<3810000 40>, <3795000 35>, <3781000 30>,
+				<3765000 25>, <3746000 20>, <3722000 15>,
+				<3694000 10>, <3682000 5>, <3400000 0>;
+	voltage-temp-table = <1084000 800>, <975000 850>, <868000 900>,
+				  <765000 950>, <668000 1000>, <580000 1050>,
+				  <501000 1100>, <430000 1150>, <369000 1200>,
+				  <315000 1250>, <270000 1300>, <231000 1350>,
+				  <197000 1400>, <169000 1450>, <145000 1500>,
+				  <125000 1550>, <108000 1600>, <93000 1650>;
+	capacity-temp-table = <45 100>, <25 100>, <10 100>, <0 95>, <(-10) 90>;
+	resistance-temp-table = <45 53>, <25 100>, <10 395>, <0 567>, <(-10) 793>;
+	temp-advance-fullcap-table = <50 100>, <25 100>, <10 100>, <0 100>,
+		<(-10) 100>, <(-20) 100>;
+
+	charge-sdp-current-microamp = <500000 500000>;
+	charge-dcp-current-microamp = <2000000 3000000>;
+	charge-cdp-current-microamp = <1500000 1500000>;
+	charge-unknown-current-microamp = <1000000 1000000>;
+	charge-fchg-current-microamp = <3000000 2000000>;
+	charge-flash-current-microamp = <5000000 2700000>;
+
+	dcp-jeita-temp-table = <1000 1030 0 4340000>, <1150 1180 700000 4340000>,
+		<1450 1420 2000000 4340000>, <1600 1570 700000 4100000>;
+	sdp-jeita-temp-table = <1000 1030 0 4340000>, <1150 1180 500000 4340000>,
+		<1450 1420 500000 4340000>, <1600 1570 500000 4100000>;
+	cdp-jeita-temp-table = <1000 1030 0 4340000>, <1150 1180 700000 4340000>,
+		<1450 1420 1500000 4340000>, <1600 1570 700000 4100000>;
+	unknown-jeita-temp-table = <1000 1030 0 4340000>, <1150 1180 700000 4340000>,
+		<1450 1420 1000000 4340000>, <1600 1570 700000 4100000>;
+	fchg-jeita-temp-table = <1000 1030 0 4340000>, <1150 1180 700000 4340000>,
+		<1450 1420 3250000 4340000>, <1600 1570 700000 4100000>;
+	flash-jeita-temp-table = <1000 1030 0 4340000>, <1150 1180 1000000 4340000>,
+		<1450 1420 5000000 4340000>, <1600 1570 1000000 4100000>;
+};
+
+&cm {
+	compatible = "charger-manager";
+	status = "okay";
+	cm-name = "battery";
+	cm-poll-mode = <2>;
+	cm-poll-interval = <15000>;
+	cm-battery-stat = <2>;
+
+	cm-fullbatt-vchkdrop-ms = <30000>;
+	cm-fullbatt-vchkdrop-volt = <60000>;
+	cm-fullbatt-capacity = <100>;
+	/*Charge pump target charge current*/
+	cm-cp-taper-current = <1000000>;
+
+	cm-chargers = "sgm41511_charger";
+	cm-charge-pumps = "bq2597x-standalone";
+	cm-fuel-gauge = "sc27xx-fgu";
+
+	/* in deci centigrade */
+	cm-battery-cold = <200>;
+	cm-battery-cold-in-minus;
+	cm-battery-hot = <800>;
+	cm-battery-temp-diff = <100>;
+
+	/* Allow charging for 6hr */
+	cm-charging-max = <21600000>;
+	/* recovery charging after stop charging 45min */
+	cm-discharging-max = <2700000>;
+
+	/* the interval to feed charger watchdog */
+	cm-wdt-interval = <60>;
+
+	/* drop voltage in microVolts to allow shutdown */
+	cm-shutdown-voltage = <3100000>;
+
+	/* when 99% of the time is exceeded, it will be forced to 100% */
+	cm-tickle-time-out = <1500>;
+
+	/* how much time to allow capacity change */
+	cm-one-cap-time = <30>;
+
+	cm-thermal-zone = "board-thmzone";
+
+	/* when the safe charging voltage is exceeded, stop charging */
+	cm-charge-voltage-max = <6500000>;
+	cm-fast-charge-voltage-max = <10500000>;
+	cm-flash-charge-voltage-max = <12000000>;
+	/* drop voltage in microVolts to restart charging */
+	cm-charge-voltage-drop = <700000>;
+	cm-fast-charge-voltage-drop = <700000>;
+	cm-flash-charge-voltage-drop = <1000000>;
+
+	/* sprd_fchg parameter */
+	sprd,support-fchg;
+	sprd,support-pd-pps;
+	sprd,pd-fixed-max-microwatt = <18000000>;
+
+	monitored-battery-0 = <&bat>;
+	cm-capacity-track;
+	cm-keep-awake;
+
+	phys = <&hsphy>;
+	pd-extcon-enable;
+	extcon = <&extcon_gpio>, <&pmic_pd>;
+
+};
+
+&i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	sgm41511_chg: charger@6b {
+		compatible = "Sgm,sgm41511_chg";
+		reg = <0x6b>;
+		monitored-battery-0 = <&bat>;
+		vddvbus:otg-vbus {
+			regulator-name = "vddvbus";
+		};
+	};
+
+	bq2597x_chg: charger@65 {
+		compatible = "ti,bq2597x-standalone";
+		reg = <0x65>;
+		irq-gpio = <&ap_gpio 193 GPIO_ACTIVE_LOW>;
+
+		ti,bq2597x,bus-therm-disable = <1>;
+		ti,bq2597x,regulation-disable = <1>;
+
+		ti,bq2597x,bat-ovp-threshold = <4400>;
+		ti,bq2597x,bat-ovp-alarm-threshold = <4340>;
+		ti,bq2597x,bat-ocp-threshold = <5500>;
+		ti,bq2597x,bat-ocp-alarm-threshold = <5000>;
+		ti,bq2597x,bus-ovp-threshold = <11500>;
+		ti,bq2597x,bus-ovp-alarm-threshold = <10500>;
+		ti,bq2597x,bus-ocp-threshold = <3000>;
+		ti,bq2597x,bus-ocp-alarm-threshold = <2700>;
+		ti,bq2597x,bat-ucp-alarm-threshold = <1000>;
+		ti,bq2597x,bat-therm-threshold = <0x15>;
+		ti,bq2597x,bus-therm-threshold = <0x15>;
+		ti,bq2597x,die-therm-threshold = <0xc8>;
+		ti,bq2597x,ac-ovp-threshold = <13>;
+		ti,bq2597x,sense-resistor-mohm = <5>;
+		ti,bq2597x,adc-sample-bits = <13>;
+		ti,bq2597x,ibat-regulation-threshold = <300>;
+		ti,bq2597x,vbat-regulation-threshold = <100>;
+		ti,bq2597x,vdrop-threshold = <400>;
+		ti,bq2597x,vdrop-deglitch = <5000>;
+		ti,bq2597x,ss-timeout = <100000>;
+		ti,bq2597x,watchdog-timer = <30000>;
+	};
+};
+
+&pmic_fgu {
+	monitored-battery-0 = <&bat>;
+	fgu-cap-remap-table = <1 2 3>, <2 3 2>, <98 99 2>, <99 100 3>;
+	sprd,calib-resistance-micro-ohms = <4850>;
+	sprd,comp-resistance-mohm = <20>;
+
+	fgu-capacity-track;
+	phys = <&hsphy>;
+};
+
+&pmic_fchg {
+	status = "okay";
+	sprd,input-voltage-microvolt = <5000000>;
+
+	/* External device current compensation code value during sfcp handshaking */
+	sprd,ext-dev-comp-cur-code = <0>;
+};
+
+&pmic_pd {
+	status = "okay";
+	sprd,syscon-aon-apb = <&aon_apb_regs>;
+	usb_con: connector {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 400, PDO_FIXED_USB_COMM |
+			       PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)>;
+		sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM |
+			     PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)
+			     PDO_PPS_APDO(3300, 11000, 3000)>;
+		op-sink-microwatt = <10000000>;
+	};
+};

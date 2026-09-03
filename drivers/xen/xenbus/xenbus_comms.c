@@ -309,8 +309,8 @@ static int process_msg(void)
 			virt_wmb();
 			req->state = xb_req_state_got_reply;
 			req->cb(req);
-		}
-		kref_put(&req->kref, xs_free_req);
+		} else
+			kfree(req);
 	}
 
 	mutex_unlock(&xs_response_mutex);
@@ -386,13 +386,14 @@ static int process_writes(void)
 	state.req->msg.type = XS_ERROR;
 	state.req->err = err;
 	list_del(&state.req->list);
-	if (state.req->state != xb_req_state_aborted) {
+	if (state.req->state == xb_req_state_aborted)
+		kfree(state.req);
+	else {
 		/* write err, then update state */
 		virt_wmb();
 		state.req->state = xb_req_state_got_reply;
 		wake_up(&state.req->wq);
 	}
-	kref_put(&state.req->kref, xs_free_req);
 
 	mutex_unlock(&xb_write_mutex);
 

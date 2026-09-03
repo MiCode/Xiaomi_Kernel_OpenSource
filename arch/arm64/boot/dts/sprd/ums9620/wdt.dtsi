@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+ *
+ * Unisoc USB dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	watchdog@1e0000 {
+		compatible = "sprd,wdt-r2p0-fiq";
+		reg = <0x1e0000 0x10000>;
+		interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
+		timeout-sec = <12>;
+		clock-names = "enable", "rtc_enable";
+		clocks = <&aonapb_gate CLK_APCPU_WDG_EB>,
+		       <&aonapb_gate CLK_AC_WDG_RTC_EB>;
+	};
+};

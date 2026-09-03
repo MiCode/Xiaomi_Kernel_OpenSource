@@ -251,6 +251,14 @@
 	status = "okay";
 };
 
+&usb_host0_ehci {
+	status = "okay";
+};
+
+&usb_host0_ohci {
+	status = "okay";
+};
+
 &vopb {
 	status = "okay";
 };

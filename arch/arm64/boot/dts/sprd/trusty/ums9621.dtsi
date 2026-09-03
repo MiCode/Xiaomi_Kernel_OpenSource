@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only) 
+/*
+ * ums9621.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+
+/ {
+	trusty {
+		compatible = "sprd,trusty-smc-v1";
+
+		irq {
+			compatible = "sprd,trusty-irq-v1";
+			interrupt-templates = <&gic 0 0 IRQ_TYPE_NONE>,
+					      <&gic 1 GIC_PPI IRQ_TYPE_LEVEL_LOW>,
+					      <&gic 1 GIC_SPI IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-ranges = < 0  15 0>,
+					   <16  31 1>,
+					   <32 223 2>;
+		};
+
+		virtio {
+			compatible = "sprd,trusty-virtio-v1";
+		};
+
+		log {
+			compatible = "sprd,trusty-log-v1";
+		};
+
+		sprd-tshm {
+			compatible = "sprd,tshm";
+			/* "tos_shm_reserved" relies on "ums9620-common.dtsi" file, so you need to
+                        include the file in this path -- "sprd/reserved-memory/ums9620-common.dtsi" */
+			memory-region = <&tos_shm_reserved>;
+		};
+
+		tui {
+			compatible = "sprd,trusty-tui-v1";
+		};
+	};
+};

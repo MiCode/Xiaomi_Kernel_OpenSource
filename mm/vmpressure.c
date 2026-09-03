@@ -19,6 +19,10 @@
 #include <linux/slab.h>
 #include <linux/swap.h>
 #include <linux/printk.h>
+#ifdef CONFIG_PROCESS_RECLAIM
+#include <linux/notifier.h>
+#include <linux/init.h>
+#endif
 #include <linux/vmpressure.h>
 
 #include <trace/hooks/mm.h>
@@ -47,6 +51,26 @@ static const unsigned long vmpressure_win = SWAP_CLUSTER_MAX * 16;
  */
 static const unsigned int vmpressure_level_med = 60;
 static const unsigned int vmpressure_level_critical = 95;
+
+#ifdef CONFIG_PROCESS_RECLAIM
+static struct vmpressure global_vmpressure;
+static BLOCKING_NOTIFIER_HEAD(vmpressure_notifier);
+
+int vmpressure_notifier_register(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&vmpressure_notifier, nb);
+}
+
+int vmpressure_notifier_unregister(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&vmpressure_notifier, nb);
+}
+
+static void vmpressure_notify(unsigned long pressure)
+{
+	blocking_notifier_call_chain(&vmpressure_notifier, pressure, NULL);
+}
+#endif
 
 /*
  * When there are too little pages left to scan, vmpressure() may miss the
@@ -119,6 +143,37 @@ static enum vmpressure_levels vmpressure_level(unsigned long pressure)
 	return VMPRESSURE_LOW;
 }
 
+#ifdef CONFIG_PROCESS_RECLAIM
+static unsigned long vmpressure_calc_pressure(unsigned long scanned,
+						    unsigned long reclaimed)
+{
+	unsigned long scale = scanned + reclaimed;
+	unsigned long pressure = 0;
+
+	/*
+	 * reclaimed can be greater than scanned for things such as reclaimed
+	 * slab pages. shrink_node() just adds reclaimed pages without a
+	 * related increment to scanned pages.
+	 */
+	if (reclaimed >= scanned)
+		goto out;
+	/*
+	 * We calculate the ratio (in percents) of how many pages were
+	 * scanned vs. reclaimed in a given time frame (window). Note that
+	 * time is in VM reclaimer's "ticks", i.e. number of pages
+	 * scanned. This makes it possible to set desired reaction time
+	 * and serves as a ratelimit.
+	 */
+	pressure = scale - (reclaimed * scale / scanned);
+	pressure = pressure * 100 / scale;
+
+out:
+	pr_debug("%s: %3lu  (s: %lu  r: %lu)\n", __func__, pressure,
+		 scanned, reclaimed);
+
+	return pressure;
+}
+#endif
 static enum vmpressure_levels vmpressure_calc_level(unsigned long scanned,
 						    unsigned long reclaimed)
 {
@@ -184,6 +239,9 @@ static void vmpressure_work_fn(struct work_struct *work)
 	struct vmpressure *vmpr = work_to_vmpressure(work);
 	unsigned long scanned;
 	unsigned long reclaimed;
+#ifdef CONFIG_PROCESS_RECLAIM
+	unsigned long pressure;
+#endif
 	enum vmpressure_levels level;
 	bool ancestor = false;
 	bool signalled = false;
@@ -207,9 +265,12 @@ static void vmpressure_work_fn(struct work_struct *work)
 	vmpr->tree_scanned = 0;
 	vmpr->tree_reclaimed = 0;
 	spin_unlock(&vmpr->sr_lock);
-
+#ifdef CONFIG_PROCESS_RECLAIM
+	pressure = vmpressure_calc_pressure(scanned, reclaimed);
+	level = vmpressure_level(pressure);
+#else
 	level = vmpressure_calc_level(scanned, reclaimed);
-
+#endif
 	do {
 		if (vmpressure_event(vmpr, level, ancestor, signalled))
 			signalled = true;
@@ -217,6 +278,39 @@ static void vmpressure_work_fn(struct work_struct *work)
 	} while ((vmpr = vmpressure_parent(vmpr)));
 }
 
+#ifdef CONFIG_PROCESS_RECLAIM
+static void vmpressure_global(gfp_t gfp, unsigned long scanned,
+		unsigned long reclaimed)
+{
+	struct vmpressure *vmpr = &global_vmpressure;
+	unsigned long pressure;
+
+	if (!(gfp & (__GFP_HIGHMEM | __GFP_MOVABLE | __GFP_IO | __GFP_FS)))
+		return;
+
+	if (!scanned)
+		return;
+
+	spin_lock(&vmpr->sr_lock);
+	vmpr->scanned += scanned;
+	vmpr->reclaimed += reclaimed;
+	scanned = vmpr->scanned;
+	reclaimed = vmpr->reclaimed;
+	spin_unlock(&vmpr->sr_lock);
+
+	if (scanned < vmpressure_win)
+		return;
+
+	spin_lock(&vmpr->sr_lock);
+	vmpr->scanned = 0;
+	vmpr->reclaimed = 0;
+	spin_unlock(&vmpr->sr_lock);
+
+	pressure = vmpressure_calc_pressure(scanned, reclaimed);
+	vmpressure_notify(pressure);
+}
+
+#endif
 /**
  * vmpressure() - Account memory pressure through scanned/reclaimed ratio
  * @gfp:	reclaimer's gfp mask
@@ -326,6 +420,9 @@ void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 			memcg->socket_pressure = jiffies + HZ;
 		}
 	}
+#ifdef CONFIG_PROCESS_RECLAIM
+	vmpressure_global(gfp, scanned, reclaimed);
+#endif
 }
 
 /**
@@ -486,3 +583,11 @@ void vmpressure_cleanup(struct vmpressure *vmpr)
 	 */
 	flush_work(&vmpr->work);
 }
+#ifdef CONFIG_PROCESS_RECLAIM
+static int vmpressure_global_init(void)
+{
+	vmpressure_init(&global_vmpressure);
+	return 0;
+}
+late_initcall(vmpressure_global_init);
+#endif

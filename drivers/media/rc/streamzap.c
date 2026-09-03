@@ -26,6 +26,7 @@
 #include <linux/usb/input.h>
 #include <media/rc-core.h>
 
+#define DRIVER_VERSION	"1.61"
 #define DRIVER_NAME	"streamzap"
 #define DRIVER_DESC	"Streamzap Remote Control driver"
 
@@ -66,6 +67,9 @@ struct streamzap_ir {
 	struct device *dev;
 
 	/* usb */
+	struct usb_device	*usbdev;
+	struct usb_interface	*interface;
+	struct usb_endpoint_descriptor *endpoint;
 	struct urb		*urb_in;
 
 	/* buffer & dma */
@@ -82,7 +86,9 @@ struct streamzap_ir {
 	/* start time of signal; necessary for gap tracking */
 	ktime_t			signal_last;
 	ktime_t			signal_start;
+	bool			timeout_enabled;
 
+	char			name[128];
 	char			phys[64];
 };
 
@@ -173,10 +179,39 @@ static void sz_push_half_space(struct streamzap_ir *sz,
 	sz_push_full_space(sz, value & SZ_SPACE_MASK);
 }
 
-static void sz_process_ir_data(struct streamzap_ir *sz, int len)
+/*
+ * streamzap_callback - usb IRQ handler callback
+ *
+ * This procedure is invoked on reception of data from
+ * the usb remote.
+ */
+static void streamzap_callback(struct urb *urb)
 {
+	struct streamzap_ir *sz;
 	unsigned int i;
+	int len;
 
+	if (!urb)
+		return;
+
+	sz = urb->context;
+	len = urb->actual_length;
+
+	switch (urb->status) {
+	case -ECONNRESET:
+	case -ENOENT:
+	case -ESHUTDOWN:
+		/*
+		 * this urb is terminated, clean up.
+		 * sz might already be invalid at this point
+		 */
+		dev_err(sz->dev, "urb terminated, status: %d\n", urb->status);
+		return;
+	default:
+		break;
+	}
+
+	dev_dbg(sz->dev, "%s: received urb, len %d\n", __func__, len);
 	for (i = 0; i < len; i++) {
 		dev_dbg(sz->dev, "sz->buf_in[%d]: %x\n",
 			i, (unsigned char)sz->buf_in[i]);
@@ -207,7 +242,10 @@ static void sz_process_ir_data(struct streamzap_ir *sz, int len)
 					.duration = sz->rdev->timeout
 				};
 				sz->idle = true;
-				sz_push(sz, rawir);
+				if (sz->timeout_enabled)
+					sz_push(sz, rawir);
+				ir_raw_event_handle(sz->rdev);
+				ir_raw_event_reset(sz->rdev);
 			} else {
 				sz_push_full_space(sz, sz->buf_in[i]);
 			}
@@ -226,63 +264,30 @@ static void sz_process_ir_data(struct streamzap_ir *sz, int len)
 	}
 
 	ir_raw_event_handle(sz->rdev);
-}
-
-/*
- * streamzap_callback - usb IRQ handler callback
- *
- * This procedure is invoked on reception of data from
- * the usb remote.
- */
-static void streamzap_callback(struct urb *urb)
-{
-	struct streamzap_ir *sz;
-	int len;
-
-	if (!urb)
-		return;
-
-	sz = urb->context;
-	len = urb->actual_length;
-
-	switch (urb->status) {
-	case 0:
-		dev_dbg(sz->dev, "%s: received urb, len %d\n", __func__, len);
-		sz_process_ir_data(sz, len);
-		break;
-	case -ECONNRESET:
-	case -ENOENT:
-	case -ESHUTDOWN:
-		/*
-		 * this urb is terminated, clean up.
-		 * sz might already be invalid at this point
-		 */
-		dev_err(sz->dev, "urb terminated, status: %d\n", urb->status);
-		return;
-	default:
-		break;
-	}
-
 	usb_submit_urb(urb, GFP_ATOMIC);
 }
 
-static struct rc_dev *streamzap_init_rc_dev(struct streamzap_ir *sz,
-					    struct usb_device *usbdev)
+static struct rc_dev *streamzap_init_rc_dev(struct streamzap_ir *sz)
 {
 	struct rc_dev *rdev;
 	struct device *dev = sz->dev;
 	int ret;
 
 	rdev = rc_allocate_device(RC_DRIVER_IR_RAW);
-	if (!rdev)
+	if (!rdev) {
+		dev_err(dev, "remote dev allocation failed\n");
 		goto out;
+	}
 
-	usb_make_path(usbdev, sz->phys, sizeof(sz->phys));
+	snprintf(sz->name, sizeof(sz->name), "Streamzap PC Remote Infrared Receiver (%04x:%04x)",
+		 le16_to_cpu(sz->usbdev->descriptor.idVendor),
+		 le16_to_cpu(sz->usbdev->descriptor.idProduct));
+	usb_make_path(sz->usbdev, sz->phys, sizeof(sz->phys));
 	strlcat(sz->phys, "/input0", sizeof(sz->phys));
 
-	rdev->device_name = "Streamzap PC Remote Infrared Receiver";
+	rdev->device_name = sz->name;
 	rdev->input_phys = sz->phys;
-	usb_to_input_id(usbdev, &rdev->input_id);
+	usb_to_input_id(sz->usbdev, &rdev->input_id);
 	rdev->dev.parent = dev;
 	rdev->priv = sz;
 	rdev->allowed_protocols = RC_PROTO_BIT_ALL_IR_DECODER;
@@ -313,9 +318,9 @@ static int streamzap_probe(struct usb_interface *intf,
 			   const struct usb_device_id *id)
 {
 	struct usb_device *usbdev = interface_to_usbdev(intf);
-	struct usb_endpoint_descriptor *endpoint;
 	struct usb_host_interface *iface_host;
 	struct streamzap_ir *sz = NULL;
+	char buf[63], name[128] = "";
 	int retval = -ENOMEM;
 	int pipe, maxp;
 
@@ -323,6 +328,9 @@ static int streamzap_probe(struct usb_interface *intf,
 	sz = kzalloc(sizeof(struct streamzap_ir), GFP_KERNEL);
 	if (!sz)
 		return -ENOMEM;
+
+	sz->usbdev = usbdev;
+	sz->interface = intf;
 
 	/* Check to ensure endpoint information matches requirements */
 	iface_host = intf->cur_altsetting;
@@ -334,22 +342,22 @@ static int streamzap_probe(struct usb_interface *intf,
 		goto free_sz;
 	}
 
-	endpoint = &iface_host->endpoint[0].desc;
-	if (!usb_endpoint_dir_in(endpoint)) {
+	sz->endpoint = &(iface_host->endpoint[0].desc);
+	if (!usb_endpoint_dir_in(sz->endpoint)) {
 		dev_err(&intf->dev, "%s: endpoint doesn't match input device 02%02x\n",
-			__func__, endpoint->bEndpointAddress);
+			__func__, sz->endpoint->bEndpointAddress);
 		retval = -ENODEV;
 		goto free_sz;
 	}
 
-	if (!usb_endpoint_xfer_int(endpoint)) {
+	if (!usb_endpoint_xfer_int(sz->endpoint)) {
 		dev_err(&intf->dev, "%s: endpoint attributes don't match xfer 02%02x\n",
-			__func__, endpoint->bmAttributes);
+			__func__, sz->endpoint->bmAttributes);
 		retval = -ENODEV;
 		goto free_sz;
 	}
 
-	pipe = usb_rcvintpipe(usbdev, endpoint->bEndpointAddress);
+	pipe = usb_rcvintpipe(usbdev, sz->endpoint->bEndpointAddress);
 	maxp = usb_maxpacket(usbdev, pipe, usb_pipeout(pipe));
 
 	if (maxp == 0) {
@@ -371,13 +379,25 @@ static int streamzap_probe(struct usb_interface *intf,
 	sz->dev = &intf->dev;
 	sz->buf_in_len = maxp;
 
-	sz->rdev = streamzap_init_rc_dev(sz, usbdev);
+	if (usbdev->descriptor.iManufacturer
+	    && usb_string(usbdev, usbdev->descriptor.iManufacturer,
+			  buf, sizeof(buf)) > 0)
+		strscpy(name, buf, sizeof(name));
+
+	if (usbdev->descriptor.iProduct
+	    && usb_string(usbdev, usbdev->descriptor.iProduct,
+			  buf, sizeof(buf)) > 0)
+		snprintf(name + strlen(name), sizeof(name) - strlen(name),
+			 " %s", buf);
+
+	sz->rdev = streamzap_init_rc_dev(sz);
 	if (!sz->rdev)
 		goto rc_dev_fail;
 
 	sz->idle = true;
 	sz->decoder_state = PulseSpace;
 	/* FIXME: don't yet have a way to set this */
+	sz->timeout_enabled = true;
 	sz->rdev->timeout = SZ_TIMEOUT * SZ_RESOLUTION;
 	#if 0
 	/* not yet supported, depends on patches from maxim */
@@ -390,7 +410,8 @@ static int streamzap_probe(struct usb_interface *intf,
 
 	/* Complete final initialisations */
 	usb_fill_int_urb(sz->urb_in, usbdev, pipe, sz->buf_in,
-			 maxp, streamzap_callback, sz, endpoint->bInterval);
+			 maxp, (usb_complete_t)streamzap_callback,
+			 sz, sz->endpoint->bInterval);
 	sz->urb_in->transfer_dma = sz->dma_in;
 	sz->urb_in->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 
@@ -398,6 +419,9 @@ static int streamzap_probe(struct usb_interface *intf,
 
 	if (usb_submit_urb(sz->urb_in, GFP_ATOMIC))
 		dev_err(sz->dev, "urb submit failed\n");
+
+	dev_info(sz->dev, "Registered %s on usb%d:%d\n", name,
+		 usbdev->bus->busnum, usbdev->devnum);
 
 	return 0;
 
@@ -431,8 +455,9 @@ static void streamzap_disconnect(struct usb_interface *interface)
 	if (!sz)
 		return;
 
-	usb_kill_urb(sz->urb_in);
+	sz->usbdev = NULL;
 	rc_unregister_device(sz->rdev);
+	usb_kill_urb(sz->urb_in);
 	usb_free_urb(sz->urb_in);
 	usb_free_coherent(usbdev, sz->buf_in_len, sz->buf_in, sz->dma_in);
 

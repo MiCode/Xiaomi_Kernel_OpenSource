@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config UNISOC_DISP
+	tristate "Unisoc Display Platform"
+	depends on ARCH_SPRD || COMPILE_TEST
+	depends on DRM && OF
+	select DRM_KMS_HELPER
+	select VIDEOMODE_HELPERS
+	select DRM_GEM_CMA_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_MIPI_DSI
+	help
+	  Choose this option if you have a Unisoc chipset.
+	  If M is selected the module will be called sprd_drm.
+
+#
+#SPRD DRM GSP driver
+#
+source "drivers/unisoc_platform/sprd_disp/gsp/Kconfig"
+
+if UNISOC_DISP
+
+comment "Unisoc Dummy CRTC&Encoder"
+
+config DRM_SPRD_DUMMY
+	bool "Dummy CRTC&Encoder"
+	help
+	  Choose this option if you want to use dummy crtc&encoder.
+
+comment "Unisoc CRTCs"
+
+config DRM_SPRD_DPU0
+	bool "Primary Display Controller"
+	help
+	  Choose this option if you want to use primary display controller.
+
+comment "Unisoc Encoders and Bridges"
+
+config DRM_SPRD_DSI
+	bool "DSI Host Controller"
+	depends on DRM_SPRD_DPU0
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+	select BACKLIGHT_CLASS_DEVICE
+	help
+	  Choose this option if you want to use DSI host controller.
+
+config DRM_SPRD_WB_DEBUG
+	bool "DPU WriteBack Debug"
+	depends on DRM_SPRD_DPU0
+	help
+	  Choose this option if you want to use DPU WriteBack Debug.
+
+endif

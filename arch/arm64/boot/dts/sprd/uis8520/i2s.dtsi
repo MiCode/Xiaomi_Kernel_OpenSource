@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc I2S dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+#include <dt-bindings/sound/sprd,sprd-dai.h>
+
+&apahb {
+	i2s0: i2s@0x202b0000 {
+		compatible = "sprd,i2s";
+		reg = <0 0x202b0000 0 0x1000>;
+		sprd,dai_name = "i2s_bt_sco0";
+		sprd,hw_port = <0>;
+		sprd,syscon-ap-apb = <&ap_apb_regs>;
+		#sound-dai-cells = <0>;
+		status = "disable";
+		clock-names = "clk_iis0";
+		clocks = <&ap_clk CLK_AP_IIS0>;
+	};
+};
+
+&apagcp {
+	agcp_i2s0: i2s@56270800 {
+		compatible = "sprd,agcp-i2s-dai";
+		reg = <0 0x56270800 0 0x80>;
+		#sound-dai-cells = <0>;
+		sprd,syscon-agcp-ahb = <&audcp_glb_regs>;
+		sprd,id = <AGCP_IIS0_TX>;
+		sprd,tx-dma-no = <24>;
+		sprd,rx-dma-no = <23>;
+		sprd,div-mode = <2>;
+		sprd,rate-multi = <512>;
+		sprd,fifo-depth = <256>;
+		sprd,bus-type = <0>;
+		sprd,hw-port = <0>;
+		sprd,work-mode = <0>;
+		sprd,trans-mode = <0>;
+		sprd,rtx-mode = <3>;
+		sprd,sync-mode = <0>;
+		sprd,bus-frame-mode = <1>;
+		sprd,multi-ch = <0x1>;
+		sprd,left-ch-lvl = <0>;
+		sprd,clk-inv = <0>;
+		sprd,tx-watermark = <0x40>;
+		sprd,rx-watermark = <0xc0>;
+		power-domains = <&agdsp_domain>;
+		status = "okay";
+	};
+};

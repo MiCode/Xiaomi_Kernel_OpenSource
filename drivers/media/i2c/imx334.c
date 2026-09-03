@@ -168,12 +168,6 @@ static const struct imx334_reg mode_3840x2160_regs[] = {
 	{0x302c, 0x3c},
 	{0x302e, 0x00},
 	{0x302f, 0x0f},
-	{0x3074, 0xb0},
-	{0x3075, 0x00},
-	{0x308e, 0xb1},
-	{0x308f, 0x00},
-	{0x30d8, 0x20},
-	{0x30d9, 0x12},
 	{0x3076, 0x70},
 	{0x3077, 0x08},
 	{0x3090, 0x70},
@@ -1064,9 +1058,6 @@ static int imx334_probe(struct i2c_client *client)
 		goto error_handler_free;
 	}
 
-	pm_runtime_set_active(imx334->dev);
-	pm_runtime_enable(imx334->dev);
-
 	ret = v4l2_async_register_subdev_sensor(&imx334->sd);
 	if (ret < 0) {
 		dev_err(imx334->dev,
@@ -1074,13 +1065,13 @@ static int imx334_probe(struct i2c_client *client)
 		goto error_media_entity;
 	}
 
+	pm_runtime_set_active(imx334->dev);
+	pm_runtime_enable(imx334->dev);
 	pm_runtime_idle(imx334->dev);
 
 	return 0;
 
 error_media_entity:
-	pm_runtime_disable(imx334->dev);
-	pm_runtime_set_suspended(imx334->dev);
 	media_entity_cleanup(&imx334->sd.entity);
 error_handler_free:
 	v4l2_ctrl_handler_free(imx334->sd.ctrl_handler);
@@ -1108,10 +1099,7 @@ static int imx334_remove(struct i2c_client *client)
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
 
 	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev)) {
-		imx334_power_off(&client->dev);
-		pm_runtime_set_suspended(&client->dev);
-	}
+	pm_runtime_suspended(&client->dev);
 
 	mutex_destroy(&imx334->mutex);
 

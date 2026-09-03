@@ -795,16 +795,6 @@ int f2fs_get_dnode_of_data(struct dnode_of_data *dn, pgoff_t index, int mode)
 	for (i = 1; i <= level; i++) {
 		bool done = false;
 
-		if (nids[i] && nids[i] == dn->inode->i_ino) {
-			err = -EFSCORRUPTED;
-			f2fs_err(sbi,
-				"inode mapping table is corrupted, run fsck to fix it, "
-				"ino:%lu, nid:%u, level:%d, offset:%d",
-				dn->inode->i_ino, nids[i], level, offset[level]);
-			set_sbi_flag(sbi, SBI_NEED_FSCK);
-			goto release_pages;
-		}
-
 		if (!nids[i] && mode == ALLOC_NODE) {
 			/* alloc new node */
 			if (!f2fs_alloc_nid(sbi, &(nids[i]))) {
@@ -1112,14 +1102,7 @@ int f2fs_truncate_inode_blocks(struct inode *inode, pgoff_t from)
 	trace_f2fs_truncate_inode_blocks_enter(inode, from);
 
 	level = get_node_path(inode, from, offset, noffset);
-	if (level <= 0) {
-		if (!level) {
-			level = -EFSCORRUPTED;
-			f2fs_err(sbi, "%s: inode ino=%lx has corrupted node block, from:%lu addrs:%u",
-					__func__, inode->i_ino,
-					from, ADDRS_PER_INODE(inode));
-			set_sbi_flag(sbi, SBI_NEED_FSCK);
-		}
+	if (level < 0) {
 		trace_f2fs_truncate_inode_blocks_exit(inode, level);
 		return level;
 	}

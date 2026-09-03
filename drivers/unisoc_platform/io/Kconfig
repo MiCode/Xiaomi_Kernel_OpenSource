@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+#
+
+config UNISOC_IODEBUG
+	tristate "print io debug log"
+	depends on ARCH_SPRD
+	help
+	Provide IO debug information to trace IO issues.
+	Count and print the time required for the request
+	from insert to issue, and from issue to complete.
+	It will print in kernel log.
+
+config UNISOC_IOWAIT
+	tristate "print iowait log"
+	depends on ARCH_SPRD
+	help
+	Provide iowait information to trace IO issues.
+	Count the time consumption of processes on iowait
+	Only support arch64.
+	It will print in kernel log.
+
+config UNISOC_IOLIMIT
+	tristate "vfs io limit support"
+	depends on BLK_CGROUP
+	help
+	Provide a blkio policy implementing for io bandwidth while a process
+	in the cgroup buffer write.
+
+config UNISOC_FILEMAP_DEBUG
+	tristate "print inode info associated with the page"
+	depends on ARCH_SPRD
+	help
+	Provide debug information to track the name of the file
+	corresponding to the page during the page_add and page_delete
+	processes.
+	When the filemap related trace event is enabled, print the file
+	name associated with the page.
+
+config UNISOC_IOMONITOR
+	tristate "vfs iomonitor support"
+	depends on ARCH_SPRD
+	help
+	Monitor VFS interfaces based on the kprobe to count the IO volume of
+	processes, the IO statstics can be obtained by cat io_stat node.
+	The function needs to be enabled by manually enabling The
+	/proc/io_monitor/enable node.
+

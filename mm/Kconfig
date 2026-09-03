@@ -482,6 +482,13 @@ config CMA
 
 	  If unsure, say "n".
 
+config SPRD_CMA_DEBUG
+	bool "SPRD CMA debug messages"
+	depends on CMA
+	default n
+	help
+	  Turns on debug messages in SPRD CMA.
+
 config CMA_DEBUG
 	bool "CMA debug messages (DEVELOPMENT)"
 	depends on DEBUG_KERNEL && CMA
@@ -942,17 +949,6 @@ config LRU_GEN_STATS
 	  This option has a per-memcg and per-node memory overhead.
 # }
 
-config MEMFD_ASHMEM_SHIM
-	bool "Memfd ashmem ioctl compatibility support"
-	depends on MEMFD_CREATE
-	help
-	  This provides compatibility support for ashmem ioctl commands against
-	  memfd file descriptors. This is useful for compatibility on Android
-	  for older applications that may use ashmem's ioctl commands on the
-	  now memfds passed to them.
-
-	  Unless you are running Android, say N.
-
 source "mm/damon/Kconfig"
 
 config ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
@@ -977,4 +973,36 @@ config SPECULATIVE_PAGE_FAULT
 	  an unsupported case, the fault handler falls back to classical
 	  processing using the mmap read lock.
 
+config PROCESS_RECLAIM
+	bool "Enable process reclaim"
+	depends on PROC_FS && MEMCG
+	default n
+	help
+	 It allows to reclaim pages of the process by /proc/pid/reclaim.
+
+	 (echo file > /proc/PID/reclaim) reclaims file-backed pages only.
+	 (echo anon > /proc/PID/reclaim) reclaims anonymous pages only.
+	 (echo all > /proc/PID/reclaim) reclaims all pages.
+
+	 (echo addr size-byte > /proc/PID/reclaim) reclaims pages in
+	 (addr, addr + size-bytes) of the process.
+
+	 Any other value is ignored
+
+config DIRECT_SWAPPINESS
+	bool "Allow to adjust direct reclaim swappiness"
+	depends on SWAP && PROC_FS
+	default n
+	help
+	  Used to adjust direct reclaim cmpress priority by /proc/sys/vm/direct_swappiness.
+
+	  only 0 to 60 is valid. If unsure, say N to use it's original value(60).
+
+config WRITEBACK_SWAPCACHE
+	bool "writeback swapcache"
+	depends on SWAP
+	default n
+	help
+	  Write back swap cache to free up more.
+	  If unsure, say N to normal mode.
 endmenu

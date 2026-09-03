@@ -1,0 +1,47 @@
+menu "SIPA_V3 modules"
+
+config UNISOC_SIPA_V3
+	tristate "UNISOC SIPA_V3"
+	default n
+	help
+	  SIPA is a module designed by Spreadtrum to
+	  accelerate IP packets, which is mainly suitable
+	  for 5g scenarios.
+
+	  This option be opend indicate that the SIPA
+	  module will use the SIPA version 3.
+
+config UNISOC_SIPA_ETH
+	tristate "UNISOC Cellular Data Network Card"
+	default n
+	depends on UNISOC_SIPA_V3
+	help
+	  Sprd Cellular data network card, all Cellular data will be sent and
+	  received through this network card.
+
+	  This module is a cellular data network card virtualized on the basis
+	  of sipa, it is only used to send Cellular network data.
+
+config UNISOC_SIPA_USB
+	tristate "UNISOC Sipa Usb Networ Card"
+	default n
+	depends on UNISOC_SIPA_V3
+	help
+	  Sprd usb network card, all usb network data will be sent and received
+	  through this network card.
+
+	  This module is a usb network card virtualized on the basis of sipa,
+	  it is only used to send Cellular network data.
+
+config UNISOC_SIPA_V3_GCOV
+	bool "open gcov for sipa_v3"
+	default n
+	depends on GCOV_PROFILE_MODULES
+	help
+	  Say Y here to enable sipa_v3 gcov, this can support ltp for sipa_v3.
+          so sipa_v3 gcov will success.
+
+	  It is only enable for sipa v3 gcov, this can make ltp for SIPA_V3
+          be ok.
+
+endmenu

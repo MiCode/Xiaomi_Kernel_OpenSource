@@ -3,6 +3,13 @@
 # Generic thermal drivers configuration
 #
 
+config MI_THERMAL_INTERFACE
+	tristate "xiaomi thermal control interface"
+	depends on THERMAL
+	default n
+	help
+	  This is xiaomi thermal control interface.
+
 menuconfig THERMAL
 	bool "Thermal drivers"
 	help
@@ -482,6 +489,52 @@ config SPRD_THERMAL
 	help
 	  Support for the Spreadtrum thermal sensor driver in the Linux thermal
 	  framework.
+
+config SPRD_THERMAL_R5P0
+	tristate "Spreadtrum Soc Thermal R5P0 Support"
+	depends on ARCH_SPRD || COMPILE_TEST
+	depends on THERMAL_OF
+	help
+	  Enable the spreadtrum soc thermal sensor dirver, which supports
+	  thermal framework to get the temp of cpu/gpu thermal zone.
+
+config SPRD_DEDICATE_THERMAL
+	tristate "Spreadtrum SoC Dedicated Thermal Support"
+	depends on ARCH_SPRD || COMPILE_TEST
+	depends on THERMAL_OF
+	help
+	  Enable the spreadtrum soc thermal sensor dirver, which supports
+          thermal framework to get the temp of cpu/gpu thermal zone.
+	  SPRD_DEDICATE_THERMAL=y for buildin
+	  SPRD_DEDICATE_THERMAL=m for KO
+
+config SPRD_SHELL_THERMAL
+	tristate "sprd shell thermal"
+	depends on THERMAL
+	help
+	  this driver belongs to thermal module, We use it to monitor virtua shell's temperature
+
+config SPRD_VIRT_THERMAL
+	tristate "sprd get max temp Support"
+	depends on THERMAL
+	help
+	  Say Y here to enable support for get max temp driver,
+	  this driver belongs to thermal module,
+	  We use it to get max temp
+
+config SC27XX_TSENSOR_THERMAL
+	tristate "Spreadtrum SC27xx Tsensor Thermal Support"
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
+	help
+	  This is a simple driver to get sc27xx chip osc temperature
+	  and external cystal temperature.
+
+config SPRD_UMP96XX_TSENSOR
+	tristate "Spreadtrum ump96xx Tsensor Thermal Support"
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
+	help
+	  This is a simple driver to get ump96xx chip osc temperature
+	  and external cystal temperature.
 
 config KHADAS_MCU_FAN_THERMAL
 	tristate "Khadas MCU controller FAN cooling support"

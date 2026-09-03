@@ -48,6 +48,71 @@ struct dma_heap {
 	struct device *heap_dev;
 };
 
+#if (IS_ENABLED(CONFIG_UNISOC_MM_ENHANCE_MEMINFO)) || (IS_ENABLED(CONFIG_E_SHOW_MEM))
+struct system_heap_buffer {
+	struct dma_heap *heap;
+	struct list_head attachments;
+	struct mutex lock;
+	unsigned long len;
+	struct sg_table sg_table;
+	int vmap_cnt;
+	void *vaddr;
+
+	bool uncached;
+#if (IS_ENABLED(CONFIG_UNISOC_MM_ENHANCE_MEMINFO)) || (IS_ENABLED(CONFIG_E_SHOW_MEM))
+	struct rb_node node;
+	pid_t pid;
+	char task_name[TASK_COMM_LEN];
+	struct timespec64 alloc_ts;
+	struct dmabuf_map_info mappers[MAX_MAP_USER];
+#endif
+};
+#endif
+
+#if (IS_ENABLED(CONFIG_UNISOC_MM_ENHANCE_MEMINFO)) || (IS_ENABLED(CONFIG_E_SHOW_MEM))
+void get_sysbuffer_user_info(int fd, bool map)
+{
+	int i;
+	struct system_heap_buffer *buffer;
+	struct task_struct *task = current->group_leader;
+	pid_t pid = task_pid_nr(task);
+	struct dma_buf *dmabuf = dma_buf_get(fd);
+
+	if (IS_ERR_OR_NULL(dmabuf))
+		return;
+
+	if (strcmp(dmabuf->exp_name, "system") && strcmp(dmabuf->exp_name, "system-uncached"))
+		goto out;
+
+	buffer = dmabuf->priv;
+	for (i = 0; i < MAX_MAP_USER; i++) {
+		if (map) {
+			if (!(buffer->mappers[i].fd)) {
+				buffer->mappers[i].pid = pid;
+				get_task_comm(buffer->mappers[i].task_name, task);
+				buffer->mappers[i].fd = fd;
+				buffer->mappers[i].valid = true;
+				ktime_get_real_ts64(&buffer->mappers[i].map_ts);
+				buffer->mappers[i].map_ts.tv_sec -= sys_tz.tz_minuteswest * 60;
+				break;
+			}
+		} else {
+			if (buffer->mappers[i].pid == pid && buffer->mappers[i].fd == fd
+								&& buffer->mappers[i].valid) {
+				memset((void *)(&buffer->mappers[i]), 0x0,
+								sizeof(buffer->mappers[i]));
+				break;
+			}
+		}
+	}
+	if (map && i == MAX_MAP_USER)
+		pr_err("%s: pid %d fd %d\n", __func__, pid, fd);
+
+out:
+	dma_buf_put(dmabuf);
+}
+EXPORT_SYMBOL(get_sysbuffer_user_info);
+#endif
 static LIST_HEAD(heap_list);
 static DEFINE_MUTEX(heap_list_lock);
 static dev_t dma_heap_devt;

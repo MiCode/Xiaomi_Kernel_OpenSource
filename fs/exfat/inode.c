@@ -14,6 +14,9 @@
 #include <linux/random.h>
 #include <linux/iversion.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <linux/backing-dev-defs.h>
+#endif
 #include "exfat_raw.h"
 #include "exfat_fs.h"
 

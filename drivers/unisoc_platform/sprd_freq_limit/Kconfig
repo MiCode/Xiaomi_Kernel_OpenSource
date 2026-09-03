@@ -1,0 +1,4 @@
+config SPRD_FREQ_LIMIT
+	tristate "SPRD device freq limit support"
+	help
+	  say Y here to support for limiting device freq

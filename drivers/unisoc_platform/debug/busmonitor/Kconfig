@@ -1,0 +1,11 @@
+config SPRD_BUSMONITOR
+	tristate "Spreadtrum BUS Monitor Support"
+	depends on SPRD_DEBUG
+	help
+	  Say Y here to support BUS monitor.
+
+config SPRD_APB_BUSMONITOR
+	tristate "Spreadtrum APB BUS Monitor Support"
+	depends on SPRD_DEBUG
+	help
+	  Say Y here to support APB BUS monitor.

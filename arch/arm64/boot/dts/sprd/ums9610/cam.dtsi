@@ -1,0 +1,267 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc CAM dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&mm {
+	mm_domain: mm_domain {
+		compatible = "sprd,qogirl6l-camsys-domain";
+		force_shutdown = <&pmu_apb_regs
+		REG_PMU_APB_PD_CAMERA_CFG_0
+		MASK_PMU_APB_PD_CAMERA_FORCE_SHUTDOWN>;
+		shutdown_en = <&pmu_apb_regs
+		REG_PMU_APB_PD_CAMERA_CFG_0
+		MASK_PMU_APB_PD_CAMERA_AUTO_SHUTDOWN_EN>;
+		camera_power_state = <&pmu_apb_regs
+		REG_PMU_APB_PWR_STATUS_DBG_6
+		MASK_PMU_APB_PD_CAMERA_STATE>;
+		isp_force_shutdown = <&pmu_apb_regs
+		REG_PMU_APB_PD_ISP_BLK_CFG_0
+		MASK_PMU_APB_PD_ISP_BLK_FORCE_SHUTDOWN>;
+		isp_shutdown_en = <&pmu_apb_regs
+		REG_PMU_APB_PD_ISP_BLK_CFG_0
+		MASK_PMU_APB_PD_ISP_BLK_AUTO_SHUTDOWN_EN>;
+		isp_power_state = <&pmu_apb_regs
+		REG_PMU_APB_PWR_STATUS_DBG_7
+		MASK_PMU_APB_PD_ISP_BLK_STATE>;
+		dcam_force_shutdown = <&pmu_apb_regs
+		REG_PMU_APB_PD_DCAM_BLK_CFG_0
+		MASK_PMU_APB_PD_DCAM_BLK_FORCE_SHUTDOWN>;
+		dcam_shutdown_en = <&pmu_apb_regs
+		REG_PMU_APB_PD_DCAM_BLK_CFG_0
+		MASK_PMU_APB_PD_DCAM_BLK_AUTO_SHUTDOWN_EN>;
+		dcam_power_state = <&pmu_apb_regs
+		REG_PMU_APB_PWR_STATUS_DBG_7
+		MASK_PMU_APB_PD_DCAM_BLK_STATE>;
+		clock-names = "clk_mm_eb",
+			"clk_ckg_en",
+			"clk_mm_mtx_data_en",
+			"clk_mm_mtx_data",
+			"clk_blk_cfg_en",
+			"clk_mm_mtx_parent";
+		clocks = <&aonapb_gate CLK_MM_EB>,
+			<&mm_gate CLK_CKG_EN>,
+			<&mm_gate CLK_MM_MTX_DATA_EN>,
+			<&mm_clk CLK_MM_MTX_DATA>,
+			<&mm_gate CLK_ISP_BLK_CFG_EN>,
+			<&g5l_pll CLK_TGPLL_512M>;
+		#power-domain-cells = <0>;
+		status = "okay";
+	};
+
+	isp: isp@3a000000 {
+		compatible = "sprd,isp";
+		reg = <0 0x3A000000 0 0x100000>;
+		interrupts = <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts_name = "ispch0", "ispch1", "dec";
+		isp_vau_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_ISP_BLK_SOFT_RST
+				MASK_CAMERASYS_GLB_ISP_VAU_SOFT_RST>;
+		isp_ahb_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_ISP_BLK_SOFT_RST
+				MASK_CAMERASYS_GLB_ISP_ALL_SOFT>;
+		reset = <&mm_ahb_regs REG_CAMERASYS_GLB_ISP_BLK_SOFT_RST
+				MASK_CAMERASYS_GLB_ISP_SOFT_RST>;
+		clock-names = "isp_eb",
+				"isp_mtx_en",
+				"isp_tck_en",
+				"isp_clk",
+				"isp_clk_153m6",
+				"isp_clk_256m",
+				"isp_clk_307m2",
+				"isp_clk_409m6",
+				"isp_clk_512m",
+				"isp_clk_parent";
+		clocks = <&mm_gate CLK_ISP_EN>,
+				<&mm_gate CLK_ISP_MTX_EN>,
+				<&mm_gate CLK_ISP_TCK_EN>,
+				<&mm_clk CLK_ISP>,
+				<&g5l_pll CLK_TGPLL_153M6>,
+				<&g5l_pll CLK_TGPLL_256M>,
+				<&g5l_pll CLK_TGPLL_307M2>,
+				<&g5l_pll CLK_V4NRPLL_409M6>,
+				<&g5l_pll CLK_TGPLL_512M>,
+				<&g5l_pll CLK_TGPLL_512M>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,isp-count = <1>;
+		iommus = <&iommu_isp>;
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+
+	iommu_isp: iommu@3a000000 {
+		compatible = "unisoc,iommuvaun6l-isp";
+		reg = <0x0 0x3a000000 0x0 0xff000>,
+			<0x0 0x3a0ff000 0x0 0xb0>;
+		iova-base = <0x40000000>;
+		iova-size = <0xc0000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	dcam: dcam@3e000000 {
+		compatible = "sprd,qogirn6pro-cam";
+		reg = <0 0x3e000000 0 0x10000>,
+			<0 0x3e010000 0 0x10000>,
+			<0 0x3e030000 0 0xB0>,
+			<0 0x3e038000 0 0x40>;
+		reg-names = "dcam0_reg",
+				"dcam1_reg",
+				"dcam01_axi_ctrl_reg",
+				"fmcu_ctrl_reg";
+		interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dcam0",
+					"dcam1";
+		dcam01_all_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM0_1_ALL_SOFT_RST>;
+		dcam01_axi_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM0_1_AXI_SOFT_RST>;
+		dcam0_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM0_SOFT_RST>;
+		dcam1_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM1_SOFT_RST>;
+
+		clock-names = "dcam_eb",
+			"dcam_blk_cfg_en",
+			"dcam_tck_en",
+			"dcam_mtx_en",
+			"dcam_clk",
+			"dcam_clk_parent",
+			"dcam_axi_clk",
+			"dcam_axi_clk_parent",
+			"dcam_mtx_clk",
+			"dcam_mtx_clk_parent",
+			"dcam_blk_cfg_clk",
+			"dcam_blk_cfg_clk_parent";
+		clocks = <&mm_gate CLK_DCAM_IF_EN>,
+			<&mm_gate CLK_DCAM_BLK_CFG_EN>,
+			<&mm_gate CLK_DCAM_TCK_EN>,
+			<&mm_gate CLK_DCAM_MTX_EN>,
+			<&mm_clk CLK_DCAM0_1>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&mm_clk CLK_DCAM0_1_AXI>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&mm_clk CLK_DCAM_MTX>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&mm_clk CLK_DCAM_BLK_CFG>,
+			<&g5l_pll CLK_TGPLL_128M>;
+
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,csi-switch = <&mm_csi_switch_regs>;
+		sprd,isp = <&isp>;
+		sprd,dcam-lite = <&dcam_lite>;
+		sprd,dcam-count = <2>;
+		sprd,dcam-superzoom = <2>;
+		sprd,project-id = <4>;
+		iommus = <&iommu_dcam>;
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+
+	iommu_dcam: iommu@3e000000 {
+		compatible = "unisoc,iommuvaun6l-dcam";
+		reg = <0x0 0x3e000000 0x0 0x3f000>,
+			<0x0 0x3e03f000 0x0 0xB0>;
+		iova-base = <0x40000000>;
+		iova-size = <0xc0000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	dcam_lite: dcam_lite@0x3e100000 {
+		compatible = "sprd,dcam_lite";
+		reg = <0 0x3e100000 0 0x80>,
+			<0 0x3e104000 0 0x80>,
+			<0 0x3e108000 0 0x50>;
+		reg-names = "dcam2_reg",
+				"dcam3_reg",
+				"dcam23_axi_ctrl_reg";
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dcam2",
+					"dcam3";
+		lite_all_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM2_3_ALL_SOFT_RST>;
+		lite0_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM2_SOFT_RST>;
+		lite1_reset = <&mm_ahb_regs REG_CAMERASYS_GLB_DCAM_BLK_SOFT_RST
+			MASK_CAMERASYS_GLB_DCAM3_SOFT_RST>;
+		clock-names = "dcam_lite_eb",
+			"dcam_lite_mtx_en",
+			"dcam_lite_clk",
+			"dcam_lite_clk_parent",
+			"dcam_lite_axi_clk",
+			"dcam_lite_axi_clk_parent";
+		clocks = <&mm_gate CLK_DCAM_IF_LITE_EN>,
+			<&mm_gate CLK_DCAM_LITE_MTX_EN>,
+			<&mm_clk CLK_DCAM2_3>,
+			<&g5l_pll CLK_TGPLL_256M>,
+			<&mm_clk CLK_DCAM2_3_AXI>,
+			<&g5l_pll CLK_TGPLL_256M>;
+		sprd,dcam-lite-count = <2>;
+		iommus = <&iommu_dcam_lite>;
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+
+	iommu_dcam_lite: iommu@3e100000 {
+		compatible = "unisoc,iommuvaun6l-dcam1";
+		reg = <0x0 0x3e100000 0x0 0x3f000>,
+			<0x0 0x3e13f000 0x0 0xB0>;
+		iova-base = <0x40000000>;
+		iova-size = <0xc0000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	cpp: cpp@38000000 {
+		compatible = "sprd,cpp";
+		reg = <0 0x38000000 0 0x1000>;
+		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "cpp_eb",
+			"cpp_axi_eb", /* no need read, TBC */
+			"isp_mtx_en",
+			"isp_blk_cfg_en",
+			"cpp_clk",
+			"cpp_clk_parent";
+		clocks = <&mm_gate CLK_CPP_EN>,
+			<&mm_gate CLK_ISP_EN>,
+			<&mm_gate CLK_ISP_MTX_EN>,
+			<&mm_gate CLK_ISP_BLK_CFG_EN>,
+			<&mm_clk CLK_CPP>,
+			<&g5l_pll CLK_TGPLL_384M>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		iommus = <&iommu_cpp>;
+		/*cpp_qos = <&cpp_qos>;*/
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+
+	iommu_cpp: iommu@38000000 {
+		compatible = "unisoc,iommuvaun6l-cpp";
+		reg = <0x0 0x38000000 0x0 0x200>,
+			<0x0 0x38000200 0x0 0x80>;
+		iova-base = <0x40000000>;
+		iova-size = <0x20000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		#iommu-cells = <0>;
+		status = "disabled";
+	};
+
+	iommu_fd: iommu@3C000000 {
+		compatible = "unisoc,iommuvaun6l-fd";
+		reg = <0 0x3C000110 0 0x80>;
+		iova-base = <0x40000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+};

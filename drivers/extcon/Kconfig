@@ -187,4 +187,13 @@ config EXTCON_USBC_TUSB320
 	  Say Y here to enable support for USB Type C cable detection extcon
 	  support using a TUSB320.
 
+config EXTCON_USB_VIRT
+	tristate "USB virtual extcon support"
+	depends on USB
+	help
+	  Say Y here to enable virtual USB cable detection extcon support if
+	  you need software simulated usb cable plug and unplug. You can control
+	  vbus and id pin to simulate usb working in host mode or device mode by
+	  writing device node.
+
 endif

@@ -141,8 +141,7 @@ unsigned int aa_dfa_matchn_until(struct aa_dfa *dfa, unsigned int start,
 
 void aa_dfa_free_kref(struct kref *kref);
 
-/* This needs to be a power of 2 */
-#define WB_HISTORY_SIZE 32
+#define WB_HISTORY_SIZE 24
 struct match_workbuf {
 	unsigned int count;
 	unsigned int pos;

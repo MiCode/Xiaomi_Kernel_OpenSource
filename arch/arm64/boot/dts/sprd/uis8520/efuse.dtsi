@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc efuse dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	ap_efuse: efuse@160000 {
+		compatible = "sprd,qogirn6pro-efuse";
+		reg = <0x160000 0x10000>;
+		clock-names = "enable";
+		hwlocks = <&hwlock 8>;
+		clocks = <&aonapb_gate CLK_EFUSE_EB>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ufs_cali_lane1: cali_dblk68@3c {
+			reg = <0x3c 0x4>;
+		};
+
+		ufs_cali_lane0: cali_dblk69@40 {
+			reg = <0x40 0x4>;
+		};
+
+		gpu_bin: gpu-bin@48{
+			reg = <0x48 0x2>;
+			bits = <8 3>;
+		};
+
+		thm0_ratio: thm0-ratio@94 {
+			reg = <0x94 0x1>;
+			bits = <0 8>;
+		};
+
+		thm0_sen0: thm0-sen0@95 {
+			reg = <0x95 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_ratio: thm1-ratio@96 {
+			reg = <0x96 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen0: thm1-sen0@97 {
+			reg = <0x97 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_ratio: thm3-ratio@98 {
+			reg = <0x98 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_sen0: thm3-sen0@99 {
+			reg = <0x99 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_ratio: thm2-ratio@9a {
+			reg = <0x9a 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen0: thm2-sen0@9b {
+			reg = <0x9b 0x1>;
+			bits = <0 8>;
+		};
+
+		thm0_sen1: thm0-sen0@9c {
+			reg = <0x9c 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen1: thm1-sen0@9d {
+			reg = <0x9d 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen2: thm1-sen0@9e {
+			reg = <0x9e 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen3: thm1-sen0@9f {
+			reg = <0x9f 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen1: thm2-sen0@a0 {
+			reg = <0xa0 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen2: thm2-sen0@a1 {
+			reg = <0xa1 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen3: thm2-sen0@a2 {
+			reg = <0xa2 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen4: thm2-sen0@a3 {
+			reg = <0xa3 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen6: thm2-sen0@a4 {
+			reg = <0xa4 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_sen2: thm3-sen0@a5 {
+			reg = <0xa5 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_sen3: thm3-sen0@a6 {
+			reg = <0xa6 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_sen4: thm3-sen0@a7 {
+			reg = <0xa7 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_sen1: thm3-sen0@a8 {
+			reg = <0xa8 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sen5: thm2-sen0@a9 {
+			reg = <0xa9 0x1>;
+			bits = <0 8>;
+		};
+
+		thm3_sen5: thm3-sen0@aa {
+			reg = <0xaa 0x1>;
+			bits = <0 8>;
+		};
+
+		uid_end: uid-end@e8{
+			reg = <0xc8 0x4>;
+		};
+
+		uid_start: uid-start@ec{
+			reg = <0xc4 0x4>;
+		};
+	};
+};

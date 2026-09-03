@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc NANDC dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+
+&apahb {
+	nandc: nand-controller@20040000 {
+		compatible = "sprd,nandc-r8p0";
+		reg = <0x40000 0x1000>;
+		interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+		clock-names = "nandc_2x_clk","nandc_ecc_clk","nandc_2xwork_clk",
+				"nandc_eccwork_clk","nandc_ahb_enable";
+		clocks = <&ap_clk CLK_NANDC_2X>,
+			<&ap_clk CLK_NANDC_ECC>,
+			<&g2_pll CLK_TGPLL_219M4>,
+			<&g2_pll CLK_TGPLL_307M2>,
+			<&apahb_gate CLK_NANDC_EB>;
+	};
+};

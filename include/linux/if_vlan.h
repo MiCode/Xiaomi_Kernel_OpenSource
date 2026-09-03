@@ -248,19 +248,19 @@ vlan_for_each(struct net_device *dev,
 
 static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
 {
-	WARN_ON_ONCE(1);
+	BUG();
 	return NULL;
 }
 
 static inline u16 vlan_dev_vlan_id(const struct net_device *dev)
 {
-	WARN_ON_ONCE(1);
+	BUG();
 	return 0;
 }
 
 static inline __be16 vlan_dev_vlan_proto(const struct net_device *dev)
 {
-	WARN_ON_ONCE(1);
+	BUG();
 	return 0;
 }
 

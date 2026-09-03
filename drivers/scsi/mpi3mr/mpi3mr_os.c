@@ -3796,8 +3796,6 @@ mpi3mr_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	spin_lock_init(&mrioc->tgtdev_lock);
 	spin_lock_init(&mrioc->watchdog_lock);
 	spin_lock_init(&mrioc->chain_buf_lock);
-	spin_lock_init(&mrioc->adm_req_q_bar_writeq_lock);
-	spin_lock_init(&mrioc->adm_reply_q_bar_writeq_lock);
 
 	INIT_LIST_HEAD(&mrioc->fwevt_list);
 	INIT_LIST_HEAD(&mrioc->tgtdev_list);

@@ -445,8 +445,6 @@ static unsigned mmc_sdio_get_max_clock(struct mmc_card *card)
 	if (card->type == MMC_TYPE_SD_COMBO)
 		max_dtr = min(max_dtr, mmc_sd_get_max_clock(card));
 
-	max_dtr = min_not_zero(max_dtr, card->quirk_max_rate);
-
 	return max_dtr;
 }
 

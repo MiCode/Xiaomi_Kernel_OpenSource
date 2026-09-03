@@ -1,0 +1,10 @@
+config UNISOC_REG_TRACE_MONITOR
+  tristate "Unisoc Reg Trace Monitor Support"
+  depends on SPRD_DEBUG
+  help
+	this macro is for rtm driver, rtm is a debug tool that
+	is used to monitor register access for apb/apb/axi bus,
+	then the data pass atb bus to coresight etf or etr. It
+	can be captured by debug tools or other commands.
+	Say M or Y here to support RTM, say n not.
+

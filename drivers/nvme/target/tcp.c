@@ -539,16 +539,10 @@ static void nvmet_tcp_queue_response(struct nvmet_req *req)
 	struct nvmet_tcp_cmd *cmd =
 		container_of(req, struct nvmet_tcp_cmd, req);
 	struct nvmet_tcp_queue	*queue = cmd->queue;
-	enum nvmet_tcp_recv_state queue_state;
-	struct nvmet_tcp_cmd *queue_cmd;
 	struct nvme_sgl_desc *sgl;
 	u32 len;
 
-	/* Pairs with store_release in nvmet_prepare_receive_pdu() */
-	queue_state = smp_load_acquire(&queue->rcv_state);
-	queue_cmd = READ_ONCE(queue->cmd);
-
-	if (unlikely(cmd == queue_cmd)) {
+	if (unlikely(cmd == queue->cmd)) {
 		sgl = &cmd->req.cmd->common.dptr.sgl;
 		len = le32_to_cpu(sgl->length);
 
@@ -557,7 +551,7 @@ static void nvmet_tcp_queue_response(struct nvmet_req *req)
 		 * Avoid using helpers, this might happen before
 		 * nvmet_req_init is completed.
 		 */
-		if (queue_state == NVMET_TCP_RECV_PDU &&
+		if (queue->rcv_state == NVMET_TCP_RECV_PDU &&
 		    len && len <= cmd->req.port->inline_data_size &&
 		    nvme_is_write(cmd->req.cmd))
 			return;
@@ -812,9 +806,8 @@ static void nvmet_prepare_receive_pdu(struct nvmet_tcp_queue *queue)
 {
 	queue->offset = 0;
 	queue->left = sizeof(struct nvme_tcp_hdr);
-	WRITE_ONCE(queue->cmd, NULL);
-	/* Ensure rcv_state is visible only after queue->cmd is set */
-	smp_store_release(&queue->rcv_state, NVMET_TCP_RECV_PDU);
+	queue->cmd = NULL;
+	queue->rcv_state = NVMET_TCP_RECV_PDU;
 }
 
 static void nvmet_tcp_free_crypto(struct nvmet_tcp_queue *queue)
@@ -1424,9 +1417,6 @@ static void nvmet_tcp_free_cmds(struct nvmet_tcp_queue *queue)
 static void nvmet_tcp_restore_socket_callbacks(struct nvmet_tcp_queue *queue)
 {
 	struct socket *sock = queue->sock;
-
-	if (!queue->state_change)
-		return;
 
 	write_lock_bh(&sock->sk->sk_callback_lock);
 	sock->sk->sk_data_ready =  queue->data_ready;

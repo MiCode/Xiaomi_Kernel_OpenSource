@@ -208,3 +208,12 @@ config SCSI_UFS_HWMON
 	  a hardware monitoring device will be created for the UFS device.
 
 	  If unsure, say N.
+
+config SCSI_UFS_SPRD
+        tristate "SPRD specific common hooks to UFS controller platform driver"
+        depends on SCSI_UFSHCD_PLATFORM
+        help
+          This selects the SPRD common specific additions to UFSHCD platform driver.
+
+          Select this if you have UFS controller on SPRD chipset.
+          If unsure, say N.

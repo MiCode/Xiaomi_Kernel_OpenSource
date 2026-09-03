@@ -1322,9 +1322,15 @@ static int c_show(struct seq_file *m, void *v)
 		seq_printf(m, "CPU revision\t: %d\n\n", cpuid & 15);
 	}
 
-	seq_printf(m, "Hardware\t: %s\n", machine_name);
+	if (of_flat_dt_get_cpuinfo_hw())
+		seq_printf(m, "Hardware\t: %s\n", of_flat_dt_get_cpuinfo_hw());
+	else
+		seq_printf(m, "Hardware\t: %s\n", machine_name);
+
 	seq_printf(m, "Revision\t: %04x\n", system_rev);
+#ifndef CONFIG_ARCH_SPRD
 	seq_printf(m, "Serial\t\t: %s\n", system_serial);
+#endif
 
 	return 0;
 }

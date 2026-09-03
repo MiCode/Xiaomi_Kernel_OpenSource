@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc GC9305 SPI LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				lcd_gc9305_spi_qvga: lcd_gc9305_spi_qvga {
+					panel-name = "lcd_gc9305_spi_qvga";
+					if-type = <4>;
+					spi_bus_num = <0>;
+					spi_cs = <0>;
+					bpp = <16>;
+					fps = <33>;
+					spi_mode = <3>;
+					spi_cd_gpio = <92>;
+					spi_te_gpio = <83>;
+					spi_pol_mode = <0>;
+					spi_bits_1word = <32>;
+					spi_endian = <0>;
+					spi_freq = <48000000>;
+					hactive = <240>;
+					vactive = <320>;
+
+					sprd,reset-on-sequence = <1 10>, <0 10>, <1 20>;
+					sprd,reset-off-sequence = <0 20>;
+
+					init-data = [
+						ff  00  00  01  fe
+						ff  00  00  01  ef
+						ff  00  00  02  35  00
+						ff  00  00  02  36  48
+						ff  00  00  02  3a  05
+						ff  00  00  03  a4  44  44
+						ff  00  00  03  a5  42  42
+						ff  00  00  03  aa  88  88
+						ff  00  00  03  e8  11  77
+						ff  00  00  03  e3  01  18
+						ff  00  00  03  e1  10  0a
+						ff  00  00  02  ac  00
+						ff  00  00  02  af  67
+						ff  00  00  03  a6  29  29
+						ff  00  00  03  a7  27  27
+						ff  00  00  03  a8  17  17
+						ff  00  00  03  a9  26  26
+						ff  00  00  07  f0  02  02  00  02  07  0c
+						ff  00  00  07  f1  01  01  00  03  07  0f
+						ff  00  00  07  f2  0d  08  37  04  04  4b
+						ff  00  00  07  f3  11  0c  37  04  04  47
+						ff  00  00  07  f4  0a  15  15  24  3a  0f
+						ff  00  00  07  f5  07  0f  0d  17  3a  0f
+						ff  78  00  01  11
+						ff  20  00  01  29
+						ff  00  00  01  2c
+					];
+
+					sleep-in = [
+						ff 78 00 01 28
+						ff 78 00 01 10
+					];
+
+					sleep-out = [
+						ff 78 00 01 11
+						ff 64 00 01 29
+					];
+
+					display-timings {
+						timing0 {
+							clock-frequency = <2000000>;
+							hactive = <240>;
+							vactive = <320>;
+							hback-porch = <0>;
+							hfront-porch = <0>;
+							vback-porch = <0>;
+							vfront-porch = <0>;
+							hsync-len = <0>;
+							vsync-len = <0>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+

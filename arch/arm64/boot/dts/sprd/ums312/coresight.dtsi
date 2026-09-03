@@ -1,0 +1,184 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2020, Unisoc Inc.
+ */
+
+&soc {
+	/* soc_funnel */
+	funnel@3c002000 {
+			compatible = "arm,coresight-funnel", "arm,primecell";
+			reg = <0 0x3c002000 0 0x1000>;
+			clocks = <&ext_26m>;
+			clock-names = "apb_pclk";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					funnel_soc_out_port: endpoint {
+						remote-endpoint = <&etb_in>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					funnel_soc_in_port: endpoint {
+						slave-mode;
+						remote-endpoint = <&etf_out>;
+					};
+				};
+			};
+		};
+
+	soc_etb: etb@3c003000 {
+		compatible = "arm,coresight-tmc", "arm,primecell";
+		reg = <0 0x3c003000 0 0x1000>;
+		clocks = <&ext_26m>;
+		clock-names = "apb_pclk";
+		port {
+			etb_in: endpoint {
+				slave-mode;
+				remote-endpoint = <&funnel_soc_out_port>;
+			};
+		};
+	};
+
+	ts@3c009000 {
+		compatible = "arm,coresight-ts", "arm,primecell";
+		reg = <0 0x3c009000 0 0x1000>;
+	};
+
+	funnel@3e001000 {
+		compatible = "arm,coresight-funnel", "arm,primecell";
+		reg = <0 0x3e001000 0 0x1000>;
+		clocks = <&ext_26m>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_core_out_port: endpoint {
+					remote-endpoint = <&etf_in>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				funnel_core_in_port0: endpoint {
+					slave-mode;
+					remote-endpoint = <&etm0_out>;
+				};
+			};
+
+			port@2 {
+				reg = <1>;
+				funnel_core_in_port1: endpoint {
+					slave-mode;
+					remote-endpoint = <&etm1_out>;
+				};
+			};
+
+			port@3 {
+				reg = <2>;
+				funnel_core_in_port2: endpoint {
+					slave-mode;
+					remote-endpoint = <&etm2_out>;
+				};
+			};
+
+			port@4 {
+				reg = <3>;
+				funnel_core_in_port3: endpoint {
+					slave-mode;
+					remote-endpoint = <&etm3_out>;
+				};
+			};
+		};
+	};
+
+	etf@3e003000 {
+		compatible = "arm,coresight-tmc", "arm,primecell";
+		reg = <0 0x3e003000 0 0x1000>;
+		clocks = <&ext_26m>;
+		clock-names = "apb_pclk";
+
+		port@0 {
+			etf_out: endpoint {
+				remote-endpoint = <&funnel_soc_in_port>;
+			};
+		};
+
+		port@1 {
+			etf_in: endpoint {
+				slave-mode;
+				remote-endpoint = <&funnel_core_out_port>;
+			};
+		};
+	};
+
+	etm0: etm@3f040000 {
+		compatible = "arm,coresight-etm4x", "arm,primecell";
+		reg = <0 0x3f040000 0 0x1000>;
+		cpu = <&CPU0>;
+		clocks = <&ext_26m>, <&aon_clk CLK_CSSYS>, <&pll2 CLK_TWPLL_512M>;
+		clock-names = "apb_pclk", "clk_cs", "cs_src";
+
+		port {
+			etm0_out: endpoint {
+				remote-endpoint = <&funnel_core_in_port0>;
+			};
+		};
+	};
+
+	etm1: etm@3f140000 {
+		compatible = "arm,coresight-etm4x", "arm,primecell";
+		reg = <0 0x3f140000 0 0x1000>;
+		cpu = <&CPU1>;
+		clocks = <&ext_26m>, <&aon_clk CLK_CSSYS>, <&pll2 CLK_TWPLL_512M>;
+		clock-names = "apb_pclk", "clk_cs", "cs_src";
+
+		port {
+			etm1_out: endpoint {
+				remote-endpoint = <&funnel_core_in_port1>;
+			};
+		};
+	};
+
+	etm2: etm@3f240000 {
+		compatible = "arm,coresight-etm4x", "arm,primecell";
+		reg = <0 0x3f240000 0 0x1000>;
+		cpu = <&CPU2>;
+		clocks = <&ext_26m>, <&aon_clk CLK_CSSYS>, <&pll2 CLK_TWPLL_512M>;
+		clock-names = "apb_pclk", "clk_cs", "cs_src";
+
+		port {
+			etm2_out: endpoint {
+				remote-endpoint = <&funnel_core_in_port2>;
+			};
+		};
+	};
+
+	etm3: etm@3f340000 {
+		compatible = "arm,coresight-etm4x", "arm,primecell";
+		reg = <0 0x3f340000 0 0x1000>;
+		cpu = <&CPU3>;
+		clocks = <&ext_26m>, <&aon_clk CLK_CSSYS>, <&pll2 CLK_TWPLL_512M>;
+		clock-names = "apb_pclk", "clk_cs", "cs_src";
+
+		port {
+			etm3_out: endpoint {
+				remote-endpoint = <&funnel_core_in_port3>;
+			};
+		};
+	};
+
+	ap_etb: apetb {
+		compatible = "sprd,sprd_apetb";
+		apetb-source = <&etm0 &etm1	&etm2 &etm3>;
+		apetb-sink = <&soc_etb>;
+	};
+};

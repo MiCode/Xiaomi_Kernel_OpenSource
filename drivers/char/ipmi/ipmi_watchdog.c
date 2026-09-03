@@ -1198,8 +1198,14 @@ static struct ipmi_smi_watcher smi_watcher = {
 	.smi_gone = ipmi_smi_gone
 };
 
-static int action_op_set_val(const char *inval)
+static int action_op(const char *inval, char *outval)
 {
+	if (outval)
+		strcpy(outval, action);
+
+	if (!inval)
+		return 0;
+
 	if (strcmp(inval, "reset") == 0)
 		action_val = WDOG_TIMEOUT_RESET;
 	else if (strcmp(inval, "none") == 0)
@@ -1210,26 +1216,18 @@ static int action_op_set_val(const char *inval)
 		action_val = WDOG_TIMEOUT_POWER_DOWN;
 	else
 		return -EINVAL;
+	strcpy(action, inval);
 	return 0;
 }
 
-static int action_op(const char *inval, char *outval)
+static int preaction_op(const char *inval, char *outval)
 {
-	int rv;
-
 	if (outval)
-		strcpy(outval, action);
+		strcpy(outval, preaction);
 
 	if (!inval)
 		return 0;
-	rv = action_op_set_val(inval);
-	if (!rv)
-		strcpy(action, inval);
-	return rv;
-}
 
-static int preaction_op_set_val(const char *inval)
-{
 	if (strcmp(inval, "pre_none") == 0)
 		preaction_val = WDOG_PRETIMEOUT_NONE;
 	else if (strcmp(inval, "pre_smi") == 0)
@@ -1242,26 +1240,18 @@ static int preaction_op_set_val(const char *inval)
 		preaction_val = WDOG_PRETIMEOUT_MSG_INT;
 	else
 		return -EINVAL;
+	strcpy(preaction, inval);
 	return 0;
 }
 
-static int preaction_op(const char *inval, char *outval)
+static int preop_op(const char *inval, char *outval)
 {
-	int rv;
-
 	if (outval)
-		strcpy(outval, preaction);
+		strcpy(outval, preop);
 
 	if (!inval)
 		return 0;
-	rv = preaction_op_set_val(inval);
-	if (!rv)
-		strcpy(preaction, inval);
-	return 0;
-}
 
-static int preop_op_set_val(const char *inval)
-{
 	if (strcmp(inval, "preop_none") == 0)
 		preop_val = WDOG_PREOP_NONE;
 	else if (strcmp(inval, "preop_panic") == 0)
@@ -1270,22 +1260,7 @@ static int preop_op_set_val(const char *inval)
 		preop_val = WDOG_PREOP_GIVE_DATA;
 	else
 		return -EINVAL;
-	return 0;
-}
-
-static int preop_op(const char *inval, char *outval)
-{
-	int rv;
-
-	if (outval)
-		strcpy(outval, preop);
-
-	if (!inval)
-		return 0;
-
-	rv = preop_op_set_val(inval);
-	if (!rv)
-		strcpy(preop, inval);
+	strcpy(preop, inval);
 	return 0;
 }
 
@@ -1322,18 +1297,18 @@ static int __init ipmi_wdog_init(void)
 {
 	int rv;
 
-	if (action_op_set_val(action)) {
+	if (action_op(action, NULL)) {
 		action_op("reset", NULL);
 		pr_info("Unknown action '%s', defaulting to reset\n", action);
 	}
 
-	if (preaction_op_set_val(preaction)) {
+	if (preaction_op(preaction, NULL)) {
 		preaction_op("pre_none", NULL);
 		pr_info("Unknown preaction '%s', defaulting to none\n",
 			preaction);
 	}
 
-	if (preop_op_set_val(preop)) {
+	if (preop_op(preop, NULL)) {
 		preop_op("preop_none", NULL);
 		pr_info("Unknown preop '%s', defaulting to none\n", preop);
 	}

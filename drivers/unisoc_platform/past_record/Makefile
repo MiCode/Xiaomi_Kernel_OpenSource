@@ -1,0 +1,1 @@
+obj-$(CONFIG_SPRD_PAST_RECORD) += sprd_past_record.o

@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/ {
+	screen_onoff_checker {
+		compatible = "sprd,screen_onoff_check";
+		sprd,backlight = <&pwm_backlight>;
+		timeout-ms = <5000>;
+		loop-interval-ms = <50>;
+		powerkey-source = "gpio-keys";
+	};
+};
+

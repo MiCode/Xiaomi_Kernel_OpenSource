@@ -7,6 +7,8 @@ Required properties:
 	"sprd,sc2723-efuse"
 	"sprd,sc2730-efuse"
 	"sprd,sc2731-efuse"
+	"sprd,ump9620-efuse"
+	"sprd,ump9621-efuse"
 - reg: Specify the address offset of efuse controller.
 - hwlocks: Reference to a phandle of a hwlock provider node.
 
@@ -50,3 +52,25 @@ Example:
 		nvmem-cells = <&thermal_calib>;
 		nvmem-cell-names = "calibration";
 	};
+
+Aliases:
+For multi instance eFuses, each eFuse should have a number
+similar to efusen (n = 0,1) in the alias node.
+The eFuse driver should use "of_alias_get_id()" to retrieve the device ID.
+
+Example:
+
+	aliases {
+		pmic_efuse0 = &ump9620_efuse;
+		pmic_efuse1 = &ump9621_efuse;
+	};
+
+	ump9621_efuse: efuse@800 {
+		compatible = "sprd,ump9621-efuse", "sprd,sc27xx-efuse";
+		reg = <0x800>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		hwlocks = <&hwlock 15>;
+		/* Data cells */
+	};
+

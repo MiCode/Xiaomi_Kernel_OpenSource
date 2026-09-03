@@ -1,0 +1,786 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum Qogirn6pro board common DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/dts-v1/;
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include "uis8520/uis8520.dtsi"
+#include "ump9620/ump9620.dtsi"
+#include "ump9621/ump9621.dtsi"
+#include "ump9622/ump9622.dtsi"
+#include "trusty/uis8520.dtsi"
+#include "reserved-memory/uis8520-common.dtsi"
+#include "battery/battery-common.dtsi"
+#include "thermal/ntc-common.dtsi"
+#include "sound/fe-be.dtsi"
+#include "sound/virtual-devices.dtsi"
+
+/{
+	model = "Unisoc UIS8520-base Board";
+	compatible = "sprd,uis8520-base", "sprd,ums8520";
+	sprd,sc-id = "uis8520 1000 1000";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c7 = &i2c7;
+		i2c8 = &i2c8;
+		i2c9 = &i2c9;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi4 = &adi_bus;
+		serdes0 = &serdes0;
+		serdes1 = &serdes1;
+		pmic_efuse0 = &ump9620_efuse;
+		pmic_efuse1 = &ump9621_efuse;
+		nandc = &nandc;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x2 0x00000000>;
+	};
+
+	chosen: chosen {
+		stdout-path = &uart1;
+		bootargs = "earlycon=sprd_serial,0x20210000,115200n8 console=ttyS1,115200n8
+			    loop.max_part=7 loglevel=1 log_buf_len=1M kpti=0
+			    firmware_class.path=/vendor/firmware,/odm/firmware
+			    init=/init root=/dev/ram0 rw printk.devkmsg=on pcie_ports=compat
+			    swiotlb=1 initcall_debug=1 nosoftlock";
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	sprd-map-user {
+		compatible = "unisoc,map-user";
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,
+				nr_modem,nr_phy,l_agdsp,pm_sys";
+			};
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		key-volumedown {
+			label = "Volume Down Key";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&ap_gpio 7 GPIO_ACTIVE_LOW>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+
+		key-volumeup {
+			label = "Volume Up Key";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pmic_eic 4 GPIO_ACTIVE_HIGH>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+
+		key-power {
+			label = "Power Key";
+			linux,code = <KEY_POWER>;
+			gpios = <&pmic_eic 1 GPIO_ACTIVE_LOW>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	autotest:autotest{
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+
+	rebootescrow@0 {
+		compatible = "pmem-region";
+		reg = <0x0 0xfff70000 0x0 0x00010000>;
+	};
+};
+
+&pcie0_rc {
+	sprd,pcie-startup-syscons =
+		/*pcie mode select*/
+		<&aon_apb_regs 0 0
+			 REG_AON_APB_PCIE_MODE_SEL
+			 MASK_AON_APB_PCIE0_MODE_SEL
+			 0x01>,
+		/* Not force PCIe DEEP SLEEP */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_FORCE_DEEP_SLEEP_CFG_0
+			MASK_PMU_APB_PCIE_0_FORCE_DEEP_SLEEP_REG
+			0x0>,
+		/* clear PCIEPLLV_IPA_SEl, PCIEPLLV will not be shutdown after ipa_deep_sleep */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_IPA_SEL
+			0x0>,
+		/* power up */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_0_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			0x0>,
+		/* check power state */
+		<&pmu_apb_regs 2 0
+			REG_PMU_APB_PWR_STATUS_DBG_22
+			MASK_PMU_APB_PD_PCIE_0_STATE
+			0x0>,
+		/*
+		 * Remain 100M reference clock to active at least 200us to make
+		 * sure that it's stable before pulling high perst#.
+		 */
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_FRC_ON
+			0x1>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE_EN
+			0x2>,
+		/* perst assert */
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE0_PERST_N_ASSERT
+			0x0>;
+
+	sprd,pcie-resume-syscons =
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE_EN
+			0x2>,
+		/* power up */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_0_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			0x0>,
+		/* check power state */
+		<&pmu_apb_regs 2 0
+			REG_PMU_APB_PWR_STATUS_DBG_22
+			MASK_PMU_APB_PD_PCIE_0_STATE
+			0x0>,
+		/* PCIEPLLV output clock will be gated for L1sub */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PCIE_PLL_CLK_REQ_CFG
+			MASK_PMU_APB_PCIE0_CLK_REQ_PLL_GATE_MASK
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_FRC_ON
+			0x1>,
+		/*enable pcie eb */
+		<&pcie0_apb_regs 0 200
+			REG_PCIE0_APB_PCIE_EB
+			MASK_PCIE0_APB_PCIE3_EB
+			0x80>,
+		/* perst assert */
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE0_PERST_N_ASSERT
+			0x0>;
+
+	sprd,pcie-suspend-syscons =
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE0_PERST_N_ASSERT
+			(0x1 << 26)>,
+		/*disable pcie eb */
+		<&pcie0_apb_regs 0 200
+			REG_PCIE0_APB_PCIE_EB
+			MASK_PCIE0_APB_PCIE3_EB
+			0x0>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE_EN
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_FRC_ON
+			0x0>,
+		/* power down */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_0_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			(0x1 << 25)>;
+
+	sprd,pcie-shutdown-syscons =
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE0_PERST_N_ASSERT
+			(0x1 << 26)>,
+		/*disable pcie eb */
+		<&pcie0_apb_regs 0 200
+			REG_PCIE0_APB_PCIE_EB
+			MASK_PCIE0_APB_PCIE3_EB
+			0x0>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE_EN
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_FRC_ON
+			0x0>,
+		/* power down */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_0_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			(0x1 << 25)>;
+	//ep-poweron-late;
+	status = "disabled";
+};
+
+&pcie0_ep {
+	sprd,pcie-startup-syscons =
+		/*pcie mode select*/
+		<&aon_apb_regs 0 0
+			 REG_AON_APB_PCIE_MODE_SEL
+			 MASK_AON_APB_PCIE0_MODE_SEL
+			 0x00>,
+		/* Not force PCIe DEEP SLEEP */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_FORCE_DEEP_SLEEP_CFG_0
+			MASK_PMU_APB_PCIE_0_FORCE_DEEP_SLEEP_REG
+			0x0>,
+		/* clear PCIEPLLV_IPA_SEl, PCIEPLLV will not be shutdown after ipa_deep_sleep */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_IPA_SEL
+			0x0>,
+		/* power up */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_0_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			0x0>,
+		/* check power state */
+		<&pmu_apb_regs 2 0
+			REG_PMU_APB_PWR_STATUS_DBG_22
+			MASK_PMU_APB_PD_PCIE_0_STATE
+			0x0>,
+		/*
+		 * Remain 100M reference clock to active at least 200us to make
+		 * sure that it's stable before pulling high perst#.
+		 */
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_FRC_ON
+			0x1>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE_EN
+			0x2>;
+
+	sprd,pcie-shutdown-syscons =
+		/*disable pcie eb */
+		<&pcie0_apb_regs 0 200
+			REG_PCIE0_APB_PCIE_EB
+			MASK_PCIE0_APB_PCIE3_EB
+			0x0>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE_EN
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_0_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_0_PLLV_FRC_ON
+			0x0>,
+		/* power down */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_0_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			(0x1 << 25)>;
+	//ep-poweron-late;
+	status = "disabled";
+};
+
+&pcie1_rc {
+	sprd,pcie-startup-syscons =
+		/*pcie mode select*/
+		<&aon_apb_regs 0 0
+			 REG_AON_APB_PCIE_MODE_SEL
+			 MASK_AON_APB_PCIE1_MODE_SEL
+			 0x04>,
+		/* Not force PCIe DEEP SLEEP */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_FORCE_DEEP_SLEEP_CFG_0
+			MASK_PMU_APB_PCIE_1_FORCE_DEEP_SLEEP_REG
+			0x0>,
+		/* clear PCIEPLLV_IPA_SEl, PCIEPLLV will not be shutdown after ipa_deep_sleep */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_IPA_SEL
+			0x0>,
+		/* power up */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_1_CFG_0
+			MASK_PMU_APB_PD_PCIE_1_FORCE_SHUTDOWN
+			0x0>,
+		/* check power state */
+		<&pmu_apb_regs 2 0
+			REG_PMU_APB_PWR_STATUS_DBG_22
+			MASK_PMU_APB_PD_PCIE_1_STATE
+			0x0>,
+		/*
+		 * Remain 100M reference clock to active at least 200us to make
+		 * sure that it's stable before pulling high perst#.
+		 */
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_FRC_ON
+			0x1>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE1_EN
+			0x4>,
+		/* perst assert */
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE1_PERST_N_ASSERT
+			0x0>;
+
+	sprd,pcie-resume-syscons =
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE1_EN
+			0x4>,
+		/* power up */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_1_CFG_0
+			MASK_PMU_APB_PD_PCIE_0_FORCE_SHUTDOWN
+			0x0>,
+		/* check power state */
+		<&pmu_apb_regs 2 0
+			REG_PMU_APB_PWR_STATUS_DBG_22
+			MASK_PMU_APB_PD_PCIE_1_STATE
+			0x0>,
+		/* PCIEPLLV output clock will be gated for L1sub */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PCIE_PLL_CLK_REQ_CFG
+			MASK_PMU_APB_PCIE1_CLK_REQ_PLL_GATE_MASK
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_FRC_ON
+			0x1>,
+		/*enable pcie eb */
+		<&pcie1_apb_regs 0 200
+			REG_PCIE1_APB_PCIE_EB
+			MASK_PCIE1_APB_PCIE3_EB
+			0x80>,
+		/* perst assert */
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE1_PERST_N_ASSERT
+			0x0>;
+
+	sprd,pcie-suspend-syscons =
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE1_PERST_N_ASSERT
+			(0x1 << 27)>,
+		/*disable pcie eb */
+		<&pcie1_apb_regs 0 200
+			REG_PCIE1_APB_PCIE_EB
+			MASK_PCIE1_APB_PCIE3_EB
+			0x0>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE1_EN
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_FRC_ON
+			0x0>,
+		/* power down */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_1_CFG_0
+			MASK_PMU_APB_PD_PCIE_1_FORCE_SHUTDOWN
+			(0x1 << 25)>;
+
+	sprd,pcie-shutdown-syscons =
+		<&pmu_apb_regs 0 2000
+			REG_PMU_APB_DEEP_SLEEP_MON_0
+			MASK_PMU_APB_REG_PCIE1_PERST_N_ASSERT
+			(0x1 << 27)>,
+		/*disable pcie eb */
+		<&pcie1_apb_regs 0 200
+			REG_PCIE1_APB_PCIE_EB
+			MASK_PCIE1_APB_PCIE3_EB
+			0x0>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE1_EN
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_FRC_ON
+			0x0>,
+		/* power down */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_1_CFG_0
+			MASK_PMU_APB_PD_PCIE_1_FORCE_SHUTDOWN
+			(0x1 << 25)>;
+	//ep-poweron-late;
+	status = "disabled";
+};
+
+&pcie1_ep {
+	sprd,pcie-startup-syscons =
+		/*pcie mode select*/
+		<&aon_apb_regs 0 0
+			 REG_AON_APB_PCIE_MODE_SEL
+			 MASK_AON_APB_PCIE1_MODE_SEL
+			 0x00>,
+		/* Not force PCIe DEEP SLEEP */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_FORCE_DEEP_SLEEP_CFG_0
+			MASK_PMU_APB_PCIE_1_FORCE_DEEP_SLEEP_REG
+			0x0>,
+		/* clear PCIEPLLV_IPA_SEl, PCIEPLLV will not be shutdown after ipa_deep_sleep */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_IPA_SEL
+			0x0>,
+		/* power up */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_1_CFG_0
+			MASK_PMU_APB_PD_PCIE_1_FORCE_SHUTDOWN
+			0x0>,
+		/* check power state */
+		<&pmu_apb_regs 2 0
+			REG_PMU_APB_PWR_STATUS_DBG_22
+			MASK_PMU_APB_PD_PCIE_1_STATE
+			0x0>,
+		/*
+		 * Remain 100M reference clock to active at least 200us to make
+		 * sure that it's stable before pulling high perst#.
+		 */
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_FRC_ON
+			0x1>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE1_EN
+			0x4>;
+
+	sprd,pcie-shutdown-syscons =
+		/*disable pcie eb */
+		<&pcie1_apb_regs 0 200
+			REG_PCIE1_APB_PCIE_EB
+			MASK_PCIE1_APB_PCIE3_EB
+			0x0>,
+		<&aon_apb_regs 0 0
+			REG_AON_APB_IPA_PCIE_ETH_ACCESS_CFG
+			MASK_AON_APB_AP_ACCESS_PCIE1_EN
+			0x0>,
+		<&pmu_apb_regs 0 200
+			REG_PMU_APB_PCIE_1_PLLV_REL_CFG
+			MASK_PMU_APB_PCIE_1_PLLV_FRC_ON
+			0x0>,
+		/* power down */
+		<&pmu_apb_regs 0 0
+			REG_PMU_APB_PD_PCIE_1_CFG_0
+			MASK_PMU_APB_PD_PCIE_1_FORCE_SHUTDOWN
+			(0x1 << 25)>;
+	//ep-poweron-late;
+	status = "disabled";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&vddldo0 {
+	regulator-always-on;
+};
+
+//&dpu {
+//	sprd,logo-memory = <&logo_reserved>;
+//
+//	/* if we need use fastcall for widevine, open the following config */
+//	// sprd,widevine-use-fastcall;
+//
+//	status = "okay";
+//};
+//
+//&dpu1 {
+//	status = "okay";
+//};
+//
+//&iommu_dispc {
+//	status = "okay";
+//};
+//
+//&iommu_dispc1 {
+//	status = "okay";
+//};
+//
+//&iommu_gsp {
+//	status = "okay";
+//};
+//
+//&iommu_gsp1 {
+//	status = "okay";
+//};
+//
+//&dptx {
+//	status = "okay";
+//};
+//
+//&dsi {
+//	status = "okay";
+//	#address-cells = <1>;
+//	#size-cells = <0>;
+//
+//	panel: panel {
+//		compatible = "sprd,generic-mipi-panel";
+//		#address-cells = <1>;
+//		#size-cells = <0>;
+//		reg = <0>;
+//
+//		sprd,sr-width = <720>;
+//		sprd,sr-height = <1600>;
+//		avdd-gpio = <&ap_gpio 192 GPIO_ACTIVE_HIGH>;
+//		avee-gpio = <&ap_gpio 191 GPIO_ACTIVE_HIGH>;
+//		reset-gpio = <&ap_gpio 11 GPIO_ACTIVE_HIGH>;
+//
+//		port@1 {
+//			reg = <1>;
+//			panel_in: endpoint {
+//				remote-endpoint = <&dphy_out>;
+//			};
+//		};
+//	};
+//};
+
+&i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	ucp1301_spk: ucp1301@58 {
+		compatible = "unisoc,ucp1301-spk";
+		reg = <0x58>;
+		reset-gpios = <&ap_gpio 120 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <1>;
+	};
+};
+
+&pdm_dmic {
+	status = "okay";
+};
+
+&sprd_headset {
+	status = "okay";
+	extcon = <&pmic_typec>;
+	mic-gpios = <&ap_gpio 62 GPIO_ACTIVE_HIGH>;
+	lr-gpios = <&ap_gpio 61 GPIO_ACTIVE_HIGH>;
+	sprd,3pole-adc-threshold = <112>;
+	nvmem-cells = <&headset_adc_fir_1>, <&headset_adc_fir_2>,<&headset_adc_sec>;
+	nvmem-cell-names = "hp_adc_fir_calib_1","hp_adc_fir_calib_2", "hp_adc_sec_calib";
+};
+
+&sound_vbc_v4_sprd_codec {
+	status = "okay";
+	sprd,syscon-agcp-ahb = <&audcp_glb_regs>;
+
+	sprd-audio-card,routing =
+		"HPMIC Pin", "HP Mic Jack",
+		"MIC Pin", "Mic Jack",
+		"MIC2 Pin", "Aux Mic Jack",
+		"MIC3 Pin", "Aux Mic2 Jack",
+		"HeadPhone Jack", "HP Pin",
+		"Ext Spk", "SPK Pin",
+		"UCP1301 SPK ON", "SPK Pin",
+		"Ext Spk", "UCP1301 SPK",
+		"PDM DMIC2 ON", "SPK Pin",
+		"Ext Spk", "PDM_DMIC2",
+		"DMIC Pin", "DMic Jack",
+		"DMIC1 Pin", "DMic1 Jack",
+		"Ext Ear", "EAR Pin";
+
+	/* 35: ucp1301 normal ap01 */
+	sprd-audio-card,dai-link@53 {
+		ignore-suspend = <1>;
+		link-name = "BE_NORMAL_AP01_UCPSPK";
+		stream-name = "BE_ST_NORMAL_AP01_UCPSPK";
+		no-pcm = <1>;
+		dpcm-playback = <1>;
+		be-id = <0>;
+		dai-format = "i2s";
+		plat {
+			sound-dai = <&sprd_route_pcm>;
+		};
+		cpu {
+			sound-dai = <&vbc_v4 31>;
+		};
+		codec {
+			sound-dai = <&ucp1301_spk 0>;
+		};
+	};
+
+	/*
+	 * node 54 and node 55 (index 36 and 37) are reserved for
+	 * "ucp1301-spk2" and "ucp1301-rcv"
+	 * nodes from 56 to 67 (index from 38 to 49) are used by HIFI
+	 */
+	/* 63: pdm dmic */
+	sprd-audio-card,dai-link@81 {
+		ignore-suspend = <1>;
+		link-name = "BE_PDM_DMIC";
+		stream-name = "BE_ST_PDM_DMIC";
+		no-pcm = <1>;
+		dpcm-capture = <1>;
+		be-id = <0>;
+		//dai-format = "i2s";
+		plat {
+			sound-dai = <&sprd_route_pcm>;
+		};
+		cpu {
+			sound-dai = <&vbc_v4 31>;
+		};
+		codec {
+			sound-dai = <&pdm_dmic 0>;
+		};
+	};
+};
+
+&agdsp_domain {
+	status = "okay";
+};
+
+&voice_trigger_irq {
+	status = "okay";
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	hp-use-inter-pa = <1>;
+	fixed-sample-rate = <48000 48000 48000>;
+	digital-codec = <&sprd_audio_codec_dig>;
+	set-offset = <0x1000>;
+	clr-offset = <0x2000>;
+	lrdat-sel = <0x1>;
+	power-domains = <&agdsp_domain>;
+};
+
+&iommu_vdsp_msti {
+	status = "okay";
+};
+
+&iommu_vdsp_idma {
+	status = "okay";
+};
+
+&iommu_vdsp_vdma {
+	status = "okay";
+};
+
+&vdsp_mailbox {
+	status = "okay";
+};
+
+&vdsp {
+	status = "okay";
+};
+
+&dsp_mem_dump {
+	/* for cmd para addr, fix bug 1740522*/
+	sprd,dspdumpmem = <0x56200000 0x3000
+			   0x65009400 0x1000
+			   0x89300000 0x5f000>;
+};
+
+&sprd_pcm_iis {
+	dmas = <&ap_dma 5 &ap_dma 6 &agcp_dma 21 &agcp_dma 22>;
+	dma-names = "iis0_tx", "iis0_rx", "tdm_tx", "tdm_rx";
+};
+
+&sound_sprd_ap_alliis {
+	status = "okay";
+	sprd,syscon-agcp-ahb = <&audcp_glb_regs>;
+	sprd,syscon-clk-rf = <&audcp_clk_rf_regs>;
+	sprd,syscon-dvfs-apb = <&audcp_dvfs_apb_rf_regs>;
+	sprd,syscon-aon-apb = <&aon_apb_regs>;
+	sprd-audio-card,dai-link@0 {
+		plat {
+			sound-dai = <&sprd_pcm_iis>;
+		};
+		cpu {
+			sound-dai = <&sprd_tdm>;
+		};
+		codec {
+			sound-dai = <0 0>;
+		};
+	};
+};
+
+&sprd_tdm {
+	sprd,duplex_mode = <0>;
+	sprd,slave_timeout = <0x1E00>;
+	sprd,tdm_fs = <48000>;
+	sprd,trx_mst_mode = <1>;/* master */
+	sprd,trx_threshold = <128>;
+	sprd,trx_data_width = <0>;/* 16bit */
+	sprd,trx_data_mode = <0>;/* iis */
+	sprd,trx_slot_width = <0>;/* 16bclk */
+	sprd,trx_slot_num = <0>;/* 2 chn */
+	sprd,trx_msb_mode = <0>;/* lsb */
+	sprd,trx_pulse_mode = <0>;/* 50% */
+	sprd,tdm_slot_valid = <3>;
+	sprd,trx_sync_mode = <1>;
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};

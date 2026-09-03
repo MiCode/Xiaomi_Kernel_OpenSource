@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc Qogirl6 platform DTS file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ */
+
+#include <dt-bindings/usb/pd.h>
+#include "batt_table/arctic-battery-nvt-6000mah.dtsi"
+#include "batt_table/arctic-battery-swd-6000mah.dtsi"
+#include "batt_table/arctic-battery-cos-6000mah.dtsi"
+#include "batt_table/arctic-battery-swd-6300mah.dtsi"
+#include "batt_table/arctic-battery-nvt-6300mah.dtsi"
+
+&soc {
+	acl_slg2: acl_slg2 {
+		compatible = "acl,slg2";
+		role = "master_secret";
+		chip_name = "ACL16_SLG2";
+		vdd-supply = <&vddkpled>;
+		onewire-gpios = <&ap_gpio 56 0x00>;
+	};
+
+	maxim_ds28e30: maxim_ds28e30 {
+		compatible = "maxim,ds28e30";
+		role = "master_secret";
+		chip_name = "DS28E30";
+		vdd-supply = <&vddkpled>;
+		onewire-gpios = <&ap_gpio 56 0x00>;
+	};
+};
+
+&cm {
+	compatible = "charger-manager";
+	status = "okay";
+	cm-name = "battery";
+	cm-poll-mode = <2>;
+	cm-poll-interval = <5000>;
+	cm-battery-stat = <2>;
+
+	cm-fullbatt-vchkdrop-ms = <30000>;
+	cm-fullbatt-vchkdrop-volt = <180000>;
+	cm-fullbatt-capacity = <100>;
+	/*Charge pump target charge current*/
+	cm-cp-taper-current = <1000000>;
+
+	cm-chargers = "sgm41513_charger";
+	cm-alt-charger-adapt-enable;
+	cm-alt-charger-power-supplys = "sc89601_charger","upm691x_charger";
+/*	cm-charge-pumps = "bq2597x-standalone";
+	cm-wireless-chargers = "sy65153_wireless_charger"; */
+	cm-fuel-gauge = "sc27xx-fgu";
+
+	/* in deci centigrade */
+	cm-battery-cold = <200>;
+	cm-battery-cold-in-minus;
+	cm-battery-hot = <800>;
+	cm-battery-temp-diff = <100>;
+
+	/* Allow charging for 15hr */
+	cm-charging-max = <54000000>;
+	/* recovery charging after stop charging 2hr */
+	cm-discharging-max = <7200000>;
+
+	/* the interval to feed charger watchdog */
+	cm-wdt-interval = <60>;
+
+	/* drop voltage in microVolts to allow shutdown */
+	cm-shutdown-voltage = <3100000>;
+
+	/* when 99% of the time is exceeded, it will be forced to 100% */
+	cm-tickle-time-out = <1500>;
+
+	/* how much time to allow capacity change */
+	cm-one-cap-time = <30>;
+
+	cm-thermal-zone = "board-thmzone";
+
+	/* when the safe charging voltage is exceeded, stop charging */
+	cm-charge-voltage-max = <6500000>;
+	cm-fast-charge-voltage-max = <10500000>;
+	cm-flash-charge-voltage-max = <12000000>;
+	cm-wireless-charge-voltage-max = <6500000>;
+	cm-wireless-fast-charge-voltage-max = <12000000>;
+	/* drop voltage in microVolts to restart charging */
+	cm-charge-voltage-drop = <700000>;
+	cm-fast-charge-voltage-drop = <700000>;
+	cm-flash-charge-voltage-drop = <1000000>;
+	cm-wireless-charge-voltage-drop = <700000>;
+	cm-wireless-fast-charge-voltage-drop = <1000000>;
+
+	/* sprd_fchg parameter; */
+	sprd,support-fchg;
+	/* sprd,support-pd-pps; */
+	sprd,pd-fixed-max-microwatt = <15000000>;
+	
+	sprd,bat-aging;
+	monitored-battery-0 = <&bat &bat_1 &bat_2 &bat_3 &bat_4>;
+	monitored-battery-1 = <&bat1 &bat1_1 &bat1_2 &bat1_3 &bat1_4>;
+	monitored-battery-2 = <&bat2 &bat2_1 &bat2_2 &bat2_3 &bat2_4>;
+	monitored-battery-3 = <&bat3 &bat3_1 &bat3_2 &bat3_3 &bat3_4>;
+	monitored-battery-4 = <&bat4 &bat4_1 &bat4_2 &bat4_3 &bat4_4>;
+	bat-0-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-1-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-2-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-3-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-4-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-0-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-1-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-2-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-3-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-4-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	cm-capacity-track;
+	cm-keep-awake;
+
+	phys = <&hsphy>;
+	pd-extcon-enable;
+	extcon = <&pmic_typec>, <&pmic_pd>;
+	use-typec-extcon;
+
+	io-channels = <&pmic_adc 4>;
+	io-channel-names = "batt-id";
+};
+
+&pmic_regulator {
+	vddvbus:otg-vbus {
+		regulator-name = "vddvbus";
+	};
+};
+
+&i2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	sgm41513_chg: charger@1a {
+		compatible = "Sgm,sgm41513_chg";
+		reg = <0x1a>;
+		sprd,bat-aging;
+		monitored-battery-0 = <&bat &bat_1 &bat_2 &bat_3 &bat_4>;
+		monitored-battery-1 = <&bat1 &bat1_1 &bat1_2 &bat1_3 &bat1_4>;
+		monitored-battery-2 = <&bat2 &bat2_1 &bat2_2 &bat2_3 &bat2_4>;
+		monitored-battery-3 = <&bat3 &bat3_1 &bat3_2 &bat3_3 &bat3_4>;
+		monitored-battery-4 = <&bat4 &bat4_1 &bat4_2 &bat4_3 &bat4_4>;
+		bat-0-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-1-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-2-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-3-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-4-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-0-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-1-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-2-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-3-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-4-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		irq-gpio = <&ap_gpio 133 GPIO_ACTIVE_LOW>;
+		disable-otg-wdg-in-sleep;
+		use-typec-extcon;
+		otg-vbus-node-external;
+	};
+	/* sc89601 i2c is 6b,rewrite in driver*/
+	sc89601_chg: charger@6a {
+		compatible = "sc,sc89601_chg";
+		reg = <0x6a>;
+		sprd,bat-aging;
+		monitored-battery-0 = <&bat &bat_1 &bat_2 &bat_3 &bat_4>;
+		monitored-battery-1 = <&bat1 &bat1_1 &bat1_2 &bat1_3 &bat1_4>;
+		monitored-battery-2 = <&bat2 &bat2_1 &bat2_2 &bat2_3 &bat2_4>;
+		monitored-battery-3 = <&bat3 &bat3_1 &bat3_2 &bat3_3 &bat3_4>;
+		monitored-battery-4 = <&bat4 &bat4_1 &bat4_2 &bat4_3 &bat4_4>;
+		bat-0-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-1-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-2-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-3-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-4-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-0-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-1-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-2-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-3-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-4-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		irq-gpio = <&ap_gpio 133 GPIO_ACTIVE_LOW>;
+		use-typec-extcon;
+		otg-vbus-node-external;
+	};
+
+	upm691x_chg: charger@6b {
+		compatible = "upm,upm691x_chg";
+		reg = <0x6b>;
+		sprd,bat-aging;
+		monitored-battery-0 = <&bat &bat_1 &bat_2 &bat_3 &bat_4>;
+		monitored-battery-1 = <&bat1 &bat1_1 &bat1_2 &bat1_3 &bat1_4>;
+		monitored-battery-2 = <&bat2 &bat2_1 &bat2_2 &bat2_3 &bat2_4>;
+		monitored-battery-3 = <&bat3 &bat3_1 &bat3_2 &bat3_3 &bat3_4>;
+		monitored-battery-4 = <&bat4 &bat4_1 &bat4_2 &bat4_3 &bat4_4>;
+		bat-0-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-1-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-2-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-3-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-4-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+		bat-0-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-1-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-2-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-3-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		bat-4-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+		irq-gpio = <&ap_gpio 133 GPIO_ACTIVE_LOW>;
+		use-typec-extcon;
+		otg-vbus-node-external;
+	};
+
+};
+
+&pmic_fgu {
+	compatible = "sprd,sc27xx-fgu-v2", "sprd,sc2730-fgu-v2", "sprd,sprd-fgu";
+
+	monitored-battery-0 = <&bat &bat_1 &bat_2 &bat_3 &bat_4>;
+	monitored-battery-1 = <&bat1 &bat1_1 &bat1_2 &bat1_3 &bat1_4>;
+	monitored-battery-2 = <&bat2 &bat2_1 &bat2_2 &bat2_3 &bat2_4>;
+	monitored-battery-3 = <&bat3 &bat3_1 &bat3_2 &bat3_3 &bat3_4>;
+	monitored-battery-4 = <&bat4 &bat4_1 &bat4_2 &bat4_3 &bat4_4>;
+/*	fgu-cap-remap-table = <1 2 3>, <2 3 2>, <98 99 2>, <99 100 3>; */
+	sprd,calib-resistance-micro-ohms = <5000>;
+	sprd,comp-resistance-mohm = <11>;
+	sprd,com-pcb-resistance-mohm = <10>;
+
+	sprd,bat-aging;
+	bat-0-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-1-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-2-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-3-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-4-aging-cycles = <0>, <100>, <200>, <300>, <800>;
+	bat-0-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-1-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-2-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-3-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	bat-4-aging-fcc-uah = <3000000>, <3000000>, <3000000>, <3000000>, <2880000>;
+	fgu-capacity-track;
+	phys = <&hsphy>;
+
+	sprd,relax-counter-threshold = <580>;
+	sprd,relax-current-threshold = <30>;
+	sprd,capacity-sleep-calibration;
+
+	sprd,capacity-boot-calibration;
+	use-typec-extcon;
+	extcon = <&pmic_typec>;
+
+	sprd,boot-cap-temp-thd = <15>;
+	sprd,boot-cap-shutdown-time-thd = <15>;
+	sprd,capacity-hc = <20>;
+	use-miscdata;
+};
+
+&pmic_fchg {
+	status = "okay";
+	sprd,input-voltage-microvolt = <5000000>;
+
+	/* External device current compensation code value during sfcp handshaking */
+	sprd,ext-dev-comp-cur-code = <30>;
+};
+
+&pmic_pd {
+	status = "okay";
+	vbus-supply = <&vddvbus>;
+	use-pdhub-c2c;
+	sprd,syscon-aon-apb = <&aon_apb_regs>;
+	usb_con: connector {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM | PDO_FIXED_SUSPEND | PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)>;
+		xvddsrc-pdos = <PDO_FIXED(5000, 100, PDO_FIXED_USB_COMM | PDO_FIXED_SUSPEND | PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)
+		PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM | PDO_FIXED_SUSPEND | PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)
+		PDO_FIXED(5000, 1000, PDO_FIXED_USB_COMM | PDO_FIXED_SUSPEND | PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)
+		PDO_FIXED(5000, 1500, PDO_FIXED_USB_COMM | PDO_FIXED_SUSPEND | PDO_FIXED_DUAL_ROLE | PDO_FIXED_DATA_SWAP)>;
+		sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM | PDO_FIXED_DUAL_ROLE |
+				       PDO_FIXED_DATA_SWAP)>;
+		op-sink-microwatt = <10000000>;
+
+		sprd,support-pd-cts;
+	};
+};
+
+&odm {
+ 	xm_smart_chg: xm_smart_chg {
+		compatible = "xiaomi,xm_smart_chg";
+ 		status = "ok";
+ 		label = "smart_charging";
+	};
+};

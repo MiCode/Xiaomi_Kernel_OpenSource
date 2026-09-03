@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc ili7807s tianma LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				lcd_ili7807s_tianma_mipi_hd: lcd_ili7807s_tianma_mipi_hd {
+
+					sprd,dsi-work-mode = <1>;
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+
+					sprd,phy-bit-clock = <1047408>;
+					sprd,phy-escape-clock = <20000>;
+                                        sprd,dpi-clk-div = <6>;
+					sprd,video-lp-cmd-enable = <1>;
+					sprd,hporch-lp-disable = <1>;
+
+					sprd,width-mm = <68>;
+					sprd,height-mm = <121>;
+
+					sprd,esd-check-enable = <0>;
+					sprd,esd-check-mode = <3>;
+					sprd,esd-check-period = <1000>;
+					sprd,esd-check-register = <0x0A>;
+					sprd,esd-check-value = <0x9C>;
+
+					sprd,reset-on-sequence = <1 5>, <0 5>, <1 20>;
+					sprd,reset-off-sequence = <0 20>;
+
+					sprd,initial-command = [
+						39 00 00 04 FF 78 07 06	//Page6
+						23 00 00 02 3E E2
+						23 00 00 02 80 00
+						39 00 00 04 FF 78 07 07	//Page7
+						23 00 00 02 11 16
+						23 00 00 02 29 80
+						39 00 00 04 FF 78 07 02	//Page2
+						23 00 00 02 1B 03
+						23 00 00 02 3F 10
+						39 00 00 04 FF 78 07 00	//Page0
+						23 00 00 02 35 10
+						39 00 00 03 51 0F F0
+						23 00 00 02 53 2C
+						23 00 00 02 55 03
+						23 78 00 02 11 00
+						39 00 00 04 FF 78 07 03
+						23 00 00 02 83 60         //8 bit
+						23 00 00 02 84 00         //125KHz
+						39 00 00 04 FF 78 07 1E   //Page1E
+						23 00 00 02 81 18
+						23 00 00 02 83 18
+						23 00 00 02 85 0C
+						23 00 00 02 86 B2
+						23 00 00 02 D5 1F
+						23 00 00 02 D6 1F
+						23 00 00 02 D7 25
+						39 00 00 04 FF 78 07 12
+						23 00 00 02 D0 57
+						23 00 00 02 D2 17
+						23 00 00 02 D3 0A
+						39 00 00 04 FF 78 07 11
+						23 00 00 02 CB 17
+						23 00 00 02 CC 0A
+						23 00 00 02 CD 9E
+						39 00 00 04 FF 78 07 0B
+						23 00 00 02 CD 71
+						23 00 00 02 D0 88
+						23 00 00 02 D1 88
+						23 00 00 02 DF 72
+						23 00 00 02 E2 88
+						23 00 00 02 E3 88
+						39 00 00 04 FF 78 07 02
+						23 00 00 02 01 35
+						39 00 00 04 FF 78 07 00	//Page0
+						23 14 00 02 29 00
+						];
+					sprd,sleep-in-command = [
+						13 0A 00 01 28
+						13 78 00 01 10
+						];
+					sprd,sleep-out-command = [
+						13 78 00 01 11
+						13 64 00 01 29
+						];
+
+					display-timings {
+						native-mode = <&ili7807s_tianma_timing0>;
+						ili7807s_tianma_timing0: timing0 {
+							clock-frequency = <174568000>;
+							hactive = <900>;
+							vactive = <2000>;
+							hback-porch = <22>;
+							hfront-porch = <22>;
+							vback-porch = <30>;
+							vfront-porch = <1023>;
+							hsync-len = <4>;
+							vsync-len = <2>;
+						};
+						ili7807s_tianma_timing1: timing1 {
+							clock-frequency = <174568000>;
+							hactive = <900>;
+							vactive = <2000>;
+							hback-porch = <22>;
+							hfront-porch = <22>;
+							vback-porch = <30>;
+							vfront-porch = <14>;
+							hsync-len = <4>;
+							vsync-len = <2>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
+

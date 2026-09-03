@@ -1,0 +1,6 @@
+config SPRD_DMC_DRV
+	tristate "Spreadtrum DMC DRV Support"
+	depends on ARCH_SPRD
+	default n
+	help
+	  Say Y or M here to support dmc drv.

@@ -856,19 +856,9 @@ int ext2_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 		u64 start, u64 len)
 {
 	int ret;
-	loff_t i_size;
 
 	inode_lock(inode);
-	i_size = i_size_read(inode);
-	/*
-	 * iomap_fiemap() returns EINVAL for 0 length. Make sure we don't trim
-	 * length to 0 but still trim the range as much as possible since
-	 * ext2_get_blocks() iterates unmapped space block by block which is
-	 * slow.
-	 */
-	if (i_size == 0)
-		i_size = 1;
-	len = min_t(u64, len, i_size);
+	len = min_t(u64, len, i_size_read(inode));
 	ret = iomap_fiemap(inode, fieinfo, start, len, &ext2_iomap_ops);
 	inode_unlock(inode);
 

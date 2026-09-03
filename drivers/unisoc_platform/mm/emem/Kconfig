@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config UNISOC_MM_ENHANCE_MEMINFO
+	tristate "Enable enhance meminfo on unisoc platform"
+	depends on ARCH_SPRD && MMU && ARM64
+	default n
+	help
+	  Output more memory information for unisoc SoC on ARM64,
+	  which includes task meminfo, vmstat meminfo, vmalloc meminfo,
+	  slub meminfo and memory usage in drivers beyond kmalloc
+	  such as ZRAM, DMABUF and GPU etc.
+

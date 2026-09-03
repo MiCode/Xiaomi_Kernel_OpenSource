@@ -1,0 +1,397 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS512-base boards DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/dts-v1/;
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include "ums512/ums512.dtsi"
+#include "sc2730/sc2730.dtsi"
+#include "reserved-memory/ums512-common.dtsi"
+#include "ums512/gpu-gondul.dtsi"
+#include "battery/battery-common.dtsi"
+#include "thermal/ntc-common.dtsi"
+#include "trusty/ums512.dtsi"
+#include "sound/fe-be.dtsi"
+#include "sound/virtual-devices.dtsi"
+
+/ {
+	model = "Unisoc UMS512-base Board";
+
+	compatible = "sprd,ums512-base", "sprd,ums512";
+
+	sprd,sc-id = "ums512 1000 1000";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &aon_i2c0;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &adi_bus;
+		mmc0 = &sdio3;
+		mmc1 = &sdio0;
+		mmc2 = &sdio1;
+		pmic_pwroff = &pmic_pwroff;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+
+	chosen: chosen {
+		stdout-path = "serial1:921600n8";
+		bootargs = "earlycon console=ttyS1,921600n8 loop.max_part=7 loglevel=1
+			    log_buf_len=1M firmware_class.path=/odm/firmware,/vendor/firmware
+			    printk.devkmsg=on dummy_hcd.num=0 swiotlb=1 nosoftlockup
+			    rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=0";
+	};
+
+	pwm_backlight: sprd_backlight {
+		compatible = "sprd,sharkl5pro-backlight";
+		pwms = <&pwms 2 40000>;
+		pwm-names = "backlight";
+		sprd,max-brightness-level = <880>;
+		default-brightness-level = <250>;
+		sprd,brightness-scale = <1023>;
+		brightness-levels = <
+					  0   3   4   5   6   7
+			  8   9  10  11  12  13  14  15  16  17
+			 18  19  20  21  22  23  24  25  26  27
+			 28  29  31  33  35  37  39  41  43  45
+			 46  48  50  52  54  56  58  60  62  64
+			 66  68  70  72  74  76  78  80  82  84
+			 86  88  90  92  94  96  98 100 102 104
+			106 108 110 112 114 116 118 120 122 124
+			126 128 130 132 134 136 138 140 142 144
+			146 148 150 152 154 156 158 160 162 164
+			166 169 172 175 178 181 184 187 190 193
+			196 199 202 205 208 211 214 217 220 223
+			226 229 232 235 238 241 244 247 250 253
+			256 259 262 265 268 271 274 277 280 283
+			286 290 294 298 302 306 310 314 318 322
+			326 330 334 338 342 346 350 354 358 362
+			366 370 374 378 382 386 390 394 398 402
+			406 410 414 418 422 426 430 434 438 442
+			446 451 456 461 466 471 476 481 486 491
+			496 501 506 511 516 521 526 531 536 541
+			546 551 556 561 566 571 576 581 586 591
+			596 601 606 611 616 621 626 631 636 641
+			646 652 658 664 670 676 682 688 694 700
+			706 712 718 724 730 736 742 748 754 760
+			766 772 778 784 790 796 802 808 814 820
+			826 832 838 844 850 856 862 868 874 880
+			>;
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,l_modem,pm_sys,l_ldsp,l_gdsp,l_agdsp,l_cdsp";
+			};
+		};
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	virtual_typec: virtual_typec {
+		compatible = "sprd,virtual-typec";
+		extcon = <&extcon_gpio>;
+		status = "okay";
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	sprd-map-user {
+		compatible = "unisoc,map-user";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		key-volumedown {
+			label = "Volume Down Key";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&ap_gpio 124 GPIO_ACTIVE_LOW>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+
+		key-volumeup {
+			label = "Volume Up Key";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pmic_eic 4 GPIO_ACTIVE_HIGH>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+
+		key-power {
+			label = "Power Key";
+			linux,code = <KEY_POWER>;
+			gpios = <&pmic_eic 1 GPIO_ACTIVE_LOW>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+	};
+
+	autotest: autotest {
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+
+	rebootescrow@0 {
+		compatible = "pmem-region";
+		reg = <0x0 0xfff70000 0x0 0x00010000>;
+	};
+};
+
+&adi_bus {
+	sprd,psci-reboot = <1>;
+};
+
+&pmic_pwroff {
+	sprd,psci-poweroff = <1>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&pwms {
+	status = "okay";
+};
+
+&dpu {
+	sprd,backlight = <&pwm_backlight>;
+	sprd,logo-memory = <&logo_reserved>;
+	sprd,widevine-use-fastcall;
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		sprd,backlight = <&pwm_backlight>;
+
+		avdd-gpio = <&ap_gpio 132 GPIO_ACTIVE_HIGH>;
+		avee-gpio = <&ap_gpio 133 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&ap_gpio 50 GPIO_ACTIVE_HIGH>;
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&dphy {
+	status = "okay";
+};
+
+&vddldo0 {
+	regulator-always-on;
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&pmic_typec>;
+	/* first value is device eye-patt setting, the second is host */
+	sprd,hsphy-tunehsamp = /bits/ 8 <0x03 0x03>;
+	sprd,hsphy-tuneeq = /bits/ 8 <0x00 0x00>;
+	sprd,hsphy-tfregres = /bits/ 8 <0x14 0x14>;
+	status = "okay";
+};
+
+&i2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	fan54015_chg: charger@6a {
+		compatible = "fairchild,fan54015_chg";
+		reg = <0x6a>;
+		phys = <&hsphy>;
+		monitored-battery = <&bat>;
+		extcon = <&extcon_gpio>;
+		vddvbus:otg-vbus {
+			regulator-name = "vddvbus";
+		};
+	};
+
+	ucp1301_spk: ucp1301@58 {
+		compatible = "unisoc,ucp1301-spk";
+		reg = <0x58>;
+		reset-gpios = <&ap_gpio 134 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <1>;
+	};
+};
+
+&usb {
+	extcon = <&pmic_typec>, <&pmic_typec>;
+	vddvbus-supply = <&vddvbus>;
+	status = "okay";
+};
+
+&pmic_typec {
+	extcon = <&extcon_gpio>;
+};
+
+&pmic_fgu {
+	monitored-battery = <&bat>;
+	sprd,calib-resistance-micro-ohms = <10000>;
+	sprd,comp-resistance-mohm = <20>;
+
+	fgu-capacity-track;
+	phys = <&hsphy>;
+
+	sprd,capacity-boot-calibration;
+	sprd,capacity-charge-cycle;
+	sprd,basp;
+};
+
+&vsp {
+	status = "okay";
+};
+
+&vsp_pd {
+	status = "okay";
+};
+
+&iommu_vsp {
+	status = "okay";
+};
+
+&iommu_vdsp_msti {
+	status = "okay";
+};
+
+&iommu_vdsp_mstd {
+	status = "okay";
+};
+
+&iommu_vdsp_idma {
+	status = "okay";
+};
+
+&iommu_vdsp_vdma {
+	status = "okay";
+};
+
+&vdsp {
+	status = "okay";
+};
+
+&agdsp_domain {
+	status = "okay";
+};
+
+&sprd_headset {
+	status = "okay";
+	extcon = <&pmic_typec>;
+	mic-gpios = <&ap_gpio 16 GPIO_ACTIVE_HIGH>;
+	lr-gpios = <&ap_gpio 15 GPIO_ACTIVE_HIGH>;
+	sprd,3pole-adc-threshold = <112>;
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	hp-use-inter-pa = <1>;
+	fixed-sample-rate = <48000 48000 48000>;
+	digital-codec = <&sprd_audio_codec_dig>;
+	power-domains = <&agdsp_domain>;
+};
+
+&sound_vbc_v4_sprd_codec {
+	status = "okay";
+	sprd-audio-card,routing =
+		"HPMIC Pin", "HP Mic Jack",
+		"MIC Pin", "Mic Jack",
+		"MIC2 Pin", "Aux Mic Jack",
+		"HeadPhone Jack", "HP Pin",
+		"Ext Spk", "SPK Pin",
+		"UCP1301 SPK ON", "SPK Pin",
+		"Ext Spk", "UCP1301 SPK",
+		"DMIC Pin", "DMic Jack",
+		"DMIC1 Pin", "DMic1 Jack",
+		"Ext Ear", "EAR Pin";
+
+	/* 35: ucp1301 normal ap01 */
+	sprd-audio-card,dai-link@53 {
+		ignore-suspend = <1>;
+		link-name = "BE_NORMAL_AP01_UCPSPK";
+		stream-name = "BE_ST_NORMAL_AP01_UCPSPK";
+		no-pcm = <1>;
+		dpcm-playback = <1>;
+		be-id = <0>;
+		dai-format = "i2s";
+		plat {
+			sound-dai = <&sprd_route_pcm>;
+		};
+		cpu {
+			sound-dai = <&vbc_v4 3>;
+		};
+		codec {
+			sound-dai = <&ucp1301_spk 0>;
+		};
+	};
+};
+
+&dsp_mem_dump {
+	/* for cmd para addr */
+	sprd,dspdumpmem = <0x33000000 0x10000
+			0xa400 0x1000
+			0x89300000 0x5f000>;
+};
+
+&jpg {
+	status = "okay";
+};
+
+&power_debug {
+	status = "okay";
+	memory-region = <&pdbg_reserved>;
+};
+
+&iommu_jpg {
+	status = "okay";
+};

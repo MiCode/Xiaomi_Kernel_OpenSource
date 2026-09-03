@@ -72,17 +72,4 @@ void init_ia32_feat_ctl(struct cpuinfo_x86 *c);
 #else
 static inline void init_ia32_feat_ctl(struct cpuinfo_x86 *c) {}
 #endif
-
-union zen_patch_rev {
-	struct {
-		__u32 rev	 : 8,
-		      stepping	 : 4,
-		      model	 : 4,
-		      __reserved : 4,
-		      ext_model	 : 4,
-		      ext_fam	 : 8;
-	};
-	__u32 ucode_rev;
-};
-
 #endif /* _ASM_X86_CPU_H */

@@ -1500,3 +1500,24 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-portwell-neptune.dtb \
 	aspeed-bmc-quanta-q71l.dtb \
 	aspeed-bmc-supermicro-x11spi.dtb
+
+ifeq ($(BSP_BUILD_FAMILY),sharkl3)
+dtb-$(CONFIG_ARCH_SPRD) += \
+         sp9863a-1h10-go_32b-overlay.dtbo
+
+sp9863a-1h10-go_32b-overlay.dtbo-base := sp9863a-base.dtb
+endif
+
+ifeq ($(BSP_BUILD_FAMILY),pike2)
+dtb-$(CONFIG_ARCH_SPRD) += \
+	sp7731e-1h10-overlay.dtbo
+
+sp7731e-1h10-overlay.dtbo-base := sp7731e-base.dtb
+endif
+
+ifeq ($(BSP_BUILD_FAMILY),sharkle)
+dtb-$(CONFIG_ARCH_SPRD) += \
+	sp9832e-1h10_go-overlay.dtbo
+
+sp9832e-1h10_go-overlay.dtbo-base := sp9832e-base.dtb
+endif

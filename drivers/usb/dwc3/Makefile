@@ -30,6 +30,8 @@ ifneq ($(CONFIG_DEBUG_FS),)
 	dwc3-y				+= debugfs.o
 endif
 
+obj-$(CONFIG_USB_DWC3_SPRD_CORE)        += sprd/
+
 ##
 # Platform-specific glue layers go here
 #
@@ -53,3 +55,4 @@ obj-$(CONFIG_USB_DWC3_ST)		+= dwc3-st.o
 obj-$(CONFIG_USB_DWC3_QCOM)		+= dwc3-qcom.o
 obj-$(CONFIG_USB_DWC3_IMX8MP)		+= dwc3-imx8mp.o
 obj-$(CONFIG_USB_DWC3_XILINX)		+= dwc3-xilinx.o
+obj-$(CONFIG_USB_DWC3_SPRD)		+= dwc3-sprd.o

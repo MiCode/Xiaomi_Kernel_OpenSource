@@ -596,7 +596,7 @@ int blk_stack_limits(struct queue_limits *t, struct queue_limits *b,
 	}
 
 	/* chunk_sectors a multiple of the physical block size? */
-	if (t->chunk_sectors % (t->physical_block_size >> SECTOR_SHIFT)) {
+	if ((t->chunk_sectors << 9) & (t->physical_block_size - 1)) {
 		t->chunk_sectors = 0;
 		t->misaligned = 1;
 		ret = -1;

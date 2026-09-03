@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc GPIO dts file
+ *
+ * Copyright (C) 2022, Unisoc Inc.
+ *
+ */
+
+&aon {
+	eic_debounce: gpio@32000000 {
+		compatible = "sprd,sharkl5-eic-debounce", "sprd,sc9860-eic-debounce";
+		reg = <0 0x32020000 0 0x80>,
+		      <0 0x32030000 0 0x80>,
+		      <0 0x32230000 0 0x80>,
+		      <0 0x32270000 0 0x80>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eic_latch: gpio@32000080 {
+		compatible = "sprd,sharkl5-eic-latch", "sprd,sc9860-eic-latch";
+		reg = <0 0x32020080 0 0x20>,
+		      <0 0x32030080 0 0x20>,
+		      <0 0x32230080 0 0x20>,
+		      <0 0x32270080 0 0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eic_async: gpio@320000a0 {
+		compatible = "sprd,sharkl5-eic-async", "sprd,sc9860-eic-async";
+		reg = <0 0x320200a0 0 0x20>,
+		      <0 0x320300a0 0 0x20>,
+		      <0 0x322300a0 0 0x20>,
+		      <0 0x322700a0 0 0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eic_sync: gpio@320000c0 {
+		compatible = "sprd,sharkl5-eic-sync", "sprd,sc9860-eic-sync";
+		reg = <0 0x320200c0 0 0x20>,
+		      <0 0x320300c0 0 0x20>,
+		      <0 0x322300c0 0 0x20>,
+		      <0 0x322700c0 0 0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	ap_gpio: gpio@32070000 {
+		compatible = "sprd,sharkl5-gpio", "sprd,sc9860-gpio";
+		reg = <0 0x32070000 0 0x10000>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};

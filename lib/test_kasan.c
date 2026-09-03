@@ -963,7 +963,6 @@ static void kasan_strings(struct kunit *test)
 
 	ptr = kmalloc(size, GFP_KERNEL | __GFP_ZERO);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ptr);
-	OPTIMIZER_HIDE_VAR(ptr);
 
 	kfree(ptr);
 

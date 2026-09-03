@@ -1,0 +1,10 @@
+
+CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kasan.fault=panic kvm-arm.mode=protected cgroup_disable=pressure"
+CONFIG_CONSTRUCTORS=y
+CONFIG_FRAME_WARN=8192
+CONFIG_KCOV=y
+CONFIG_KCOV_ENABLE_COMPARISONS=y
+# CONFIG_LTO_CLANG_FULL is not set
+CONFIG_LTO_NONE=y
+# CONFIG_SPRD_MODULES_NOTIFY is not set
+CONFIG_UNISOC_SYZKALLER_TEST=y

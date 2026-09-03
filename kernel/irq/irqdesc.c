@@ -18,11 +18,141 @@
 #include <linux/sysfs.h>
 
 #include "internals.h"
+#if IS_ENABLED(CONFIG_SPRD_DEBUG_GIC)
+#include <linux/delay.h>
+
+#include <linux/module.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/err.h>
+#include <linux/init.h>
+#include <linux/io.h>
+#endif
 
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
 static struct lock_class_key irq_desc_lock_class;
+
+#if IS_ENABLED(CONFIG_SPRD_DEBUG_GIC)
+#define GIC_ENABLE_BASE  (0x12000114)
+#define GIC_PENDING_BASE (0x12000214)
+#define GIC_ERROR_BASE   (0x12000E14)
+
+void __iomem *gic_enable_status;
+void __iomem *gic_pending_status;
+void __iomem *gic_error_status;
+int gic_init_flag;
+
+static int __init reg_gic_ioremap(void)
+{
+	gic_enable_status = ioremap(GIC_ENABLE_BASE, 8);
+	gic_pending_status = ioremap(GIC_PENDING_BASE, 8);
+	gic_error_status = ioremap(GIC_ERROR_BASE, 8);
+	gic_init_flag = 1;
+	return 0;
+}
+late_initcall(reg_gic_ioremap);
+
+#define  GIG_LOG_BUF_SIZE  (1024*512)
+static char gic_log[8][GIG_LOG_BUF_SIZE] = {0,};
+static unsigned long gic_off[8] = {0,};
+static unsigned long log_count[8] = {0,};
+unsigned int current_cpu_id;
+
+void gic_log_print(const char *fmt, ...)
+{
+	va_list va;
+	unsigned int len;
+	int cpuid;
+
+	cpuid = smp_processor_id();
+	va_start(va, fmt);
+	len = vsnprintf(&gic_log[cpuid][gic_off[cpuid]],
+			GIG_LOG_BUF_SIZE - gic_off[cpuid], fmt, va);
+	va_end(va);
+
+	gic_off[cpuid] += len;
+	log_count[cpuid]++;
+
+	if (gic_off[cpuid] >= (GIG_LOG_BUF_SIZE - 512))
+		gic_off[cpuid] = 0;
+}
+
+static int kprint_show(struct seq_file *m, void *v)
+{
+
+	int i = 0;
+
+	for (i = 0; i < 8; i++)
+		seq_printf(m, "i: %d, log_count = %ld\n", i, log_count[i]);
+
+	return 0;
+}
+
+static inline int open_kprint_fs(struct inode *inode, struct file *file)
+{
+	return single_open(file, 0, NULL);
+}
+
+static ssize_t read_kprint_buf(struct file *file, char  *buf,
+		size_t count, loff_t *data)
+{
+	return simple_read_from_buffer(buf, count, data, &gic_log[current_cpu_id][0],
+						gic_off[smp_processor_id()]);
+}
+
+static ssize_t write_kprint(struct file *file, const char __user *buf,
+					size_t count, loff_t *pos)
+{
+	int ret = 0;
+
+	ret = kstrtouint_from_user(buf, count, 10, &current_cpu_id);
+
+	if (ret < 0)
+		return -1;
+
+	if (current_cpu_id >= 8)
+		return -1;
+
+	pr_debug("current_cpu_id = %d\n", current_cpu_id);
+	return count;
+}
+
+static const struct proc_ops kprint_fops = {
+	.proc_open = open_kprint_fs,
+	.proc_read = read_kprint_buf,
+	.proc_write = write_kprint,
+};
+
+static int __init kprint_init(void)
+{
+	struct proc_dir_entry *kprint_base = NULL;
+	static struct proc_dir_entry *kprint_entry;
+
+	kprint_base = proc_mkdir("kprint", NULL);
+	if (!kprint_base)
+		return -ENOMEM;
+
+	if (!proc_create("buf", 0444, kprint_base, &kprint_fops)) {
+		pr_err("%s: create kprint buff fail\n", __func__);
+		return -ENOENT;
+	}
+
+	kprint_entry = proc_create_single("buf_info", 0444, kprint_base, kprint_show);
+	if (!kprint_entry) {
+		pr_err("Failed to create /proc/kprint/buf_info\n");
+		return -ENOENT;
+	}
+
+	pr_info("Initialized\n");
+	return 0;
+}
+
+
+device_initcall(kprint_init);
+
+#endif
 
 #if defined(CONFIG_SMP)
 static int __init irq_affinity_setup(char *str)
@@ -697,6 +827,9 @@ int handle_domain_irq(struct irq_domain *domain,
 	struct irq_desc *desc;
 	int ret = 0;
 
+	#if IS_ENABLED(CONFIG_SPRD_DEBUG_GIC)
+	u64 boot_time = 0;
+	#endif
 
 	__irq_enter_raw();
 	/* The irqdomain code provides boundary checks */
@@ -708,7 +841,34 @@ int handle_domain_irq(struct irq_domain *domain,
 			handle_irq_desc(desc);
 		} else {
 			irq_enter();
+
+			#if IS_ENABLED(CONFIG_SPRD_DEBUG_GIC)
+			/*boot_time = ktime_get_boot_fast_ns();*/
+			boot_time = ktime_get();
+
+			if (boot_time >= 10000000000 && boot_time <= 15000000000) {
+				/*+irqnum,time,cpuid,pending bit*/
+				if (gic_init_flag == 1)
+					gic_log_print("+%d,%ld,%d,0x%x\n", hwirq, boot_time,
+							smp_processor_id(),
+							readl(gic_pending_status));
+			}
+			#endif
+
 			handle_irq_desc(desc);
+
+			#if IS_ENABLED(CONFIG_SPRD_DEBUG_GIC)
+			boot_time = ktime_get_boot_fast_ns();
+
+			if (boot_time >= 10000000000 && boot_time <= 15000000000) {
+				/*-irqnum,time,cpuid,pending bit*/
+				if (gic_init_flag == 1)
+					gic_log_print("-%d,%ld,%d,0x%x\n", hwirq, boot_time,
+							smp_processor_id(),
+							readl(gic_pending_status));
+			}
+			#endif
+
 			irq_exit();
 		}
 	}

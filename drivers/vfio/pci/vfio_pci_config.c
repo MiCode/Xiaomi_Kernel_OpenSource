@@ -1756,8 +1756,7 @@ int vfio_config_init(struct vfio_pci_core_device *vdev)
 					cpu_to_le16(PCI_COMMAND_MEMORY);
 	}
 
-	if (!IS_ENABLED(CONFIG_VFIO_PCI_INTX) || vdev->nointx ||
-	    vdev->pdev->irq == IRQ_NOTCONNECTED)
+	if (!IS_ENABLED(CONFIG_VFIO_PCI_INTX) || vdev->nointx)
 		vconfig[PCI_INTERRUPT_PIN] = 0;
 
 	ret = vfio_cap_init(vdev);

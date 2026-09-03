@@ -1,0 +1,7 @@
+CONFIG_CMDLINE="stack_depot_disable=off kasan.stacktrace=on kasan.fault=panic kvm-arm.mode=protected cgroup_disable=pressure"
+# CONFIG_KASAN_HW_TAGS is not set
+CONFIG_KASAN_GENERIC=y
+CONFIG_FRAME_WARN=8192
+CONFIG_CONSTRUCTORS=y
+CONFIG_SPRD_SKYNET=y
+CONFIG_UNISOC_SCHED_DEBUG_ATOMIC=y

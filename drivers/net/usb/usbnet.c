@@ -181,17 +181,6 @@ int usbnet_get_ethernet_addr(struct usbnet *dev, int iMACAddress)
 }
 EXPORT_SYMBOL_GPL(usbnet_get_ethernet_addr);
 
-static bool usbnet_needs_usb_name_format(struct usbnet *dev, struct net_device *net)
-{
-	/* Point to point devices which don't have a real MAC address
-	 * (or report a fake local one) have historically used the usb%d
-	 * naming. Preserve this..
-	 */
-	return (dev->driver_info->flags & FLAG_POINTTOPOINT) != 0 &&
-		(is_zero_ether_addr(net->dev_addr) ||
-		 is_local_ether_addr(net->dev_addr));
-}
-
 static void intr_complete (struct urb *urb)
 {
 	struct usbnet	*dev = urb->context;
@@ -533,8 +522,7 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 	    netif_device_present (dev->net) &&
 	    test_bit(EVENT_DEV_OPEN, &dev->flags) &&
 	    !test_bit (EVENT_RX_HALT, &dev->flags) &&
-	    !test_bit (EVENT_DEV_ASLEEP, &dev->flags) &&
-	    !usbnet_going_away(dev)) {
+	    !test_bit (EVENT_DEV_ASLEEP, &dev->flags)) {
 		switch (retval = usb_submit_urb (urb, GFP_ATOMIC)) {
 		case -EPIPE:
 			usbnet_defer_kevent (dev, EVENT_RX_HALT);
@@ -555,7 +543,8 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 			tasklet_schedule (&dev->bh);
 			break;
 		case 0:
-			__usbnet_queue_skb(&dev->rxq, skb, rx_start);
+			if (!usbnet_going_away(dev))
+				__usbnet_queue_skb(&dev->rxq, skb, rx_start);
 		}
 	} else {
 		netif_dbg(dev, ifdown, dev->net, "rx: stopped\n");
@@ -1117,9 +1106,6 @@ static void __handle_link_change(struct usbnet *dev)
 {
 	if (!test_bit(EVENT_DEV_OPEN, &dev->flags))
 		return;
-
-	if (test_and_clear_bit(EVENT_LINK_CARRIER_ON, &dev->flags))
-		netif_carrier_on(dev->net);
 
 	if (!netif_carrier_ok(dev->net)) {
 		/* kill URBs for reading packets to save bus bandwidth */
@@ -1778,11 +1764,13 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		if (status < 0)
 			goto out1;
 
-		/* heuristic: rename to "eth%d" if we are not sure this link
-		 * is two-host (these links keep "usb%d")
-		 */
+		// heuristic:  "usb%d" for links we know are two-host,
+		// else "eth%d" when there's reasonable doubt.  userspace
+		// can rename the link if it knows better.
 		if ((dev->driver_info->flags & FLAG_ETHER) != 0 &&
-		    !usbnet_needs_usb_name_format(dev, net))
+		    ((dev->driver_info->flags & FLAG_POINTTOPOINT) == 0 ||
+		     /* somebody touched it*/
+		     !is_zero_ether_addr(net->dev_addr)))
 			strscpy(net->name, "eth%d", sizeof(net->name));
 		/* WLAN devices should always be named "wlan%d" */
 		if ((dev->driver_info->flags & FLAG_WLAN) != 0)
@@ -2016,12 +2004,10 @@ EXPORT_SYMBOL(usbnet_manage_power);
 void usbnet_link_change(struct usbnet *dev, bool link, bool need_reset)
 {
 	/* update link after link is reseted */
-	if (link && !need_reset) {
-		set_bit(EVENT_LINK_CARRIER_ON, &dev->flags);
-	} else {
-		clear_bit(EVENT_LINK_CARRIER_ON, &dev->flags);
+	if (link && !need_reset)
+		netif_carrier_on(dev->net);
+	else
 		netif_carrier_off(dev->net);
-	}
 
 	if (need_reset && link)
 		usbnet_defer_kevent(dev, EVENT_LINK_RESET);

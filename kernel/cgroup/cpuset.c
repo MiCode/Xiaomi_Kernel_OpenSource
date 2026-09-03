@@ -74,13 +74,6 @@
 DEFINE_STATIC_KEY_FALSE(cpusets_pre_enable_key);
 DEFINE_STATIC_KEY_FALSE(cpusets_enabled_key);
 
-/*
- * There could be abnormal cpuset configurations for cpu or memory
- * node binding, add this key to provide a quick low-cost judgement
- * of the situation.
- */
-DEFINE_STATIC_KEY_FALSE(cpusets_insane_config_key);
-
 /* See "Frequency meter" comments, below. */
 
 struct fmeter {
@@ -407,17 +400,6 @@ static void cpuset_hotplug_workfn(struct work_struct *work);
 static DECLARE_WORK(cpuset_hotplug_work, cpuset_hotplug_workfn);
 
 static DECLARE_WAIT_QUEUE_HEAD(cpuset_attach_wq);
-
-static inline void check_insane_mems_config(nodemask_t *nodes)
-{
-	if (!cpusets_insane_config() &&
-		movable_only_nodes(nodes)) {
-		static_branch_enable_cpuslocked(&cpusets_insane_config_key);
-		pr_info("Unsupported (movable nodes only) cpuset configuration detected (nmask=%*pbl)!\n"
-			"Cpuset allocations might fail even with a lot of memory available.\n",
-			nodemask_pr_args(nodes));
-	}
-}
 
 /*
  * Cgroup v2 behavior is used on the "cpus" and "mems" control files when
@@ -1960,8 +1942,6 @@ static int update_nodemask(struct cpuset *cs, struct cpuset *trialcs,
 	if (retval < 0)
 		goto done;
 
-	check_insane_mems_config(&trialcs->mems_allowed);
-
 	spin_lock_irq(&callback_lock);
 	cs->mems_allowed = trialcs->mems_allowed;
 	spin_unlock_irq(&callback_lock);
@@ -3314,9 +3294,6 @@ retry:
 update_tasks:
 	cpus_updated = !cpumask_equal(&new_cpus, cs->effective_cpus);
 	mems_updated = !nodes_equal(new_mems, cs->effective_mems);
-
-	if (mems_updated)
-		check_insane_mems_config(&new_mems);
 
 	if (is_in_v2_mode())
 		hotplug_update_tasks(cs, &new_cpus, &new_mems,

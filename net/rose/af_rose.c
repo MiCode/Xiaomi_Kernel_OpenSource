@@ -396,15 +396,15 @@ static int rose_setsockopt(struct socket *sock, int level, int optname,
 {
 	struct sock *sk = sock->sk;
 	struct rose_sock *rose = rose_sk(sk);
-	unsigned int opt;
+	int opt;
 
 	if (level != SOL_ROSE)
 		return -ENOPROTOOPT;
 
-	if (optlen < sizeof(unsigned int))
+	if (optlen < sizeof(int))
 		return -EINVAL;
 
-	if (copy_from_sockptr(&opt, optval, sizeof(unsigned int)))
+	if (copy_from_sockptr(&opt, optval, sizeof(int)))
 		return -EFAULT;
 
 	switch (optname) {
@@ -413,31 +413,31 @@ static int rose_setsockopt(struct socket *sock, int level, int optname,
 		return 0;
 
 	case ROSE_T1:
-		if (opt < 1 || opt > UINT_MAX / HZ)
+		if (opt < 1)
 			return -EINVAL;
 		rose->t1 = opt * HZ;
 		return 0;
 
 	case ROSE_T2:
-		if (opt < 1 || opt > UINT_MAX / HZ)
+		if (opt < 1)
 			return -EINVAL;
 		rose->t2 = opt * HZ;
 		return 0;
 
 	case ROSE_T3:
-		if (opt < 1 || opt > UINT_MAX / HZ)
+		if (opt < 1)
 			return -EINVAL;
 		rose->t3 = opt * HZ;
 		return 0;
 
 	case ROSE_HOLDBACK:
-		if (opt < 1 || opt > UINT_MAX / HZ)
+		if (opt < 1)
 			return -EINVAL;
 		rose->hb = opt * HZ;
 		return 0;
 
 	case ROSE_IDLE:
-		if (opt > UINT_MAX / (60 * HZ))
+		if (opt < 0)
 			return -EINVAL;
 		rose->idle = opt * 60 * HZ;
 		return 0;
@@ -700,8 +700,10 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	struct net_device *dev;
 	ax25_address *source;
 	ax25_uid_assoc *user;
-	int err = -EINVAL;
 	int n;
+
+	if (!sock_flag(sk, SOCK_ZAPPED))
+		return -EINVAL;
 
 	if (addr_len != sizeof(struct sockaddr_rose) && addr_len != sizeof(struct full_sockaddr_rose))
 		return -EINVAL;
@@ -715,15 +717,8 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	if ((unsigned int) addr->srose_ndigis > ROSE_MAX_DIGIS)
 		return -EINVAL;
 
-	lock_sock(sk);
-
-	if (!sock_flag(sk, SOCK_ZAPPED))
-		goto out_release;
-
-	err = -EADDRNOTAVAIL;
-	dev = rose_dev_get(&addr->srose_addr);
-	if (!dev)
-		goto out_release;
+	if ((dev = rose_dev_get(&addr->srose_addr)) == NULL)
+		return -EADDRNOTAVAIL;
 
 	source = &addr->srose_call;
 
@@ -734,8 +729,7 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	} else {
 		if (ax25_uid_policy && !capable(CAP_NET_BIND_SERVICE)) {
 			dev_put(dev);
-			err = -EACCES;
-			goto out_release;
+			return -EACCES;
 		}
 		rose->source_call   = *source;
 	}
@@ -757,10 +751,8 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	rose_insert_socket(sk);
 
 	sock_reset_flag(sk, SOCK_ZAPPED);
-	err = 0;
-out_release:
-	release_sock(sk);
-	return err;
+
+	return 0;
 }
 
 static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_len, int flags)

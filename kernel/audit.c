@@ -361,6 +361,9 @@ void audit_log_lost(const char *message)
 
 	atomic_inc(&audit_lost);
 
+#ifdef CONFIG_UNISOC_SYZKALLER_TEST
+	audit_failure = AUDIT_FAIL_SILENT;
+#endif
 	print = (audit_failure == AUDIT_FAIL_PANIC || !audit_rate_limit);
 
 	if (!print) {

@@ -680,6 +680,16 @@ config MMC_SDRICOH_CS
 	  To compile this driver as a module, choose M here: the
 	  module will be called sdricoh_cs.
 
+config MMC_SPRD_SDHCR11P3
+	tristate "Spreadtrum SDIO host Controller(IP version:R11P3) support"
+	depends on ARCH_SPRD
+	default ARM64 && ARCH_SPRD
+	help
+	  This selects the SDIO Host Controller(IP version(R11P3)) in spreadtrum platform.
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.
+
 config MMC_SDHCI_SPRD
 	tristate "Spreadtrum SDIO host Controller"
 	depends on ARCH_SPRD || COMPILE_TEST
@@ -692,6 +702,15 @@ config MMC_SDHCI_SPRD
 
 	  If you have a controller with this interface, say Y or M here.
 
+	  If unsure, say N.
+
+config MMC_SWCQ
+	tristate "SPRD eMMC Soft Command Queuing support"
+	default n
+	help
+	  This enables eMMC software Command Queuing support by Spreadtrum.
+	  Say Y if you want to
+	  use eMMC Command Queuing scheme.
 	  If unsure, say N.
 
 config MMC_TMIO_CORE

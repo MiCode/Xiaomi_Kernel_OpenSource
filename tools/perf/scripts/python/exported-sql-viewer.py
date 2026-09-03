@@ -680,10 +680,7 @@ class CallGraphModelBase(TreeModel):
 				s = value.replace("%", "\%")
 				s = s.replace("_", "\_")
 				# Translate * and ? into SQL LIKE pattern characters % and _
-				if sys.version_info[0] == 3:
-					trans = str.maketrans("*?", "%_")
-				else:
-					trans = string.maketrans("*?", "%_")
+				trans = string.maketrans("*?", "%_")
 				match = " LIKE '" + str(s).translate(trans) + "'"
 			else:
 				match = " GLOB '" + str(value) + "'"

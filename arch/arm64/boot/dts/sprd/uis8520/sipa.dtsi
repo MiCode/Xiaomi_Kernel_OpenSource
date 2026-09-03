@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS9620 SIPA dts file
+ *
+ * Copyright (C) 2020~2021, Unisoc Communications Inc.
+ */
+
+/ {
+	aliases {
+		eth0 = &sipa_eth0;
+		eth1 = &sipa_eth1;
+		eth2 = &sipa_eth2;
+		eth3 = &sipa_eth3;
+		eth4 = &sipa_eth4;
+		eth5 = &sipa_eth5;
+		eth6 = &sipa_eth6;
+		eth7 = &sipa_eth7;
+		eth8 = &sipa_eth8;
+		eth9 = &sipa_eth9;
+		eth10 = &sipa_eth10;
+		eth11 = &sipa_eth11;
+		eth12 = &sipa_eth12;
+		eth13 = &sipa_eth13;
+		eth14 = &sipa_eth14;
+		eth15 = &sipa_eth15;
+	};
+
+	sipa_eth0: sipa-eth0 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <1>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth1: sipa-eth1 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <2>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth2: sipa-eth2 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <3>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth3: sipa-eth3 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <4>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth4: sipa-eth4 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <5>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth5: sipa-eth5 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <6>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth6: sipa-eth6 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <7>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth7: sipa-eth7 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <8>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth8: sipa-eth8 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <9>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth9: sipa-eth9 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <10>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth10: sipa-eth10 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <11>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth11: sipa-eth11 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <12>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth12: sipa-eth12 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <13>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth13: sipa-eth13 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <14>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth14: sipa-eth14 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <15>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_eth15: sipa-eth15 {
+		compatible = "sprd,sipa_eth";
+		sprd,netid = <16>;
+		sprd,term-type = <0x6>;
+	};
+
+	sipa_usb0: sipa-usb {
+		compatible = "sprd,sipa_usb";
+		sprd,netid = <0>;
+		sprd,term-type = <0x1>;
+	};
+
+	sipa_dummy: sipa-dummy {
+		compatible = "sprd,sipa_dummy";
+	};
+};
+
+&soc {
+	ipa-apb {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		sipa: sipa@25220000 {
+			compatible = "sprd,qogirn6pro-sipa";
+			reg = <0 0x25220000 0 0x00002000>;
+			reg-names = "ipa-base";
+			interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "ipa_irq0", "ipa_irq1",
+					"ipa_irq2", "ipa_irq3",
+					"ipa_irq4", "ipa_irq5",
+					"ipa_irq6", "ipa_irq7",
+					"ipa_general";
+			enable-ipa = <&ipa_glb_regs
+				REG_IPA_GLB_APB_IPA_IP_EB
+				MASK_IPA_GLB_APB_IPA_EB>;
+			enable-tft = <&ipa_glb_regs
+				REG_IPA_GLB_APB_IPA_IP_EB
+				MASK_IPA_GLB_APB_TFT_EB>;
+			sprd,sipa-bypass-mode = <1>;
+			sprd,sipa-sys-eb = <1>;
+			sprd,sipa-cpu-type = <1>;
+			power-domains = <&pd_ipa_sys>;
+			fifo-names = "sprd,map0-out", "sprd,map1-out",
+				"sprd,map2-out", "sprd,map3-out",
+				"sprd,map4-out", "sprd,map5-out",
+				"sprd,map6-out", "sprd,map7-out";
+			fifo-sizes = <0 8192 0 8192>, <0 8192 0 8192>,
+				<0 8192 0 8192>, <0 8192 0 8192>,
+				<0 8192 0 8192>, <0 8192 0 8192>,
+				<0 8192 0 8192>, <0 8192 0 8192>;
+		};
+
+		ipa_delegate: sipa-dele {
+			compatible = "sprd,orca-sipa-delegate";
+			sprd,sipa-sys-eb = <1>;
+			power-domains = <&pd_ipa_sys>;
+		};
+	};
+};

@@ -42,6 +42,7 @@
 #define VIRTIO_ID_RPROC_SERIAL		11 /* virtio remoteproc serial link */
 #define VIRTIO_ID_CAIF			12 /* Virtio caif */
 #define VIRTIO_ID_MEMORY_BALLOON	13 /* virtio memory balloon */
+#define VIRTIO_ID_TRUSTY_IPC            13 /* virtio trusty ipc */
 #define VIRTIO_ID_GPU			16 /* virtio GPU */
 #define VIRTIO_ID_CLOCK			17 /* virtio clock/timer */
 #define VIRTIO_ID_INPUT			18 /* virtio input */

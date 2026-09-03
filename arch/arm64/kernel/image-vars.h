@@ -71,6 +71,15 @@ KVM_NVHE_ALIAS(spectre_bhb_patch_loop_mitigation_enable);
 KVM_NVHE_ALIAS(spectre_bhb_patch_wa3);
 KVM_NVHE_ALIAS(spectre_bhb_patch_clearbhb);
 
+/* IO tracing extern symbol, only debug version. */
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+KVM_NVHE_ALIAS(sprd_past_reg_record);
+KVM_NVHE_ALIAS(serror_debug_status);
+KVM_NVHE_ALIAS(sprd_debug_virt_to_phys);
+KVM_NVHE_ALIAS(cpu_number);
+KVM_NVHE_ALIAS(jiffies);
+#endif
+
 /* Global kernel state accessed by nVHE hyp code. */
 KVM_NVHE_ALIAS(kvm_vgic_global_state);
 

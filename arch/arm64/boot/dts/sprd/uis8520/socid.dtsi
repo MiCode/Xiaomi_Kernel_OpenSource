@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * socid.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+#include <dt-bindings/soc/sprd,uis8520-regs.h>
+#include <dt-bindings/soc/sprd,uis8520-mask.h>
+
+&aon {
+	socid: socid {
+		compatible = "sprd,soc-id";
+		chip-id = <&aon_apb_regs REG_AON_APB_PROJECT_ID_L
+			MASK_AON_APB_PROJECT_ID_L>;
+		plat-id = <&aon_apb_regs REG_AON_APB_PLATFORM_ID_L
+			MASK_AON_APB_PLATFORM_ID_L>;
+		version-id = <&aon_apb_regs REG_AON_APB_DERIVED_ID
+			MASK_AON_APB_METAL_FIX_ID>;
+		manufacture-id = <&aon_apb_regs  REG_AON_APB_MANUFACTURE_ID
+			MASK_AON_APB_FOUNDRY_ID>;
+		implement-id = <&aon_apb_regs REG_AON_APB_IMPLEMENTATION_ID
+			MASK_AON_APB_STD_CELL>;
+	};
+};

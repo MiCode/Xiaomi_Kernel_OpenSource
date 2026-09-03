@@ -455,7 +455,7 @@ tegra_xusb_find_port_node(struct tegra_xusb_padctl *padctl, const char *type,
 	name = kasprintf(GFP_KERNEL, "%s-%u", type, index);
 	if (!name) {
 		of_node_put(ports);
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 	}
 	np = of_get_child_by_name(ports, name);
 	kfree(name);
@@ -542,16 +542,16 @@ static int tegra_xusb_port_init(struct tegra_xusb_port *port,
 
 	err = dev_set_name(&port->dev, "%s-%u", name, index);
 	if (err < 0)
-		goto put_device;
+		goto unregister;
 
 	err = device_add(&port->dev);
 	if (err < 0)
-		goto put_device;
+		goto unregister;
 
 	return 0;
 
-put_device:
-	put_device(&port->dev);
+unregister:
+	device_unregister(&port->dev);
 	return err;
 }
 

@@ -1447,7 +1447,6 @@ again:
 			}
 			rss[mm_counter(page)]--;
 			page_remove_rmap(page, false);
-			trace_android_vh_zap_pte_range_page_remove_rmap(page);
 			if (unlikely(page_mapcount(page) < 0))
 				print_bad_pte(vma, addr, ptent, page);
 			if (unlikely(__tlb_remove_page(tlb, page))) {
@@ -2640,11 +2639,11 @@ static int apply_to_pte_range(struct mm_struct *mm, pmd_t *pmd,
 	if (fn) {
 		do {
 			if (create || !pte_none(*pte)) {
-				err = fn(pte, addr, data);
+				err = fn(pte++, addr, data);
 				if (err)
 					break;
 			}
-		} while (pte++, addr += PAGE_SIZE, addr != end);
+		} while (addr += PAGE_SIZE, addr != end);
 	}
 	*mask |= PGTBL_PTE_MODIFIED;
 
@@ -2783,10 +2782,8 @@ static int __apply_to_page_range(struct mm_struct *mm, unsigned long addr,
 		next = pgd_addr_end(addr, end);
 		if (pgd_none(*pgd) && !create)
 			continue;
-		if (WARN_ON_ONCE(pgd_leaf(*pgd))) {
-			err = -EINVAL;
-			break;
-		}
+		if (WARN_ON_ONCE(pgd_leaf(*pgd)))
+			return -EINVAL;
 		if (!pgd_none(*pgd) && WARN_ON_ONCE(pgd_bad(*pgd))) {
 			if (!create)
 				continue;

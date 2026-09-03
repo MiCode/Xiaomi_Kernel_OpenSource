@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc PINCTRL dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+
+&aon {
+	pin_controller: pinctrl@402a0000 {
+		compatible = "sprd,sharkl3-pinctrl";
+		reg = <0 0x402a0000 0 0x10000>;
+	};
+};

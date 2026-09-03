@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config UNISOC_SIPC_VIRT_BUS
+	tristate "Unisoc IPC Virt Bus"
+	default n
+	help
+	  sipc virt bus driver implementation for the Unisoc platform.
+	  it is used to populating sub-devices.
+
+	  Say M here if you want to build a module.

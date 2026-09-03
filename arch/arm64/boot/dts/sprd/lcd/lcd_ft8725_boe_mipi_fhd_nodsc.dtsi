@@ -1,0 +1,365 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * lcd_ft8725_boe_mipi_fhd_nodsc.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				lcd_ft8725_boe_mipi_fhd_nodsc: lcd_ft8725_boe_mipi_fhd_nodsc {
+
+					sprd,dsi-work-mode = <1>; /* video burst mode*/
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+
+					sprd,phy-bit-clock = <1020000>;  /* kbps */
+					sprd,phy-escape-clock = <20000>;/* kHz */
+
+					sprd,dpi-clk-div = <6>;
+					sprd,video-lp-cmd-enable = <1>;
+					sprd,hporch-lp-disable = <1>;
+
+					sprd,width-mm = <68>;
+					sprd,height-mm = <152>;
+
+					sprd,esd-check-enable = <1>;
+					sprd,esd-check-mode = <0>;  // 0:Reg mode 1:TE mode
+					sprd,esd-check-period = <1000>;
+					sprd,esd-check-register = <0x0A>;
+					sprd,esd-check-value = <0x9C>;
+
+					sprd,reset-on-sequence = <1 15>, <0 15>, <1 15>;
+					sprd,reset-off-sequence = <1 5>;
+
+					sprd,use-gen-write;
+
+				sprd,initial-command = [
+					//05 00 00 01 01
+					15 00 00 02 00 00
+					39 00 00 04 FF 87 25 01
+					15 00 00 02 00 80
+					39 00 00 03 FF 87 25
+					15 00 00 02 00 A3
+					39 00 00 05 B3 09 60 00 18 //1080x2408
+					//TCON
+					15 00 00 02 00 80
+					39 00 00 07 C0 00 4A 00 32 00 14
+					15 00 00 02 00 90
+					39 00 00 07 C0 00 4A 00 32 00 14
+					15 00 00 02 00 A0
+					39 00 00 07 C0 00 96 00 32 00 14
+					15 00 00 02 00 B0
+					39 00 00 06 C0 00 BB 00 32 14
+					15 00 00 02 00 C1
+					39 00 00 09 C0 00 94 00 75 00 63 00 B0
+					15 00 00 02 00 70
+					39 00 00 07 C0 00 9E 00 32 00 14
+					15 00 00 02 00 A3
+					39 00 00 07 C1 00 5C 00 3A 00 02
+					15 00 00 02 00 B7
+					39 00 00 03 C1 00 48
+					15 00 00 02 00 7B
+					39 00 00 03 CE FF FF
+					15 00 00 02 00 80
+					39 00 00 11 CE 01 81 FF FF 00 C0 00 C8 00 C0 00 C8 00 D0 00 D0
+					15 00 00 02 00 90
+					39 00 00 10 CE 00 A7 10 43 00 A7 80 FF FF 00 09 C4 10 0F 11
+					15 00 00 02 00 A0
+					39 00 00 04 CE 10 00 00
+					15 00 00 02 00 B0
+					39 00 00 04 CE 22 00 00
+					15 00 00 02 00 D1
+					39 00 00 08 CE 00 00 01 00 00 00 00
+					15 00 00 02 00 E1
+					39 00 00 0C CE 05 01 A1 02 B6 02 B6 00 00 00 00
+					15 00 00 02 00 F1
+					39 00 00 0A CE 2A 16 15 00 E8 00 EA 00 EC
+					15 00 00 02 00 B0
+					39 00 00 05 CF 00 00 B8 BC
+					15 00 00 02 00 B5
+					39 00 00 05 CF 05 05 68 6C
+					15 00 00 02 00 C0
+					39 00 00 05 CF 09 09 5B 5F
+					15 00 00 02 00 C5
+					39 00 00 05 CF 09 09 61 65
+					15 00 00 02 00 60
+					39 00 00 09 CF 00 00 CC D0 05 05 44 48
+					15 00 00 02 00 70
+					39 00 00 09 CF 00 00 BC C0 05 05 6C 70
+					//Qsync Detect
+					15 00 00 02 00 D1
+					39 00 00 0D C1 0B 60 0F DC 1B 15 05 AF 07 E5 0D 81
+					15 00 00 02 00 E1
+					39 00 00 03 C1 0F DC
+					15 00 00 02 00 E4
+					39 00 00 0D CF 09 F6 09 F5 09 F5 09 F5 09 F5 09 F5
+					//OSC
+					15 00 00 02 00 80
+					39 00 00 03 C1 00 00
+					15 00 00 02 00 90
+					15 00 00 02 C1 03
+					//Line rate for TP
+					15 00 00 02 00 F5
+					15 00 00 02 CF 00
+					//TP Frame rate
+					15 00 00 02 00 F6
+					15 00 00 02 CF 78
+					//TCON Frame rate
+					15 00 00 02 00 F1
+					15 00 00 02 CF 78
+					//decrese vddi current
+					15 00 00 02 00 93
+					15 00 00 02 C1 82
+					//VDEC ICG
+					15 00 00 02 00 CC
+					15 00 00 02 C1 18
+					//Source Clk Select
+					15 00 00 02 00 91
+					15 00 00 02 C4 08
+					//VDD=1.275V LVDSVDD=1.25V VDD_TP=1.2V
+					15 00 00 02 00 80
+					39 00 00 03 C5 87 59
+					//4 power VDD=1.275V LVDSVDD=1.25V
+					15 00 00 02 00 9E
+					15 00 00 02 C5 87
+					15 00 00 02 00 87
+					39 00 00 03 C4 08 08
+					//STV1 & STV2 Setting
+					15 00 00 02 00 80
+					39 00 00 09 C2 83 01 06 88 82 01 06 88
+					//CKV1-3 Setting
+					15 00 00 02 00 A0
+					39 00 00 10 C2 8A 07 00 06 88 89 08 00 06 88 88 09 00 06 88
+					//CKV4 Setting
+					15 00 00 02 00 B0
+					39 00 00 06 C2 87 0A 00 06 88
+					//CKV width setting
+					15 00 00 02 00 E0
+					39 00 00 05 C2 33 33 00 00
+					//Rst1 Setting
+					15 00 00 02 00 E8
+					39 00 00 09 C2 12 00 0A 0A 03 88 00 00
+					//GOFF Setting
+					15 00 00 02 00 D0
+					39 00 00 11 C3 35 0A 00 00 35 0A 00 00 35 0A 00 00 35 0A 00 00
+					15 00 00 02 00 E0
+					39 00 00 11 C3 35 0A 00 00 35 0A 00 00 35 0A 00 00 35 0A 00 00
+					//power off enmode setting
+					15 00 00 02 00 80
+					39 00 00 11 CB CD CD CC 00 CD CC 00 CD CE FE CD 00 CC CC 00 00
+					//power on enmode setting
+					15 00 00 02 00 90
+					39 00 00 11 CB 0C 00 00 00 0C 0C 00 00 0C 00 00 00 00 00 00 00
+					//skip & power on1 enmode setting
+					15 00 00 02 00 A0
+					39 00 00 09 CB 00 00 00 00 00 00 00 00
+					//power off blank enmode setting
+					15 00 00 02 00 B0
+					39 00 00 05 CB 50 41 A4 00
+					//power on blank enmode setting
+					15 00 00 02 00 C0
+					39 00 00 05 CB 50 41 A4 00
+					//power on blank enmode setting
+					15 00 00 02 00 D5
+					39 00 00 0C CB 83 00 83 83 00 83 83 00 83 83 00
+					15 00 00 02 00 E0
+					39 00 00 0E CB 83 83 00 83 83 00 83 83 00 83 83 00 83
+					//panel mapping setting
+					//u2d_L
+					15 00 00 02 00 80
+					39 00 00 11 CC 18 17 16 2C 07 06 09 08 2C 25 25 26 26 2C 24 2C
+					15 00 00 02 00 90
+					39 00 00 09 CC 22 23 23 01 03 02 26 26
+					//d2u_L
+					15 00 00 02 00 A0
+					39 00 00 11 CC 18 17 16 2C 08 09 06 07 2C 25 25 22 22 2C 24 2C
+					15 00 00 02 00 B0
+					39 00 00 09 CC 26 23 23 01 02 03 26 26
+					//u2d_R
+					15 00 00 02 00 80
+					39 00 00 11 CD 18 17 16 2C 07 06 09 08 2C 25 25 26 26 2C 24 2C
+					15 00 00 02 00 90
+					39 00 00 09 CD 22 23 23 01 03 02 26 26
+					//d2u_R
+					15 00 00 02 00 A0
+					39 00 00 11 CD 18 17 16 2C 08 09 06 07 2C 25 25 22 22 2C 24 2C
+					15 00 00 02 00 B0
+					39 00 00 09 CD 26 23 23 01 02 03 26 26
+
+					//ckh
+					15 00 00 02 00 86 //Normal
+					39 00 00 09 C0 01 02 01 02 13 13 13 03
+					15 00 00 02 00 96 //IDLE
+					39 00 00 09 C0 01 02 01 01 13 13 13 04
+					15 00 00 02 00 A6 //LPF
+					39 00 00 09 C0 01 02 01 01 28 28 28 04
+					15 00 00 02 00 A3 //PER_DMY
+					39 00 00 07 CE 01 02 01 05 28 02
+					15 00 00 02 00 B3 //POS_DMY
+					39 00 00 07 CE 01 02 01 05 28 02
+					15 00 00 02 00 76 //FIFO
+					39 00 00 09 C0 01 02 01 05 28 28 28 02
+					//CKH_dummy
+					15 00 00 02 00 82
+					39 00 00 03 a7 20 00
+					15 00 00 02 00 8d
+					15 00 00 02 a7 02
+					15 00 00 02 00 8f
+					15 00 00 02 a7 01
+
+					//anlong setting
+					//vgh=11V
+					15 00 00 02 00 93
+					15 00 00 02 C5 37
+					15 00 00 02 00 97
+					15 00 00 02 C5 37
+					//vgl=-9V
+					15 00 00 02 00 9A
+					15 00 00 02 C5 23
+					15 00 00 02 00 9C
+					15 00 00 02 C5 23
+
+					//vghol=10V, vglol=-8V
+					15 00 00 02 00 B6
+					39 00 00 05 C5 2D 2D 19 19
+					//GVDDP=5.2V, GVDDN=-4.8V
+					15 00 00 02 00 00
+					39 00 00 03 D8 2F 27
+					//VCOM=-0.2V
+					15 00 00 02 00 00
+					39 00 00 05 D9 23 23 23 23
+					15 00 00 02 00 06
+					39 00 00 04 D9 23 23 23
+					15 00 00 02 00 88
+					15 00 00 02 C4 08
+					//CKH Rotate
+					//0x03:RGBBGR 0x10:RGBRGB
+					15 00 00 02 00 80
+					15 00 00 02 A7 10
+					15 00 00 02 00 A0
+					39 00 00 11 C3 00 01 23 45 21 03 45 00 00 00 21 03 45 01 23 45
+					15 00 00 02 00 B1
+					15 00 00 02 F5 1F
+					//C0CB[7:4]=PONBLANK=1= 2 FRAME
+					//C0CB[3:0]=POFBLANK=1= 2 FRAME
+					15 00 00 02 00 CB
+					15 00 00 02 C0 01
+					15 00 00 02 00 88
+					15 00 00 02 C4 08
+					15 00 00 02 00 94
+					15 00 00 02 E9 00
+					15 00 00 02 00 9A
+					15 00 00 02 C4 11
+					15 00 00 02 00 95
+					15 00 00 02 E9 10
+					15 00 00 02 00 82
+					15 00 00 02 F5 00
+					15 00 00 02 00 93
+					15 00 00 02 F5 00
+					//AC MODE GIP toggle
+					15 00 00 02 00 99
+					15 00 00 02 CF 50
+					15 00 00 02 00 9C
+					15 00 00 02 F5 00
+					15 00 00 02 00 9E
+					15 00 00 02 F5 00
+					15 00 00 02 00 B0
+					39 00 00 07 C5 10 4A 01 1F 4A 00 //fw q 8725
+					15 00 00 02 00 A0
+					39 00 00 08 B0 00 00 00 00 00 1D 01
+					15 00 00 02 00 93
+					39 00 00 04 E9 ff ff b0
+					15 00 00 02 00 9B
+					15 00 00 02 C4 08
+					15 00 00 02 00 87
+					15 00 00 02 F5 00
+					15 00 00 02 00 80
+					15 00 00 02 A4 C9
+					15 00 00 02 00 87
+					39 00 00 03 C5 08 08 //GAP
+					15 00 00 02 00 BE
+					39 00 00 03 C5 C0 C0
+					//mirror_x2=1
+					15 00 00 02 00 E8
+					15 00 00 02 C0 40
+					15 00 00 02 00 00
+					39 00 00 29 E1 00 02 07 0F 3F 1B 24 2A 35 CE 3E 45 4B 50 06 55 5D 65 6C 7B 74 7B 83 8C 14 96 9C A2 AA 49 B3 BD CB D4 34 DF EE F8 FF DC
+					15 00 00 02 00 30
+					39 00 00 29 E1 00 02 07 0F 3F 1B 24 2A 35 CE 3E 45 4B 50 06 55 5D 65 6C 7B 74 7B 83 8C 14 96 9C A2 AA 49 B3 BD CB D4 34 DF EE F8 FF DC
+					15 00 00 02 00 60
+					39 00 00 29 E1 00 02 07 0F 3F 1B 24 2A 35 CE 3E 45 4B 50 06 55 5D 65 6C 7B 74 7B 83 8C 14 96 9C A2 AA 49 B3 BD CB D4 34 DF EE F8 FF DC
+					15 00 00 02 00 90
+					39 00 00 29 E1 00 02 07 0F 3F 1B 24 2A 35 CE 3E 45 4B 50 06 55 5D 65 6C 7B 74 7B 83 8C 14 96 9C A2 AA 49 B3 BD CB D4 34 DF EE F8 FF DC
+					15 00 00 02 00 C0
+					39 00 00 29 E1 00 02 07 0F 3F 1B 24 2A 35 CE 3E 45 4B 50 06 55 5D 65 6C 7B 74 7B 83 8C 14 96 9C A2 AA 49 B3 BD CB D4 34 DF EE F8 FF DC
+					15 00 00 02 00 F0
+					39 00 00 11 E1 00 02 07 0F 3F 1B 24 2A 35 CE 3E 45 4B 50 06 55
+					15 00 00 02 00 00
+					39 00 00 19 E2 5D 65 6C 7B 74 7B 83 8C 14 96 9C A2 AA 49 B3 BD CB D4 34 DF EE F8 FF DC
+					15 00 00 02 00 E0
+					15 00 00 02 CF 34
+					15 00 00 02 00 85
+					15 00 00 02 A7 00
+					//ESD disable reg_21h_rev_disbale
+					15 00 00 02 00 80
+					15 00 00 02 B3 22
+					//HS lock CMD1
+					15 00 00 02 00 B0
+					15 00 00 02 B3 00
+					15 00 00 02 00 81
+					39 00 00 03 A4 23 23
+					15 00 00 02 00 90
+					15 00 00 02 E9 50
+					//FIFO_MODE
+					15 00 00 02 1C 02
+					//SLPOUT AND DISPON
+					05 78 00 01 11
+					05 14 00 01 29
+					];
+
+				sprd,sleep-in-command = [
+					13 32 00 01 28
+					13 78 00 01 10
+					];
+				sprd,sleep-out-command = [
+					13 78 00 01 11
+					13 32 00 01 29
+					];
+
+				display-timings {
+					native-mode = <&ft8725_boe_nodsc_timing0>;
+					ft8725_boe_nodsc_timing0: timing0 {
+						clock-frequency = <170000000>;
+						hactive = <1080>;
+						vactive = <2400>;
+						hback-porch = <24>;
+						hfront-porch = <24>;
+						vback-porch = <30>;
+						vfront-porch = <46>;
+						hsync-len = <12>;
+						vsync-len = <10>;
+						};
+					};
+				};
+			};
+		};
+	};
+};

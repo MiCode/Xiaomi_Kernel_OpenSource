@@ -568,15 +568,17 @@ static int linker_load_obj_file(struct bpf_linker *linker, const char *filename,
 	}
 	obj->elf = elf_begin(obj->fd, ELF_C_READ_MMAP, NULL);
 	if (!obj->elf) {
+		err = -errno;
 		pr_warn_elf("failed to parse ELF file '%s'", filename);
-		return -EINVAL;
+		return err;
 	}
 
 	/* Sanity check ELF file high-level properties */
 	ehdr = elf64_getehdr(obj->elf);
 	if (!ehdr) {
+		err = -errno;
 		pr_warn_elf("failed to get ELF header for %s", filename);
-		return -EINVAL;
+		return err;
 	}
 	if (ehdr->e_ident[EI_DATA] != host_endianness) {
 		err = -EOPNOTSUPP;
@@ -592,8 +594,9 @@ static int linker_load_obj_file(struct bpf_linker *linker, const char *filename,
 	}
 
 	if (elf_getshdrstrndx(obj->elf, &obj->shstrs_sec_idx)) {
+		err = -errno;
 		pr_warn_elf("failed to get SHSTRTAB section index for %s", filename);
-		return -EINVAL;
+		return err;
 	}
 
 	scn = NULL;
@@ -603,23 +606,26 @@ static int linker_load_obj_file(struct bpf_linker *linker, const char *filename,
 
 		shdr = elf64_getshdr(scn);
 		if (!shdr) {
+			err = -errno;
 			pr_warn_elf("failed to get section #%zu header for %s",
 				    sec_idx, filename);
-			return -EINVAL;
+			return err;
 		}
 
 		sec_name = elf_strptr(obj->elf, obj->shstrs_sec_idx, shdr->sh_name);
 		if (!sec_name) {
+			err = -errno;
 			pr_warn_elf("failed to get section #%zu name for %s",
 				    sec_idx, filename);
-			return -EINVAL;
+			return err;
 		}
 
 		data = elf_getdata(scn, 0);
 		if (!data) {
+			err = -errno;
 			pr_warn_elf("failed to get section #%zu (%s) data from %s",
 				    sec_idx, sec_name, filename);
-			return -EINVAL;
+			return err;
 		}
 
 		sec = add_src_sec(obj, sec_name);
@@ -1181,7 +1187,7 @@ static int linker_append_sec_data(struct bpf_linker *linker, struct src_obj *obj
 		} else {
 			if (!secs_match(dst_sec, src_sec)) {
 				pr_warn("ELF sections %s are incompatible\n", src_sec->sec_name);
-				return -EINVAL;
+				return -1;
 			}
 
 			/* "license" and "version" sections are deduped */
@@ -1966,7 +1972,7 @@ add_sym:
 
 	obj->sym_map[src_sym_idx] = dst_sym_idx;
 
-	if (sym_type == STT_SECTION && dst_sec) {
+	if (sym_type == STT_SECTION && dst_sym) {
 		dst_sec->sec_sym_idx = dst_sym_idx;
 		dst_sym->st_value = 0;
 	}
@@ -2027,7 +2033,7 @@ static int linker_append_elf_relos(struct bpf_linker *linker, struct src_obj *ob
 			}
 		} else if (!secs_match(dst_sec, src_sec)) {
 			pr_warn("sections %s are not compatible\n", src_sec->sec_name);
-			return -EINVAL;
+			return -1;
 		}
 
 		/* add_dst_sec() above could have invalidated linker->secs */
@@ -2595,14 +2601,14 @@ int bpf_linker__finalize(struct bpf_linker *linker)
 
 	/* Finalize ELF layout */
 	if (elf_update(linker->elf, ELF_C_NULL) < 0) {
-		err = -EINVAL;
+		err = -errno;
 		pr_warn_elf("failed to finalize ELF layout");
 		return libbpf_err(err);
 	}
 
 	/* Write out final ELF contents */
 	if (elf_update(linker->elf, ELF_C_WRITE) < 0) {
-		err = -EINVAL;
+		err = -errno;
 		pr_warn_elf("failed to write ELF contents");
 		return libbpf_err(err);
 	}

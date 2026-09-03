@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc Register Trace Monitor dtsi file.
+ *
+ * Copyright (C) 2024, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/debug/rtm_trace/rtm.h>
+
+&soc {
+	rtm_trace: rtm@645E0000 {
+		compatible = "sprd,reg_trace_monitor";
+		reg = <0x0 0x645E0000 0x0 0x1000>,
+			<0x0 0x78002000 0x0 0x1000>,
+			<0x0 0x78003000 0x0 0x1000>,
+			<0x0 0x78006000 0x0 0x1000>,
+			<0x0 0x78005000 0x0 0x1000>;
+		clock-names = "clk_cs", "cs_src";
+		clocks = <&aonapb_clk CLK_CSSYS>, <&g5l_pll CLK_TGPLL_512M>;
+		sprd,rtm-syscon = <&aon_apb_regs REG_AON_APB_APB_EB0
+						MASK_AON_APB_RTM_ATB_CLK_EB
+						MASK_AON_APB_RTM_APB_CLK_EB>;
+		sprd,rtm-valid-num = <7>;
+		sprd,rtm-port-name =
+				"S3", "S4",
+				"S6", "S7", "S5",
+				"S1", "S17";
+		sprd,rtm-port-config =
+				<0 APB_BUS DISABLE FILTER_USER 0xFFFFFFFF>,
+				<1 APB_BUS DISABLE FILTER_USER 0xFFFFFFFF>,
+				<0 AHB_BUS DISABLE FILTER_USER 0xFFFFFFFF>,
+				<1 AHB_BUS DISABLE FILTER_USER 0xFFFFFFFF>,
+				<2 AHB_BUS DISABLE FILTER_USER 0xFFFFFFFF>,
+				<0 AXI_BUS DISABLE FILTER_USER 0xFFFFFFFF>,
+				<1 AXI_BUS DISABLE FILTER_USER 0xFFFFFFFF>;
+		sprd,rtm_trace_funnel_port = <6>;
+		sprd,rtm-trace-etr_eb = <DISABLE>;
+		sprd,rtm_trace_enable = <DISABLE>;
+		status = "okay";
+	};
+};

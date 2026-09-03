@@ -1,0 +1,11 @@
+#SPDX-FileCopyrightText: 2019 Unisoc (Shanghai) Technologies Co.Ltd
+#SPDX-License-Identifier: GPL-2.0-only
+
+config UNISOC_IOMMU
+	tristate "UNISOC Soc IOMMU Module"
+	depends on ARM || ARM64
+	depends on ARCH_SPRD
+	help
+	  Choose this option can support unisoc iommu driver, which can use as an address translater
+	  for Device DMA address access, support above 4G address access and scatter pages
+	  access.

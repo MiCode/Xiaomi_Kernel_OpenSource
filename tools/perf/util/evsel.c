@@ -1416,15 +1416,6 @@ static void evsel__free_config_terms(struct evsel *evsel)
 	free_config_terms(&evsel->config_terms);
 }
 
-static void (*evsel__priv_destructor)(void *priv);
-
-void evsel__set_priv_destructor(void (*destructor)(void *priv))
-{
-	assert(evsel__priv_destructor == NULL);
-
-	evsel__priv_destructor = destructor;
-}
-
 void evsel__exit(struct evsel *evsel)
 {
 	assert(list_empty(&evsel->core.node));
@@ -1445,8 +1436,6 @@ void evsel__exit(struct evsel *evsel)
 	hashmap__free(evsel->per_pkg_mask);
 	evsel->per_pkg_mask = NULL;
 	zfree(&evsel->metric_events);
-	if (evsel__priv_destructor)
-		evsel__priv_destructor(evsel->priv);
 	perf_evsel__object.fini(evsel);
 }
 

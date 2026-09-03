@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc DDR DFS dts file
+ *
+ * Copyright (C) 2022, Unisoc Communications Inc.
+ *
+ */
+
+/ {
+	ddr_dfs: scene-frequency {
+		compatible = "sprd,ddr-dvfs";
+		freq-num = <8>;
+	};
+};

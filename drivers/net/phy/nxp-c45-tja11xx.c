@@ -436,7 +436,7 @@ static long nxp_c45_do_aux_work(struct ptp_clock_info *ptp)
 		shhwtstamps_rx = skb_hwtstamps(skb);
 		shhwtstamps_rx->hwtstamp = ns_to_ktime(timespec64_to_ns(&ts));
 		NXP_C45_SKB_CB(skb)->header->reserved2 = 0;
-		netif_rx(skb);
+		netif_rx_ni(skb);
 	}
 
 	return reschedule ? 1 : -1;
@@ -716,8 +716,6 @@ static int nxp_c45_soft_reset(struct phy_device *phydev)
 			    DEVICE_CONTROL_RESET);
 	if (ret)
 		return ret;
-
-	usleep_range(2000, 2050);
 
 	return phy_read_mmd_poll_timeout(phydev, MDIO_MMD_VEND1,
 					 VEND1_DEVICE_CONTROL, ret,

@@ -640,7 +640,7 @@ static int _mwifiex_fw_dpc(const struct firmware *firmware, void *context)
 	goto done;
 
 err_add_intf:
-	kfree(adapter->chan_stats);
+	vfree(adapter->chan_stats);
 err_init_chan_scan:
 	wiphy_unregister(adapter->wiphy);
 	wiphy_free(adapter->wiphy);
@@ -1462,7 +1462,7 @@ static void mwifiex_uninit_sw(struct mwifiex_adapter *adapter)
 	wiphy_free(adapter->wiphy);
 	adapter->wiphy = NULL;
 
-	kfree(adapter->chan_stats);
+	vfree(adapter->chan_stats);
 	mwifiex_free_cmd_buffers(adapter);
 }
 

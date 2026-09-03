@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc UFS dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+&apahb {
+	ufs: ufs@2000000 {
+		compatible  = "sprd,ufshc-ums9621";
+		reg = <0x2000000 0x10000>;
+		interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+		vcc-supply = <&vddemmccore>;
+		vdd-mphy-supply = <&vddufs1v2>;
+		clock-names = "ufs_eb",
+			"ufs_cfg_eb",
+			"ufs_hclk",
+			"ufs_hclk_source";
+		clocks = <&apahb_gate CLK_UFS_EB>,
+			<&apahb_gate CLK_UFS_CFG_EB>,
+			<&aonapb_clk CLK_UFS_AON>,
+			<&g5l_pll CLK_TGPLL_256M>;
+		freq-table-hz = <0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+		ap_ahb_ufs_rst = <&ap_ahb_regs REG_AP_AHB_AHB_RST
+			MASK_AP_AHB_UFS_SOFT_RST>;
+		aon_apb_ufs_rst = <&aon_apb_regs REG_AON_APB_UFSDEV_REG
+			MASK_AON_APB_UFSDEV_SOFT_RST>;
+		phy_sram_ext_ld_done = <&anlg_phy_g12_regs 0x0c 0x2>;
+		phy_sram_bypass = <&anlg_phy_g12_regs 0x0c 0x4>;
+		phy_sram_init_done = <&anlg_phy_g12_regs 0x0c 0x01>;
+		aon_apb_ufs_clk_en = <&aon_apb_regs REG_AON_APB_UFSHC_CTRL
+			(MASK_AON_APB_UFSHC_PCLK_EN|MASK_AON_APB_UFSHC_HCLK_EN)>;
+		ufsdev_refclk_en = <&aon_apb_regs REG_AON_APB_UFSDEV_REG
+			MASK_AON_APB_UFSDEV_REFCLK_EN>;
+		usb31pllv_ref2mphy_en = <&aon_apb_regs  REG_AON_APB_USB31PLL_CTRL_MISC
+			MASK_AON_APB_REG_ANALOG_USB31PLLV_REF2MPHY_EN>;
+
+		nvmem-cells = <&ufs_cali_lane1>, <&ufs_cali_lane0>;
+		nvmem-cell-names = "ufs_cali_lane1", "ufs_cali_lane0";
+
+		status = "okay";
+	};
+};

@@ -1,0 +1,495 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum SP98x0 board common DTS file
+ *
+ * Copyright (C) 2021, Spreadtrum Communications Inc.
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+
+#include <dt-bindings/thermal/thermal.h>
+#include "sc9832e-modem.dtsi"
+
+/ {
+	aliases {
+		thm-sensor11 = &cpu_thmzone;
+		cooling-device0 = &cluster0_cooling;
+		serial0 = &uart0;
+		serial1 = &uart1;
+
+		mmc0 = &sdio3;
+		mmc1 = &sdio0;
+	};
+
+	chosen: chosen {
+		stdout-path = &uart1;
+		bootargs = "earlycon=sprd_serial,0x70100000,921600n8 console=ttyS1,921600n8
+		loop.max_part=7 loglevel=1 init=/init root=/dev/ram0 rw vmalloc=360M
+		printk.devkmsg=on initcall_debug=1 swiotlb=1
+		firmware_class.path=/odm/firmware,/vendor/firmware";
+	};
+
+	memory: memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,l_modem,pm_sys,l_ldsp,l_gdsp";
+			};
+		};
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	thm_zone: thermal-zones {
+
+		cpu_thmzone: cpu-thmzone {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			sustainable-power = <1000>;
+			thermal-sensors = <&cpu_thm 0>;
+			trips {
+				cpu_threshold: trip-point@0 {
+					temperature = <70000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				cpu_target: trip-point@1 {
+					temperature = <85000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				cpu_crit: cpu_crit {
+					temperature = <110000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_target>;
+					contribution = <1024>;
+					cooling-device =
+					<&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&cpu_target>;
+					contribution = <1024>;
+					cooling-device =
+					<&cluster0_cooling
+						THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+				};
+			};
+
+		};
+
+		gpu_thmzone: gpu-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&gpu_thm 0>;
+		};
+
+		skin_thmzone: skin-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+		};
+	};
+
+	cooling-devices {
+		cluster0_cooling: cluster0-cooling {
+			compatible = "sprd,cluster-cooling";
+			#cooling-cells = <2>; /* min followed by max */
+			thermal-cluster-cpumask = <0x0f>;
+			sprd,efuse-block7 = <7>;
+			sprd,efuse-block15 = <15>;
+			/* core_leak =                             */
+			/*(LIT_LEAK[4:0]+1) x 2mA x 0.85V x 18.69% */
+			sprd,leak-core = <2 85 1869>;
+			/* cluster_leak =                           */
+			/* (LIT_LEAK[4:0]+1) x 2mA x 0.85V x 25.24% */
+			sprd,leak-cluster = <2 85 2524>;
+			/*core Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,core-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  34       (-3000)     147000     (-1367000)>;
+			/*core Vscale = eV^3 + fV^2 + gV + h */
+			sprd,core-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  2863     (-7860)    7541    (-2408)>;
+			/*cluster Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,cluster-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  26       (-2000)     115000     (-1000000)>;
+			/*cluster Vscale = eV^3 + fV^2 + gV + h */
+			sprd,cluster-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  1582     (-4201)    4063    (-1307)>;
+			sprd,efuse-switch = <0>;
+			sprd,hotplug-period = <10>;
+			sprd,min-cpufreq = <768000>;
+			sprd,min-cpunum = <1>;
+			sprd,max-temp = <90000>;
+			sprd,core-base = <267>;
+			sprd,cluster-base = <294>;
+			sprd,dynamic-core =
+			/*Pdynperghz    Freq     Vbase  */
+			< 850          768       900>;
+			sprd,dynamic-cluster =
+			/*Pdynperghz    Freq     Vbase  */
+			< 980           768      900>;
+		};
+	};
+
+	display-subsystem {
+		compatible = "sprd,display-subsystem";
+		ports = <&dpu_port>;
+		gsp = <&gsp>;
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		pub0_mpu_reserved: mpu0-dump@80000000 {
+			reg = <0x80000000 0x1000>;
+		};
+
+		sysdump_reserved: sysdumpinfo-mem@80001000 {
+			reg = <0x80001000 0x00001000>;
+		};
+
+		/* must be 32M aligned */
+		wcn_reserved: wcn-mem@84000000 {
+			reg = <0x84000000 0x00300000>;
+		};
+
+		gnss_reserved: gnss-mem@84300000 {
+			reg = <0x84300000 0x0015b000>;
+		};
+
+		/* Only used for iq, will be removed in normal mode by uboot */
+		iq_reserved: iq-mem@85230000 {
+			compatible = "sprd,iq-mem";
+			reg = <0x85230000 0x4000000>;
+		};
+
+		/* cp_reserved = cp region + debug region */
+		/* debug region: not reserved in normal mode, it */
+		/* will be proccessed in u-boot */
+		cp_reserved: cp-modem@89600000 {
+			reg = <0x89600000 0x040c0000>;
+		};
+
+		smem_reserved: sipc-mem@8e000000 {
+			reg = <0x8e000000 0x4d0000>;
+		};
+
+
+		/* The uboot_log_reserved node is added in uboot. base:0x9de8 0000, size:0x80000 */
+		uboot_log_reserved: uboot_log-mem@9de80000 {
+			reg = <0x9de80000 0x00040000>;
+		};
+
+		logo_reserved: logobuffer@9e000000 {
+			reg = <0x9e000000 0x007e9000>;
+		};
+
+		/* Only for userdebug, will be removed in user mode by uboot */
+		uboot_reserved: sysdump-uboot@9f000000 {
+			reg = <0x9f000000 0x01000000>;
+		};
+
+		/* The value of sml&tos will be fixed up in uboot */
+		sml_reserved: sml-mem@b0000000 {
+			reg = <0xb0000000 0x00020000>;
+		};
+
+		tos_reserved: tos-mem@b0020000 {
+			reg = <0xb0020000 0x01fe0000>;
+		};
+
+		cma_reserved: cma_share@b80000000 {
+			compatible = "shared-dma-pool";
+			reg = <0xb8000000 0x02000000>;
+			reusable;
+			linux,cma-default;
+		};
+
+		warm_boot_reserved: warm-boot@0xbff70000 {
+			reg = <0xbff70000 0x10000>; /* 64K */
+		};
+
+		pstore_reserved: ramoops@bff80000 {
+			compatible = "ramoops";
+			reg = <0xbff80000 0x00040000>;
+			record-size = <0x8000>;
+			console-size = <0x8000>;
+			pmsg-size = <0x8000>;
+		};
+	};
+
+	sprd-map-user {
+		compatible = "unisoc,map-user";
+	};
+
+	sprd-wlan {
+		 compatible = "sprd,sp9832e";
+	};
+
+	resume_on_reboot {
+		compatible = "sprd,memdisk";
+
+		warm_boot {
+			memory-region = <&warm_boot_reserved>;
+			label = "warmboot";
+		};
+	};
+
+	sprd-iq {
+		compatible = "sprd,iq";
+		sprd,region = <&iq_reserved>;
+		sprd,mapping-offs = <0x0>;
+	};
+
+	sprd-hotplug {
+		enable-dynamic-hotplug;
+	};
+
+	ddr_dfs: scene-frequency {
+		compatible = "sprd,ddr-dvfs";
+		freq-num = <4>;
+	};
+
+	autotest:autotest{
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+
+	trusty {
+		compatible = "sprd,trusty-smc-v1";
+		irq {
+			compatible = "sprd,trusty-irq-v1";
+			interrupt-templates = <&gic 0 0 IRQ_TYPE_NONE>,
+						<&gic 1 GIC_PPI IRQ_TYPE_LEVEL_LOW>,
+						<&gic 1 GIC_SPI IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-ranges = < 0  15 0>,
+						<16  31 1>,
+						<32 223 2>;
+		};
+
+		virtio {
+			compatible = "sprd,trusty-virtio-v1";
+		};
+
+		log {
+			compatible = "sprd,trusty-log-v1";
+		};
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart0 {
+	status = "disabled";
+};
+
+&sdio0 {
+	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0x94 0xa7 0xa7>;
+	sprd,phy-delay-sd-uhs-sdr50 = <0x7f 0x4a 0x4a 0x4a>;
+	sprd,phy-delay-sd-highspeed = <0x7f 0xb0 0xb1 0xb1>;
+	vmmc-supply = <&vddsdcore>;
+	vqmmc-supply = <&vddsdio>;
+	voltage-ranges = <3000 3000>;
+	bus-width = <4>;
+	sd-uhs-sdr104;
+	sd-uhs-sdr50;
+	sprd,name = "sdio_sd";
+	sprd,sdio-adma;
+	no-sdio;
+	no-mmc;
+	status = "okay";
+};
+
+&sdio3 {
+	sprd,phy-delay-mmc-hs400es = <0x45 0x7f 0x30 0x30>;
+	sprd,phy-delay-mmc-hs400 = <0x45 0xaa 0x30 0x30>;
+	sprd,phy-delay-mmc-hs200 = <0x7f 0xaa 0xa8 0xa8>;
+	sprd,phy-delay-mmc-ddr52 = <0x48 0xf9 0x19 0x19>;
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-hw-reset;
+	mmc-hs400-enhanced-strobe;
+	mmc-hs400-1_8v;
+	mmc-hs200-1_8v;
+	mmc-ddr-1_8v;
+	sprd,name = "sdio_emmc";
+	sprd,sdio-adma;
+	no-sdio;
+	no-sd;
+	status = "okay";
+	supports-swcq;
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&extcon_gpio>;
+};
+
+&adi_bus {
+	sprd,hw-channels = <30 0x8c20>;
+};
+
+&dpu {
+	status = "okay";
+	sprd,logo-memory = <&logo_reserved>;
+};
+
+&iommu_dispc {
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&cam_domain {
+	status = "okay";
+};
+
+&dphy {
+	status = "okay";
+};
+
+&jpg {
+	status = "okay";
+};
+
+&iommu_jpg {
+	status = "okay";
+};
+
+&vsp {
+	status = "okay";
+};
+
+&iommu_vsp {
+	status = "okay";
+};
+
+&spi0 {
+	/*used for fingerprint sensor*/
+	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+&sprd_headset {
+	status = "okay";
+};
+
+&sound_sprd_ap_alliis {
+	status = "okay";
+};
+
+&pwms {
+	status = "okay";
+};
+
+&iommu_dcam {
+	status = "okay";
+};
+
+&iommu_isp {
+	status = "okay";
+};
+
+&iommu_cpp {
+	status = "okay";
+};
+
+&dcam {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&cpp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
+&csi1 {
+	status = "okay";
+};
+
+&cpu0 {
+	cpu-supply = <&vddcpu>;
+};
+
+&cpu1 {
+	cpu-supply = <&vddcpu>;
+};
+
+&cpu2 {
+	cpu-supply = <&vddcpu>;
+};
+
+&cpu3 {
+	cpu-supply = <&vddcpu>;
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	digital-codec = <&sprd_audio_codec_dig>;
+};
+
+&sound_vbc_r1p0v3_sprd_codec {
+	status = "okay";
+	sprd,smartamp-boost-names = "boost_enable", "boost_mode";
+	sprd,smartamp-boost-gpios = <&ap_gpio 121 0>,
+				<&ap_gpio 85 0>;
+};
+

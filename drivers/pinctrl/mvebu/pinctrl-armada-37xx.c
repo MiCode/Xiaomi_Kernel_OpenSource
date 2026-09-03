@@ -354,7 +354,9 @@ static int armada_37xx_pmx_set_by_name(struct pinctrl_dev *pctldev,
 
 	val = grp->val[func];
 
-	return regmap_update_bits(info->regmap, reg, mask, val);
+	regmap_update_bits(info->regmap, reg, mask, val);
+
+	return 0;
 }
 
 static int armada_37xx_pmx_set(struct pinctrl_dev *pctldev,
@@ -396,13 +398,10 @@ static int armada_37xx_gpio_get_direction(struct gpio_chip *chip,
 	struct armada_37xx_pinctrl *info = gpiochip_get_data(chip);
 	unsigned int reg = OUTPUT_EN;
 	unsigned int val, mask;
-	int ret;
 
 	armada_37xx_update_reg(&reg, &offset);
 	mask = BIT(offset);
-	ret = regmap_read(info->regmap, reg, &val);
-	if (ret)
-		return ret;
+	regmap_read(info->regmap, reg, &val);
 
 	if (val & mask)
 		return GPIO_LINE_DIRECTION_OUT;
@@ -414,22 +413,20 @@ static int armada_37xx_gpio_direction_output(struct gpio_chip *chip,
 					     unsigned int offset, int value)
 {
 	struct armada_37xx_pinctrl *info = gpiochip_get_data(chip);
-	unsigned int en_offset = offset;
-	unsigned int reg = OUTPUT_VAL;
+	unsigned int reg = OUTPUT_EN;
 	unsigned int mask, val, ret;
 
 	armada_37xx_update_reg(&reg, &offset);
 	mask = BIT(offset);
-	val = value ? mask : 0;
 
-	ret = regmap_update_bits(info->regmap, reg, mask, val);
+	ret = regmap_update_bits(info->regmap, reg, mask, mask);
+
 	if (ret)
 		return ret;
 
-	reg = OUTPUT_EN;
-	armada_37xx_update_reg(&reg, &en_offset);
-
-	regmap_update_bits(info->regmap, reg, mask, mask);
+	reg = OUTPUT_VAL;
+	val = value ? mask : 0;
+	regmap_update_bits(info->regmap, reg, mask, val);
 
 	return 0;
 }
@@ -439,14 +436,11 @@ static int armada_37xx_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	struct armada_37xx_pinctrl *info = gpiochip_get_data(chip);
 	unsigned int reg = INPUT_VAL;
 	unsigned int val, mask;
-	int ret;
 
 	armada_37xx_update_reg(&reg, &offset);
 	mask = BIT(offset);
 
-	ret = regmap_read(info->regmap, reg, &val);
-	if (ret)
-		return ret;
+	regmap_read(info->regmap, reg, &val);
 
 	return (val & mask) != 0;
 }
@@ -471,17 +465,16 @@ static int armada_37xx_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 {
 	struct armada_37xx_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	struct gpio_chip *chip = range->gc;
-	int ret;
 
 	dev_dbg(info->dev, "gpio_direction for pin %u as %s-%d to %s\n",
 		offset, range->name, offset, input ? "input" : "output");
 
 	if (input)
-		ret = armada_37xx_gpio_direction_input(chip, offset);
+		armada_37xx_gpio_direction_input(chip, offset);
 	else
-		ret = armada_37xx_gpio_direction_output(chip, offset, 0);
+		armada_37xx_gpio_direction_output(chip, offset, 0);
 
-	return ret;
+	return 0;
 }
 
 static int armada_37xx_gpio_request_enable(struct pinctrl_dev *pctldev,

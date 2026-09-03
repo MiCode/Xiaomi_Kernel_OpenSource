@@ -765,6 +765,12 @@ config CHARGER_SC2731
 	  Say Y here to enable support for battery charging with SC2731
 	  PMIC chips.
 
+config CHARGER_FAN54015
+	tristate "Fairchild FAN54015 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for Fairchild FAN54015 Battery Charger.
+
 config FUEL_GAUGE_SC27XX
 	tristate "Spreadtrum SC27XX fuel gauge driver"
 	depends on MFD_SC27XX_PMIC || COMPILE_TEST
@@ -772,6 +778,32 @@ config FUEL_GAUGE_SC27XX
 	help
 	  Say Y here to enable support for fuel gauge with SC27XX
 	  PMIC chips.
+
+config FUEL_GAUGE_UMP96XX
+	tristate "Spreadtrum UMP96XX fuel gauge driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	depends on IIO
+	help
+	 Say Y here to enable support for fuel gauge
+	 with UMP96XX PMIC chips.
+	 Since the MFD_UMP96XX_PMIC is not defined,
+	 we can only depend on the mfd of SC27XX_PMIC.
+
+config FUEL_GAUGE_CORE_V1
+	tristate "Spreadtrum fuel gauge core v1 driver"
+	help
+	 Say Y here to enable support for fuel gauge
+	 core v1.
+	 Since the MFD_UMP96XX_PMIC is not defined,
+	 we can only depend on the mfd of SC27XX_PMIC.
+
+config FUEL_GAUGE_CORE_V2
+	tristate "Spreadtrum fuel gauge core v2 driver"
+	help
+	 Say Y here to enable support for fuel gauge
+	 core v2.
+	 Since the MFD_UMP96XX_PMIC is not defined,
+	 we can only depend on the mfd of SC27XX_PMIC.
 
 config CHARGER_UCS1002
 	tristate "Microchip UCS1002 USB Port Power Controller"
@@ -848,5 +880,162 @@ config CHARGER_SURFACE
 	  Say M or Y here to include AC status support for 7th-generation
 	  Microsoft Surface devices, i.e. Surface Pro 7, Surface Laptop 3,
 	  Surface Book 3, and Surface Laptop Go.
+
+config CHARGER_AW32257
+	tristate "AWINIC AW32257 battery charger driver"
+	depends on I2C
+	help
+	  Say Y to enable support for the AWINIC AW32257 battery charger PMICs.
+
+config CHARGER_ETA6937
+	tristate "ETA solutions ETA6937CSU  Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for ETA Solutions ETA6935CSU Battery Charger.
+
+config CHARGER_BQ2560X
+	tristate "TI BQ2560X Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for TI BQ2560X Battery Charger.
+
+config CHARGER_BQ2597X
+	tristate "TI BQ2597X Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for TI BQ2597X Charger.
+
+config CHARGER_HL7139
+	tristate "HL7139 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  HL7139 is a dual-phase 35W charging pump charger developed by Halo
+	  Microelectronics. HL7139 charge pump conversion efficiency can reach
+	  97%, switching frequency is 500kHz to 1.6MHz, using a 12-bit adc,
+	  with multi-protection layer.
+
+	  Say Y to include support for HL7139 Battery Charger.
+
+config CHARGER_SC8549
+	tristate "SC8549 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  SC8549 is a dual-phase 7A charging pump charger developed by south
+	  chip. SC8549 is a high efficiency battery charging solution using
+	  a switched cap architecture.
+
+	  Say Y to include support for SC8549 Battery Charger.
+
+config CHARGER_SC8551
+	tristate "SC8551 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for SC8551 Battery Charger.
+
+config CHARGER_UPM6710
+	tristate "UPM6710 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for UPM6710 Battery Charger.
+
+config CHARGER_BQ25910
+	tristate "TI BQ25910 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for TI BQ25910 Battery Charger.
+
+config CHARGER_SC2720
+	tristate "Spreadtrum SC2720 charger driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	help
+	 Say Y here to enable support for battery charging with SC2720
+	 PMIC chips.
+
+config CHARGER_SC2721
+	tristate "Spreadtrum SC2721 charger driver"
+	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	help
+	 Say Y here to enable support for battery charging with SC2721
+	 PMIC chips.
+
+config CHARGER_SGM41511
+	tristate "SGM sgm41511 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for SGM Sgm41511 Battery Charger.
+
+config CHARGER_SGM41513
+	tristate "SGM sgm41513 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  The sgm41513 are battery chargers and system power path management
+	  devices with integrated converter and power switches for use with
+	  single-cell Li-Ion or Li-polymer batteries.
+
+	  Say Y to include support for SGM Sgm41513 Battery Charger.
+
+config CHARGER_SC89601
+	tristate "SC sc89601 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  The sc89601 are battery chargers and system power path management
+	  devices with integrated converter and power switches for use with
+	  single-cell Li-Ion or Li-polymer batteries.
+
+	  Say Y to include support for SC Sc89601 Battery Charger.
+
+config CHARGER_UPM6910
+	tristate "UPM upm6910 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  The upm6910 are battery chargers and system power path management
+	  devices with integrated converter and power switches for use with
+	  single-cell Li-Ion or Li-polymer batteries.
+
+	  Say Y to include support for UPM Upm6910 Battery Charger.
+
+config CHARGER_SGM41516
+	tristate "SGM sgm41516 Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  The sgm41516 are battery chargers and system power path management
+	  devices with integrated converter and power switches for use with
+	  single-cell Li-Ion or Li-polymer batteries.
+
+	  Say Y to include support for SGM Sgm41516 Battery Charger.
+
+config FAST_CHARGER_SC27XX
+	tristate "Spreadtrum SC27XX fast charger driver"
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
+	help
+	  Say Y here to enable support for fast charging with SC27XX
+	  PMIC chips.
+
+config WIRELESS_CHARGER_NU1619
+	tristate "NU1619 Wireless Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for NoVolta NU619 Wireless charger.
+
+config WIRELESS_CHARGER_SY65153
+	tristate "SY65153 Wireless Charger"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for Silergy sy65153 Wireless charger.
+
+config WIRELESS_CHARGE_PUMPS_CONVERTER_HL1506
+	tristate "Halo wireless charge pump converter hl1506"
+	depends on I2C || COMPILE_TEST
+	help
+	  Say Y to include support for Halo hl1506 wireless charge pump converter.
+
+
+config LC_CHARGER_CLASS
+	tristate "support lc charger class"
+	default n
+	help
+		Say Y here to support lc charger class.
+
+source "drivers/power/supply/battery_secret/Kconfig"
 
 endif # POWER_SUPPLY

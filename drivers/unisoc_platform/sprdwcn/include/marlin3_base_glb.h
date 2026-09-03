@@ -1,0 +1,245 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * marlin3_base_glb.h - Unisoc platform header
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+#ifndef __MARLIN3_BASE_GLB_H__
+#define __MARLIN3_BASE_GLB_H__
+
+#define CP_START_ADDR		0x40500000
+
+#define CP_SDIO_PRIORITY_ADDR 0x40130150
+
+/* set sdio higher priority to visit iram */
+#define M6_TO_S0_HIGH_PRIORITY 0X80000000
+
+/* time out in waiting wifi to come up */
+#define POWERUP_WAIT_MS	60000
+#define POWERUP_DELAY		200
+#define RESET_DELAY		1
+
+#define DCACHE_CMD_ISSUE_START 0X80000000
+#define DCACHE_CMD_CLEAN_ALL 0X00000000
+#define DCACHE_CMD_CLEAN_INVALID_ALL 0X00000008
+#define DCACHE_REG_BASE 0X401E0000
+#define DCACHE_REG_ENABLE (DCACHE_REG_BASE)
+#define DCACHE_CFG0 (DCACHE_REG_BASE + 0X0040)
+#define DCACHE_CMD_CFG2 (DCACHE_REG_BASE + 0X0058)
+#define DCACHE_INT_RAW_STS (DCACHE_REG_BASE + 0X0064)
+#define DCACHE_INT_CLR (DCACHE_REG_BASE + 0X006C)
+#define DCACHE_CMD_IRQ_CLR 0X00000001
+#define DCACHE_CMD_CFG2_MASK 0X8000003F
+#define DCACHE_ENABLE_MASK 0XFFFFFFFF
+#define DCACHE_DEBUG_EN 0X80000000
+#define DCACHE_SIZE_32K 0X3
+#define DCACHE_SIZE_SEL_MASK 0X30000000
+
+#define DUMP_SDIO_ADDR			0x40140000
+#define DUMP_SDIO_ADDR_SIZE		0x10000
+/* for wifi */
+#define DUMP_WIFI_AON_MAC_ADDR			0x400f0000
+#define DUMP_WIFI_REF_ADDR			0x4083c000
+#define DUMP_WIFI_REF_ADDR_SIZE			0x350
+#define DUMP_WIFI_RTN_PD_MAC_ADDR		0x400f1000
+#define DUMP_WIFI_RTN_PD_MAC_ADDR_SIZE		0xD100
+#define DUMP_WIFI_352K_RAM_ADDR			0x40300000
+#define CHIP_SLP				0X4083C00C
+#define WIFI_WRAP_PWRON			BIT(14)
+#define WIFI_PHY_PWRON				BIT(15)
+#define WIFI_MAC_PWRON				BIT(16)
+#define WIFI_ALL_PWRON	(WIFI_MAC_PWRON | WIFI_WRAP_PWRON)
+#define PD_WIFI_AON_CFG4			0x4083c088
+#define PD_WIFI_MAC_AON_CFG4			0X4083C0A8
+#define PD_WIFI_PHY_AON_CFG4			0x4083C0B8
+#define WIFI_MAC_RTN_SLEEPPS_CTL		0x400f4704
+#define WIFI_RETENTION				BIT(0)
+#define WIFI_WRAP_PWR_DOWN			BIT(1)
+#define WIFI_MAC_PWR_DOWN			BIT(2)
+#define WIFI_PHY_PWR_DOWN			BIT(2)
+#define AHB_EB0					0x40130004
+#define WIFI_EN					BIT(5)
+#define WIFI_MAC_EN				BIT(9)
+#define WIFI_ALL_EN				(WIFI_EN | WIFI_MAC_EN)
+#define BT_EN					BIT(4)
+#define CLK_CTRL0				0x4083c040
+#define APLL_PDN				(1 << 0)
+#define BPLL_PDN				(1 << 1)
+#define CLK_CTRL3				0x4083c04c
+#define CGM_BT_32M_EN				BIT(18)
+#define CGM_BT_64M_EN				BIT(19)
+
+/* for BT */
+#define BT_ACC_ADDR			(0x40240000)
+
+#define BT_JAL_ADDR			(0x40246000)
+#define BT_JAL_SIZE			(0x738)
+#define BT_HAB_ADDR			(0x40248000)
+#define BT_HAB_SIZE			(0xA0)
+#define BT_LEJAL_ADDR			(0x4024A000)
+#define BT_LEJAL_SIZE			(0x21C)
+#define BT_MODEM_ADDR			(0x4024F000)
+
+/* for BT (HW DEC and BB) Buffer */
+#define HCI_ARM_WR_RD_MODE		(0x40240600)
+#define HCI_ARM_WR_RD_VALUE		(0xFFFF)
+
+#define BT_CMD_BUF_ADDR		(0x40200000)
+#define BT_CMD_BUF_SIZE		(0x200)
+#define BT_EVENT_BUF_ADDR		(0x40204000)
+#define BT_EVENT_BUF_SIZE		(0x200)
+#define BT_LMP_TX_BUF_ADDR		(0x40208000)
+#define BT_LMP_TX_BUF_SIZE		(0x12A4)
+#define BT_LMP_RX_BUF_ADDR		(0x40200C00)
+#define BT_LMP_RX_BUF_SIZE		(0xB744)
+#define BT_ACL_TX_BUF_ADDR		(0x40210000)
+#define BT_ACL_TX_BUF_SIZE		(0x3000)
+#define BT_ACL_RX_BUF_ADDR		(0x40214000)
+#define BT_ACL_RX_BUF_SIZE		(0x3000)
+#define BT_SCO_TX_BUF_ADDR		(0x40218000)
+#define BT_SCO_TX_BUF_SIZE		(0x2D0)
+#define BT_SCO_RX_BUF_ADDR		(0x4021C000)
+#define BT_SCO_RX_BUF_SIZE		(0x5C0)
+#define BT_BB_TX_BUF_ADDR		(0x40241000)
+#define BT_BB_TX_BUF_SIZE		(0x400)
+#define BT_BB_RX_BUF_ADDR		(0x40242000)
+#define BT_BB_RX_BUF_SIZE		(0x400)
+
+/* for fm */
+#define DUMP_FM1_ADDR			(0x40098000)
+#define DUMP_FM1_ADDR_SIZE		(0x238)
+#define DUMP_FM_RDS_ADDR		(0x40098800)
+#define DUMP_FM_RDS_ADDR_SIZE		(0x4c)
+#define DUMP_FM_ADDR			(0x40098000)
+#define DUMP_FM_ADDR_SIZE		(0xabc)
+
+/* For TOP */
+#define AON_AHB_ADDR			(0x40880000)
+#define AON_AHB_SIZE			(0x54)
+#define AON_APB_ADDR			(0x4083C000)
+#define AON_APB_SIZE			(0x354)
+#define BTWF_AHB_ADDR			(0x40130000)
+#define BTWF_AHB_SIZE			(0x400)
+#define BTWF_APB_ADDR			(0x40088000)
+#define BTWF_APB_SIZE			(0x28C)
+#define AON_CLK_ADDR			(0x40844200)
+#define AON_CLK_SIZE			(0x144)
+#define PRE_DIV_CLK_ADDR		(0x40844000)
+#define PRE_DIV_CLK_SIZE		(0x48)
+
+#define DUMP_REG_SIZE			(0X10000)
+
+#define SMP_HEADERFLAG 0X7E7E7E7E
+#define SMP_RESERVEDFLAG 0X5A5A
+#define SMP_DSP_CHANNEL_NUM 0X88
+#define SMP_DSP_TYPE 0X9D
+#define SMP_DSP_DUMP_TYPE 0X32
+
+#define SYSNC_CODE_LEN 0X4
+#define CHKSUM_LEN 0X2
+#define ARMLOG_HEAD 9
+
+
+/* For MARLIN3 DCACHE */
+#define DCACHE_CMD_ISSUE_START 0X80000000
+#define DCACHE_CMD_CLEAN_ALL 0X00000000
+#define DCACHE_CMD_CLEAN_INVALID_ALL 0X00000008
+#define DCACHE_REG_BASE 0X401E0000
+#define DCACHE_CFG0 (DCACHE_REG_BASE + 0X0040)
+#define DCACHE_CMD_CFG2 (DCACHE_REG_BASE + 0X0058)
+#define DCACHE_INT_RAW_STS (DCACHE_REG_BASE + 0X0064)
+#define DCACHE_INT_CLR (DCACHE_REG_BASE + 0X006C)
+#define DCACHE_CMD_IRQ_CLR 0X00000001
+#define DCACHE_CMD_CFG2_MASK 0X8000003F
+#define DCACHE_DEBUG_EN 0X80000000
+#define DCACHE_SIZE_32K 0X3
+#define DCACHE_SIZE_SEL_MASK 0X30000000
+
+
+/* For MARLIN3 MEM PD  */
+#define CTL_BASE_AON_APB 0X4083C000
+#define REG_AON_APB_CHIP_MEM_AUTO_EN (CTL_BASE_AON_APB + 0X0198)
+#define REG_AON_APB_BTWF_MEM_CGG1 (CTL_BASE_AON_APB + 0X010C)
+/* SHUTDOWN IRAM [0...15]*32K=512K,FORCE SHUTDOWN IRAM [16...31]*32K=512K */
+#define REG_AON_APB_BTWF_MEM_CGG2 (CTL_BASE_AON_APB + 0X0110)
+/* RETENTION IRAM [0...15]*32K=512K,FORCE RETENTION IRAM [16...31]*32K=512K */
+#define REG_AON_APB_BTWF_MEM_CGG3 (CTL_BASE_AON_APB + 0X0114)
+/* SHUTDOWN IRAM [0...13]*32K=448K,[14]mean 3k; */
+#define REG_AON_APB_BTWF_MEM_CGG4 (CTL_BASE_AON_APB + 0X0118)
+
+
+/* for dump arm register */
+#define AON_APB_BASE_ADDR 0X4083C000
+
+#define BTWF_OK_VALUE 0x24770011
+#define GNSS_OK 0x408600fc
+
+#define DJTAG_DAP_SEL (AON_APB_BASE_ADDR + 0X0064)
+#define APB_RST (AON_APB_BASE_ADDR + 0x0000)
+#define APB_EB  (AON_APB_BASE_ADDR + 0x0024)
+#define CM4_DAP_SEL_BTWF 0X00000001	/* bit0 */
+#define CM4_DAP_SEL_GNSS 0X00000002	/* bit1 */
+#define CM4_DAP0_SOFT_RST 0X10000000	/* BIT28 */
+#define CM4_DAP1_SOFT_RST 0X20000000	/* BIT29 */
+#define CM4_DAP0_EB 0X40000000	/* BIT30 */
+#define CM4_DAP1_EB 0X80000000	/* BIT31 */
+
+#define PD_GNSS_SS_AON_CFG4 (AON_APB_BASE_ADDR + 0X00c8)
+#define PD_AUTO_EN		BIT(12)
+#define FORCE_DEEP_SLEEP	BIT(3)
+#define GNSS_SS_POWER_DOWN	BIT(2)/* NO USE */
+#define CHIP_DEEP_SLP_EN	BIT(1)
+
+#define SYNC_IN_PROGRESS	0xF0F0F0F0
+#define SYNC_CALI_WAITING	0xF0F0F0F1
+#define SYNC_CALI_WRITE_DONE	0xF0F0F0F2
+#define SYNC_ALL_FINISHED	0xF0F0F0FF
+#define CHIP_SLP_REG		(AON_APB_BASE_ADDR + 0X000c)
+#define GNSS_SS_PWRON_FINISH	BIT(12)
+#define GNSS_PWR_FINISH	BIT(13)
+
+#define CGM_GNSS_FAKE_CFG (0x40844200 + 0X0104)
+#define CGM_GNSS_FAKE_SEL 0x3
+
+/* for sleep/wakeup */
+#define REG_AP_INT_CP0		0x1b0
+#define REG_PUB_INT_EN0		0x1c0
+#define REG_PUB_INT_CLR0	0x1d0
+#define REG_PUB_INT_STS0	0x1f0
+/* BIT4~7, if value 0, stand for in deepsleep */
+#define BTWF_IN_DEEPSLEEP	0x0
+/* fm playing in deep, and xtl on */
+
+/* For power save */
+#define REG_WIFI_MEM_CFG1	0x4083c130
+#define FORCE_SHUTDOWN_BTRAM	BIT(22)
+
+/* For FM Spue freq */
+#define FM_REG_SPUR_FEQ1_ADDR			0x40098104
+#define FM_DISABLE_SPUR_REMOVE_VALUE		0x06DC063C
+#define FM_ENABLE_SPUR_REMOVE_FREQ2_VALUE	0x06DCAB7C
+
+/*
+ * For SPI interface
+ * bit[15]:1'b0: BUFFER mode,outside clock
+ * bit[15]:1'b1: XO mode,Crystal/TSX mode
+ */
+#define SPI_BASE_ADDR		0x408a0000
+#define AD_DCXO_BONDING_OPT	0x5030
+#define SPI_BIT31		BIT(31)
+
+#endif

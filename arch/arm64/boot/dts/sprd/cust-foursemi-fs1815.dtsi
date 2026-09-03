@@ -1,0 +1,22 @@
+&soc {
+    frsm_amp: frsm_amp  {
+        compatible = "foursemi,frsm-amp";
+        frsm,amp-ndev = <1>;
+        frsm,class-enable;
+        status = "okay";
+    };
+};
+
+&i2c4 {
+    status = "okay";
+
+    spk_amp1: fs18xx@35 {
+        compatible = "foursemi,fs1815";
+        reg = <0x35>;
+        spkr-id = <1>;
+        fwm-name = "frsm-spk1.bin";
+        //mntr-enable;
+        //mntr-period = <2000>;
+        status = "okay";
+    };
+};

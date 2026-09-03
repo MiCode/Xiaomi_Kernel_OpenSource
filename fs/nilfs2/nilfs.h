@@ -240,14 +240,8 @@ nilfs_find_entry(struct inode *, const struct qstr *, struct page **);
 extern int nilfs_delete_entry(struct nilfs_dir_entry *, struct page *);
 extern int nilfs_empty_dir(struct inode *);
 extern struct nilfs_dir_entry *nilfs_dotdot(struct inode *, struct page **);
-int nilfs_set_link(struct inode *dir, struct nilfs_dir_entry *de,
-		   struct page *page, struct inode *inode);
-
-static inline void nilfs_put_page(struct page *page)
-{
-	kunmap(page);
-	put_page(page);
-}
+extern void nilfs_set_link(struct inode *, struct nilfs_dir_entry *,
+			   struct page *, struct inode *);
 
 /* file.c */
 extern int nilfs_sync_file(struct file *, loff_t, loff_t, int);

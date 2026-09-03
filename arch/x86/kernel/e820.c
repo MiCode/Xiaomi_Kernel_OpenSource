@@ -753,21 +753,22 @@ void __init e820__memory_setup_extended(u64 phys_addr, u32 data_len)
 void __init e820__register_nosave_regions(unsigned long limit_pfn)
 {
 	int i;
-	u64 last_addr = 0;
+	unsigned long pfn = 0;
 
 	for (i = 0; i < e820_table->nr_entries; i++) {
 		struct e820_entry *entry = &e820_table->entries[i];
 
+		if (pfn < PFN_UP(entry->addr))
+			register_nosave_region(pfn, PFN_UP(entry->addr));
+
+		pfn = PFN_DOWN(entry->addr + entry->size);
+
 		if (entry->type != E820_TYPE_RAM && entry->type != E820_TYPE_RESERVED_KERN)
-			continue;
+			register_nosave_region(PFN_UP(entry->addr), pfn);
 
-		if (last_addr < entry->addr)
-			register_nosave_region(PFN_DOWN(last_addr), PFN_UP(entry->addr));
-
-		last_addr = entry->addr + entry->size;
+		if (pfn >= limit_pfn)
+			break;
 	}
-
-	register_nosave_region(PFN_DOWN(last_addr), limit_pfn);
 }
 
 #ifdef CONFIG_ACPI

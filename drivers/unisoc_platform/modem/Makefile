@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-$(CONFIG_PCIE_SPRD)								+= pcie/
+obj-$(CONFIG_UNISOC_CP_DUMP)						+= cp_dump/
+obj-$(CONFIG_UNISOC_IQ)								+= iq/
+obj-$(CONFIG_UNISOC_MAILBOX)						+= mailbox/
+obj-$(CONFIG_UNISOC_MODEM_LOADER)					+= modem_loader/
+obj-$(CONFIG_UNISOC_MODEM_POWER_MANAGER)			+= power_manager/
+obj-$(CONFIG_UNISOC_SIPC)							+= sipc/
+obj-$(CONFIG_UNISOC_SIPC_VIRT_BUS)					+= sipc_virt_bus/

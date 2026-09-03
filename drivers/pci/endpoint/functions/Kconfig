@@ -26,6 +26,15 @@ config PCI_EPF_NTB
 
 	  If in doubt, say "N" to disable Endpoint NTB driver.
 
+config PCIE_EPF_SPRD
+	tristate "SPRD PCIE Endpoint driver"
+	depends on PCI_ENDPOINT
+	help
+	   Enable this configuration option to enable the SPRD PCIe endpoint
+	   function driver.
+
+	   If in doubt, say "NO" to disable SPRD PCIe endpoint function driver.
+
 config PCI_EPF_VNTB
         tristate "PCI Endpoint NTB driver"
         depends on PCI_ENDPOINT

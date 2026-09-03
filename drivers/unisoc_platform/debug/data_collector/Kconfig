@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SPRD_DATA_COLLECTOR
+	bool "Collect system statistic data"
+	depends on SPRD_DEBUG && ANDROID_VENDOR_OEM_DATA
+	help
+	  This config collects some system statistic
+	  data and print the info in log periodicly,
+	  via exported trace point.
+	  In userdebug version set m.
+

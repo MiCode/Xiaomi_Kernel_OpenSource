@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc VSP SoC dts file
+ *
+ * Copyright (C) 2022, Unisoc Inc.
+ */
+
+&apahb {
+	vsp_pd: vsp-power-domain {
+		compatible = "sprd,vsp-pd";
+		pmu-vsp-force-shutdown-syscon = <&pmu_apb_regs
+				REG_PMU_APB_PD_AP_VSP_CFG
+				MASK_PMU_APB_PD_AP_VSP_FORCE_SHUTDOWN>;
+		pmu-vsp-auto-shutdown-syscon = <&pmu_apb_regs
+				REG_PMU_APB_PD_AP_VSP_CFG
+				MASK_PMU_APB_PD_AP_VSP_AUTO_SHUTDOWN_EN>;
+		pmu-pwr-status-syscon = <&pmu_apb_regs
+				REG_PMU_APB_PWR_STATUS0_DBG
+				MASK_PMU_APB_PD_AP_VSP_STATE>;
+		#power-domain-cells = <0>;
+		status = "okay";
+	};
+	vsp: video-codec@20500000{
+		compatible = "sprd,sharkl5-vsp";
+		reg = <0 0x20500000 0 0xc000>;
+		interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+		sprd,video_ip_version = <17>;
+		reset-syscon = <&ap_ahb_regs REG_AP_AHB_AHB_RST
+				(MASK_AP_AHB_VSP_SOFT_RST |
+				MASK_AP_AHB_VSP_GLOBAL_SOFT_RST)>;
+		vsp-domain-eb-syscon = <&aon_apb_regs
+				REG_AON_APB_APB_EB1
+				MASK_AON_APB_AP_SYST_EB>;
+		iommus = <&iommu_vsp>;
+		power-domains = <&vsp_pd>;
+		/*sprd,qos = <&vsp_qos>;*/
+		status = "okay";
+		clock-names = "clk_ahb_gate_vsp_eb",
+				"clk_src_256m",
+				"clk_src_307m2",
+				"clk_src_384m",
+				"clk_vsp";
+		clocks = <&apahb_gate CLK_VSP_EB>,
+				<&pll2 CLK_TWPLL_256M>,
+				<&pll2 CLK_TWPLL_307M2>,
+				<&pll2 CLK_TWPLL_384M>,
+				<&ap_clk CLK_VSP>;
+	};
+
+	iommu_vsp: iommu@0x20501000 {
+		compatible = "unisoc,iommuexl5-vsp";
+		reg = <0 0x20501000 0 0xb000>,
+			<0 0x20500000 0 0x80>;
+		iova-base = <0x10000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		status = "okay";
+		#iommu-cells = <0>;
+	};
+};

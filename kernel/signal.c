@@ -2881,6 +2881,9 @@ relock:
 		if (sig_kernel_coredump(signr)) {
 			if (print_fatal_signals)
 				print_fatal_signal(ksig->info.si_signo);
+#ifdef CONFIG_SHOW_UREGS_WITH_PHYSICAL
+			show_uregs_with_physical(signal_pt_regs());/* unisoc add */
+#endif
 			proc_coredump_connector(current);
 			/*
 			 * If it was able to dump core, this kills all

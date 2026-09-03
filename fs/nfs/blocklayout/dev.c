@@ -199,11 +199,10 @@ static bool bl_map_stripe(struct pnfs_block_dev *dev, u64 offset,
 	struct pnfs_block_dev *child;
 	u64 chunk;
 	u32 chunk_idx;
-	u64 disk_chunk;
 	u64 disk_offset;
 
 	chunk = div_u64(offset, dev->chunk_size);
-	disk_chunk = div_u64_rem(chunk, dev->nr_children, &chunk_idx);
+	div_u64_rem(chunk, dev->nr_children, &chunk_idx);
 
 	if (chunk_idx >= dev->nr_children) {
 		dprintk("%s: invalid chunk idx %d (%lld/%lld)\n",
@@ -216,7 +215,7 @@ static bool bl_map_stripe(struct pnfs_block_dev *dev, u64 offset,
 	offset = chunk * dev->chunk_size;
 
 	/* disk offset of the stripe */
-	disk_offset = disk_chunk * dev->chunk_size;
+	disk_offset = div_u64(offset, dev->nr_children);
 
 	child = &dev->children[chunk_idx];
 	child->map(child, disk_offset, map);

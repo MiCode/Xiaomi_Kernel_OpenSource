@@ -596,16 +596,13 @@ void dispc_k2g_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
 {
 	dispc_irq_t old_mask = dispc_k2g_read_irqenable(dispc);
 
-	/* clear the irqstatus for irqs that will be enabled */
+	/* clear the irqstatus for newly enabled irqs */
 	dispc_k2g_clear_irqstatus(dispc, (mask ^ old_mask) & mask);
 
 	dispc_k2g_vp_set_irqenable(dispc, 0, mask);
 	dispc_k2g_vid_set_irqenable(dispc, 0, mask);
 
 	dispc_write(dispc, DISPC_IRQENABLE_SET, (1 << 0) | (1 << 7));
-
-	/* clear the irqstatus for irqs that were disabled */
-	dispc_k2g_clear_irqstatus(dispc, (mask ^ old_mask) & old_mask);
 
 	/* flush posted write */
 	dispc_k2g_read_irqenable(dispc);
@@ -679,20 +676,24 @@ static
 void dispc_k3_clear_irqstatus(struct dispc_device *dispc, dispc_irq_t clearmask)
 {
 	unsigned int i;
+	u32 top_clear = 0;
 
 	for (i = 0; i < dispc->feat->num_vps; ++i) {
-		if (clearmask & DSS_IRQ_VP_MASK(i))
+		if (clearmask & DSS_IRQ_VP_MASK(i)) {
 			dispc_k3_vp_write_irqstatus(dispc, i, clearmask);
+			top_clear |= BIT(i);
+		}
 	}
 	for (i = 0; i < dispc->feat->num_planes; ++i) {
-		if (clearmask & DSS_IRQ_PLANE_MASK(i))
+		if (clearmask & DSS_IRQ_PLANE_MASK(i)) {
 			dispc_k3_vid_write_irqstatus(dispc, i, clearmask);
+			top_clear |= BIT(4 + i);
+		}
 	}
 	if (dispc->feat->subrev == DISPC_K2G)
 		return;
 
-	/* always clear the top level irqstatus */
-	dispc_write(dispc, DISPC_IRQSTATUS, dispc_read(dispc, DISPC_IRQSTATUS));
+	dispc_write(dispc, DISPC_IRQSTATUS, top_clear);
 
 	/* Flush posted writes */
 	dispc_read(dispc, DISPC_IRQSTATUS);
@@ -738,7 +739,7 @@ static void dispc_k3_set_irqenable(struct dispc_device *dispc,
 
 	old_mask = dispc_k3_read_irqenable(dispc);
 
-	/* clear the irqstatus for irqs that will be enabled */
+	/* clear the irqstatus for newly enabled irqs */
 	dispc_k3_clear_irqstatus(dispc, (old_mask ^ mask) & mask);
 
 	for (i = 0; i < dispc->feat->num_vps; ++i) {
@@ -762,9 +763,6 @@ static void dispc_k3_set_irqenable(struct dispc_device *dispc,
 
 	if (main_disable)
 		dispc_write(dispc, DISPC_IRQENABLE_CLR, main_disable);
-
-	/* clear the irqstatus for irqs that were disabled */
-	dispc_k3_clear_irqstatus(dispc, (old_mask ^ mask) & old_mask);
 
 	/* Flush posted writes */
 	dispc_read(dispc, DISPC_IRQENABLE_SET);

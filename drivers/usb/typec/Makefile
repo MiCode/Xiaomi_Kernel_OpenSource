@@ -9,3 +9,5 @@ obj-$(CONFIG_TYPEC_HD3SS3220)	+= hd3ss3220.o
 obj-$(CONFIG_TYPEC_QCOM_PMIC)	+= qcom-pmic-typec.o
 obj-$(CONFIG_TYPEC_STUSB160X) 	+= stusb160x.o
 obj-$(CONFIG_TYPEC)		+= mux/
+obj-$(CONFIG_USB_SC27XX_TYPEC) 	+= sc27xx_typec.o
+obj-$(CONFIG_USB_VIRTUAL_TYPEC)	+= virtual_typec.o

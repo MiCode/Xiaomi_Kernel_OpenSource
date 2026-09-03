@@ -21,35 +21,6 @@
 #endif
 
 /*
- * Architectures that want generic instrumentation can define __ prefixed
- * variants of all barriers.
- */
-
-#ifdef __mb
-#define mb()	do { kcsan_mb(); __mb(); } while (0)
-#endif
-
-#ifdef __rmb
-#define rmb()	do { kcsan_rmb(); __rmb(); } while (0)
-#endif
-
-#ifdef __wmb
-#define wmb()	do { kcsan_wmb(); __wmb(); } while (0)
-#endif
-
-#ifdef __dma_mb
-#define dma_mb()	do { kcsan_mb(); __dma_mb(); } while (0)
-#endif
-
-#ifdef __dma_rmb
-#define dma_rmb()	do { kcsan_rmb(); __dma_rmb(); } while (0)
-#endif
-
-#ifdef __dma_wmb
-#define dma_wmb()	do { kcsan_wmb(); __dma_wmb(); } while (0)
-#endif
-
-/*
  * Force strict CPU ordering. And yes, this is required on UP too when we're
  * talking to devices.
  *
@@ -66,10 +37,6 @@
 
 #ifndef wmb
 #define wmb()	mb()
-#endif
-
-#ifndef dma_mb
-#define dma_mb()	mb()
 #endif
 
 #ifndef dma_rmb

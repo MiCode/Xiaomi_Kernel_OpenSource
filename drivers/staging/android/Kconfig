@@ -25,6 +25,8 @@ config DEBUG_KINFO
 	   - UTS_RELEASE
 	   - BUILD_INFO(ro.build.fingerprint)
 
+source "drivers/staging/android/ion/Kconfig"
+
 endif # if ANDROID
 
 endmenu

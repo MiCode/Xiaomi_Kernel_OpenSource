@@ -914,7 +914,7 @@ imx_media_csc_scaler_device_init(struct imx_media_dev *md)
 	return &priv->vdev;
 
 err_m2m:
-	video_device_release(vfd);
+	video_set_drvdata(vfd, NULL);
 err_vfd:
 	kfree(priv);
 	return ERR_PTR(ret);

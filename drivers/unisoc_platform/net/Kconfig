@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Unisoc Network device configuration
+#
+
+menu "Unisoc Net Devices"
+source "drivers/unisoc_platform/net/ims_bridge/Kconfig"
+source "drivers/unisoc_platform/net/seth/Kconfig"
+source "drivers/unisoc_platform/net/sipa_sys/Kconfig"
+source "drivers/unisoc_platform/net/sipa_v3/Kconfig"
+source "drivers/unisoc_platform/net/sipa_delegate/Kconfig"
+source "drivers/unisoc_platform/net/ursp/Kconfig"
+
+endmenu
+

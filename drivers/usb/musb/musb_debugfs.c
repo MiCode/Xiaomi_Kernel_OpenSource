@@ -38,38 +38,38 @@ static const struct musb_register_map musb_regmap[] = {
 	{ "IntrTxE",	MUSB_INTRTXE,	16 },
 	{ "IntrUsbE",	MUSB_INTRUSBE,	8 },
 	{ "DevCtl",	MUSB_DEVCTL,	8 },
-	{ "VControl",	0x68,		32 },
+	{ "VControl",	MUSB_VCONTROL,	32 },
 	{ "HWVers",	MUSB_HWVERS,	16 },
 	{ "LinkInfo",	MUSB_LINKINFO,	8 },
 	{ "VPLen",	MUSB_VPLEN,	8 },
 	{ "HS_EOF1",	MUSB_HS_EOF1,	8 },
 	{ "FS_EOF1",	MUSB_FS_EOF1,	8 },
 	{ "LS_EOF1",	MUSB_LS_EOF1,	8 },
-	{ "SOFT_RST",	0x7F,		8 },
-	{ "DMA_CNTLch0",	0x204,	16 },
-	{ "DMA_ADDRch0",	0x208,	32 },
-	{ "DMA_COUNTch0",	0x20C,	32 },
-	{ "DMA_CNTLch1",	0x214,	16 },
-	{ "DMA_ADDRch1",	0x218,	32 },
-	{ "DMA_COUNTch1",	0x21C,	32 },
-	{ "DMA_CNTLch2",	0x224,	16 },
-	{ "DMA_ADDRch2",	0x228,	32 },
-	{ "DMA_COUNTch2",	0x22C,	32 },
-	{ "DMA_CNTLch3",	0x234,	16 },
-	{ "DMA_ADDRch3",	0x238,	32 },
-	{ "DMA_COUNTch3",	0x23C,	32 },
-	{ "DMA_CNTLch4",	0x244,	16 },
-	{ "DMA_ADDRch4",	0x248,	32 },
-	{ "DMA_COUNTch4",	0x24C,	32 },
-	{ "DMA_CNTLch5",	0x254,	16 },
-	{ "DMA_ADDRch5",	0x258,	32 },
-	{ "DMA_COUNTch5",	0x25C,	32 },
-	{ "DMA_CNTLch6",	0x264,	16 },
-	{ "DMA_ADDRch6",	0x268,	32 },
-	{ "DMA_COUNTch6",	0x26C,	32 },
-	{ "DMA_CNTLch7",	0x274,	16 },
-	{ "DMA_ADDRch7",	0x278,	32 },
-	{ "DMA_COUNTch7",	0x27C,	32 },
+	{ "SOFT_RST",	MUSB_SOFT_RST,	8 },
+	{ "DMA_CNTLch0",	MUSB_DMA_CNTLn(1),	16 },
+	{ "DMA_ADDRch0",	MUSB_DMA_ADDRn(1),	32 },
+	{ "DMA_COUNTch0",	MUSB_DMA_COUNTn(1),	32 },
+	{ "DMA_CNTLch1",	MUSB_DMA_CNTLn(2),	16 },
+	{ "DMA_ADDRch1",	MUSB_DMA_ADDRn(2),	32 },
+	{ "DMA_COUNTch1",	MUSB_DMA_COUNTn(2),	32 },
+	{ "DMA_CNTLch2",	MUSB_DMA_CNTLn(3),	16 },
+	{ "DMA_ADDRch2",	MUSB_DMA_ADDRn(3),	32 },
+	{ "DMA_COUNTch2",	MUSB_DMA_COUNTn(3),	32 },
+	{ "DMA_CNTLch3",	MUSB_DMA_CNTLn(4),	16 },
+	{ "DMA_ADDRch3",	MUSB_DMA_ADDRn(4),	32 },
+	{ "DMA_COUNTch3",	MUSB_DMA_COUNTn(4),	32 },
+	{ "DMA_CNTLch4",	MUSB_DMA_CNTLn(5),	16 },
+	{ "DMA_ADDRch4",	MUSB_DMA_ADDRn(5),	32 },
+	{ "DMA_COUNTch4",	MUSB_DMA_COUNTn(5),	32 },
+	{ "DMA_CNTLch5",	MUSB_DMA_CNTLn(6),	16 },
+	{ "DMA_ADDRch5",	MUSB_DMA_ADDRn(6),	32 },
+	{ "DMA_COUNTch5",	MUSB_DMA_COUNTn(6),	32 },
+	{ "DMA_CNTLch6",	MUSB_DMA_CNTLn(7),	16 },
+	{ "DMA_ADDRch6",	MUSB_DMA_ADDRn(7),	32 },
+	{ "DMA_COUNTch6",	MUSB_DMA_COUNTn(7),	32 },
+	{ "DMA_CNTLch7",	MUSB_DMA_CNTLn(8),	16 },
+	{ "DMA_ADDRch7",	MUSB_DMA_ADDRn(8),	32 },
+	{ "DMA_COUNTch7",	MUSB_DMA_COUNTn(8),	32 },
 	{ "ConfigData",	MUSB_CONFIGDATA,8 },
 	{ "BabbleCtl",	MUSB_BABBLE_CTL,8 },
 	{ "TxFIFOsz",	MUSB_TXFIFOSZ,	8 },
@@ -235,7 +235,7 @@ static int musb_softconnect_show(struct seq_file *s, void *unused)
 	u8		reg;
 	int		connect;
 
-	switch (musb_get_state(musb)) {
+	switch (musb->xceiv->otg->state) {
 	case OTG_STATE_A_HOST:
 	case OTG_STATE_A_WAIT_BCON:
 		pm_runtime_get_sync(musb->controller);
@@ -275,7 +275,7 @@ static ssize_t musb_softconnect_write(struct file *file,
 
 	pm_runtime_get_sync(musb->controller);
 	if (!strncmp(buf, "0", 1)) {
-		switch (musb_get_state(musb)) {
+		switch (musb->xceiv->otg->state) {
 		case OTG_STATE_A_HOST:
 			musb_root_disconnect(musb);
 			reg = musb_readb(musb->mregs, MUSB_DEVCTL);
@@ -286,7 +286,7 @@ static ssize_t musb_softconnect_write(struct file *file,
 			break;
 		}
 	} else if (!strncmp(buf, "1", 1)) {
-		switch (musb_get_state(musb)) {
+		switch (musb->xceiv->otg->state) {
 		case OTG_STATE_A_WAIT_BCON:
 			/*
 			 * musb_save_context() called in musb_runtime_suspend()

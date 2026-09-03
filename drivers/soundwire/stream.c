@@ -1575,7 +1575,7 @@ program_params:
 		if (ret < 0) {
 			dev_err(bus->dev, "Prepare port(s) failed ret = %d\n",
 				ret);
-			goto restore_params;
+			return ret;
 		}
 	}
 

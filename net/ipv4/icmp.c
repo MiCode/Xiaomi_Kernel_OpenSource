@@ -792,12 +792,11 @@ void icmp_ndo_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 	struct sk_buff *cloned_skb = NULL;
 	struct ip_options opts = { 0 };
 	enum ip_conntrack_info ctinfo;
-	enum ip_conntrack_dir dir;
 	struct nf_conn *ct;
 	__be32 orig_ip;
 
 	ct = nf_ct_get(skb_in, &ctinfo);
-	if (!ct || !(READ_ONCE(ct->status) & IPS_NAT_MASK)) {
+	if (!ct || !(ct->status & IPS_SRC_NAT)) {
 		__icmp_send(skb_in, type, code, info, &opts);
 		return;
 	}
@@ -812,8 +811,7 @@ void icmp_ndo_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 		goto out;
 
 	orig_ip = ip_hdr(skb_in)->saddr;
-	dir = CTINFO2DIR(ctinfo);
-	ip_hdr(skb_in)->saddr = ct->tuplehash[dir].tuple.src.u3.ip;
+	ip_hdr(skb_in)->saddr = ct->tuplehash[0].tuple.src.u3.ip;
 	__icmp_send(skb_in, type, code, info, &opts);
 	ip_hdr(skb_in)->saddr = orig_ip;
 out:

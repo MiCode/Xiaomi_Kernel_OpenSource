@@ -5,7 +5,10 @@ red LED, green LED and blue LED. Each LED can work at normal
 PWM mode or breath light mode.
 
 Required properties:
-- compatible: Should be "sprd,sc2731-bltc".
+- compatible: following options:
+		"sprd,sc2731-bltc",
+		"sprd,sc2730-bltc",
+		"sprd,sc2721-bltc".
 - #address-cells: Must be 1.
 - #size-cells: Must be 0.
 - reg: Specify the controller address.

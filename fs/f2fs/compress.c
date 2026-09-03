@@ -1117,7 +1117,6 @@ retry:
 		f2fs_compress_ctx_add_page(cc, page);
 
 		if (!PageUptodate(page)) {
-			f2fs_handle_page_eio(sbi, page->index, DATA);
 release_and_retry:
 			f2fs_put_rpages(cc);
 			f2fs_unlock_rpages(cc, i + 1);

@@ -346,7 +346,6 @@ aoeblk_gdalloc(void *vp)
 	struct gendisk *gd;
 	mempool_t *mp;
 	struct blk_mq_tag_set *set;
-	sector_t ssize;
 	ulong flags;
 	int late = 0;
 	int err;
@@ -409,7 +408,7 @@ aoeblk_gdalloc(void *vp)
 	gd->minors = AOE_PARTITIONS;
 	gd->fops = &aoe_bdops;
 	gd->private_data = d;
-	ssize = d->ssize;
+	set_capacity(gd, d->ssize);
 	snprintf(gd->disk_name, sizeof gd->disk_name, "etherd/e%ld.%d",
 		d->aoemajor, d->aoeminor);
 
@@ -417,8 +416,6 @@ aoeblk_gdalloc(void *vp)
 	d->flags |= DEVFL_UP;
 
 	spin_unlock_irqrestore(&d->lock, flags);
-
-	set_capacity(gd, ssize);
 
 	device_add_disk(NULL, gd, aoe_attr_groups);
 	aoedisk_add_debugfs(d);

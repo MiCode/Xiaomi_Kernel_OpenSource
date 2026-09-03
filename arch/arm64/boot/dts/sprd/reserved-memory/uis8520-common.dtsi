@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum sl8581e platform DTS file
+ *
+ * Copyright (C) 2018, Unisoc (Shanghai) Technologies Co., Ltd
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+
+#include "modem-5g-common.dtsi"
+&reserved_memory {
+
+	pmic_reserved: pmic-mem@80005000 {
+		reg = <0x0 0x80005000 0x0 0x00001000>;
+	};
+
+	/* the @addr value is not accurate on N6Pro, please refer to the reg value */
+	logobuffer@be000000 {
+		reg = <0x0 0xb0000000 0x0 0x009e4000>;
+	};
+
+	/* Only for userdebug, will be removed in user mode by lk */
+	/* the @addr value is not accurate on N6Pro, please refer to the reg value */
+	sysdump-uboot@bf000000 {
+		reg = <0x0 0xb5000000 0x0 0x01000000>;
+	};
+
+	/* The uboot_log_reserved node is added in lk. base:0xbbe80000, size:0x80000 */
+	/* the @addr value is not accurate on N6Pro, please refer to the reg value */
+	uboot_log-mem@ffef0000 {
+		reg = <0x0 0xbbe80000 0x0 0x00080000>;
+	};
+
+	ise_med_reserved: ise_med@bc000000 {
+		compatible = "sprd,qogirn6pro-ise-med";
+		reg = <0x0 0xbc000000 0x0 0x01000000>;
+	};
+
+	/* must be 1M aligned */
+	/* the @addr value is not accurate on N6Pro, please refer to the reg value */
+	sml-mem@b0000000 {
+		reg = <0x0 0xbd000000 0x0 0x00040000>;
+	};
+
+	/* the reg values may be not accurate, they have been fixed in lk !!! */
+	/* the @addr value is not accurate on N6Pro, please refer to the reg value */
+	tos-mem@b0040000 {
+		reg = <0x0 0xbd040000 0x0 0x03fc0000>;
+	};
+
+	/* the @addr value is not accurate on N6Pro, please refer to the reg value */
+	sh-mem@b2000000{
+		reg = <0x0 0xc1000000 0x0 0x00100000>;
+	};
+
+	dptx_hdcp_reserved: dptx_hdcp@fff10000 {
+		reg = <0x0 0xfff10000 0x0 0x00060000>;
+	};
+};
+

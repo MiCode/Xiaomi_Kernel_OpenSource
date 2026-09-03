@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc power dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+/ {
+	power_debug: pdbg {
+		compatible                         = "sprd,pdbg";
+		status                             = "disabled";
+		sprd,pdbg-irq-domain-gic           = "GICv3";
+		sprd,pdbg-irq-domain-gpio          = "sprd-gpio-plus";
+		sprd,pdbg-irq-domain-ana           = "spi4.0";
+		sprd,pdbg-irq-domain-ana-eic       = "41800000.spi:pmic@0:gpio-controller@280";
+		sprd,pdbg-irq-domain-ap-eic-dbnc   = "40210000.gpio";
+		sprd,pdbg-irq-domain-ap-eic-latch  = "40210080.gpio";
+		sprd,pdbg-irq-domain-ap-eic-async  = "402100a0.gpio";
+		sprd,pdbg-irq-domain-ap-eic-sync   = "402100c0.gpio";
+		chipset {
+			sprd,subsys-index = <0>;
+			sprd,subsys-slp-cnt = <&pmu_apb_regs REG_PMU_APB_SLEEP_CNT5 0 0xffff>;
+			sprd,subsys-slp-time = <&aon_apb_regs REG_AON_APB_DCXO_LC_REG1 0 0xffffffff>;
+		};
+		ap {
+			sprd,subsys-index = <1>;
+			sprd,subsys-slp-cnt = <&pmu_apb_regs REG_PMU_APB_SLEEP_CNT3 0 0xffff>;
+		};
+		pubcp {
+			sprd,subsys-index = <4>;
+			sprd,subsys-slp-state = <&pmu_apb_regs REG_PMU_APB_SLEEP_CTRL 2 0x1>;
+		};
+		wcn_btwf {
+			sprd,subsys-index = <6>;
+			sprd,subsys-slp-state = <&pmu_apb_regs REG_PMU_APB_SLEEP_CTRL 3 0x1>;
+		};
+		wcn_gnss {
+			sprd,subsys-index = <7>;
+			sprd,subsys-slp-state = <&pmu_apb_regs REG_PMU_APB_SLEEP_CTRL 3 0x1>;
+		};
+	};
+};

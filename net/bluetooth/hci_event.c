@@ -3919,17 +3919,7 @@ static void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		if (!conn)
 			continue;
 
-		/* Check if there is really enough packets outstanding before
-		 * attempting to decrease the sent counter otherwise it could
-		 * underflow..
-		 */
-		if (conn->sent >= count) {
-			conn->sent -= count;
-		} else {
-			bt_dev_warn(hdev, "hcon %p sent %u < count %u",
-				    conn, conn->sent, count);
-			conn->sent = 0;
-		}
+		conn->sent -= count;
 
 		switch (conn->type) {
 		case ACL_LINK:
@@ -4869,16 +4859,19 @@ static void hci_user_confirm_request_evt(struct hci_dev *hdev,
 		goto unlock;
 	}
 
-	/* If no side requires MITM protection; use JUST_CFM method */
+	/* If no side requires MITM protection; auto-accept */
 	if ((!loc_mitm || conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT) &&
 	    (!rem_mitm || conn->io_capability == HCI_IO_NO_INPUT_OUTPUT)) {
 
-		/* If we're not the initiator of request authorization and the
-		 * local IO capability is not NoInputNoOutput, use JUST_WORKS
-		 * method (mgmt_user_confirm with confirm_hint set to 1).
+		/* If we're not the initiators request authorization to
+		 * proceed from user space (mgmt_user_confirm with
+		 * confirm_hint set to 1). The exception is if neither
+		 * side had MITM or if the local IO capability is
+		 * NoInputNoOutput, in which case we do auto-accept
 		 */
 		if (!test_bit(HCI_CONN_AUTH_PEND, &conn->flags) &&
-		    conn->io_capability != HCI_IO_NO_INPUT_OUTPUT) {
+		    conn->io_capability != HCI_IO_NO_INPUT_OUTPUT &&
+		    (loc_mitm || rem_mitm)) {
 			BT_DBG("Confirming auto-accept as acceptor");
 			confirm_hint = 1;
 			goto confirm;
@@ -5787,12 +5780,11 @@ static void process_adv_report(struct hci_dev *hdev, u8 type, bdaddr_t *bdaddr,
 	 * event or send an immediate device found event if the data
 	 * should not be stored for later.
 	 */
-	if (!has_pending_adv_report(hdev)) {
+	if (!ext_adv &&	!has_pending_adv_report(hdev)) {
 		/* If the report will trigger a SCAN_REQ store it for
 		 * later merging.
 		 */
-		if (!ext_adv && (type == LE_ADV_IND ||
-				 type == LE_ADV_SCAN_IND)) {
+		if (type == LE_ADV_IND || type == LE_ADV_SCAN_IND) {
 			store_pending_adv_report(hdev, bdaddr, bdaddr_type,
 						 rssi, flags, data, len);
 			return;

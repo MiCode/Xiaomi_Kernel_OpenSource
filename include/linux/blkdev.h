@@ -190,6 +190,12 @@ struct request {
 	u64 start_time_ns;
 	/* Time that I/O was submitted to the device. */
 	u64 io_start_time_ns;
+#ifdef CONFIG_SPRD_DEBUG
+	/* request complete softirq raise time. */
+	u64 softirq_raise_time_ns;
+	/* request complete softirq execute time.  */
+	u64 softirq_entry_time_ns;
+#endif
 
 #ifdef CONFIG_BLK_WBT
 	unsigned short wbt_flags;

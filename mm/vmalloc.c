@@ -38,7 +38,6 @@
 #include <linux/pgtable.h>
 #include <linux/uaccess.h>
 #include <linux/hugetlb.h>
-#include <linux/sched/mm.h>
 #include <linux/io.h>
 #include <asm/tlbflush.h>
 #include <asm/shmparam.h>
@@ -467,7 +466,6 @@ static int vmap_pages_pte_range(pmd_t *pmd, unsigned long addr,
 		unsigned long end, pgprot_t prot, struct page **pages, int *nr,
 		pgtbl_mod_mask *mask)
 {
-	int err = 0;
 	pte_t *pte;
 
 	/*
@@ -481,21 +479,15 @@ static int vmap_pages_pte_range(pmd_t *pmd, unsigned long addr,
 	do {
 		struct page *page = pages[*nr];
 
-		if (WARN_ON(!pte_none(*pte))) {
-			err = -EBUSY;
-			break;
-		}
-		if (WARN_ON(!page)) {
-			err = -ENOMEM;
-			break;
-		}
-
+		if (WARN_ON(!pte_none(*pte)))
+			return -EBUSY;
+		if (WARN_ON(!page))
+			return -ENOMEM;
 		set_pte_at(&init_mm, addr, pte, mk_pte(page, prot));
 		(*nr)++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 	*mask |= PGTBL_PTE_MODIFIED;
-
-	return err;
+	return 0;
 }
 
 static int vmap_pages_pmd_range(pud_t *pud, unsigned long addr,
@@ -570,13 +562,13 @@ static int vmap_small_pages_range_noflush(unsigned long addr, unsigned long end,
 			mask |= PGTBL_PGD_MODIFIED;
 		err = vmap_pages_p4d_range(pgd, addr, next, prot, pages, &nr, &mask);
 		if (err)
-			break;
+			return err;
 	} while (pgd++, addr = next, addr != end);
 
 	if (mask & ARCH_PAGE_TABLE_SYNC_MASK)
 		arch_sync_kernel_mappings(start, end);
 
-	return err;
+	return 0;
 }
 
 /*
@@ -2869,9 +2861,7 @@ vm_area_alloc_pages(gfp_t gfp, int nid,
 	 * to fails, fallback to a single page allocator that is
 	 * more permissive.
 	 */
-	if (!order) {
-		gfp_t bulk_gfp = gfp & ~__GFP_NOFAIL;
-
+	if (!order && nid != NUMA_NO_NODE) {
 		while (nr_allocated < nr_pages) {
 			unsigned int nr, nr_pages_request;
 
@@ -2883,20 +2873,8 @@ vm_area_alloc_pages(gfp_t gfp, int nid,
 			 */
 			nr_pages_request = min(100U, nr_pages - nr_allocated);
 
-			/* memory allocation should consider mempolicy, we can't
-			 * wrongly use nearest node when nid == NUMA_NO_NODE,
-			 * otherwise memory may be allocated in only one node,
-			 * but mempolcy want to alloc memory by interleaving.
-			 */
-			if (IS_ENABLED(CONFIG_NUMA) && nid == NUMA_NO_NODE)
-				nr = alloc_pages_bulk_array_mempolicy(bulk_gfp,
-							nr_pages_request,
-							pages + nr_allocated);
-
-			else
-				nr = alloc_pages_bulk_array_node(bulk_gfp, nid,
-							nr_pages_request,
-							pages + nr_allocated);
+			nr = alloc_pages_bulk_array_node(gfp, nid,
+				nr_pages_request, pages + nr_allocated);
 
 			nr_allocated += nr;
 			cond_resched();
@@ -2908,7 +2886,7 @@ vm_area_alloc_pages(gfp_t gfp, int nid,
 			if (nr != nr_pages_request)
 				break;
 		}
-	} else
+	} else if (order)
 		/*
 		 * Compound pages required for remap_vmalloc_page if
 		 * high-order pages.
@@ -2924,6 +2902,10 @@ vm_area_alloc_pages(gfp_t gfp, int nid,
 			page = alloc_pages_node(nid, gfp, order);
 		if (unlikely(!page))
 			break;
+
+#ifdef CONFIG_SPRD_PAGE_OWNER
+		SetPagePrivate(page);
+#endif
 
 		/*
 		 * Careful, we allocate and map page-order pages, but
@@ -2945,14 +2927,11 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 				 int node)
 {
 	const gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
-	bool nofail = gfp_mask & __GFP_NOFAIL;
 	unsigned long addr = (unsigned long)area->addr;
 	unsigned long size = get_vm_area_size(area);
 	unsigned long array_size;
 	unsigned int nr_small_pages = size >> PAGE_SHIFT;
 	unsigned int page_order;
-	unsigned int flags;
-	int ret;
 
 	array_size = (unsigned long)nr_small_pages * sizeof(struct page *);
 	gfp_mask |= __GFP_NOWARN;
@@ -2996,28 +2975,8 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		goto fail;
 	}
 
-	/*
-	 * page tables allocations ignore external gfp mask, enforce it
-	 * by the scope API
-	 */
-	if ((gfp_mask & (__GFP_FS | __GFP_IO)) == __GFP_IO)
-		flags = memalloc_nofs_save();
-	else if ((gfp_mask & (__GFP_FS | __GFP_IO)) == 0)
-		flags = memalloc_noio_save();
-
-	do {
-		ret = vmap_pages_range(addr, addr + size, prot, area->pages,
-			page_shift);
-		if (nofail && (ret < 0))
-			schedule_timeout_uninterruptible(1);
-	} while (nofail && (ret < 0));
-
-	if ((gfp_mask & (__GFP_FS | __GFP_IO)) == __GFP_IO)
-		memalloc_nofs_restore(flags);
-	else if ((gfp_mask & (__GFP_FS | __GFP_IO)) == 0)
-		memalloc_noio_restore(flags);
-
-	if (ret < 0) {
+	if (vmap_pages_range(addr, addr + size, prot, area->pages,
+			page_shift) < 0) {
 		warn_alloc(gfp_mask, NULL,
 			"vmalloc error: size %lu, failed to map pages",
 			area->nr_pages * PAGE_SIZE);
@@ -3044,18 +3003,8 @@ fail:
  * @caller:		  caller's return address
  *
  * Allocate enough pages to cover @size from the page level
- * allocator with @gfp_mask flags. Please note that the full set of gfp
- * flags are not supported. GFP_KERNEL, GFP_NOFS and GFP_NOIO are all
- * supported.
- * Zone modifiers are not supported. From the reclaim modifiers
- * __GFP_DIRECT_RECLAIM is required (aka GFP_NOWAIT is not supported)
- * and only __GFP_NOFAIL is supported (i.e. __GFP_NORETRY and
- * __GFP_RETRY_MAYFAIL are not supported).
- *
- * __GFP_NOWARN can be used to suppress failures messages.
- *
- * Map them into contiguous kernel virtual space, using a pagetable
- * protection of @prot.
+ * allocator with @gfp_mask flags.  Map them into contiguous
+ * kernel virtual space, using a pagetable protection of @prot.
  *
  * Return: the address of the area or %NULL on failure
  */
@@ -3108,14 +3057,9 @@ again:
 				  VM_UNINITIALIZED | vm_flags, start, end, node,
 				  gfp_mask, caller);
 	if (!area) {
-		bool nofail = gfp_mask & __GFP_NOFAIL;
 		warn_alloc(gfp_mask, NULL,
-			"vmalloc error: size %lu, vm_struct allocation failed%s",
-			real_size, (nofail) ? ". Retrying." : "");
-		if (nofail) {
-			schedule_timeout_uninterruptible(1);
-			goto again;
-		}
+			"vmalloc error: size %lu, vm_struct allocation failed",
+			real_size);
 		goto fail;
 	}
 
@@ -3995,6 +3939,58 @@ bool vmalloc_dump_obj(void *object)
 }
 #endif
 
+#ifdef CONFIG_E_SHOW_MEM
+void print_vmalloc_info(void)
+{
+	struct vmap_area *va;
+	struct vm_struct *v;
+	unsigned long total_pages = 0;
+
+	pr_info("Detail:\n");
+	spin_lock(&vmap_area_lock);
+
+	if (list_empty(&vmap_area_list))
+		goto out;
+
+
+	list_for_each_entry(va, &vmap_area_list, list) {
+		if (!va || !va->vm)
+			continue;
+		v = va->vm;
+		if (v->nr_pages) {
+			total_pages += v->nr_pages;
+			/* 128K Bytes */
+			if ((v->nr_pages << (PAGE_SHIFT - 10)) < 128)
+				continue;
+
+			pr_info("0x%p-0x%p %7ld %pS %dkB %s%s\n",
+				v->addr, v->addr + v->size, v->size, v->caller,
+				v->nr_pages << (PAGE_SHIFT - 10),
+				(v->flags & VM_ALLOC) ? "vmalloc" : "",
+				(v->flags & VM_MAP) ? "vmap" : "");
+		}
+	}
+	pr_info("Total used:%lukB\n",
+		(unsigned long)(total_pages << (PAGE_SHIFT - 10)));
+
+out:
+	spin_unlock(&vmap_area_lock);
+}
+
+static int vmalloc_e_show_mem_handler(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	pr_info("\n");
+	pr_info("Enhanced Mem-info :VMALLOC\n");
+	print_vmalloc_info();
+	return 0;
+}
+
+static struct notifier_block vmalloc_e_show_mem_notifier = {
+	.notifier_call = vmalloc_e_show_mem_handler,
+};
+#endif
+
 #ifdef CONFIG_PROC_FS
 static void *s_start(struct seq_file *m, loff_t *pos)
 	__acquires(&vmap_purge_lock)
@@ -4134,6 +4130,9 @@ static int __init proc_vmalloc_init(void)
 				nr_node_ids * sizeof(unsigned int), NULL);
 	else
 		proc_create_seq("vmallocinfo", 0400, NULL, &vmalloc_op);
+#ifdef CONFIG_E_SHOW_MEM
+	register_e_show_mem_notifier(&vmalloc_e_show_mem_notifier);
+#endif
 	return 0;
 }
 module_init(proc_vmalloc_init);

@@ -1,0 +1,210 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc Sharkl5 platform DTS file
+ *
+ * Copyright (C) 2018, Unisoc Communications Inc.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/mfd/sprd,sc2730-regs.h>
+#include <dt-bindings/mfd/sprd,sc2730-mask.h>
+#include "battery/battery-common.dtsi"
+#include "reserved-memory/ums312-common.dtsi"
+#include "ums312/ums312.dtsi"
+#include "trusty/ums312.dtsi"
+#include "sc2730/sc2730.dtsi"
+#include "sound/fe-be.dtsi"
+#include "thermal/ntc-common.dtsi"
+
+/ {
+	model = "Unisoc UMS312 SoC";
+
+	compatible = "sprd,ums312";
+
+	sprd,sc-id = "ums312 1000 1000";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		mmc0 = &sdio3;
+		mmc1 = &sdio0;
+		mmc2 = &sdio1;
+		mmc3 = &sdio2;
+		spi4 = &adi_bus;
+		pmic_pwroff = &pmic_pwroff;
+	};
+
+	chosen: chosen {
+		stdout-path = &uart1;
+		bootargs = "earlycon=sprd_serial,0x70100000,921600n8 console=ttyS1,921600n8
+			    loop.max_part=7 loglevel=1 log_buf_len=1M kpti=0 init=/init
+			    root=/dev/ram0 ro rootwait swiotlb=1 printk.devkmsg=on
+			    firmware_class.path=/odm/firmware,/vendor/firmware dummy_hcd.num=0
+			    rcupdate.rcu_expedited=1 rcu_nocbs=0-3";
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,l_modem,pm_sys,l_ldsp,l_gdsp,l_agdsp,l_cdsp";
+			};
+		};
+	};
+
+	memory: memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		key-volumedown {
+			label = "Volume Down Key";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&ap_gpio 124 GPIO_ACTIVE_LOW>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+
+		key-volumeup {
+			label = "Volume Up Key";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pmic_eic 4 GPIO_ACTIVE_HIGH>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+
+		key-power {
+			label = "Power Key";
+			linux,code = <KEY_POWER>;
+			gpios = <&pmic_eic 1 GPIO_ACTIVE_LOW>;
+			debounce-interval = <2>;
+			wakeup-source;
+		};
+	};
+
+	autotest: autotest {
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	virtual_typec: virtual_typec {
+		compatible = "sprd,virtual-typec";
+		extcon = <&extcon_gpio>;
+		status = "okay";
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	sprd-map-user {
+		compatible = "unisoc,map-user";
+	};
+
+	rebootescrow@0 {
+		compatible = "pmem-region";
+		reg = <0x0 0xfff70000 0x0 0x00010000>;
+	};
+};
+
+&adi_bus {
+	sprd,psci-reboot = <1>;
+};
+
+&pmic_pwroff {
+	sprd,psci-poweroff = <1>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&sprd_headset {
+	status = "okay";
+};
+
+&sound_vbc_v4_sprd_codec {
+	status = "okay";
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	hp-use-inter-pa = <1>;
+	fixed-sample-rate = <48000 48000 48000>;
+	digital-codec = <&sprd_audio_codec_dig>;
+	power-domains = <&agdsp_domain>;
+};
+
+&agdsp_domain {
+	status = "okay";
+};
+
+&dpu {
+	status = "okay";
+	sprd,logo-memory = <&logo_reserved>;
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&dphy {
+	status = "okay";
+};
+
+&iommu_dispc {
+	status = "okay";
+};
+
+&power_debug {
+	status = "okay";
+	memory-region = <&pdbg_reserved>;
+};
+
+&modem_dbg_log {
+	status = "okay";
+};

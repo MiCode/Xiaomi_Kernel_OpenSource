@@ -1,0 +1,10 @@
+#
+# power up reason support
+#
+config POWERUP_REASON
+	tristate "Unisoc power up reason support"
+	help
+          Support for Unisoc power up reason driver.
+	  This option enables support for Unisoc power up reason driver,
+	  To compile this driver as a module, choose M here. The module will
+	  be called user.

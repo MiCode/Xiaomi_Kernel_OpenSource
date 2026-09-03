@@ -1820,8 +1820,7 @@ void bpf_patch_call_args(struct bpf_insn *insn, u32 stack_depth)
 	insn->code = BPF_JMP | BPF_CALL_ARGS;
 }
 
-#endif
-
+#else
 static unsigned int __bpf_prog_ret0_warn(const void *ctx,
 					 const struct bpf_insn *insn)
 {
@@ -1831,6 +1830,7 @@ static unsigned int __bpf_prog_ret0_warn(const void *ctx,
 	WARN_ON_ONCE(1);
 	return 0;
 }
+#endif
 
 bool bpf_prog_array_compatible(struct bpf_array *array,
 			       const struct bpf_prog *fp)
@@ -1882,27 +1882,15 @@ out:
 	return ret;
 }
 
-static bool bpf_prog_select_interpreter(struct bpf_prog *fp)
+static void bpf_prog_select_func(struct bpf_prog *fp)
 {
-	bool select_interpreter = false;
 #ifndef CONFIG_BPF_JIT_ALWAYS_ON
 	u32 stack_depth = max_t(u32, fp->aux->stack_depth, 1);
-	u32 idx = (round_up(stack_depth, 32) / 32) - 1;
 
-	/* may_goto may cause stack size > 512, leading to idx out-of-bounds.
-	 * But for non-JITed programs, we don't need bpf_func, so no bounds
-	 * check needed.
-	 */
-	if (idx < ARRAY_SIZE(interpreters)) {
-		fp->bpf_func = interpreters[idx];
-		select_interpreter = true;
-	} else {
-		fp->bpf_func = __bpf_prog_ret0_warn;
-	}
+	fp->bpf_func = interpreters[(round_up(stack_depth, 32) / 32) - 1];
 #else
 	fp->bpf_func = __bpf_prog_ret0_warn;
 #endif
-	return select_interpreter;
 }
 
 /**
@@ -1930,8 +1918,7 @@ struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
 	    bpf_prog_has_kfunc_call(fp))
 		jit_needed = true;
 
-	if (!bpf_prog_select_interpreter(fp))
-		jit_needed = true;
+	bpf_prog_select_func(fp);
 
 	/* eBPF JITs can rewrite the program in case constant
 	 * blinding is active. However, in case of error during

@@ -362,6 +362,9 @@ struct ufs_hba_variant_ops {
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
 	void	(*event_notify)(struct ufs_hba *hba,
 				enum ufs_event_type evt, void *data);
+#if IS_ENABLED(CONFIG_SPRD_DEBUG)
+	void	(*print_gic_reg)(struct ufs_hba *hba);
+#endif
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
@@ -1289,6 +1292,13 @@ static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
 		return hba->vops->name;
 	return "";
 }
+#if IS_ENABLED(CONFIG_SPRD_DEBUG)
+static inline void ufshcd_vops_print_gic_reg(struct ufs_hba *hba)
+{
+	if (hba->vops && hba->vops->print_gic_reg)
+		hba->vops->print_gic_reg(hba);
+}
+#endif
 
 static inline int ufshcd_vops_init(struct ufs_hba *hba)
 {

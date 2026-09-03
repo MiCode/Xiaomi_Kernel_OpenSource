@@ -18,30 +18,46 @@
 #include <asm/alternative.h>
 #include <asm/cpufeature.h>
 
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+#include "../drivers/unisoc_platform/past_record/sprd_past_record.h"
+#endif
+
 /*
  * Generic IO read/write.  These perform native-endian accesses.
  */
 #define __raw_writeb __raw_writeb
 static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
 {
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_writeb_reg_info(val, addr);
+#endif
 	asm volatile("strb %w0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 #define __raw_writew __raw_writew
 static inline void __raw_writew(u16 val, volatile void __iomem *addr)
 {
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_writew_reg_info(val, addr);
+#endif
 	asm volatile("strh %w0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 #define __raw_writel __raw_writel
 static __always_inline void __raw_writel(u32 val, volatile void __iomem *addr)
 {
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_writel_reg_info(val, addr);
+#endif
 	asm volatile("str %w0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 #define __raw_writeq __raw_writeq
 static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
 {
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_writeq_reg_info(val, addr);
+#endif
 	asm volatile("str %x0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
@@ -49,6 +65,9 @@ static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
 static inline u8 __raw_readb(const volatile void __iomem *addr)
 {
 	u8 val;
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_readb_reg_info(addr);
+#endif
 	asm volatile(ALTERNATIVE("ldrb %w0, [%1]",
 				 "ldarb %w0, [%1]",
 				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
@@ -60,7 +79,9 @@ static inline u8 __raw_readb(const volatile void __iomem *addr)
 static inline u16 __raw_readw(const volatile void __iomem *addr)
 {
 	u16 val;
-
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_readw_reg_info(addr);
+#endif
 	asm volatile(ALTERNATIVE("ldrh %w0, [%1]",
 				 "ldarh %w0, [%1]",
 				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
@@ -72,6 +93,9 @@ static inline u16 __raw_readw(const volatile void __iomem *addr)
 static __always_inline u32 __raw_readl(const volatile void __iomem *addr)
 {
 	u32 val;
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_readl_reg_info(addr);
+#endif
 	asm volatile(ALTERNATIVE("ldr %w0, [%1]",
 				 "ldar %w0, [%1]",
 				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
@@ -83,6 +107,9 @@ static __always_inline u32 __raw_readl(const volatile void __iomem *addr)
 static inline u64 __raw_readq(const volatile void __iomem *addr)
 {
 	u64 val;
+#if IS_ENABLED(CONFIG_SPRD_PAST_RECORD)
+	sprd_readq_reg_info(addr);
+#endif
 	asm volatile(ALTERNATIVE("ldr %0, [%1]",
 				 "ldar %0, [%1]",
 				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)

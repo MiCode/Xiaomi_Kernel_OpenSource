@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Makefile for Unisoc wcn platform configuration
+#
+
+config UNISOC_GNSS_COMMON_CTL
+	tristate "Gnss commom ctl support"
+	help
+	Choose Y here if you want to support gnss_common_ctl function
+        for unisoc wcn sc23xx series chip.
+
+	In order to control your ext wcn chip, you will need enable it.
+	that include "boot, log, procfs, debugfs, at cmd, loopcheck, dumpmem,
+	reset, reboot,etc"
+

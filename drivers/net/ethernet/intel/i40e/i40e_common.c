@@ -1061,11 +1061,10 @@ int i40e_pf_reset(struct i40e_hw *hw)
 void i40e_clear_hw(struct i40e_hw *hw)
 {
 	u32 num_queues, base_queue;
-	s32 num_pf_int;
-	s32 num_vf_int;
+	u32 num_pf_int;
+	u32 num_vf_int;
 	u32 num_vfs;
-	s32 i;
-	u32 j;
+	u32 i, j;
 	u32 val;
 	u32 eol = 0x7ff;
 

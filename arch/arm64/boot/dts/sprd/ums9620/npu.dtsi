@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc NPU DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&ai_axi {
+	npu_img: npu@27100000 {
+		compatible = "img,ax3xxx-nna";
+		reg = <0 0x27100000 0 0x80000>; /* powervr */
+		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ai_powervr_0",
+				"ai_powervr_1",
+				"ai_powervr_2",
+				"ai_mem_fw",
+				"ai_perf_busmon";
+		apb_reg = <&ai_apb_regs 0x0 0x0>;
+		pd_ai_sys = <&pmu_apb_regs 0x0 0x0>;
+		clock-names = "ai_apll",
+				"ai_eb",
+				"powervr_eb",
+				"mtx_eb",
+				"dvfs_eb",
+				"ocm_eb",
+				"pmon_eb",
+				"aon_to_ocm_eb";
+		clocks = <&g5r_pll CLK_AIPLL>,
+			<&aonapb_gate CLK_AI_EB>,
+			<&aiapb_gate CLK_POWERVR_EB>,
+			<&aiapb_gate CLK_MTX_APBREG_EB>,
+			<&aiapb_gate CLK_AI_DVFS_EB>,
+			<&aiapb_gate CLK_OCM_EB>,
+			<&aiapb_gate CLK_AXI_PMON_EB>,
+			<&aiapb_gate CLK_AON_TO_OCM_EB>;
+		sprd,npu_freq_default = <307200>;
+		npu-supply = <&vddai>;
+		#cooling-cells = <2>;
+		dynamic-power-coefficient = <1396>;
+	};
+};

@@ -20,18 +20,17 @@ enum {
 };
 
 /* 27MHz is the CVBS Pixel Clock */
-#define MESON_VCLK_CVBS			(27 * 1000 * 1000)
+#define MESON_VCLK_CVBS			27000
 
 enum drm_mode_status
-meson_vclk_dmt_supported_freq(struct meson_drm *priv, unsigned long long freq);
+meson_vclk_dmt_supported_freq(struct meson_drm *priv, unsigned int freq);
 enum drm_mode_status
-meson_vclk_vic_supported_freq(struct meson_drm *priv,
-			      unsigned long long phy_freq,
-			      unsigned long long vclk_freq);
+meson_vclk_vic_supported_freq(struct meson_drm *priv, unsigned int phy_freq,
+			      unsigned int vclk_freq);
 
 void meson_vclk_setup(struct meson_drm *priv, unsigned int target,
-		      unsigned long long phy_freq, unsigned long long vclk_freq,
-		      unsigned long long venc_freq, unsigned long long dac_freq,
+		      unsigned int phy_freq, unsigned int vclk_freq,
+		      unsigned int venc_freq, unsigned int dac_freq,
 		      bool hdmi_use_enci);
 
 #endif /* __MESON_VCLK_H */

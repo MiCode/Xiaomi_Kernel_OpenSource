@@ -13,7 +13,6 @@
 #include "pll.h"
 
 #define CLK_PLL_1M	1000000
-#define CLK_PLL_10M	(CLK_PLL_1M * 10)
 
 #define pindex(pll, member)		\
 	(pll->factors[member].shift / (8 * sizeof(pll->regs_num)))
@@ -83,16 +82,26 @@ static unsigned long pll_get_refin(const struct sprd_pll *pll)
 	return refin[refin_id];
 }
 
-static u32 pll_get_ibias(u64 rate, const u64 *table)
+static u32 pll_get_ibias(u64 rate, const struct freq_table *table)
 {
-	u32 i, num = table[0];
+	u32 i;
 
-	/* table[0] indicates the number of items in this table */
-	for (i = 0; i < num; i++)
-		if (rate <= table[i + 1])
+	for (i = 0; table[i].ibias < INVALID_MAX_IBIAS; i++)
+		if (rate <= table[i].max_freq)
 			break;
 
-	return i == num ? num - 1 : i;
+	return table[i].ibias;
+}
+
+static u32 pll_get_vco_sel(u64 rate, const struct freq_table *table)
+{
+	u32 i;
+
+	for (i = 0; table[i].ibias < INVALID_MAX_IBIAS; i++)
+		if (rate <= table[i].max_freq)
+			break;
+
+	return table[i].vco_sel;
 }
 
 static unsigned long _sprd_pll_recalc_rate(const struct sprd_pll *pll,
@@ -100,41 +109,47 @@ static unsigned long _sprd_pll_recalc_rate(const struct sprd_pll *pll,
 {
 	u32 *cfg;
 	u32 i, mask, regs_num = pll->regs_num;
-	unsigned long rate, nint, kint = 0;
+	unsigned long rate, nint, kint = 0, postdiv = 0;
 	u64 refin;
 	u16 k1, k2;
 
 	cfg = kcalloc(regs_num, sizeof(*cfg), GFP_KERNEL);
 	if (!cfg)
-		return parent_rate;
+		return -ENOMEM;
 
 	for (i = 0; i < regs_num; i++)
 		cfg[i] = sprd_pll_read(pll, i);
 
 	refin = pll_get_refin(pll);
 
+	if (pinternal(pll, cfg, PLL_REFDIV))
+		refin = refin / 2;
+
 	if (pinternal(pll, cfg, PLL_PREDIV))
 		refin = refin * 2;
 
-	if (pwidth(pll, PLL_POSTDIV) &&
-	    ((pll->fflag == 1 && pinternal(pll, cfg, PLL_POSTDIV)) ||
-	     (!pll->fflag && !pinternal(pll, cfg, PLL_POSTDIV))))
-		refin = refin / 2;
-
 	if (!pinternal(pll, cfg, PLL_DIV_S)) {
-		rate = refin * pinternal_val(pll, cfg, PLL_N) * CLK_PLL_10M;
+		rate = refin * pinternal_val(pll, cfg, PLL_N) * CLK_PLL_1M;
 	} else {
 		nint = pinternal_val(pll, cfg, PLL_NINT);
 		if (pinternal(pll, cfg, PLL_SDM_EN))
 			kint = pinternal_val(pll, cfg, PLL_KINT);
-
 		mask = pmask(pll, PLL_KINT);
 
 		k1 = pll->k1;
 		k2 = pll->k2;
 		rate = DIV_ROUND_CLOSEST_ULL(refin * kint * k1,
-					 ((mask >> __ffs(mask)) + 1)) *
-					 k2 + refin * nint * CLK_PLL_1M;
+				((mask >> __ffs(mask)) + 1)) *
+				k2 + refin * nint * CLK_PLL_1M;
+	}
+
+	if (pwidth(pll, PLL_POSTDIV)) {
+		if (pll->fflag == 1 && pinternal(pll, cfg, PLL_POSTDIV)) {
+			postdiv = pinternal_val(pll, cfg, PLL_POSTDIV);
+			rate = rate / (postdiv + 1);
+		} else if (!pll->fflag && !pinternal(pll, cfg, PLL_POSTDIV)) {
+			rate = rate / 2;
+		}
 	}
 
 	kfree(cfg);
@@ -152,7 +167,7 @@ static int _sprd_pll_set_rate(const struct sprd_pll *pll,
 	int ret = 0;
 	u32 mask, shift, width, ibias_val, index;
 	u32 regs_num = pll->regs_num, i = 0;
-	unsigned long kint, nint;
+	unsigned long kint, nint, refdiv = 0, postdiv = 0, vco_sel = 0;
 	u64 tmp, refin, fvco = rate;
 
 	cfg = kcalloc(regs_num, sizeof(*cfg), GFP_KERNEL);
@@ -170,48 +185,99 @@ static int _sprd_pll_set_rate(const struct sprd_pll *pll,
 	mask = pmask(pll, PLL_POSTDIV);
 	index = pindex(pll, PLL_POSTDIV);
 	width = pwidth(pll, PLL_POSTDIV);
-	cfg[index].msk = mask;
-	if (width && ((pll->fflag == 1 && fvco <= pll->fvco) ||
-		      (pll->fflag == 0 && fvco > pll->fvco)))
-		cfg[index].val |= mask;
-
-	if (width && fvco <= pll->fvco)
-		fvco = fvco * 2;
-
-	mask = pmask(pll, PLL_DIV_S);
-	index = pindex(pll, PLL_DIV_S);
-	cfg[index].val |= mask;
+	shift = pshift(pll, PLL_POSTDIV);
 	cfg[index].msk |= mask;
+	if (width && pll->fflag == 1 && fvco <= pll->fvco && fvco) {
+		tmp = pll->fvco;
+		do_div(tmp, fvco);
+		postdiv = tmp;
+		if ((mask >> shift) < postdiv) {
+			kfree(cfg);
+			return -EINVAL;
+		}
+		cfg[index].val |= postdiv << shift & mask;
+		fvco = fvco * (postdiv + 1);
+	} else if (width && pll->fflag == 0) {
+		if (fvco > pll->fvco)
+			cfg[index].val |= mask;
+		else
+			fvco = fvco * 2;
+	}
 
-	mask = pmask(pll, PLL_SDM_EN);
-	index = pindex(pll, PLL_SDM_EN);
-	cfg[index].val |= mask;
-	cfg[index].msk |= mask;
+	if (pwidth(pll, PLL_REFDIV)) {
+		mask = pmask(pll, PLL_REFDIV);
+		index = pindex(pll, PLL_REFDIV);
+		shift = pshift(pll, PLL_REFDIV);
+		tmp = fvco;
+		if (do_div(tmp, (26 * CLK_PLL_1M))) {
+			refin = refin / 2;
+			refdiv = 1;
+		}
+		cfg[index].val |= refdiv << shift & mask;
+		cfg[index].msk |= mask;
+	}
 
-	nint = do_div(fvco, refin * CLK_PLL_1M);
-	mask = pmask(pll, PLL_NINT);
-	index = pindex(pll, PLL_NINT);
-	shift = pshift(pll, PLL_NINT);
-	cfg[index].val |= (nint << shift) & mask;
-	cfg[index].msk |= mask;
-
-	mask = pmask(pll, PLL_KINT);
-	index = pindex(pll, PLL_KINT);
-	width = pwidth(pll, PLL_KINT);
-	shift = pshift(pll, PLL_KINT);
-	tmp = fvco - refin * nint * CLK_PLL_1M;
-	tmp = do_div(tmp, 10000) * ((mask >> shift) + 1);
-	kint = DIV_ROUND_CLOSEST_ULL(tmp, refin * 100);
-	cfg[index].val |= (kint << shift) & mask;
-	cfg[index].msk |= mask;
-
-	ibias_val = pll_get_ibias(fvco, pll->itable);
-
+	ibias_val = pll_get_ibias(fvco, pll->ftable);
 	mask = pmask(pll, PLL_IBIAS);
 	index = pindex(pll, PLL_IBIAS);
 	shift = pshift(pll, PLL_IBIAS);
 	cfg[index].val |= ibias_val << shift & mask;
 	cfg[index].msk |= mask;
+
+	if (pwidth(pll, PLL_VCOSEL)) {
+		mask = pmask(pll, PLL_VCOSEL);
+		index = pindex(pll, PLL_VCOSEL);
+		shift = pshift(pll, PLL_VCOSEL);
+		vco_sel = pll_get_vco_sel(fvco, pll->ftable);
+		cfg[index].val |= vco_sel << shift & mask;
+		cfg[index].msk |= mask;
+	}
+
+	tmp = do_div(fvco, refin * CLK_PLL_1M);
+	nint = fvco;
+	if (tmp == 0) {
+		mask = pmask(pll, PLL_N);
+		index = pindex(pll, PLL_N);
+		shift = pshift(pll, PLL_N);
+		cfg[index].val |= (nint << shift) & mask;
+		cfg[index].msk |= mask;
+
+		mask = pmask(pll, PLL_DIV_S);
+		index = pindex(pll, PLL_DIV_S);
+		cfg[index].val &= ~mask;
+		cfg[index].msk |= mask;
+
+		mask = pmask(pll, PLL_SDM_EN);
+		index = pindex(pll, PLL_SDM_EN);
+		cfg[index].val &= ~mask;
+		cfg[index].msk |= mask;
+	} else {
+		mask = pmask(pll, PLL_DIV_S);
+		index = pindex(pll, PLL_DIV_S);
+		cfg[index].val |= mask;
+		cfg[index].msk |= mask;
+
+		mask = pmask(pll, PLL_SDM_EN);
+		index = pindex(pll, PLL_SDM_EN);
+		cfg[index].val |= mask;
+		cfg[index].msk |= mask;
+
+		mask = pmask(pll, PLL_NINT);
+		index = pindex(pll, PLL_NINT);
+		shift = pshift(pll, PLL_NINT);
+		cfg[index].val |= (nint << shift) & mask;
+		cfg[index].msk |= mask;
+
+		mask = pmask(pll, PLL_KINT);
+		index = pindex(pll, PLL_KINT);
+		width = pwidth(pll, PLL_KINT);
+		shift = pshift(pll, PLL_KINT);
+		do_div(tmp, 10000);
+		tmp = tmp * ((mask >> shift) + 1);
+		kint = DIV_ROUND_CLOSEST_ULL(tmp, refin * 100);
+		cfg[index].val |= (kint << shift) & mask;
+		cfg[index].msk |= mask;
+	}
 
 	for (i = 0; i < regs_num; i++) {
 		if (cfg[i].msk) {

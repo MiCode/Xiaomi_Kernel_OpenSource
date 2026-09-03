@@ -677,12 +677,8 @@ static void sdhci_intel_set_power(struct sdhci_host *host, unsigned char mode,
 
 	sdhci_set_power(host, mode, vdd);
 
-	if (mode == MMC_POWER_OFF) {
-		if (slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_APL_SD ||
-		    slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_BYT_SD)
-			usleep_range(15000, 17500);
+	if (mode == MMC_POWER_OFF)
 		return;
-	}
 
 	/*
 	 * Bus power might not enable after D3 -> D0 transition due to the
@@ -980,8 +976,7 @@ static bool glk_broken_cqhci(struct sdhci_pci_slot *slot)
 {
 	return slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_GLK_EMMC &&
 	       (dmi_match(DMI_BIOS_VENDOR, "LENOVO") ||
-		dmi_match(DMI_SYS_VENDOR, "IRBIS") ||
-		dmi_match(DMI_SYS_VENDOR, "Positivo Tecnologia SA"));
+		dmi_match(DMI_SYS_VENDOR, "IRBIS"));
 }
 
 static bool jsl_broken_hs400es(struct sdhci_pci_slot *slot)

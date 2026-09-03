@@ -837,6 +837,12 @@ struct fdt_scan_status {
 	int (*iterator)(unsigned long node, const char *uname, int depth, void *data);
 	void *data;
 };
+#if defined(CONFIG_ARM)
+const char *of_flat_dt_get_cpuinfo_hw(void)
+{
+	return fdt_getprop(initial_boot_params, 0, "cpuinfo_hardware", NULL);
+}
+#endif
 
 const char * __init of_flat_dt_get_machine_name(void)
 {

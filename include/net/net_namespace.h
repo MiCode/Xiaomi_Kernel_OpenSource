@@ -346,30 +346,21 @@ static inline int check_net(const struct net *net)
 
 typedef struct {
 #ifdef CONFIG_NET_NS
-	struct net __rcu *net;
+	struct net *net;
 #endif
 } possible_net_t;
 
 static inline void write_pnet(possible_net_t *pnet, struct net *net)
 {
 #ifdef CONFIG_NET_NS
-	rcu_assign_pointer(pnet->net, net);
+	pnet->net = net;
 #endif
 }
 
 static inline struct net *read_pnet(const possible_net_t *pnet)
 {
 #ifdef CONFIG_NET_NS
-	return rcu_dereference_protected(pnet->net, true);
-#else
-	return &init_net;
-#endif
-}
-
-static inline struct net *read_pnet_rcu(const possible_net_t *pnet)
-{
-#ifdef CONFIG_NET_NS
-	return rcu_dereference(pnet->net);
+	return pnet->net;
 #else
 	return &init_net;
 #endif

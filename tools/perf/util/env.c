@@ -18,19 +18,15 @@ struct perf_env perf_env;
 #include "bpf-event.h"
 #include <bpf/libbpf.h>
 
-bool perf_env__insert_bpf_prog_info(struct perf_env *env,
+void perf_env__insert_bpf_prog_info(struct perf_env *env,
 				    struct bpf_prog_info_node *info_node)
 {
-	bool ret;
-
 	down_write(&env->bpf_progs.lock);
-	ret = __perf_env__insert_bpf_prog_info(env, info_node);
+	__perf_env__insert_bpf_prog_info(env, info_node);
 	up_write(&env->bpf_progs.lock);
-
-	return ret;
 }
 
-bool __perf_env__insert_bpf_prog_info(struct perf_env *env, struct bpf_prog_info_node *info_node)
+void __perf_env__insert_bpf_prog_info(struct perf_env *env, struct bpf_prog_info_node *info_node)
 {
 	__u32 prog_id = info_node->info_linear->info.id;
 	struct bpf_prog_info_node *node;
@@ -48,14 +44,13 @@ bool __perf_env__insert_bpf_prog_info(struct perf_env *env, struct bpf_prog_info
 			p = &(*p)->rb_right;
 		} else {
 			pr_debug("duplicated bpf prog info %u\n", prog_id);
-			return false;
+			return;
 		}
 	}
 
 	rb_link_node(&info_node->rb_node, parent, p);
 	rb_insert_color(&info_node->rb_node, &env->bpf_progs.infos);
 	env->bpf_progs.infos_cnt++;
-	return true;
 }
 
 struct bpf_prog_info_node *perf_env__find_bpf_prog_info(struct perf_env *env,

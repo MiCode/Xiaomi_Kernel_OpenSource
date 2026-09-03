@@ -40,6 +40,7 @@ config ARM_SCPI_POWER_DOMAIN
 config ARM_SDE_INTERFACE
 	bool "ARM Software Delegated Exception Interface (SDEI)"
 	depends on ARM64
+	depends on ACPI_APEI_GHES
 	help
 	  The Software Delegated Exception Interface (SDEI) is an ARM
 	  standard for registering callbacks from the platform firmware
@@ -138,7 +139,7 @@ config ISCSI_IBFT
 	select ISCSI_BOOT_SYSFS
 	select ISCSI_IBFT_FIND if X86
 	depends on ACPI && SCSI && SCSI_LOWLEVEL
-	default n
+	default	n
 	help
 	  This option enables support for detection and exposing of iSCSI
 	  Boot Firmware Table (iBFT) via sysfs to userspace. If you wish to
@@ -292,6 +293,15 @@ config TURRIS_MOX_RWTM
 	  Turris Mox, and you will be able to read the device serial number and
 	  other manufacturing data and also utilize the Entropy Bit Generator
 	  for hardware random number generation.
+
+config SPRD_SIP_FW
+	tristate "sprd SoC implementation-specific services"
+	default m
+	help
+	  Provides interfaces to SoC implementation-specific services on sprd
+	  platform, for example secure platform initialization, configuration,
+	  debug services and clock or power control services. This function is
+	  based on ARM SMC call.
 
 source "drivers/firmware/arm_ffa/Kconfig"
 source "drivers/firmware/broadcom/Kconfig"

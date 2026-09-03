@@ -16,10 +16,13 @@
 #include <linux/errno.h>
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
+#include <linux/soc/sprd/sprd_musb_offload.h>
 
 #include "musb_core.h"
 #include "musb_host.h"
 #include "musb_trace.h"
+#include "musb_dma.h"
+#include "sprd_musbhsdma.h"
 
 /* MUSB HOST status 22-mar-2006
  *
@@ -70,6 +73,14 @@
  * of transfers between endpoints, or anything clever.
  */
 
+static void musb_host_start(struct musb *musb);
+
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+/* Musb can only use the EP1 in adaptive mode */
+#define ADAPTIVE_EP_NUM	1
+#define MCDT_DMA_DEST_ADDR	0x56500028
+#define MCDT_DMA_SRC_ADDR	0x56500038
+#endif
 struct musb *hcd_to_musb(struct usb_hcd *hcd)
 {
 	return *(struct musb **) hcd->hcd_priv;
@@ -89,10 +100,17 @@ static void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
 	void __iomem	*epio = ep->regs;
 	u16		csr;
 	int		retries = 1000;
+	void __iomem	*mbase = musb->mregs;
+	u32 hsbt;
+
+	hsbt = musb_readl(mbase, MUSB_C_T_HSBT);
+	hsbt |= MUSB_CLEAR_TXBUFF_EN;
+	musb_writel(mbase, MUSB_C_T_HSBT, hsbt);
 
 	csr = musb_readw(epio, MUSB_TXCSR);
 	while (csr & MUSB_TXCSR_FIFONOTEMPTY) {
-		csr |= MUSB_TXCSR_FLUSHFIFO | MUSB_TXCSR_TXPKTRDY;
+		csr |= MUSB_TXCSR_FLUSHFIFO;
+		csr &= ~MUSB_TXCSR_TXPKTRDY;
 		musb_writew(epio, MUSB_TXCSR, csr);
 		csr = musb_readw(epio, MUSB_TXCSR);
 
@@ -202,6 +220,14 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	u32			offset = 0;
 	struct musb_hw_ep	*hw_ep = qh->hw_ep;
 	int			epnum = hw_ep->epnum;
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+	int i;
+
+	if (qh->linkfifo) {
+		urb = last_urb(qh);
+		buf = urb->transfer_buffer;
+	}
+#endif
 
 	/* initialize software qh state */
 	qh->offset = 0;
@@ -221,6 +247,14 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 		qh->frame = 0;
 		offset = urb->iso_frame_desc[0].offset;
 		len = urb->iso_frame_desc[0].length;
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+		if (qh->linkfifo) {
+			len = 0;
+			offset = 0;
+			for (i = 0; i < urb->number_of_packets; i++)
+				len += urb->iso_frame_desc[i].length;
+		}
+#endif
 		break;
 	default:		/* bulk, interrupt */
 		/* actual_length may be nonzero on retry paths */
@@ -229,6 +263,18 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	}
 
 	trace_musb_urb_start(musb, urb);
+
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if (musb->is_adaptive_in && !musb->adaptive_in_configured) {
+		offset = MCDT_DMA_DEST_ADDR;
+		dev_dbg(musb->controller,
+			"set the mcdt_in_offset:0x%x.\n", offset);
+	} else if (musb->is_adaptive_out && !musb->adaptive_out_configured) {
+		offset = MCDT_DMA_SRC_ADDR;
+		dev_dbg(musb->controller,
+			"set the mcdt_out_offset:0x%x.\n", offset);
+	}
+#endif
 
 	/* Configure endpoint */
 	musb_ep_set_qh(hw_ep, is_in, qh);
@@ -298,7 +344,6 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 {
 	struct musb_qh		*qh = musb_ep_get_qh(hw_ep, is_in);
 	struct musb_hw_ep	*ep = qh->hw_ep;
-	int			ready = qh->is_ready;
 	int			status;
 	u16			toggle;
 
@@ -317,9 +362,7 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 		break;
 	}
 
-	qh->is_ready = 0;
 	musb_giveback(musb, urb, status);
-	qh->is_ready = ready;
 
 	/*
 	 * musb->lock had been unlocked in musb_giveback, so qh may
@@ -380,7 +423,12 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 		}
 	}
 
-	if (qh != NULL && qh->is_ready) {
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+	if (qh && qh->linkfifo)
+		return;
+#endif
+
+	if (qh != NULL && qh->is_ready && !list_empty(&qh->hep->urb_list)) {
 		musb_dbg(musb, "... next ep%d %cX urb %p",
 		    hw_ep->epnum, is_in ? 'R' : 'T', next_urb(qh));
 		musb_start_urb(musb, is_in, qh);
@@ -389,6 +437,14 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 
 static u16 musb_h_flush_rxfifo(struct musb_hw_ep *hw_ep, u16 csr)
 {
+	struct musb		*musb = hw_ep->musb;
+	void __iomem	*mbase = musb->mregs;
+	u32 hsbt;
+
+	hsbt = musb_readl(mbase, MUSB_C_T_HSBT);
+	hsbt |= MUSB_CLEAR_RXBUFF_EN;
+	musb_writel(mbase, MUSB_C_T_HSBT, hsbt);
+
 	/* we don't want fifo to fill itself again;
 	 * ignore dma (various models),
 	 * leave toggle alone (may not have been saved yet)
@@ -622,6 +678,118 @@ static void musb_tx_dma_set_mode_cppi_tusb(struct musb_hw_ep *hw_ep,
 	*mode = (urb->transfer_flags & URB_ZERO_PACKET) ? 1 : 0;
 }
 
+static int musb_tx_dma_set_mode_musb_tusb(struct dma_controller *dma,
+					  struct musb_hw_ep *hw_ep,
+					  struct musb_qh *qh,
+					  struct urb *urb,
+					  u32 offset,
+					  u32 *length,
+					  u8 *mode)
+{
+#if IS_ENABLED(CONFIG_USB_SPRD_DMA)
+	struct dma_channel *channel = hw_ep->tx_channel;
+
+	if (!musb_dma_sprd(hw_ep->musb))
+		return -ENODEV;
+
+	channel->actual_len = 0;
+
+	/*
+	 * TX uses "RNDIS" mode automatically but needs help
+	 * to identify the zero-length-final-packet case.
+	 */
+	*mode = (urb->transfer_flags & URB_ZERO_PACKET) ? 1 : 0;
+#endif
+	return 0;
+}
+
+void musb_rx_dma_sprd(struct dma_channel *dma_channel,
+				  struct musb *musb, u8 epnum,
+				  struct musb_qh *qh,
+				  struct urb *urb,
+				  u32 offset, size_t len)
+{
+#if IS_ENABLED(CONFIG_USB_SPRD_DMA)
+	struct dma_controller	*dma_controller;
+	u8	dma_ok;
+	u16	csr;
+	u16	packet_sz = qh->maxpacket;
+	struct musb_hw_ep	*hw_ep = musb->endpoints + epnum;
+
+	dma_channel->actual_len = 0L;
+	qh->segsize = len;
+	dma_controller = musb->dma_controller;
+
+	/* target addr and (for multipoint) hub addr/port */
+	if (musb->is_multipoint) {
+		musb_write_rxfunaddr(musb, epnum, qh->addr_reg);
+		musb_write_rxhubaddr(musb, epnum, qh->h_addr_reg);
+		musb_write_rxhubport(musb, epnum, qh->h_port_reg);
+	} else
+		musb_writeb(musb->mregs, MUSB_FADDR, qh->addr_reg);
+
+	/* NOTE: bulk combining rewrites high bits of maxpacket */
+	/* Set RXMAXP with the FIFO size of the endpoint
+	 * to disable double buffer mode.
+	 */
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if (musb->is_adaptive_in && !musb->adaptive_in_configured)
+		musb_writew(hw_ep->regs, MUSB_RXMAXP,
+			512);
+	else
+		musb_writew(hw_ep->regs, MUSB_RXMAXP,
+			qh->maxpacket | ((qh->hb_mult - 1) << 11));
+#else
+	musb_writew(hw_ep->regs, MUSB_RXMAXP,
+		qh->maxpacket | ((qh->hb_mult - 1) << 11));
+#endif
+
+	if (qh->type == USB_ENDPOINT_XFER_INT) {
+		csr = musb_readw(hw_ep->regs, MUSB_RXCSR);
+		csr |= MUSB_RXCSR_DISNYET;
+		musb_writew(hw_ep->regs, MUSB_RXCSR, csr);
+	}
+
+	csr = musb_readw(hw_ep->regs, MUSB_RXCSR);
+
+	/*start dma*/
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if (musb->is_adaptive_in && !musb->adaptive_in_configured) {
+		dma_ok = dma_controller->channel_program(dma_channel,
+					packet_sz, !urb->transfer_flags,
+					offset,
+					qh->segsize);
+	} else
+		dma_ok = dma_controller->channel_program(dma_channel,
+				packet_sz, !(urb->transfer_flags &
+						 URB_SHORT_NOT_OK),
+				urb->transfer_dma + offset,
+				qh->segsize);
+#else
+	dma_ok = dma_controller->channel_program(dma_channel,
+				packet_sz, !(urb->transfer_flags &
+						 URB_SHORT_NOT_OK),
+				urb->transfer_dma + offset,
+				qh->segsize);
+#endif
+
+	if (!dma_ok) {
+		dma_controller->channel_release(dma_channel);
+		hw_ep->rx_channel = dma_channel = NULL;
+	} else {
+		if ((!(csr & MUSB_RXCSR_RXPKTRDY)) &&
+			(!(csr & MUSB_RXCSR_H_AUTOREQ))) {
+			csr |= MUSB_RXCSR_DMAMODE | MUSB_RXCSR_DMAENAB |
+				MUSB_RXCSR_AUTOCLEAR | MUSB_RXCSR_H_AUTOREQ |
+				MUSB_RXCSR_H_REQPKT;
+			musb_writew(hw_ep->regs, MUSB_RXCSR, csr);
+			dev_dbg(musb->controller, "RXCSR%d := %04x\n",
+				epnum, csr);
+		}
+	}
+#endif
+}
+
 static bool musb_tx_dma_program(struct dma_controller *dma,
 		struct musb_hw_ep *hw_ep, struct musb_qh *qh,
 		struct urb *urb, u32 offset, u32 length)
@@ -635,6 +803,9 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
 					    &length, &mode);
 	else if (is_cppi_enabled(hw_ep->musb) || tusb_dma_omap(hw_ep->musb))
 		musb_tx_dma_set_mode_cppi_tusb(hw_ep, urb, &mode);
+	else if (musb_dma_sprd(hw_ep->musb))
+		musb_tx_dma_set_mode_musb_tusb(dma, hw_ep, qh, urb, offset,
+					       &length, &mode);
 	else
 		return false;
 
@@ -646,6 +817,36 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
 	 */
 	wmb();
 
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if (hw_ep->musb->is_adaptive_out
+			 && !(hw_ep->musb->adaptive_out_configured)) {
+		if (!dma->channel_program(channel, pkt_size, mode,
+				offset, length)) {
+			void __iomem *epio = hw_ep->regs;
+			u16 csr;
+
+			dma->channel_release(channel);
+			hw_ep->tx_channel = NULL;
+
+			csr = musb_readw(epio, MUSB_TXCSR);
+			csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB);
+			musb_writew(epio, MUSB_TXCSR, csr | MUSB_TXCSR_H_WZC_BITS);
+			return false;
+		}
+	} else if (!dma->channel_program(channel, pkt_size, mode,
+			urb->transfer_dma + offset, length)) {
+		void __iomem *epio = hw_ep->regs;
+		u16 csr;
+
+		dma->channel_release(channel);
+		hw_ep->tx_channel = NULL;
+
+		csr = musb_readw(epio, MUSB_TXCSR);
+		csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB);
+		musb_writew(epio, MUSB_TXCSR, csr | MUSB_TXCSR_H_WZC_BITS);
+		return false;
+	}
+#else
 	if (!dma->channel_program(channel, pkt_size, mode,
 			urb->transfer_dma + offset, length)) {
 		void __iomem *epio = hw_ep->regs;
@@ -658,6 +859,23 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
 		csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB);
 		musb_writew(epio, MUSB_TXCSR, csr | MUSB_TXCSR_H_WZC_BITS);
 		return false;
+	}
+#endif
+
+	if ((musb_dma_sprd(hw_ep->musb)) && channel) {
+		void __iomem *epio = hw_ep->regs;
+		u16 csr = musb_readw(epio, MUSB_TXCSR);
+
+		if ((csr & MUSB_TXCSR_TXPKTRDY) == 0 &&
+			((csr & MUSB_TXCSR_AUTOSET) == 0)) {
+			csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_AUTOSET |
+			MUSB_TXCSR_DMAENAB | MUSB_TXCSR_DMAMODE;
+			musb_writew(epio, MUSB_TXCSR, csr);
+		} else if ((csr & MUSB_TXCSR_DMAENAB) == 0) {
+			csr |= MUSB_TXCSR_MODE | MUSB_TXCSR_AUTOSET |
+				MUSB_TXCSR_DMAENAB | MUSB_TXCSR_DMAMODE;
+			musb_writew(epio, MUSB_TXCSR, csr);
+		}
 	}
 	return true;
 }
@@ -730,21 +948,22 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 
 		/* general endpoint setup */
 		if (epnum) {
-			/* flush all old state, set default */
-			/*
-			 * We could be flushing valid
-			 * packets in double buffering
-			 * case
-			 */
-			if (!hw_ep->tx_double_buffered)
-				musb_h_tx_flush_fifo(hw_ep);
+			if (!musb_dma_sprd(musb)) {
+				/* flush all old state, set default */
+				/*
+				 * We could be flushing valid
+				 * packets in double buffering
+				 * case
+				 */
+				if (!hw_ep->tx_double_buffered)
+					musb_h_tx_flush_fifo(hw_ep);
 
-			/*
-			 * We must not clear the DMAMODE bit before or in
-			 * the same cycle with the DMAENAB bit, so we clear
-			 * the latter first...
-			 */
-			csr &= ~(MUSB_TXCSR_H_NAKTIMEOUT
+				/*
+				 * We must not clear the DMAMODE bit before or in
+				 * the same cycle with the DMAENAB bit, so we clear
+				 * the latter first...
+				 */
+				csr &= ~(MUSB_TXCSR_H_NAKTIMEOUT
 					| MUSB_TXCSR_AUTOSET
 					| MUSB_TXCSR_DMAENAB
 					| MUSB_TXCSR_FRCDATATOG
@@ -752,16 +971,23 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 					| MUSB_TXCSR_H_ERROR
 					| MUSB_TXCSR_TXPKTRDY
 					);
-			csr |= MUSB_TXCSR_MODE;
 
-			if (!hw_ep->tx_double_buffered)
-				csr |= musb->io.set_toggle(qh, is_out, urb);
+				csr |= MUSB_TXCSR_MODE;
 
-			musb_writew(epio, MUSB_TXCSR, csr);
-			/* REVISIT may need to clear FLUSHFIFO ... */
-			csr &= ~MUSB_TXCSR_DMAMODE;
-			musb_writew(epio, MUSB_TXCSR, csr);
-			csr = musb_readw(epio, MUSB_TXCSR);
+				if (!hw_ep->tx_double_buffered) {
+					if (usb_gettoggle(urb->dev, qh->epnum, 1))
+						csr |= MUSB_TXCSR_H_WR_DATATOGGLE
+							| MUSB_TXCSR_H_DATATOGGLE;
+					else
+						csr |= MUSB_TXCSR_CLRDATATOG;
+				}
+
+				musb_writew(epio, MUSB_TXCSR, csr);
+				/* REVISIT may need to clear FLUSHFIFO ... */
+				csr &= ~MUSB_TXCSR_DMAMODE;
+				musb_writew(epio, MUSB_TXCSR, csr);
+				csr = musb_readw(epio, MUSB_TXCSR);
+			}
 		} else {
 			/* endpoint 0: just flush */
 			musb_h_ep0_flush_fifo(hw_ep);
@@ -838,6 +1064,12 @@ finish:
 	/* IN/receive */
 	} else {
 		u16 csr = 0;
+
+		if (musb_dma_sprd(musb) && dma_channel) {
+			musb_rx_dma_sprd(dma_channel, musb, epnum, qh,
+				urb, offset, len);
+			return;
+		}
 
 		if (hw_ep->rx_reinit) {
 			musb_rx_reinit(musb, qh, epnum);
@@ -2003,7 +2235,8 @@ static int musb_schedule(
 	u8			toggle;
 	u8			txtype;
 	struct urb		*urb = next_urb(qh);
-
+	u8			last_epno;
+	struct usb_host_endpoint	*last_hep = NULL;
 	/* use fixed hardware for control and bulk */
 	if (qh->type == USB_ENDPOINT_XFER_CONTROL) {
 		head = &musb->control;
@@ -2022,10 +2255,22 @@ static int musb_schedule(
 	 */
 	best_diff = 4096;
 	best_end = -1;
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if ((musb->is_adaptive_in && !musb->adaptive_in_configured) ||
+		(musb->is_adaptive_out && !musb->adaptive_out_configured)) {
+		dev_info(musb->controller,"adaptive mode, use fixed hardware EP1.\n");
+		goto adaptive;
+	}
 
+	/* For adaptive device used the hardware EP1 */
+	for (epnum = 2, hw_ep = musb->endpoints + 2;
+			epnum < musb->nr_endpoints;
+			epnum++, hw_ep++) {
+#else
 	for (epnum = 1, hw_ep = musb->endpoints + 1;
 			epnum < musb->nr_endpoints;
 			epnum++, hw_ep++) {
+#endif
 		int	diff;
 
 		if (musb_ep_get_qh(hw_ep, is_in) != NULL)
@@ -2033,6 +2278,49 @@ static int musb_schedule(
 
 		if (hw_ep == musb->bulk_ep)
 			continue;
+
+		if (musb_dma_sprd(musb)) {
+			u8	last_addr;
+			u8	epno = usb_pipeendpoint(urb->pipe);
+
+			if (epnum < 2 + epno)
+				continue;
+
+			if (musb->is_multipoint) {
+				if (is_in)
+					last_addr = musb_readb(musb->mregs,
+						       musb->io.busctl_offset
+						       (epnum,
+							MUSB_RXFUNCADDR));
+				else
+					last_addr = musb_readb(musb->mregs,
+						       musb->io.busctl_offset
+						       (epnum,
+							MUSB_TXFUNCADDR));
+				if (last_addr != 0) {
+					if (last_addr != qh->addr_reg)
+						continue;
+					else {
+						last_epno = 0;
+						if (musb_dma_sprd(musb) &&
+							(musb->is_multipoint) &&
+							hw_ep->hep[!is_in]) {
+							last_hep = hw_ep->hep[!is_in];
+							last_epno = last_hep->desc.bEndpointAddress
+							& USB_ENDPOINT_NUMBER_MASK;
+						}
+
+						musb_dbg(musb, "last_epno(%d) epno(%d)\n",
+								last_epno, epno);
+
+						if (last_epno != epno)
+							continue;
+					}
+					best_end = epnum;
+					break;
+				}
+			}
+		}
 
 		if (is_in)
 			diff = hw_ep->max_packet_sz_rx;
@@ -2093,9 +2381,27 @@ static int musb_schedule(
 		return -ENOSPC;
 	}
 
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+adaptive:
+	idle = 1;
+	qh->mux = 0;
+	if ((musb->is_adaptive_in && !musb->adaptive_in_configured) ||
+		(musb->is_adaptive_out && !musb->adaptive_out_configured)) {
+		hw_ep = musb->endpoints + ADAPTIVE_EP_NUM;
+		dev_info(musb->controller,
+			"Musb adaptive mode with fixed EP_%d.\n", hw_ep->epnum);
+	} else
+		hw_ep = musb->endpoints + best_end;
+#else
 	idle = 1;
 	qh->mux = 0;
 	hw_ep = musb->endpoints + best_end;
+#endif
+
+#if IS_ENABLED(CONFIG_USB_MUSB_SPRD)
+	if (musb_dma_sprd(musb) && (musb->is_multipoint))
+		hw_ep->hep[!is_in] = qh->hep;
+#endif
 	musb_dbg(musb, "qh %p periodic slot %d", qh, best_end);
 success:
 	if (head) {
@@ -2105,10 +2411,526 @@ success:
 	}
 	qh->hw_ep = hw_ep;
 	qh->hep->hcpriv = qh;
-	if (idle)
+	if (idle) {
+		if (is_in) {
+			/* RXINTERVAL should be set after RXTYPE */
+			musb_writeb(hw_ep->regs, MUSB_RXTYPE, qh->type_reg);
+			musb_writeb(hw_ep->regs, MUSB_RXINTERVAL, qh->intv_reg);
+		}
 		musb_start_urb(musb, is_in, qh);
+	}
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_USB_SPRD_OFFLOAD)
+/* Defined this flag to control the i2s clk configuraiton */
+static bool musb_utmi_60m_flag;
+
+void musb_set_utmi_60m_flag(bool flag)
+{
+	musb_utmi_60m_flag = flag;
+}
+EXPORT_SYMBOL(musb_set_utmi_60m_flag);
+
+static void musb_offload_enable(struct musb *musb, u8 bchannel)
+{
+	u32 val;
+	void __iomem *mbase = musb->mregs;
+
+	val  = musb_readl(mbase, MUSB_AUDIO_IIS_DMA_CHN);
+	val |= (1 << bchannel);
+	musb_writel(mbase, MUSB_AUDIO_IIS_DMA_CHN, val);
+
+	val  = musb_readl(mbase, MUSB_DMA_CHN_CFG(bchannel));
+	val  |= CHN_EN;
+	musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), val);
+}
+
+static void musb_i2s_offload_disable(struct musb *musb, int bchannel)
+{
+	u32 val;
+	void __iomem *mbase = musb->mregs;
+	val  = musb_readl(mbase, MUSB_AUDIO_IIS_DMA_CHN);
+	val &= ~(1 << bchannel);
+	musb_writel(mbase, MUSB_AUDIO_IIS_DMA_CHN, val);
+	val  = musb_readl(mbase, MUSB_DMA_CHN_CFG(bchannel));
+	val  &= ~CHN_EN;
+	musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), val);
+}
+
+
+static bool musb_offload_detect(struct musb *musb,
+				struct usb_endpoint_descriptor *epd)
+{
+	u32 val;
+	void __iomem *mbase = musb->mregs;
+	u8 bchannel, epnum = usb_endpoint_num(epd);
+	int dir = usb_endpoint_dir_out(epd);
+
+	val = musb_readl(mbase, MUSB_AUDIO_IIS_DMA_CHN);
+	if (dir)
+		bchannel = epnum;
+	else
+		bchannel = epnum + 15;
+
+	if (BIT(bchannel) & val)
+		return true;
+
+	return false;
+}
+
+void musb_set_offload_mode(struct usb_hcd *hcd, bool is_offload)
+{
+	struct musb *musb = hcd_to_musb(hcd);
+
+	musb->is_offload = is_offload;
+}
+EXPORT_SYMBOL(musb_set_offload_mode);
+
+void musb_offload_config(struct usb_hcd *hcd, int ep_num, int mono,
+				int is_pcm_24, int width, int rate, int offload_used)
+{
+	struct musb *musb = hcd_to_musb(hcd);
+	void __iomem *mbase = musb->mregs;
+	int dir;
+	u32 tmp, clkm;
+	u16 intr;
+	u8 bchannel;
+	unsigned long flags;
+
+	if (!is_host_active(musb) || !musb->is_active)
+		return;
+	if (width > IIS_WIDTH_MAX)
+		return;
+
+	if (ep_num & 0x80) {
+		/* in endpoint */
+		dir = 0;
+		bchannel = (u8)(ep_num & 0xf) + 15;
+	} else {
+		/* out endpoint */
+		dir = 1;
+		bchannel = (u8)(ep_num & 0xf);
+	}
+	musb->is_offload = true;
+	spin_lock_irqsave(&musb->lock, flags);
+	if (offload_used)
+		musb->offload_used++;
+	else if (musb->offload_used == 0)
+		dev_warn(musb->controller, "warning musb->offload_used 0!\n");
+	else
+		musb->offload_used--;
+	spin_unlock_irqrestore(&musb->lock, flags);
+
+	dev_info(musb->controller,
+		"ep:0x%x dir:%d mono:%d pcm:%d width:%d rate:%d offload:%d, musb->offload_used:%d.\n",
+		ep_num,dir, mono, is_pcm_24, width, rate, offload_used, musb->offload_used);
+
+	if (offload_used == 0) {
+		musb_i2s_offload_disable(musb, bchannel);
+		return;
+        }
+
+	spin_lock_irqsave(&musb->lock, flags);
+	if (ep_num & 0x80) {
+		intr = musb_readw(mbase, MUSB_INTRRXE);
+		intr &= ~(1 << (ep_num & 0xf));
+		musb_writew(mbase, MUSB_INTRRXE, intr);
+	} else {
+		intr = musb_readw(mbase, MUSB_INTRTXE);
+		intr &= ~(1 << (ep_num & 0xf));
+		musb_writew(mbase, MUSB_INTRTXE, intr);
+	}
+
+	/* usb audio iis control*/
+	tmp = musb_readl(mbase, MUSB_AUDIO_IIS_CTL0);
+	tmp |= (BIT_RTX_MD(0x3) | BIT_NG_RX);
+	musb_writel(mbase, MUSB_AUDIO_IIS_CTL0, tmp);
+
+	if (width == IIS_WIDTH_16BIT)
+		clkm = 4  * 16 * rate;
+	else
+		clkm = 4  * 24 * rate;
+	musb_writel(mbase, MUSB_AUDIO_IIS_CLKM, clkm);
+	musb_writel(mbase, MUSB_AUDIO_IIS_CLKN, MUSB_IIS_CLKN);
+
+	/* The default MUSB_IIS_CLKN(30000) is coordinate to utim 30MHz clk,
+	 * if the utmi is working at 60MHz, we should config MUSB_AUDIO_IIS_CLKN
+	 * as 60000
+	 */
+	dev_dbg(musb->controller,
+		"%s musb_utmi_60m_flag(%d)\n", __func__, musb_utmi_60m_flag);
+	if (musb_utmi_60m_flag)
+		musb_writel(mbase, MUSB_AUDIO_IIS_CLKN, MUSB_IIS_CLKN*2);
+	else
+		musb_writel(mbase, MUSB_AUDIO_IIS_CLKN, MUSB_IIS_CLKN);
+
+	tmp = musb_readl(mbase, MUSB_AUDIO_IIS_DMA_INS);
+	/* iis dma fifo width */
+	if (is_pcm_24 == 1) {
+		if (dir) {
+			tmp &= ~BIT_TX_FIFO_DEPTH(0x3);
+			tmp |= BIT_TX_FIFO_DEPTH(0x1);
+		} else {
+			tmp &= ~BIT_RX_FIFO_DEPTH(0x3);
+			tmp |= BIT_RX_FIFO_DEPTH(0x1);
+		}
+	} else {
+		if (dir)
+			tmp &= ~BIT_TX_FIFO_DEPTH(0x3);
+		else
+			tmp &= ~BIT_RX_FIFO_DEPTH(0x3);
+	}
+	/* mono or stereo  */
+	if (dir) {
+		if (mono == 1)
+			tmp &= ~BIT_TX_ST_MO;
+		else
+			tmp |= BIT_TX_ST_MO;
+	} else {
+		if (mono == 1)
+			tmp &= ~BIT_RX_ST_MO;
+		else
+			tmp |= BIT_RX_ST_MO;
+	}
+	tmp |= (BIT_TX_SAMPLE_RATE(rate) | BIT_RX_SAMPLE_RATE(rate));
+	musb_writel(mbase, MUSB_AUDIO_IIS_DMA_INS, tmp);
+
+	tmp = musb_readl(mbase, MUSB_AUDIO_IIS_EN);
+	if (width == IIS_WIDTH_16BIT)
+		tmp &= ~BIT_IIS_SAMPLE_DEPTH;
+	else
+		tmp |= BIT_IIS_SAMPLE_DEPTH;
+	tmp |= (BIT_UNALIGN_OUT_EN | BIT_UNALIGN_IN_EN |
+		BIT_IIS_START | BIT_IIS_TO_TXF_EN | BIT_IIS_FROM_RXF_EN);
+	tmp &= ~(BIT_RX_FULL_INT_EN | BIT_TX_EMPTY_INT_EN);
+	musb_writel(mbase, MUSB_AUDIO_IIS_EN, tmp);
+
+	musb_offload_enable(musb, bchannel);
+	spin_unlock_irqrestore(&musb->lock, flags);
+}
+EXPORT_SYMBOL(musb_offload_config);
+
+static void musb_offload_enqueue(struct usb_hcd *hcd, struct urb *urb)
+{
+	struct musb			*musb = hcd_to_musb(hcd);
+	struct usb_host_endpoint	*hep = urb->ep;
+	struct usb_endpoint_descriptor	*epd = &hep->desc;
+	u8 ep_num = usb_endpoint_num(epd);
+	struct musb_hw_ep	*hw_ep = musb->endpoints + ep_num;
+	void __iomem		*epio = hw_ep->regs;
+	struct musb_qh qh;
+	unsigned long flags;
+	u16 val;
+	unsigned int type_reg, interval;
+	int dir;
+
+	memset(&qh, 0, sizeof(struct musb_qh));
+
+	qh.maxpacket = usb_endpoint_maxp(epd);
+	qh.type = usb_endpoint_type(epd);
+	qh.epnum = ep_num;
+	qh.addr_reg = (u8) usb_pipedevice(urb->pipe);
+	dir = usb_endpoint_dir_out(epd);
+
+	/* precompute rxtype/txtype/type0 register */
+	type_reg = (qh.type << 4) | qh.epnum;
+	switch (urb->dev->speed) {
+	case USB_SPEED_LOW:
+		type_reg |= 0xc0;
+		break;
+	case USB_SPEED_FULL:
+		type_reg |= 0x80;
+		break;
+	default:
+		type_reg |= 0x40;
+	}
+	qh.type_reg = type_reg;
+
+	/* Precompute RXINTERVAL/TXINTERVAL register */
+	switch (qh.type) {
+	case USB_ENDPOINT_XFER_INT:
+		/*
+		 * Full/low speeds use the  linear encoding,
+		 * high speed uses the logarithmic encoding.
+		 */
+		if (urb->dev->speed <= USB_SPEED_FULL) {
+			interval = max_t(u8, epd->bInterval, 1);
+			if (urb->dev->speed == USB_SPEED_LOW && qh.epnum && qh.maxpacket % 4)
+				qh.maxpacket = (qh.maxpacket + 3) / 4 * 4;
+			break;
+		}
+		fallthrough;
+	case USB_ENDPOINT_XFER_ISOC:
+		/* ISO always uses logarithmic encoding */
+		interval = min_t(u8, epd->bInterval, 16);
+		break;
+	default:
+		interval = 0;
+	}
+	qh.intv_reg = interval;
+
+	dev_dbg(musb->controller,
+		"ep:%d dir:%d max:%d type:%d addr:%d type:0x%x intv:%d\n",
+		qh.epnum, dir, qh.maxpacket, qh.type, qh.addr_reg,
+		qh.type_reg, qh.intv_reg);
+
+	/* precompute addressing for external hub/tt ports */
+	if (musb->is_multipoint) {
+		struct usb_device *parent = urb->dev->parent;
+
+		if (parent != hcd->self.root_hub) {
+			qh.h_addr_reg = (u8) parent->devnum;
+
+			/* set up tt info if needed */
+			if (urb->dev->tt) {
+				qh.h_port_reg = (u8) urb->dev->ttport;
+				if (urb->dev->tt->hub)
+					qh.h_addr_reg = (u8)urb->dev->tt->hub->devnum;
+				if (urb->dev->tt->multi)
+					qh.h_addr_reg |= 0x80;
+			}
+		}
+
+		/* target addr and (for multipoint) hub addr/port */
+		if (dir) {
+			musb_write_txfunaddr(musb, qh.epnum, qh.addr_reg);
+			musb_write_txhubaddr(musb, qh.epnum, qh.h_addr_reg);
+			musb_write_txhubport(musb, qh.epnum, qh.h_port_reg);
+		} else {
+			musb_write_rxfunaddr(musb, qh.epnum, qh.addr_reg);
+			musb_write_rxhubaddr(musb, qh.epnum, qh.h_addr_reg);
+			musb_write_rxhubport(musb, qh.epnum, qh.h_port_reg);
+		}
+	} else {
+		musb_writeb(musb->mregs, MUSB_FADDR, qh.addr_reg);
+	}
+
+	musb_writeb(epio, MUSB_TXINTERVAL, qh.intv_reg);
+	if (dir) {
+		/* out */
+		musb_writew(epio, MUSB_TXMAXP, qh.maxpacket);
+		musb_writeb(epio, MUSB_TXTYPE, qh.type_reg);
+
+		val = musb_readw(epio, MUSB_TXCSR);
+		val |= (MUSB_TXCSR_CLRDATATOG |
+			MUSB_TXCSR_DMAMODE |
+			MUSB_TXCSR_DMAENAB |
+			MUSB_TXCSR_MODE |
+			MUSB_TXCSR_AUTOSET);
+		musb_writew(epio, MUSB_TXCSR, val);
+	} else {
+		/* in */
+		musb_writew(epio, MUSB_RXMAXP, qh.maxpacket);
+		musb_writeb(epio, MUSB_RXTYPE, qh.type_reg);
+
+		val = musb_readw(epio, MUSB_RXCSR);
+		val |= (MUSB_RXCSR_CLRDATATOG |
+			MUSB_RXCSR_DMAMODE |
+			MUSB_RXCSR_DMAENAB |
+			MUSB_RXCSR_AUTOCLEAR);
+		musb_writew(epio, MUSB_RXCSR, val);
+	}
+
+	/* urb status should be error to stop sound call usb_submit_urb again */
+	spin_lock_irqsave(&musb->lock, flags);
+	musb_giveback(musb, urb, -ESHUTDOWN);
+	spin_unlock_irqrestore(&musb->lock, flags);
+}
+
+#else
+void musb_set_utmi_60m_flag(bool flag)
+{}
+EXPORT_SYMBOL(musb_set_utmi_60m_flag);
+
+static bool musb_offload_detect(struct musb *musb, struct usb_endpoint_descriptor *epd)
+{
+	return false;
+}
+
+void musb_offload_config(struct usb_hcd *hcd, int ep_num, int mono,
+				int is_pcm_24, int width, int rate, int offload_used)
+{}
+EXPORT_SYMBOL(musb_offload_config);
+
+static void musb_offload_enqueue(struct usb_hcd *hcd, struct urb *urb)
+{}
+
+void musb_set_offload_mode(struct usb_hcd *hcd, bool is_offload)
+{}
+EXPORT_SYMBOL(musb_set_offload_mode);
+#endif
+
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+static void musb_adaptive_enable(struct musb *musb, int dir)
+{
+	u32 val;
+	void __iomem *mbase = musb->mregs;
+
+	/* Enable the adaptive mode */
+	val  = musb_readl(mbase, MUSB_DMA_FRAG_WAIT);
+	if(dir)
+		val |= BIT_USB_AUDIO_ADP_MODE |BIT_ARSIZE_ADP_MODE;
+	else
+		val |= BIT_USB_AUDIO_ADP_MODE |BIT_AWSIZE_ADP_MODE_L;
+	musb_writel(mbase, MUSB_DMA_FRAG_WAIT, val);
+	val = musb_readl(mbase, MUSB_DMA_FRAG_WAIT);
+	dev_info(musb->controller, "%s MUSB_DMA_FRAG_WAIT:0x%x\n",
+		__func__, val);
+}
+
+static void musb_stop_adaptive_dma(struct musb *musb)
+{
+	u32 val;
+	void __iomem *mbase = musb->mregs;
+
+	/* Disable the adaptive mode */
+	val  = musb_readl(mbase, MUSB_DMA_FRAG_WAIT);
+	val &= ~BIT_USB_AUDIO_ADP_MODE;
+	musb_writel(mbase, MUSB_DMA_FRAG_WAIT, val);
+	dev_info(musb->controller, "%s MUSB_DMA_FRAG_WAIT:0x%x\n",
+		__func__, val);
+}
+
+static void musb_adaptive_disable(struct musb *musb)
+{
+	musb_stop_adaptive_dma(musb);
+
+	musb->is_adaptive_in = false;
+	musb->is_adaptive_out = false;
+	musb->adaptive_in_configured = false;
+	musb->adaptive_out_configured = false;
+}
+
+void musb_set_adaptive_mode(struct usb_hcd *hcd, bool is_adaptive)
+{
+	struct musb *musb = hcd_to_musb(hcd);
+
+	musb->is_adaptive = is_adaptive;
+	musb->is_offload = is_adaptive;
+}
+EXPORT_SYMBOL(musb_set_adaptive_mode);
+
+void musb_adaptive_config(struct usb_hcd *hcd, int ep_num, int mono,
+		int is_pcm_24, int width, int rate, int adaptive_used)
+{
+	struct musb *musb = hcd_to_musb(hcd);
+	void __iomem *mbase = musb->mregs;
+	u16 intr;
+	unsigned long flags;
+
+	dev_info(musb->controller,
+		"%s:ep:0x%x, adaptive_used:%d\n",
+		__func__, ep_num, adaptive_used);
+
+	if (adaptive_used == 1) {
+		if (ep_num & 0x80) {
+			/* in endpoint */
+			if (musb->is_adaptive_in || musb->adaptive_in_configured) {
+				dev_err(musb->controller,
+					"%s: adaptive in was configured before.\n",
+					__func__);
+				return;
+			}
+
+			spin_lock_irqsave(&musb->lock, flags);
+			/* Disable the EP interrupt */
+			intr = musb_readw(mbase, MUSB_INTRRXE);
+			intr &= ~(1 << (ADAPTIVE_EP_NUM & 0xf));
+			musb_writew(mbase, MUSB_INTRRXE, intr);
+			musb_adaptive_enable(musb, 0);
+			musb->adaptive_used++;
+			musb->is_adaptive_in = true;
+			spin_unlock_irqrestore(&musb->lock, flags);
+		} else {
+			/* out endpoint */
+			if (musb->is_adaptive_out || musb->adaptive_out_configured) {
+				dev_err(musb->controller,
+					"%s: adaptive out was configured before.\n",
+					__func__);
+				return;
+			}
+
+			spin_lock_irqsave(&musb->lock, flags);
+			/* Disable the EP interrupt */
+			intr = musb_readw(mbase, MUSB_INTRTXE);
+			intr &= ~(1 << (ADAPTIVE_EP_NUM & 0xf));
+			musb_writew(mbase, MUSB_INTRTXE, intr);
+			musb_adaptive_enable(musb, 1);
+			musb->adaptive_used++;
+			musb->is_adaptive_out = true;
+			spin_unlock_irqrestore(&musb->lock, flags);
+		}
+	} else if (adaptive_used == 0) {
+		if (ep_num & 0x80) {
+			/* in endpoint */
+			if (!musb->is_adaptive_in && !musb->adaptive_in_configured) {
+				dev_err(musb->controller,
+					"%s: adaptive in was not configured.\n",
+					__func__);
+				return;
+			}
+
+			spin_lock_irqsave(&musb->lock, flags);
+			musb->adaptive_used--;
+			musb->is_adaptive_in = false;
+			musb->adaptive_in_configured = false;
+			spin_unlock_irqrestore(&musb->lock, flags);
+		} else {
+			/* out endpoint */
+			if (!musb->is_adaptive_out && !musb->adaptive_out_configured) {
+				dev_err(musb->controller,
+					"%s: adaptive out was not configured.\n",
+					__func__);
+				return;
+			}
+
+			spin_lock_irqsave(&musb->lock, flags);
+			musb->adaptive_used--;
+			musb->is_adaptive_out = false;
+			musb->adaptive_out_configured = false;
+			spin_unlock_irqrestore(&musb->lock, flags);
+		}
+	}
+
+	dev_info(musb->controller,
+		"is_adaptive_in:%d,is_adaptive_out:%d,musb->adaptive_used:%d.\n",
+		musb->is_adaptive_in, musb->is_adaptive_out, musb->adaptive_used);
+	dev_info(musb->controller,
+		"adaptive_in_configured:%d, adaptive_out_configured:%d.",
+		musb->adaptive_in_configured, musb->adaptive_out_configured);
+
+	spin_lock_irqsave(&musb->lock, flags);
+	musb->offload_used = musb->adaptive_used;
+
+	if (musb->adaptive_used > 0) {
+		if (musb->adaptive_wake_lock_enable) {
+			dev_info(musb->controller, "%s:stay wake up\n", __func__);
+			__pm_stay_awake(musb->adaptive_wake_lock);
+			musb->adaptive_wake_lock_enable = false;
+		}
+	} else {
+		dev_info(musb->controller, "No adaptive used!\n");
+		musb_adaptive_disable(musb);
+		if (!musb->adaptive_wake_lock_enable) {
+			dev_info(musb->controller, "%s:stop wake up\n", __func__);
+			__pm_relax(musb->adaptive_wake_lock);
+			musb->adaptive_wake_lock_enable = true;
+		}
+	}
+	spin_unlock_irqrestore(&musb->lock, flags);
+}
+EXPORT_SYMBOL(musb_adaptive_config);
+#else
+void musb_set_adaptive_mode(struct usb_hcd *hcd, bool is_adaptive)
+{}
+EXPORT_SYMBOL(musb_set_adaptive_mode);
+
+void musb_adaptive_config(struct usb_hcd *hcd, int ep_num, int mono,
+		int is_pcm_24, int width, int rate, int adaptive_used)
+{}
+EXPORT_SYMBOL(musb_adaptive_config);
+#endif
 
 static int musb_urb_enqueue(
 	struct usb_hcd			*hcd,
@@ -2120,12 +2942,23 @@ static int musb_urb_enqueue(
 	struct usb_host_endpoint	*hep = urb->ep;
 	struct musb_qh			*qh;
 	struct usb_endpoint_descriptor	*epd = &hep->desc;
+	struct cpumask			mask;
 	int				ret;
 	unsigned			type_reg;
 	unsigned			interval;
 
 	/* host role must be active */
 	if (!is_host_active(musb) || !musb->is_active)
+		return -ENODEV;
+
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if (musb->is_adaptive_in && !musb->adaptive_in_configured)
+		dev_info(musb->controller, "config adaptive in.\n");
+	else if (musb->is_adaptive_out && !musb->adaptive_out_configured)
+		dev_info(musb->controller, "config adaptive out.\n");
+#endif
+	if (!musb->is_multipoint && usb_endpoint_num(epd)
+		&& (hcd->self.root_hub != urb->dev->parent))
 		return -ENODEV;
 
 	trace_musb_urb_enq(musb, urb);
@@ -2135,7 +2968,13 @@ static int musb_urb_enqueue(
 	qh = ret ? NULL : hep->hcpriv;
 	if (qh)
 		urb->hcpriv = qh;
-	spin_unlock_irqrestore(&musb->lock, flags);
+
+	if (musb->is_offload && musb_offload_detect(musb, epd)) {
+		spin_unlock_irqrestore(&musb->lock, flags);
+		dev_dbg(musb->controller, "Don't need to transfer urb\n");
+		musb_offload_enqueue(hcd, urb);
+		return 0;
+	}
 
 	/* DMA mapping was already done, if needed, and this urb is on
 	 * hep->urb_list now ... so we're done, unless hep wasn't yet
@@ -2145,8 +2984,17 @@ static int musb_urb_enqueue(
 	 * disabled, testing for empty qh->ring and avoiding qh setup costs
 	 * except for the first urb queued after a config change.
 	 */
-	if (qh || ret)
+	if (qh || ret) {
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+		if (qh && qh->linkfifo) {
+			dev_dbg(musb->controller, "%s urb %ps\n",  __func__, urb);
+			musb_start_urb(musb, (epd->bEndpointAddress & USB_ENDPOINT_DIR_MASK), qh);
+		}
+#endif
+		spin_unlock_irqrestore(&musb->lock, flags);
 		return ret;
+	}
+	spin_unlock_irqrestore(&musb->lock, flags);
 
 	/* Allocate and initialize qh, minimizing the work done each time
 	 * hw_ep gets reprogrammed, or with irqs blocked.  Then schedule it.
@@ -2265,11 +3113,48 @@ static int musb_urb_enqueue(
 		}
 	}
 
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if ((musb->is_adaptive_in && !musb->adaptive_in_configured) ||
+		(musb->is_adaptive_out && !musb->adaptive_out_configured))
+		dev_info(musb->controller,
+			"ep:%d  dir:%s max:%d type:%d addr:%d type:0x%x intv:%d\n",
+			qh->epnum,  epd->bEndpointAddress & USB_ENDPOINT_DIR_MASK?"in":"out",
+			qh->maxpacket, qh->type, qh->addr_reg,
+			qh->type_reg, qh->intv_reg);
+#endif
+
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+	if ((qh->type == USB_ENDPOINT_XFER_ISOC)
+		&& (!(epd->bEndpointAddress & USB_ENDPOINT_DIR_MASK))
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+		&& (!musb->adaptive_used)
+#endif
+	)
+		qh->linkfifo = true;
+	else
+		qh->linkfifo = false;
+#endif
+
 	/* invariant: hep->hcpriv is null OR the qh that's already scheduled.
 	 * until we get real dma queues (with an entry for each urb/buffer),
 	 * we only have work to do in the former case.
 	 */
 	spin_lock_irqsave(&musb->lock, flags);
+
+	if (urb->dev->speed == USB_SPEED_HIGH &&
+		!musb->performance_mode &&
+		qh->type == USB_ENDPOINT_XFER_ISOC &&
+		musb->performance_mode_rdy) {
+		cpumask_set_cpu(musb->core_select[1], &mask);
+		ret = irq_set_affinity(musb->nIrq, &mask);
+		if (ret)
+			dev_err(musb->controller,
+				"%s: irq_%d set affinity on core[%d] failed\n",
+				__func__, musb->nIrq, musb->core_select[1]);
+		else
+			musb->performance_mode = true;
+	}
+
 	if (hep->hcpriv || !next_urb(qh)) {
 		/* some concurrent activity submitted another urb to hep...
 		 * odd, rare, error prone, but legal.
@@ -2287,6 +3172,21 @@ static int musb_urb_enqueue(
 		 * musb_start_urb(), but otherwise only konicawc cares ...
 		 */
 	}
+
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	if (musb->is_adaptive_in && !musb->adaptive_in_configured) {
+		musb->adaptive_in_configured = true;
+		dev_info(musb->controller,
+			"musb adaptive in mode configured.\n");
+		musb_giveback(musb, urb, -ESHUTDOWN);
+	} else if (musb->is_adaptive_out && !musb->adaptive_out_configured) {
+		musb->adaptive_out_configured = true;
+		dev_info(musb->controller,
+			"musb adaptive out mode configured.\n");
+		musb_giveback(musb, urb, -ESHUTDOWN);
+	}
+#endif
+
 	spin_unlock_irqrestore(&musb->lock, flags);
 
 done:
@@ -2327,6 +3227,10 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 				is_in ? 'R' : 'T', ep->epnum,
 				urb, status);
 			urb->actual_length += dma->actual_len;
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+			if (qh->linkfifo)
+				musb_linknode_clear(musb, !is_in, ep->epnum);
+#endif
 		}
 	}
 
@@ -2339,6 +3243,18 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 		if (is_dma_capable() && dma)
 			musb_platform_clear_ep_rxintr(musb, ep->epnum);
 	} else if (ep->epnum) {
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+		if (musb->adaptive_out_configured
+				&& ep->epnum == ADAPTIVE_EP_NUM) {
+			csr = musb_readw(epio, MUSB_TXCSR);
+			csr &= ~(MUSB_TXCSR_DMAENAB | MUSB_TXCSR_TXPKTRDY);
+			musb_writew(epio, MUSB_TXCSR, csr);
+			csr = musb_readw(epio, MUSB_TXCSR);
+			dev_info(musb->controller,
+				"%s: stop adaptive out dma with MUSB_TXCSR:0x%x\n",
+					__func__, csr);
+		}
+#endif
 		musb_h_tx_flush_fifo(ep);
 		csr = musb_readw(epio, MUSB_TXCSR);
 		csr &= ~(MUSB_TXCSR_AUTOSET
@@ -2362,11 +3278,18 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 
 static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 {
-	struct musb		*musb = hcd_to_musb(hcd);
-	struct musb_qh		*qh;
-	unsigned long		flags;
-	int			is_in  = usb_pipein(urb->pipe);
-	int			ret;
+	struct musb			*musb = hcd_to_musb(hcd);
+	struct musb_qh			*qh;
+	struct cpumask		mask;
+	unsigned long			flags;
+	int				is_in  = usb_pipein(urb->pipe);
+	struct usb_host_endpoint	*hep = urb->ep;
+	struct usb_endpoint_descriptor	*epd = &hep->desc;
+	int				ret;
+
+	if (!musb->is_multipoint && usb_endpoint_num(epd)
+		&& (hcd->self.root_hub != urb->dev->parent))
+		return 0;
 
 	trace_musb_urb_deq(musb, urb);
 
@@ -2378,6 +3301,18 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 	qh = urb->hcpriv;
 	if (!qh)
 		goto done;
+
+	if (musb->performance_mode &&
+		qh->type == USB_ENDPOINT_XFER_ISOC) {
+		cpumask_set_cpu(musb->core_select[0], &mask);
+		ret = irq_set_affinity(musb->nIrq, &mask);
+		if (ret)
+			dev_err(musb->controller,
+				"%s: irq_%d set affinity on core[%d] failed\n",
+				__func__, musb->nIrq, musb->core_select[0]);
+		else
+			musb->performance_mode = false;
+	}
 
 	/*
 	 * Any URB not actively programmed into endpoint hardware can be
@@ -2391,23 +3326,21 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 	 *
 	 * NOTE: qh is invalid unless !list_empty(&hep->urb_list)
 	 */
-	if (!qh->is_ready
-			|| urb->urb_list.prev != &qh->hep->urb_list
+	if (urb->urb_list.prev != &qh->hep->urb_list
 			|| musb_ep_get_qh(qh->hw_ep, is_in) != qh) {
-		int	ready = qh->is_ready;
 
-		qh->is_ready = 0;
 		musb_giveback(musb, urb, 0);
-		qh->is_ready = ready;
+		if (musb_ep_get_qh(qh->hw_ep, is_in)) {
 
-		/* If nothing else (usually musb_giveback) is using it
-		 * and its URB list has emptied, recycle this qh.
-		 */
-		if (ready && list_empty(&qh->hep->urb_list)) {
-			musb_ep_set_qh(qh->hw_ep, is_in, NULL);
-			qh->hep->hcpriv = NULL;
-			list_del(&qh->ring);
-			kfree(qh);
+			/* If nothing else (usually musb_giveback) is using it
+			 * and its URB list has emptied, recycle this qh.
+			 */
+			if (qh->is_ready && list_empty(&qh->hep->urb_list)) {
+				musb_ep_set_qh(qh->hw_ep, is_in, NULL);
+				qh->hep->hcpriv = NULL;
+				list_del(&qh->ring);
+				kfree(qh);
+			}
 		}
 	} else
 		ret = musb_cleanup_urb(urb, qh);
@@ -2415,6 +3348,50 @@ done:
 	spin_unlock_irqrestore(&musb->lock, flags);
 	return ret;
 }
+#if IS_ENABLED(CONFIG_USB_MUSB_SPRD)
+static void musb_clear_epinfo_sprd(struct usb_hcd *hcd,
+				   struct usb_host_endpoint *hep)
+{
+	u8			is_in = hep->desc.bEndpointAddress & USB_DIR_IN;
+	struct musb		*musb = hcd_to_musb(hcd);
+	struct musb_hw_ep	*hw_ep = NULL;
+	u16			csr;
+	u8			epnum;
+	struct usb_host_endpoint	*hep_use;
+
+	epnum = hep->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+	if (!epnum)
+		return;
+
+	for (epnum = 1, hw_ep = musb->endpoints + 1;
+	     epnum < musb->nr_endpoints;
+	     epnum++, hw_ep++) {
+		hep_use = hw_ep->hep[!is_in];
+		if (hep_use != hep)
+			continue;
+
+		hw_ep->hep[!is_in] = NULL;
+		break;
+	}
+
+	if (epnum > USB_ENDPOINT_NUMBER_MASK)
+		return;
+
+	if (is_in) {
+		musb_write_rxfunaddr(musb, epnum, 0x0);
+		csr = musb_readw(hw_ep->regs, MUSB_RXCSR);
+		csr |= MUSB_RXCSR_CLRDATATOG;
+		musb_writew(hw_ep->regs, MUSB_RXCSR, csr);
+		musb_writew(hw_ep->regs, MUSB_RXCSR, 0x0);
+	} else {
+		musb_write_txfunaddr(musb, epnum, 0x0);
+		csr = musb_readw(hw_ep->regs, MUSB_TXCSR);
+		csr |= MUSB_TXCSR_CLRDATATOG;
+		musb_writew(hw_ep->regs, MUSB_TXCSR, csr);
+		musb_writew(hw_ep->regs, MUSB_TXCSR, 0x0);
+	}
+}
+#endif
 
 /* disable an endpoint */
 static void
@@ -2428,6 +3405,10 @@ musb_h_disable(struct usb_hcd *hcd, struct usb_host_endpoint *hep)
 
 	spin_lock_irqsave(&musb->lock, flags);
 
+#if IS_ENABLED(CONFIG_USB_MUSB_SPRD)
+	if (musb_dma_sprd(musb) && (musb->is_multipoint))
+		musb_clear_epinfo_sprd(hcd, hep);
+#endif
 	qh = hep->hcpriv;
 	if (qh == NULL)
 		goto exit;
@@ -2438,7 +3419,8 @@ musb_h_disable(struct usb_hcd *hcd, struct usb_host_endpoint *hep)
 	qh->is_ready = 0;
 	if (musb_ep_get_qh(qh->hw_ep, is_in) == qh) {
 		urb = next_urb(qh);
-
+		if (!urb)
+			goto exit;
 		/* make software (then hardware) stop ASAP */
 		if (!urb->unlinked)
 			urb->status = -ESHUTDOWN;
@@ -2462,6 +3444,8 @@ musb_h_disable(struct usb_hcd *hcd, struct usb_host_endpoint *hep)
 		while (!list_empty(&hep->urb_list))
 			musb_giveback(musb, next_urb(qh), -ESHUTDOWN);
 
+		if (musb_ep_get_qh(qh->hw_ep, !is_in) == qh)
+			musb_ep_set_qh(qh->hw_ep, !is_in, NULL);
 		hep->hcpriv = NULL;
 		list_del(&qh->ring);
 		kfree(qh);
@@ -2501,14 +3485,20 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 	u8		devctl;
 	int		ret;
 
+	if (!is_host_active(musb))
+		return 0;
+
+	if (musb->is_offload && musb->offload_used) {
+		/* in host audio mode, don't do suspend */
+		WARNING("don't do %s in offload and used mode\n", __func__);
+		return 0;
+	}
+
 	ret = musb_port_suspend(musb, true);
 	if (ret)
 		return ret;
 
-	if (!is_host_active(musb))
-		return 0;
-
-	switch (musb_get_state(musb)) {
+	switch (musb->xceiv->otg->state) {
 	case OTG_STATE_A_SUSPEND:
 		return 0;
 	case OTG_STATE_A_WAIT_VRISE:
@@ -2518,13 +3508,13 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 		 */
 		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 		if ((devctl & MUSB_DEVCTL_VBUS) == MUSB_DEVCTL_VBUS)
-			musb_set_state(musb, OTG_STATE_A_WAIT_BCON);
+			musb->xceiv->otg->state = OTG_STATE_A_WAIT_BCON;
 		break;
 	default:
 		break;
 	}
 
-	if (musb->is_active) {
+	if (musb->is_active && (musb->xceiv->otg->state != OTG_STATE_A_IDLE)) {
 		WARNING("trying to suspend as %s while active\n",
 				usb_otg_state_string(musb->xceiv->otg->state));
 		return -EBUSY;
@@ -2704,6 +3694,23 @@ int musb_host_alloc(struct musb *musb)
 	musb->hcd->self.uses_pio_for_control = 1;
 	musb->hcd->uses_new_polling = 1;
 	musb->hcd->has_tt = 1;
+	musb->hops.host_start = musb_host_start;
+	musb->hops.advance_schedule = musb_advance_schedule;
+	musb->hops.tx_dma_program = musb_tx_dma_program;
+	musb->hops.rx_dma_program = musb_rx_dma_sprd;
+
+#if IS_ENABLED(CONFIG_USB_SPRD_ADAPTIVE)
+	musb->adaptive_wake_lock = wakeup_source_create("musb-adaptive");
+	if (musb->adaptive_wake_lock)
+		wakeup_source_add(musb->adaptive_wake_lock);
+	musb->is_adaptive_in = false;
+	musb->is_adaptive_out = false;
+	musb->adaptive_in_configured = false;
+	musb->adaptive_out_configured = false;
+	musb->adaptive_wake_lock_enable = true;
+#endif
+
+	musb->performance_mode = false;
 
 	return 0;
 }
@@ -2714,6 +3721,7 @@ void musb_host_cleanup(struct musb *musb)
 		return;
 	usb_remove_hcd(musb->hcd);
 }
+EXPORT_SYMBOL_GPL(musb_host_cleanup);
 
 void musb_host_free(struct musb *musb)
 {
@@ -2726,8 +3734,13 @@ int musb_host_setup(struct musb *musb, int power_budget)
 	struct usb_hcd *hcd = musb->hcd;
 
 	if (musb->port_mode == MUSB_HOST) {
-		MUSB_HST_MODE(musb);
-		musb_set_state(musb, OTG_STATE_A_IDLE);
+		/*
+		 * although the default mode is host,
+		 * it's not means host most is activated.
+		 * so, let glue to set this value.
+		 * //MUSB_HST_MODE(musb);
+		 */
+		musb->xceiv->otg->state = OTG_STATE_A_IDLE;
 	}
 	otg_set_host(musb->xceiv->otg, &hcd->self);
 	/* don't support otg protocols */
@@ -2743,6 +3756,7 @@ int musb_host_setup(struct musb *musb, int power_budget)
 	device_wakeup_enable(hcd->self.controller);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(musb_host_setup);
 
 void musb_host_resume_root_hub(struct musb *musb)
 {
@@ -2757,3 +3771,29 @@ void musb_host_poke_root_hub(struct musb *musb)
 	else
 		usb_hcd_resume_root_hub(musb->hcd);
 }
+
+static void musb_host_start(struct musb *musb)
+{
+	void __iomem *regs = musb->mregs;
+	u8 power;
+
+	/*  Set INT enable registers, enable interrupts */
+	musb->intrtxe = musb->epmask;
+	musb_writew(regs, MUSB_INTRTXE, musb->intrtxe);
+	musb->intrrxe = musb->epmask & 0xfffe;
+	musb_writew(regs, MUSB_INTRRXE, musb->intrrxe);
+	musb_writeb(regs, MUSB_INTRUSBE, 0xf7);
+
+	musb_writeb(regs, MUSB_TESTMODE, 0);
+
+	power = MUSB_POWER_ISOUPDATE | MUSB_POWER_ENSUSPEND;
+	/*
+	 * treating UNKNOWN as unspecified maximum speed, in which case
+	 * we will default to high-speed.
+	 */
+	if (musb->config->maximum_speed == USB_SPEED_HIGH ||
+			musb->config->maximum_speed == USB_SPEED_UNKNOWN)
+		power |= MUSB_POWER_HSENAB;
+	musb_writeb(regs, MUSB_POWER, power);
+}
+

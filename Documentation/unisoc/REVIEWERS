@@ -1,0 +1,218 @@
+List of reviewers of Sprdlinux Open Source Community, as known as KRG (Kernel Review Group)
+
+[aijun.sun]
+P: DSE
+R: +1
+T: firmware:sprd:
+T: security:
+T: tee:
+T: trusty:
+
+[ben.li]
+P: FO
+R +1
+T: usb:typec:
+T: usb:gadget:
+T: usb:dwc3:
+T: usb:musb:
+T: usb:misc:
+T: usb:phy:
+
+[chunyan.zhang]
+P: KRG core member
+R: +2
+T: asoc:
+T: misc:audio:
+T: clocksource:sprd:
+T: clk:sprd:
+T: devfreq:sprd:
+T: dmaengine:sprd:
+T: drm:sprd:dpu:
+T: drm:sprd:dphy:
+T: drm:sprd:dsi:
+T: gpio:sprd:
+T: hwspinlock:sprd:
+T: i2c:sprd:
+T: iio:adc:
+T: input:vibrator:
+T: leds:sc27xx:
+T: leds:trigger:
+T: mmc:sprd:
+T: nvmem:sprd:
+T: pinctrl:sprd:
+T: power:supply:sc27xx:
+T: power:supply:sc2731:
+T: pwm:sprd:
+T: rtc:sc27xx:
+T: serial:sprd:
+T: spi:sprd:
+T: thermal:sprd:
+T: usb:dwc3:
+T: usb:musb:
+T: usb:phy:
+T: usb:typec:
+T: watchdog:sprd:
+T: coresight:
+T: cpuidle:
+T: dt-bindings:
+T: firmware:psci:
+T: hwtracing:stm:
+T: include:
+T: irqchip:
+T: mfd:sprd:
+T: nvmem:sc27xx:
+T: power:
+T: regulator:
+T: soc:sprd:
+T: trace:
+T: mailbox:sprd:
+
+[feng_feng.wang]
+P: DSE
+R: +1
+K: "gic.*v2"
+K: "gic.*v3"
+T: crypto:
+T: firmware:sprd
+T: firmware:psci
+T: soc:sprd:debug
+
+[jinfeng.lin1]
+P: FO
+R: +1
+T: power:supply:
+
+[ke.wang]
+P: DSE
+R: +1
+T: cpuhotplug:sprd:
+T: sched:
+
+[kevin.tang]
+P: FO
+R: +1
+drm:sprd:
+video:backlight:
+arm:dts:
+arm64:dts:
+
+[ling_ling.xu]
+P: KRG member
+R: +2
+T: devfreq:sprd:
+T: cpufreq:sprd:
+T: cpufreq:
+T: iio:adc:
+T: iio:sprd:
+T: nvmem:sprd:
+T: i2c:sprd:
+T: input:sprd:
+T: input:touchscreen:
+T: input:keyboard:
+T: leds:trigger:
+T: leds:sc27xx:
+T: gpio:sprd:
+T: pinctrl:sprd:
+T: clk:sprd:
+T: spi:sprd:
+T: serial:sprd:
+T: watchdog:sprd:
+T: power:supply:
+T: power:suspends:
+T: scsi:ufs:sprd:
+T: scsi:ufs:
+T: pci:dwc:
+T: pci:dwc:sprd:
+
+[lvqiang.huang]
+P: DSE
+R: +1
+T: fs:
+
+[nianfu.bai]
+P: FO
+R: +1
+T: arm:dts:
+T: arm:configs:
+T: arm:topology:
+T: arm64:dts:
+T: arm64:configs:
+T: arm64:topology:
+T: arm64:kernel:
+T: x86:topology:
+T: clocksource:sprd:
+T: irqchip:
+T: soc:sprd:irq:
+T: cpuidle:
+T: time:
+T: printk:
+T: include:
+T: scripts:dtc:
+T: scripts:sprd:
+T: trace:
+T: Documentation:
+T: sprd-diffconfig:
+
+[orson.zhai]
+P: KRG member
+R: +2
+T: Documentation:
+T: REST:
+
+[yangyang.liu]
+P: KRG member
+R: +2
+T: misc:sprd_camera:
+T: misc:sprd_vsp:
+T: misc:sprd_jpg:
+T: soc:sprd:iommu:
+T: staging:android:ion:
+T: arm:dts:
+T: arm64:dts:
+
+[yonghan.ye]
+P: FO
+R: +1
+T: clk:sprd:
+T: cpufreq:
+T: cpufreq:sprd:
+T: devfreq:sprd:
+T: dmaengine:sprd:
+T: gpio:sprd:
+T: i2c:sprd:
+T: iio:adc:
+T: iio:sprd:
+T: input:keyboard:
+T: input:sprd:
+T: input:touchscreen:
+T: leds:sc27xx:
+T: leds:trigger:
+T: mmc:core:
+T: mmc:host:
+T: mmc:sprd-sdhc:
+T: nvmem:sprd:
+T: pci:dwc:
+T: pci:dwc:sprd:
+T: pinctrl:sprd:
+T: power:supply:
+T: power:suspends:
+T: scsi:ufs:
+T: scsi:ufs:sprd:
+T: serial:sprd:
+T: spi:sprd:
+T: thermal:core:
+T: thermal:sprd:
+T: usb:dwc3:
+T: usb:gadget:
+T: usb:misc:
+T: usb:musb:
+T: usb:phy:
+T: usb:typec:
+T: watchdog:sprd:
+
+[yuming.han]
+P: FO
+R: +1
+K: "reserved-memory"
+T: lib:e_show_mem:
+T: mm:

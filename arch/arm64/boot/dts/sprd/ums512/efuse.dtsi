@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc efuse dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&soc {
+	aon: aon {
+		ap_efuse: efuse@32240000 {
+			compatible = "sprd,ums312-efuse", "sprd,ums512-efuse";
+			reg = <0 0x32240000 0 0x10000>;
+			clock-names = "enable";
+			hwlocks = <&hwlock 8>;
+			clocks = <&aonapb_gate CLK_EFUSE_EB>;
+		};
+	};
+
+	cache_efuse: efuse@800 {
+		compatible = "sprd,ums312-cache-efuse", "sprd,ums512-cache-efuse";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0 0x800 0 0x3ff>;
+
+		uid_start: uid-start@5c{
+			reg = <0x5c 0x4>;
+		};
+
+		uid_end: uid-end@58{
+			reg = <0x58 0x4>;
+		};
+
+		thm0_sign: thm0-sign@38 {
+			reg = <0x38 0x1>;
+			bits = <0 1>;
+		};
+
+		thm0_ratio: thm0-ratio@38 {
+			reg = <0x38 0x1>;
+			bits = <1 7>;
+		};
+
+		thm0_sen0: thm0-sen0@39 {
+			reg = <0x39 0x1>;
+			bits = <0 8>;
+		};
+
+		thm0_sen1: thm0-sen1@41 {
+			reg = <0x41 0x1>;
+			bits = <0 8>;
+		};
+
+		thm0_sen2: thm0-sen2@40 {
+			reg = <0x40 0x1>;
+			bits = <0 8>;
+		};
+
+		thm0_sen3: thm0-sen3@43 {
+			reg = <0x43 0x1>;
+			bits = <0 8>;
+		};
+
+		thm0_sen4: thm0-sen4@42 {
+			reg = <0x42 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sign: thm1-sign@3c {
+			reg = <0x3c 0x1>;
+			bits = <0 1>;
+		};
+
+		thm1_ratio: thm1-ratio@3c {
+			reg = <0x3c 0x1>;
+			bits = <1 7>;
+		};
+
+		thm1_sen0: thm1-sen0@3d {
+			reg = <0x3d 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen1: thm1-sen1@2f {
+			reg = <0x2f 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen2: thm1-sen2@2e {
+			reg = <0x2e 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen3: thm1-sen3@29 {
+			reg = <0x29 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen4: thm1-sen4@28 {
+			reg = <0x28 0x1>;
+			bits = <0 8>;
+		};
+
+		thm1_sen5: thm1-sen4@2b {
+			reg = <0x2b 0x1>;
+			bits = <0 8>;
+		};
+
+		thm2_sign: thm2-sign@3e {
+			reg = <0x3e 0x1>;
+			bits = <0 1>;
+		};
+
+		thm2_ratio: thm2-ratio@3e {
+			reg = <0x3e 0x1>;
+			bits = <1 7>;
+		};
+
+		thm2_sen0: thm2-sen0@3f {
+			reg = <0x3f 0x1>;
+			bits = <0 8>;
+		};
+
+		gpu_bin: gpu_bin@1b {
+			reg = <0x1b 0x1>;
+			bits = <3 3>;
+		};
+
+		cpu_flag: cpu-flag@50 {
+			reg = <0x50 0x4>;
+		};
+	};
+};

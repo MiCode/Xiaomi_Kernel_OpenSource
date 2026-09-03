@@ -295,7 +295,6 @@ else
 	client_connect
 	verify_data
 	server_listen
-	wait_for_port ${port} ${netcat_opt}
 fi
 
 # bpf_skb_net_shrink does not take tunnel flags yet, cannot update L3.

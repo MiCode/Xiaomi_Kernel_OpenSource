@@ -1,0 +1,22 @@
+Spreadtrum ddr dvfs bindings
+
+This dirver give functions for ddr frequency control to userspace.
+
+Required properties:
+- compatible: Should be "sprd,ddr-dvfs"
+- freq-num: Specifies the max frequency points supported by soc.
+- sprd-scene: Application scenarios, optional.
+- sprd-freq: Frequency of application scenarios, optional.
+- overflow: Bandwidth overflow threshold, optional.
+- underflow: Bandwidth underflow threshold, optional.
+
+Example:
+ddr_dfs: scene-frequency {
+	compatible = "sprd,ddr-dvfs";
+	freq-num = <8>;
+	sprd-scene = "boost", "lcdon", "lcdoff", "camlow",
+		"camhigh", "camveryhigh", "faceid", "top";
+	sprd-freq = <1333 768 256 384 512 0xbacd 1333 0xbacd>;
+	overflow = <716800 1075200 1433600 2150400 2867200 4294967295 4294967295 4294967295>;
+	underflow = <0 616800 975200 1333600 2050400 2767200 0 0>;
+};

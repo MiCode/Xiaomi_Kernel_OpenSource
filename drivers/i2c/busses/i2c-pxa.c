@@ -1508,10 +1508,7 @@ static int i2c_pxa_probe(struct platform_device *dev)
 				i2c->adap.name);
 	}
 
-	ret = clk_prepare_enable(i2c->clk);
-	if (ret)
-		return dev_err_probe(&dev->dev, ret,
-				     "failed to enable clock\n");
+	clk_prepare_enable(i2c->clk);
 
 	if (i2c->use_pio) {
 		i2c->adap.algo = &i2c_pxa_pio_algorithm;

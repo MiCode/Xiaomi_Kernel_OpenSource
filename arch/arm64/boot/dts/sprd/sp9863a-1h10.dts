@@ -7,7 +7,10 @@
 
 /dts-v1/;
 
-#include "sc9863a.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include "sc9863a/sc9863a.dtsi"
+#include "sc2721/sc2721.dtsi"
+#include "reserved-memory/sp9863a-common.dtsi"
 
 / {
 	model = "Spreadtrum SP9863A-1H10 Board";
@@ -25,8 +28,9 @@
 	};
 
 	chosen {
-		stdout-path = "serial1:115200n8";
-		bootargs = "earlycon";
+		stdout-path = "serial1:921600n8";
+		bootargs = "earlycon console=ttyS1,921600n8 loop.max_part=7 loglevel=1
+		init=/init root=/dev/ram0 rw printk.devkmsg=on dummy_hcd.num=0 vmalloc=300M";
 	};
 };
 
@@ -37,3 +41,37 @@
 &uart1 {
 	status = "okay";
 };
+
+&dpu {
+	sprd,logo-memory = <&logo_reserved>;
+	status = "okay";
+};
+
+&iommu_dispc {
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&dphy {
+	status = "okay";
+};
+

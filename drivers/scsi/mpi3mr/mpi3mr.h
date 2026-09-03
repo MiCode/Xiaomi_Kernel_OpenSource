@@ -701,8 +701,6 @@ struct scmd_priv {
  * @driver_info: Driver, Kernel, OS information to firmware
  * @change_count: Topology change count
  * @op_reply_q_offset: Operational reply queue offset with MSIx
- * @adm_req_q_bar_writeq_lock: Admin request queue lock
- * @adm_reply_q_bar_writeq_lock: Admin reply queue lock
  */
 struct mpi3mr_ioc {
 	struct list_head list;
@@ -716,7 +714,7 @@ struct mpi3mr_ioc {
 	char name[MPI3MR_NAME_LENGTH];
 	char driver_name[MPI3MR_NAME_LENGTH];
 
-	struct mpi3_sysif_registers __iomem *sysif_regs;
+	volatile struct mpi3_sysif_registers __iomem *sysif_regs;
 	resource_size_t sysif_regs_phys;
 	int bars;
 	u64 dma_mask;
@@ -830,8 +828,6 @@ struct mpi3mr_ioc {
 	struct mpi3_driver_info_layout driver_info;
 	u16 change_count;
 	u16 op_reply_q_offset;
-	spinlock_t adm_req_q_bar_writeq_lock;
-	spinlock_t adm_reply_q_bar_writeq_lock;
 };
 
 /**

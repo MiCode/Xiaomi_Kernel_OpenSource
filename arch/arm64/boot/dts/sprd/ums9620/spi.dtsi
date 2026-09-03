@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * unisoc SPI dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&apapb {
+	spi0: spi@60000{
+		compatible = "sprd,ums9620-spi",
+				"sprd,sc9860-spi";
+		reg = <0x60000 0x100>;
+		interrupts = <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI0_EB>,
+			<&aonapb_clk CLK_SPI0>, <&g5l_pll CLK_TGPLL_192M>;
+		status = "disabled";
+	};
+	spi1: spi@70000{
+		compatible = "sprd,ums9620-spi",
+				"sprd,sc9860-spi";
+		reg = <0x70000 0x100>;
+		interrupts = <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI1_EB>,
+			<&aonapb_clk CLK_SPI1>, <&g5l_pll CLK_TGPLL_192M>;
+		status = "disabled";
+	};
+	spi2: spi@80000{
+		compatible = "sprd,ums9620-spi",
+				"sprd,sc9860-spi";
+		reg = <0x80000 0x100>;
+		interrupts = <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "enable", "spi", "source";
+		clocks = <&apapb_gate CLK_SPI2_EB>,
+			<&aonapb_clk CLK_SPI2>, <&g5l_pll CLK_TGPLL_192M>;
+		status = "disabled";
+	};
+
+};
+

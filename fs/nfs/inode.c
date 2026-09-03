@@ -567,8 +567,6 @@ nfs_fhget(struct super_block *sb, struct nfs_fh *fh, struct nfs_fattr *fattr, st
 			set_nlink(inode, fattr->nlink);
 		else if (fattr_supported & NFS_ATTR_FATTR_NLINK)
 			nfs_set_cache_invalid(inode, NFS_INO_INVALID_NLINK);
-		else
-			set_nlink(inode, 1);
 		if (fattr->valid & NFS_ATTR_FATTR_OWNER)
 			inode->i_uid = fattr->uid;
 		else if (fattr_supported & NFS_ATTR_FATTR_OWNER)
@@ -2457,26 +2455,15 @@ EXPORT_SYMBOL_GPL(nfs_net_id);
 static int nfs_net_init(struct net *net)
 {
 	struct nfs_net *nn = net_generic(net, nfs_net_id);
-	int err;
 
 	nfs_clients_init(net);
 
 	if (!rpc_proc_register(net, &nn->rpcstats)) {
-		err = -ENOMEM;
-		goto err_proc_rpc;
+		nfs_clients_exit(net);
+		return -ENOMEM;
 	}
 
-	err = nfs_fs_proc_net_init(net);
-	if (err)
-		goto err_proc_nfs;
-
-	return 0;
-
-err_proc_nfs:
-	rpc_proc_unregister(net, "nfs");
-err_proc_rpc:
-	nfs_clients_exit(net);
-	return err;
+	return nfs_fs_proc_net_init(net);
 }
 
 static void nfs_net_exit(struct net *net)

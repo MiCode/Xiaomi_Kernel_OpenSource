@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc ptm dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&pub {
+	ptm_trace: ptm@60060000 {
+		compatible = "sprd,qogirn6pro-ptm";
+		reg = <0x0 0x60060000 0x0 0x10000>,
+			<0x0 0x78002000 0x0 0x1000>,
+			<0x0 0x78003000 0x0 0x1000>,
+			<0x0 0x78006000 0x0 0x1000>,
+			<0x0 0x78004000 0x0 0x1000>,
+			<0x0 0x78005000 0x0 0x1000>;
+		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
+		syscon-names = "enable";
+		syscons = <&pub_apb_regs 0x31cc 0x80>;
+		clock-names = "clk_cs", "cs_src";
+		clocks = <&aonapb_clk CLK_CSSYS>, <&g5l_pll CLK_TGPLL_512M>;
+		sprd,funnel-port = <5>;
+		sprd,ddr-chn = <8>;
+		sprd,chn-name = "CPU", "GPU", "DPU/DCAM",
+			"ISP", "AP/ISE", "PHYCP/PSCP/ACC",
+			"PHYCPU/PSCPU/AUD", "AI";
+	};
+};

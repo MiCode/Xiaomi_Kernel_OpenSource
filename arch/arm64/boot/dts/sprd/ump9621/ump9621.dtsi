@@ -1,0 +1,31 @@
+/*
+ * UNISOC UMP9621 PMIC dts file
+ *
+ * Copyright (C) 2020, UNISOC Communications Inc.
+ *
+ * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+ */
+
+&adi_bus {
+	ump9621_pmic: pmic@1 {
+		compatible = "sprd,ump9621";
+		reg = <0x1>;
+		spi-max-frequency = <26000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		syscon@2000 {
+			compatible = "sprd,ump9621-syscon";
+			reg = <0x2000>;
+		};
+
+		pmic_dump {
+			compatible = "sprd,pmic-dump";
+			sprd,pmic-dump-mem = <&pmic_reserved>;
+		};
+	};
+};
+
+#include "efuse.dtsi"
+#include "regulator.dtsi"
+

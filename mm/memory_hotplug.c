@@ -1769,7 +1769,11 @@ do_migrate_range(unsigned long start_pfn, unsigned long end_pfn)
 			if (WARN_ON(PageLRU(page)))
 				isolate_lru_page(page);
 			if (page_mapped(page))
+#ifdef CONFIG_PROCESS_RECLAIM
+				try_to_unmap(page, TTU_IGNORE_MLOCK, NULL);
+#else
 				try_to_unmap(page, TTU_IGNORE_MLOCK);
+#endif
 			continue;
 		}
 

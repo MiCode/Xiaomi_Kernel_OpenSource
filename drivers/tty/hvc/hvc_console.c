@@ -543,10 +543,10 @@ static int hvc_write(struct tty_struct *tty, const unsigned char *buf, int count
 	}
 
 	/*
-	 * Kick thread to flush if there's still pending data
-	 * or to wakeup the write queue.
+	 * Racy, but harmless, kick thread if there is still pending data.
 	 */
-	hvc_kick();
+	if (hp->n_outbuf)
+		hvc_kick();
 
 	return written;
 }

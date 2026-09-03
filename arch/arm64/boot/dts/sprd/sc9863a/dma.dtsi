@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc DMA dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+
+&apahb {
+	ap_dma: dma-controller@20100000 {
+		compatible = "sprd,sharkl3-dma", "sprd,sc9860-dma";
+		reg = <0 0x20100000 0 0x4000>;
+		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		#dma-channels = <28>;
+		clock-names = "enable";
+		clocks = <&apahb_gate CLK_DMA_EB>;
+	};
+};
+
+&aon {
+	aon_dma: dma-controller@40100000 {
+		compatible = "sprd,sharkl3-dma", "sprd,sc9860-dma";
+		reg = <0 0x40100000 0 0x4000>;
+		#dma-cells = <1>;
+		#dma-channels = <9>;
+		clock-names = "enable";
+		clocks = <&aonapb_gate CLK_AON_DMA_EB>;
+	};
+};

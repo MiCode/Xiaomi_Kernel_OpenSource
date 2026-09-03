@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc sound virtual-devices dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+/ {
+	sprd_fe_dai: sprd-fe-dai {
+		compatible = "unisoc,fe-dai";
+		#sound-dai-cells = <1>;
+		power-domains = <&agdsp_domain>;
+	};
+
+	sprd_route_pcm: sprd-routing-pcm {
+		compatible = "unisoc,pcm-routing";
+		#sound-dai-cells = <0>;
+	};
+
+	audio-sipc{
+		compatible = "unisoc,audio_sipc";
+		/* <&mailbox  channel_id  is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 5 0>;
+	};
+
+	audio-dsp-dump@0 {/* audio dsp log */
+		compatible = "unisoc,audio_dsp_log";
+		sprd-usemem-type =<0x5>;
+		sprd-dst = /bits/ 8 <1>; /* AGDSP */
+		sprd-channel =/bits/ 8 <4>;
+		sprd-rxblocknum=<0x8>;
+		sprd-rxblocksize=<0x2000>;
+	};
+
+	audio-dsp-dump@1 {/* audio dsp pcm */
+		compatible = "unisoc,audio_dsp_pcm";
+		sprd-usemem-type =<0x5>;
+		sprd-dst = /bits/ 8 <1>; /* AGDSP */
+		sprd-channel =/bits/ 8 <3>;
+		sprd-rxblocknum=<0x8>;
+		sprd-rxblocksize=<0x2000>;
+	};
+
+	dsp_mem_dump: audio-dsp-dump@2 {/* audio dsp log */
+		compatible = "unisoc,audio_dsp_mem";
+		sprd-usemem-type =<0x9>;
+		sprd-usemem-bytes =<0x80000>;
+		sprd-dst = /bits/ 8 <1>; /* AGDSP */
+		sprd-channel =/bits/ 8 <5>;
+	};
+
+	audio-dsp-dump@3 {
+		compatible = "unisoc,audio_dsp_call_info";
+		sprd-usemem-type = <0x5>;
+		sprd-usemem-bytes =<0x200>;
+		sprd-dst = /bits/ 8 <1>;
+		sprd-channel =/bits/ 8 <16>;
+	};
+
+	audio_pipe_voice {
+		compatible = "unisoc,audio_pipe_voice";
+		sprd,writesync = <0>;
+		sprd,maxuserwritebufsize = <0>;
+		sprd,channel = <2>;
+	};
+
+	audio_pipe_effect {
+		compatible = "unisoc,audio_pipe_effect";
+		sprd,writesync = <1>;
+		sprd,maxuserwritebufsize = <1024>;
+		sprd,channel = <8>;
+	};
+
+	audio_pipe_voiceproc {
+		compatible = "unisoc,audio_pipe_recordproc";
+		sprd,writesync = <1>;
+		sprd,maxuserwritebufsize = <1024>;
+		sprd,channel = <9>;
+	};
+
+	audio_pipe_bthal {
+		compatible = "unisoc,audio_pipe_bthal";
+		sprd,writesync = <0>;
+		sprd,maxuserwritebufsize = <0>;
+		sprd,channel = <11>;
+	};
+
+	audio_pipe_trigger_rx {
+		compatible = "unisoc,audio_pipe_trigger_rx";
+		sprd,writesync = <0>;
+		sprd,maxuserwritebufsize = <0>;
+		sprd,channel = <13>;
+	};
+
+	audio_pipe_trigger_tx {
+		compatible = "unisoc,audio_pipe_trigger_tx";
+		sprd,writesync = <1>;
+		sprd,maxuserwritebufsize = <1024>;
+		sprd,channel = <14>;
+	};
+
+	apipe-pcm {
+		compatible = "unisoc,apipe";
+	};
+
+	apipe-cmd-in {
+		compatible = "unisoc,apipe";
+	};
+
+	apipe-cmd-out {
+		compatible = "unisoc,apipe";
+	};
+};

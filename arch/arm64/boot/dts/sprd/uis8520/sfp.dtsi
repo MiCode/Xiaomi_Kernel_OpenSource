@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS9620 SFP dts file
+ *
+ * Copyright (C) 2020~2021, Unisoc Communications Inc.
+ */
+
+/ {
+	sfp: sfp-unisoc {
+		compatible = "sprd,sfp";
+		sprd,sfp = <0>;
+		tether_scheme = <0>;
+	};
+};

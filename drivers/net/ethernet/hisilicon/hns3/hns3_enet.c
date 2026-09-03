@@ -473,14 +473,20 @@ static void hns3_mask_vector_irq(struct hns3_enet_tqp_vector *tqp_vector,
 	writel(mask_en, tqp_vector->mask_addr);
 }
 
-static void hns3_irq_enable(struct hns3_enet_tqp_vector *tqp_vector)
+static void hns3_vector_enable(struct hns3_enet_tqp_vector *tqp_vector)
 {
 	napi_enable(&tqp_vector->napi);
 	enable_irq(tqp_vector->vector_irq);
+
+	/* enable vector */
+	hns3_mask_vector_irq(tqp_vector, 1);
 }
 
-static void hns3_irq_disable(struct hns3_enet_tqp_vector *tqp_vector)
+static void hns3_vector_disable(struct hns3_enet_tqp_vector *tqp_vector)
 {
+	/* disable vector */
+	hns3_mask_vector_irq(tqp_vector, 0);
+
 	disable_irq(tqp_vector->vector_irq);
 	napi_disable(&tqp_vector->napi);
 	cancel_work_sync(&tqp_vector->rx_group.dim.work);
@@ -701,42 +707,11 @@ static int hns3_set_rx_cpu_rmap(struct net_device *netdev)
 	return 0;
 }
 
-static void hns3_enable_irqs_and_tqps(struct net_device *netdev)
-{
-	struct hns3_nic_priv *priv = netdev_priv(netdev);
-	struct hnae3_handle *h = priv->ae_handle;
-	u16 i;
-
-	for (i = 0; i < priv->vector_num; i++)
-		hns3_irq_enable(&priv->tqp_vector[i]);
-
-	for (i = 0; i < priv->vector_num; i++)
-		hns3_mask_vector_irq(&priv->tqp_vector[i], 1);
-
-	for (i = 0; i < h->kinfo.num_tqps; i++)
-		hns3_tqp_enable(h->kinfo.tqp[i]);
-}
-
-static void hns3_disable_irqs_and_tqps(struct net_device *netdev)
-{
-	struct hns3_nic_priv *priv = netdev_priv(netdev);
-	struct hnae3_handle *h = priv->ae_handle;
-	u16 i;
-
-	for (i = 0; i < h->kinfo.num_tqps; i++)
-		hns3_tqp_disable(h->kinfo.tqp[i]);
-
-	for (i = 0; i < priv->vector_num; i++)
-		hns3_mask_vector_irq(&priv->tqp_vector[i], 0);
-
-	for (i = 0; i < priv->vector_num; i++)
-		hns3_irq_disable(&priv->tqp_vector[i]);
-}
-
 static int hns3_nic_net_up(struct net_device *netdev)
 {
 	struct hns3_nic_priv *priv = netdev_priv(netdev);
 	struct hnae3_handle *h = priv->ae_handle;
+	int i, j;
 	int ret;
 
 	ret = hns3_nic_reset_all_ring(h);
@@ -745,13 +720,23 @@ static int hns3_nic_net_up(struct net_device *netdev)
 
 	clear_bit(HNS3_NIC_STATE_DOWN, &priv->state);
 
-	hns3_enable_irqs_and_tqps(netdev);
+	/* enable the vectors */
+	for (i = 0; i < priv->vector_num; i++)
+		hns3_vector_enable(&priv->tqp_vector[i]);
+
+	/* enable rcb */
+	for (j = 0; j < h->kinfo.num_tqps; j++)
+		hns3_tqp_enable(h->kinfo.tqp[j]);
 
 	/* start the ae_dev */
 	ret = h->ae_algo->ops->start ? h->ae_algo->ops->start(h) : 0;
 	if (ret) {
 		set_bit(HNS3_NIC_STATE_DOWN, &priv->state);
-		hns3_disable_irqs_and_tqps(netdev);
+		while (j--)
+			hns3_tqp_disable(h->kinfo.tqp[j]);
+
+		for (j = i - 1; j >= 0; j--)
+			hns3_vector_disable(&priv->tqp_vector[j]);
 	}
 
 	return ret;
@@ -838,9 +823,17 @@ static void hns3_reset_tx_queue(struct hnae3_handle *h)
 static void hns3_nic_net_down(struct net_device *netdev)
 {
 	struct hns3_nic_priv *priv = netdev_priv(netdev);
+	struct hnae3_handle *h = hns3_get_handle(netdev);
 	const struct hnae3_ae_ops *ops;
+	int i;
 
-	hns3_disable_irqs_and_tqps(netdev);
+	/* disable vectors */
+	for (i = 0; i < priv->vector_num; i++)
+		hns3_vector_disable(&priv->tqp_vector[i]);
+
+	/* disable rcb */
+	for (i = 0; i < h->kinfo.num_tqps; i++)
+		hns3_tqp_disable(h->kinfo.tqp[i]);
 
 	/* stop ae_dev */
 	ops = priv->ae_handle->ae_algo->ops;
@@ -5649,58 +5642,6 @@ int hns3_set_channels(struct net_device *netdev,
 	return 0;
 }
 
-void hns3_external_lb_prepare(struct net_device *ndev, bool if_running)
-{
-	struct hns3_nic_priv *priv = netdev_priv(ndev);
-
-	if (!if_running)
-		return;
-
-	if (test_and_set_bit(HNS3_NIC_STATE_DOWN, &priv->state))
-		return;
-
-	netif_carrier_off(ndev);
-	netif_tx_disable(ndev);
-
-	hns3_disable_irqs_and_tqps(ndev);
-
-	/* delay ring buffer clearing to hns3_reset_notify_uninit_enet
-	 * during reset process, because driver may not be able
-	 * to disable the ring through firmware when downing the netdev.
-	 */
-	if (!hns3_nic_resetting(ndev))
-		hns3_nic_reset_all_ring(priv->ae_handle);
-
-	hns3_reset_tx_queue(priv->ae_handle);
-}
-
-void hns3_external_lb_restore(struct net_device *ndev, bool if_running)
-{
-	struct hns3_nic_priv *priv = netdev_priv(ndev);
-	struct hnae3_handle *h = priv->ae_handle;
-
-	if (!if_running)
-		return;
-
-	if (hns3_nic_resetting(ndev))
-		return;
-
-	if (!test_bit(HNS3_NIC_STATE_DOWN, &priv->state))
-		return;
-
-	if (hns3_nic_reset_all_ring(priv->ae_handle))
-		return;
-
-	clear_bit(HNS3_NIC_STATE_DOWN, &priv->state);
-
-	hns3_enable_irqs_and_tqps(ndev);
-
-	netif_tx_wake_all_queues(ndev);
-
-	if (h->ae_algo->ops->get_status(h))
-		netif_carrier_on(ndev);
-}
-
 static const struct hns3_hw_error_info hns3_hw_err[] = {
 	{ .type = HNAE3_PPU_POISON_ERROR,
 	  .msg = "PPU poison" },
@@ -5779,11 +5720,9 @@ module_init(hns3_init_module);
  */
 static void __exit hns3_exit_module(void)
 {
-	hnae3_acquire_unload_lock();
 	pci_unregister_driver(&hns3_driver);
 	hnae3_unregister_client(&client);
 	hns3_dbg_unregister_debugfs();
-	hnae3_release_unload_lock();
 }
 module_exit(hns3_exit_module);
 

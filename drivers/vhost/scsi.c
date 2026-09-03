@@ -563,10 +563,8 @@ static void vhost_scsi_complete_cmd_work(struct vhost_work *work)
 		ret = copy_to_iter(&v_rsp, sizeof(v_rsp), &iov_iter);
 		if (likely(ret == sizeof(v_rsp))) {
 			struct vhost_scsi_virtqueue *q;
-			q = container_of(cmd->tvc_vq, struct vhost_scsi_virtqueue, vq);
-			mutex_lock(&q->vq.mutex);
 			vhost_add_used(cmd->tvc_vq, cmd->tvc_vq_desc, 0);
-			mutex_unlock(&q->vq.mutex);
+			q = container_of(cmd->tvc_vq, struct vhost_scsi_virtqueue, vq);
 			vq = q - vs->vqs;
 			__set_bit(vq, signal);
 		} else
@@ -907,8 +905,10 @@ vhost_scsi_get_req(struct vhost_virtqueue *vq, struct vhost_scsi_ctx *vc,
 			/* validated at handler entry */
 			vs_tpg = vhost_vq_get_backend(vq);
 			tpg = READ_ONCE(vs_tpg[*vc->target]);
-			if (unlikely(!tpg))
+			if (unlikely(!tpg)) {
+				vq_err(vq, "Target 0x%x does not exist\n", *vc->target);
 				goto out;
+			}
 		}
 
 		if (tpgp)
@@ -1166,11 +1166,8 @@ static void vhost_scsi_tmf_resp_work(struct vhost_work *work)
 	else
 		resp_code = VIRTIO_SCSI_S_FUNCTION_REJECTED;
 
-	mutex_lock(&tmf->svq->vq.mutex);
 	vhost_scsi_send_tmf_resp(tmf->vhost, &tmf->svq->vq, tmf->in_iovs,
 				 tmf->vq_desc, &tmf->resp_iov, resp_code);
-	mutex_unlock(&tmf->svq->vq.mutex);
-
 	vhost_scsi_release_tmf_res(tmf);
 }
 

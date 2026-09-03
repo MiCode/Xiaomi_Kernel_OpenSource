@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc TIMER dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+#include <dt-bindings/soc/sprd,sharkl5-regs.h>
+#include <dt-bindings/soc/sprd,sharkl5-mask.h>
+
+&aon {
+	timer@32050000 {
+		compatible = "sprd,qogirn6lite-timer",
+					"sprd,sc9860-timer";
+		reg = <0 0x32050000 0 0x20>;
+		interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&ext_32k>;
+	};
+
+	timer@32050020 {
+		compatible = "sprd,qogirn6lite-suspend-timer",
+					"sprd,sc9860-suspend-timer";
+		reg = <0 0x32050020 0 0x20>;
+		clocks = <&ext_32k>;
+	};
+
+	timer@32040000 {
+		compatible = "sprd,sysfrt-timer";
+		reg = <0 0x32040000 0 0x10>;
+	};
+
+	timer@322e0000 {
+		compatible = "sprd,syst-timer";
+		reg = <0 0x322e0000 0 0x10>;
+	};
+
+};
+

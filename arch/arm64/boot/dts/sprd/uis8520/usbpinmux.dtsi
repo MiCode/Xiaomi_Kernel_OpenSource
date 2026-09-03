@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc USB PIN MUX dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	usbpinmux: usbpinmux {
+				compatible = "sprd,qogirn6pro-usbpinmux";
+				reg = <0x2e0034 0x10>;
+				vdd-supply = <&vddusb33>;
+				sprd,vdd-voltage = <3300000>;
+	};
+};

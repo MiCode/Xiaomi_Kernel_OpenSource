@@ -1,0 +1,84 @@
+config SPRD_SYSDUMP
+	tristate "Enable UNISOC sysdump handler"
+	depends on ARCH_SPRD && !KEXEC_CORE
+	help
+	  This option enables Spreatrum sysdump which prepare debug info
+	  for u-boot to write into mmc storage after kernel panics.
+
+config SPRD_MINI_SYSDUMP
+	depends on SPRD_SYSDUMP
+	bool "Enable UNISOC mini sysdump handler"
+	help
+	  This option enables Spreatrum mini sysdump which supplies simple
+	  debug info for projects can not support external sd card after
+	  system occurs kernel panics.
+
+config SPRD_NATIVE_HANG_MONITOR
+	tristate "Enable UNISOC android native hang detect handler"
+	help
+		This option enables Spreatrum android native hang detect which prepare debug info
+		for the case to debug.
+
+config UNISOC_LASTKMSG
+	depends on SPRD_SYSDUMP || SPRD_MINI_SYSDUMP
+	tristate "Enable UNISOC LASTKMSG handler"
+	help
+	  This option enables Unisoc LSTKMSG which supplies kernel
+	  debug info.
+	  1.save task sched info in minidump when panic or cpu hang.
+	  2.save runqueue info in minidump when panic or cpu hang.
+	  3.save current stack info in minidump when panic or cpu hang.
+	  4.save per cpu register and current stack in minidump when
+	  panic or cpu hang.
+	  5.save per cpu irq stack in minidump when panic or wdh
+	  only in 64b system.
+
+config UNISOC_MINIDUMP_FTRACE
+	bool "Enable dump ftrace buffer when panic"
+	depends on UNISOC_LASTKMSG
+	default n
+	help
+	  This add ftrace buffer to minidump section.
+	  When panic, ftrace buffer will be copied to that buffer.
+	  This way, ftrace buffer would becomes a part of minidump
+	  section.
+
+config UNISOC_MINIDUMP_FTRACE_SIZE_KB
+	int "Unisoc minidump per_cpu ftrace size(kb)"
+	range 128 2048
+	default 256
+	depends on UNISOC_MINIDUMP_FTRACE
+	help
+	  This set the minidump buffer size.
+
+config UNISOC_DUMP_IO
+	depends on SPRD_SYSDUMP || SPRD_MINI_SYSDUMP
+	tristate "Enable UNISOC dump io handler"
+	help
+		This option enables dump io which provide all io requests info at that time
+
+config SPRD_CLOSE_CRASH_KEY
+	bool "Disable crash_key trigger kernel panic"
+	depends on SPRD_SYSDUMP
+	default n
+	help
+		This option disables Spreatrum crash_key which tigger kernel panic
+		to debug.
+
+config SPRD_MODULES_NOTIFY
+	tristate "monitor every modules loading time"
+	depends on ARCH_SPRD && MODULES && ANDROID_KABI_RESERVE
+	help
+	  Say y here to enable Debug support.
+	  When in doubt, say n
+	  this is a debug feature that monitor every modules loading time
+	  when bootup
+
+config UNISOC_SIGNAL_DEBUG
+	bool "SPRD userspace debug: add signal debug"
+	depends on ARM64 && SPRD_DEBUG && SPRD_NATIVE_HANG_MONITOR
+	help
+	  Say y here to enable Debug support.
+	  when in doubt, say n.
+	  this is a debug feature for tracing signal origins
+	  when process is receiving a signal.

@@ -1878,7 +1878,7 @@ static ssize_t target_cpu_store(struct vmbus_channel *channel,
 
 	/* See init_vp_index(). */
 	if (hv_is_perf_channel(channel))
-		hv_update_allocated_cpus(origin_cpu, target_cpu);
+		hv_update_alloced_cpus(origin_cpu, target_cpu);
 
 	/* Currently set only for storvsc channels. */
 	if (channel->change_target_cpu_callback) {
@@ -2419,25 +2419,12 @@ void vmbus_free_mmio(resource_size_t start, resource_size_t size)
 	struct resource *iter;
 
 	mutex_lock(&hyperv_mmio_lock);
-
-	/*
-	 * If all bytes of the MMIO range to be released are within the
-	 * special case fb_mmio shadow region, skip releasing the shadow
-	 * region since no corresponding __request_region() was done
-	 * in vmbus_allocate_mmio().
-	 */
-	if (fb_mmio && start >= fb_mmio->start &&
-	    (start + size - 1 <= fb_mmio->end))
-		goto skip_shadow_release;
-
 	for (iter = hyperv_mmio; iter; iter = iter->sibling) {
 		if ((iter->start >= start + size) || (iter->end <= start))
 			continue;
 
 		__release_region(iter, start, size);
 	}
-
-skip_shadow_release:
 	release_mem_region(start, size);
 	mutex_unlock(&hyperv_mmio_lock);
 

@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			sprd-marlin3 {
+				wcn-dump {
+					btwf-dump {
+						/* base    size    offset    domain*/
+						sprd,aon-ahb = <0x40880000 0x54 0 BSP>;
+						sprd,aon-apb = <0x4083C000 0x354 0 BSP>;
+						sprd,btwf-ahb = <0x40130000 0x400 0 BSP>;
+						sprd,btwf-apb = <0x40088000 0x28C 0 BSP>;
+						sprd,aon-clk = <0x40844200 0x144 0 BSP>;
+						sprd,pre-div-clk = <0x40844000 0x48 0 BSP>;
+
+						sprd,wifi-aon-reg = <0x400f0000 0x120 0 WIFI>;
+						sprd,wifi-rtn_pd_mac = <0x400f1000 0xD100 0 WIFI>;
+						sprd,wifi-ram = <0x40300000 0x4A800 0 WIFI>;
+						sprd,wifi-glb-reg = <0x400a0000 0x58 0 WIFI>;
+						sprd,wifi-phy-top-reg = <0x400B0000 0x388 0 WIFI>;
+						sprd,wifi-phy-tx11a-reg = <0x400B1000 0x154 0 WIFI>;
+						sprd,wifi-phy-rx11a-reg = <0x400B2000 0xA8C 0 WIFI>;
+						sprd,wifi-phy-11b-reg = <0x400B3000 0xB0 0 WIFI>;
+						sprd,wifi-rfif-reg = <0x400B4000 0xA70 0 WIFI>;
+						sprd,wifi-dfe-reg = <0x400B7000 0x618 0 WIFI>;
+
+						sprd,fm-reg = <0x40098000 0xABC 0 FM>;
+
+						sprd,bt-acc = <0x40240000 0x8F4 0 BT>;
+						sprd,bt-jal = <0x40246000 0x738 0 BT>;
+						sprd,bt-hab = <0x40248000 0xA0 0 BT>;
+						sprd,bt-lejal = <0x4024A000 0x21C 0 BT>;
+						sprd,bt-modem = <0x4024F000 0x310 0 BT>;
+						sprd,bt-cmd-buf = <0x40200000 0x200 0 BT>;
+						sprd,bt-event-buf = <0x40204000 0x200 0 BT>;
+						sprd,bt-lmp-tx-buf = <0x40208000 0x12A4 0 BT>;
+						sprd,bt-lmp-rx-buf = <0x40200C00 0xB744 0 BT>;
+						sprd,bt-acl-tx-buf = <0x40210000 0x3000 0 BT>;
+						sprd,bt-acl-rx-buf = <0x40214000 0x3000 0 BT>;
+						sprd,bt-sco-tx-buf = <0x40218000 0x2D0 0 BT>;
+						sprd,bt-sco-rx-buf = <0x4021C000 0x5C0 0 BT>;
+						sprd,bt-bb-tx-buf = <0x40241000 0x400 0 BT>;
+						sprd,bt-bb-rx-buf = <0x40242000 0x400 0 BT>;
+
+					       /*
+						* Make sure ram at the end of regs.
+						* According to the parse script,
+						* ram should at offset 0x30 in head.
+						*/
+						sprd,btwf-ram = <0x100000 0xE7400 0x40400000 BSP>;
+					};
+
+					gnss-dump {
+						/* Ordered according to gnssdump parse script */
+						sprd,gnss-ctl-base-aon-clk = <0x40844200 0x144 0 GNSS>;
+						sprd,gnss-base-aon-apb = <0x4083C000 0x354 0 GNSS>;
+						sprd,gnss-te-mem = <0x40E40000 0x30000 0 GNSS>;
+						sprd,gnss-dram = <0x40A80000 0x30000 0 GNSS>;
+						sprd,gnss-iram = <0x40A20000 0x58000 0 GNSS>;
+					};
+				};
+			};
+		};
+	};
+};

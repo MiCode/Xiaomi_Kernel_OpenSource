@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum sl8581e platform DTS file
+ *
+ * Copyright (C) 2018, Unisoc (Shanghai) Technologies Co., Ltd
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+
+#include <dt-bindings/thermal/thermal.h>
+#include "udx710-modem.dtsi"
+
+/ {
+	aliases {
+		cooling-device0 = &cluster0_cooling;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ddrbist_reserved: ddrbist-mem@80000000 {
+			reg = <0x0 0x80000000 0x0 0x00001000>;
+		};
+
+		sysdump_reserved: sysdumpinfo-mem@80001000 {
+			reg = <0x0 0x80001000 0x0 0x00001000>;
+		};
+
+		sml_reserved: sml-mem@85300000 {
+			reg = <0x0 0x85300000 0x0 0x00020000>;
+		};
+
+		audiodsp_reserved: audiodsp-mem@86e00000 {
+			reg = <0x0 0x86e00000 0x0 0x00600000>;
+		};
+
+		audio_reserved: audio-mem@87400000 {
+			reg = <0x0 0x87400000 0x0 0x00200000>;
+		};
+
+		smem_reserved: sipc-mem@87800000 {
+			reg = <0x0 0x87800000 0x0 0x00800000>;
+		};
+
+		cp_reserved: cp-modem@88000000 {
+			reg = <0x0 0x88000000 0x0 0x13000000>;
+		};
+
+		fb_reserved: fb@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x00200000>;
+		};
+
+		nrphyiqmem_reserved: nrphy-iqmem@99000000 {
+			reg = <0x0 0x99000000 0x0 0x03000000>;
+			status = "disabled";
+		};
+
+		uboot_reserved: sysdump-uboot@9f000000 {
+			reg = <0x0 0x9f000000 0x0 0x00fc0000>;
+		};
+	};
+
+	ddr_dfs: scene-frequency {
+		compatible = "sprd,dfs";
+		freq-num = <7>;
+		sprd-scene = "test";
+		sprd-freq = <1536>;
+	};
+
+	thm_zone: thermal-zones {
+		soc_thmzone: soc-thmzone {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			sustainable-power = <1000>;
+			thermal-sensors = <&soc_sensor  17>;
+			trips {
+				soc_threshold: trip-point@0 {
+					temperature = <70000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				soc_target: trip-point@1 {
+					temperature = <85000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				soc_crit: soc_crit {
+					temperature = <110000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&soc_target>;
+					contribution = <1024>;
+					cooling-device =
+					<&cluster0_cooling THERMAL_NO_LIMIT \
+					THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		apcpu0_thmzone: apcpu0-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&ap_thm0 0>;
+		};
+
+		nrcp_thmzone: nrcp-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&ap_thm1 0>;
+		};
+
+		apcpu1_thmzone: apcpu1-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&ap_thm2 0>;
+		};
+
+		ank0_thmzone: ank0-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&ap_thm2 1>;
+		};
+
+		ank1_thmzone: ank1-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&ap_thm2 2>;
+		};
+
+		cluster0_thmzone: cluster0-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			sustainable-power = <1000>;
+			thermal-sensors = <&cluster0_sensor  15>;
+		};
+	};
+
+	cooling-devices {
+		cluster0_cooling: cluster0-cooling {
+			compatible = "sprd,cluster-cooling";
+			#cooling-cells = <2>; /* min followed by max */
+			sprd,efuse-block7 = <7>;
+			sprd,efuse-block15 = <15>;
+			/* core_leak =                             */
+			/*(LIT_LEAK[4:0]+1) x 2mA x 0.85V x 18.69% */
+			sprd,leak-core = <2 85 1869>;
+			/* cluster_leak =                           */
+			/* (LIT_LEAK[4:0]+1) x 2mA x 0.85V x 25.24% */
+			sprd,leak-cluster = <2 85 2524>;
+			/*core Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,core-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  31      (-3041)      170000    (-1590000)>;
+			/*core Vscale = eV^3 + fV^2 + gV + h */
+			sprd,core-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  3320     (-7489)      5692      (-1423)>;
+			/*cluster Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,cluster-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  31      (-3041)      170000    (-1590000)>;
+			/*cluster Vscale = eV^3 + fV^2 + gV + h */
+			sprd,cluster-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  3320     (-7489)      5692      (-1423)>;
+			sprd,efuse-switch = <0>;
+			sprd,hotplug-period = <0>;
+			sprd,min-cpufreq = <768000>;
+			sprd,min-cpunum = <3>;
+			sprd,core-base = <3930>;
+			sprd,cluster-base = <1673>;
+			sprd,dynamic-core =
+			/*Pdynperghz*10    Freq     Vbase  */
+			< 1084           1000     1000>;
+			sprd,dynamic-cluster =
+			/*Pdynperghz*10    Freq     Vbase  */
+			< 757           1000     1000>;
+			sprd,sensor-names = "ank0-thmzone","ank1-thmzone";
+			sprd,cii-per-core-tp = <100000 95000>;
+			sprd,cii-max-tp-core = <90000>;
+		};
+	};
+
+	autotest: autotest {
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+};
+
+&serdes0 {
+	status = "okay";
+	clock-names =
+		"serdes_eb",
+		"ana_eb",
+		"dphy_cfg_eb",
+		"dphy_ref_eb",
+		"dsi_ref_eb";
+	clocks =
+		<&aonapb_gate CLK_SERDES0_EB>,
+		<&aonapb_gate CLK_ANA_EB>,
+		<&aonapb_gate CLK_SD0_CFG_EB>,
+		<&aonapb_gate CLK_SD0_REF_EB>,
+		<&aonapb_gate CLK_DSI0_REF_EN>;
+};
+
+&serdes1 {
+	status = "okay";
+	clock-names =
+		"serdes_eb",
+		"ana_eb",
+		"dphy_cfg_eb",
+		"dphy_ref_eb",
+		"dsi_ref_eb";
+	clocks =
+		<&aonapb_gate CLK_SERDES1_EB>,
+		<&aonapb_gate CLK_ANA_EB>,
+		<&aonapb_gate CLK_SD1_CFG_EB>,
+		<&aonapb_gate CLK_SD1_REF_EB>,
+		<&aonapb_gate CLK_DSI1_REF_EN>;
+};
+
+&serdes2 {
+	status = "okay";
+	clock-names =
+		"serdes_eb",
+		"ana_eb",
+		"dphy_cfg_eb",
+		"dphy_ref_eb",
+		"dsi_ref_eb";
+	clocks =
+		<&aonapb_gate CLK_SERDES2_EB>,
+		<&aonapb_gate CLK_ANA_EB>,
+		<&aonapb_gate CLK_SD2_CFG_EB>,
+		<&aonapb_gate CLK_SD2_REF_EB>,
+		<&aonapb_gate CLK_DSI2_REF_EN>;
+};
+
+&sc2730_pmic {
+	interrupts = <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&sdio3 {
+	sprd,hs400es-dly = <0xc0 0x7f 0x36 0x36>;
+	sprd,hs400-dly = <0xc0 0x7f 0x3d 0x3d>;
+	sprd,hs200-dly = <0x7f 0x82 0x85 0x85>;
+	sprd,ddr52-dly = <0x30 0x1a 0x18 0x18>;
+	vmmc-supply = <&vddemmccore>;
+	voltage-ranges = <3000 3000>;
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-hw-reset;
+	mmc-hs400-enhanced-strobe;
+	mmc-hs400-1_8v;
+	mmc_hs200-1_8v;
+	mmc-ddr-1_8v;
+	sprd,name = "sdio_emmc";
+	sprd,sdio-adma;
+	no-sdio;
+	no-sd;
+	status = "disabled";
+};
+
+&adi_bus {
+	sprd,hw-channels = <2 0x18cc>, <3 0x18cc>, <13 0x1854>, <15 0x1874>,
+			<17 0x1844>, <19 0x1844>, <30 0x1820>, <31 0x197c>,
+			<32 0x197c>, <33 0x1988>, <35 0x19b8>, <39 0x19ac>;
+};

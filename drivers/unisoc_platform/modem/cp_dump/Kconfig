@@ -1,0 +1,7 @@
+
+config UNISOC_CP_DUMP
+	tristate "UNISOC CP Dump"
+	default n
+	help
+	  UNISOC cp dump driver, used for cp dump.
+

@@ -452,13 +452,6 @@ static int hclge_ptp_create_clock(struct hclge_dev *hdev)
 	ptp->info.settime64 = hclge_ptp_settime;
 
 	ptp->info.n_alarm = 0;
-
-	spin_lock_init(&ptp->lock);
-	ptp->io_base = hdev->hw.hw.io_base + HCLGE_PTP_REG_OFFSET;
-	ptp->ts_cfg.rx_filter = HWTSTAMP_FILTER_NONE;
-	ptp->ts_cfg.tx_type = HWTSTAMP_TX_OFF;
-	hdev->ptp = ptp;
-
 	ptp->clock = ptp_clock_register(&ptp->info, &hdev->pdev->dev);
 	if (IS_ERR(ptp->clock)) {
 		dev_err(&hdev->pdev->dev,
@@ -469,6 +462,12 @@ static int hclge_ptp_create_clock(struct hclge_dev *hdev)
 		dev_err(&hdev->pdev->dev, "failed to register ptp clock\n");
 		return -ENODEV;
 	}
+
+	spin_lock_init(&ptp->lock);
+	ptp->io_base = hdev->hw.hw.io_base + HCLGE_PTP_REG_OFFSET;
+	ptp->ts_cfg.rx_filter = HWTSTAMP_FILTER_NONE;
+	ptp->ts_cfg.tx_type = HWTSTAMP_TX_OFF;
+	hdev->ptp = ptp;
 
 	return 0;
 }
@@ -497,7 +496,7 @@ int hclge_ptp_init(struct hclge_dev *hdev)
 
 		ret = hclge_ptp_get_cycle(hdev);
 		if (ret)
-			goto out;
+			return ret;
 	}
 
 	ret = hclge_ptp_int_en(hdev, true);
@@ -509,14 +508,14 @@ int hclge_ptp_init(struct hclge_dev *hdev)
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
 			"failed to init freq, ret = %d\n", ret);
-		goto out_clear_int;
+		goto out;
 	}
 
 	ret = hclge_ptp_set_ts_mode(hdev, &hdev->ptp->ts_cfg);
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
 			"failed to init ts mode, ret = %d\n", ret);
-		goto out_clear_int;
+		goto out;
 	}
 
 	ktime_get_real_ts64(&ts);
@@ -524,7 +523,7 @@ int hclge_ptp_init(struct hclge_dev *hdev)
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
 			"failed to init ts time, ret = %d\n", ret);
-		goto out_clear_int;
+		goto out;
 	}
 
 	set_bit(HCLGE_STATE_PTP_EN, &hdev->state);
@@ -532,9 +531,6 @@ int hclge_ptp_init(struct hclge_dev *hdev)
 
 	return 0;
 
-out_clear_int:
-	clear_bit(HCLGE_PTP_FLAG_EN, &hdev->ptp->flags);
-	hclge_ptp_int_en(hdev, false);
 out:
 	hclge_ptp_destroy_clock(hdev);
 

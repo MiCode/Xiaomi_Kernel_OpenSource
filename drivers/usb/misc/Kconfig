@@ -284,3 +284,25 @@ config BRCM_USB_PINMAP
 	  This option enables support for remapping some USB external
 	  signals, which are typically on dedicated pins on the chip,
 	  to any gpio.
+
+menu "USB PAM drivers"
+
+config USB_PAM
+	bool
+
+config SPRD_PAMU3
+	tristate "SPREADTRUM PAMU3 Driver"
+	select USB_PAM
+	help
+	  Enable this to support the SPREADTRUM PAMU3 that is part of SOC.
+	  This driver normally paired with DesignWare USB30 (DRD) Controller.
+
+config SPRD_USBM
+	tristate "SPREADTRUM USB management Driver"
+	default n
+	help
+	  Enable this to support the SPREADTRUM usb management that is part of SOC.
+	  This driver is used for DesignWare USB30 (DRD) Controllers works as the main,
+	  and SPRD MUSB works as the slave.
+
+endmenu

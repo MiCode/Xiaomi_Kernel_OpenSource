@@ -1,0 +1,209 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * These dt is used for wcn drivers
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			wcn_btwf: cpwcn_btwf {
+				compatible = "unisoc,integrate_marlin";
+				sprd,name = "wcn_btwf";
+				sprd,syscon-ap-apb = <&aon_apb_regs>;
+				sprd,syscon-ap-pmu = <&pmu_apb_regs>;
+				/* <PIKE2 just uses for DTS parse. SHARKLE use it> */
+				sprd,syscon-ap-pub-apb = <&pub_apb_regs>;
+				sprd,syscon-anlg-wrap-wcn = <&anlg_wrap_wcn_regs>;
+				sprd,syscon-wcn-reg = <&wcn_regs>;
+				sprd,syscon-anlg-phy-g5 = <&anlg_phy_g5_regs>;
+				/* Boot Up group:
+				 * <BootSequence,RemapAddr,PowerOn,
+				 * Disable force sleep,ResetRelease,WCN_EN>
+				 */
+				sprd,ctrl-probe-num = <2>;
+				sprd,ctrl-reg = <0x2004 0x3198 0x2100 0x20cc 0x20b0 0x1008>;
+				sprd,ctrl-mask = <0x03000000 0x07ff 0x03000000
+						  0x00080000 0x00010400 0x80>;
+				sprd,ctrl-value = <0x03000000 0x0102 0x03000000
+						  0x00080000 0x00010400 0x80>;
+				sprd,ctrl-rw-offset = <0x2000 0x0 0x2000 0x2000 0x2000 0x1000>;
+				sprd,ctrl-us-delay = <10 10 10 10 10 10>;
+				sprd,ctrl-type = <0x3 0x0 0x1 0x1 0x1 0x3>;
+				/* Add shutdown group:WCN_Disable */
+				sprd,ctrl-shutdown-reg = <0x2008 0x10b0>;
+				sprd,ctrl-shutdown-mask = <0x80 0x400>;
+				sprd,ctrl-shutdown-value = <0x80 0x400>;
+				sprd,ctrl-shutdown-rw-offset = <0x2000 0x1000>;
+				sprd,ctrl-shutdown-us-delay = <10 10>;
+				sprd,ctrl-shutdown-type = <0x3 0x1>;
+				reg = <0x0 0x84000000 0x0 0x180000>;
+				sprd,file-name = "/dev/block/platform/soc/soc:ap-ahb/20600000.sdio/by-name/wcnmodem";
+				sprd,firmware-path = "/vendor/firmware/";
+				sprd,file-length = <0x178000>;
+				memory_region = < &wcn_reserved >;
+				vddwcn-supply = <&vddcon>;
+				vddwifipa-supply = <&vddwifipa>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				nvmem-cells = <&wcn_alpha>, <&wcn_beta>, <&wcn_gamma>, <&wcn_delta>;
+				nvmem-cell-names = "wcn_efuse_blk0", "wcn_efuse_blk1",
+						   "wcn_efuse_blk2", "wcn_efuse_blk3";
+
+				wlan {
+					compatible = "sprd,sc2332-sipc-wifi";
+				};
+			};
+
+			wcn_gnss: cpwcn_gnss {
+				compatible = "unisoc,integrate_gnss";
+				sprd,name = "wcn_gnss";
+				sprd,syscon-ap-apb = <&aon_apb_regs>;
+				sprd,syscon-ap-pmu = <&pmu_apb_regs>;
+				sprd,syscon-ap-pub-apb = <&pub_apb_regs>;
+				sprd,syscon-anlg-wrap-wcn =
+					<&anlg_wrap_wcn_regs>;
+				sprd,syscon-wcn-reg = <&wcn_regs>;
+				sprd,syscon-anlg-phy-g5 = <&anlg_phy_g5_regs>;
+				sprd,ctrl-probe-num = <2>;
+				sprd,ctrl-reg =
+					<0x1004 0x3198 0x2100 0x20cc 0x20b0 0x1008>;
+				sprd,ctrl-mask = <0x00ffffff 0x07ff 0x03000000
+					0x00080000 0x00010800 0x40>;
+				sprd,ctrl-value = <0x00300000 0x0102 0x03000000
+					0x00080000 0x00010800 0x40>;
+				sprd,ctrl-rw-offset =
+					<0x1000 0x0 0x2000 0x2000 0x2000 0x1000>;
+				sprd,ctrl-us-delay = <10 10 10 10 10 10>;
+				sprd,ctrl-type = <0x3 0x0 0x1 0x1 0x1 0x3>;
+				/* Add shutdown group:WCN_Disable */
+				sprd,ctrl-shutdown-reg = <0x2008 0x10b0>;
+				sprd,ctrl-shutdown-mask = <0x40 0x800>;
+				sprd,ctrl-shutdown-value = <0x40 0x800>;
+				sprd,ctrl-shutdown-rw-offset = <0x2000 0x1000>;
+				sprd,ctrl-shutdown-us-delay = <10 10>;
+				sprd,ctrl-shutdown-type = <0x3 0x1>;
+				reg = <0x0 0x84300000 0x0 0x100000>;
+				sprd,file-name = "/dev/block/platform/soc/soc:ap-ahb/20600000.sdio/by-name/gpsgl";
+				sprd,file-name-ext = "/dev/block/platform/soc/soc:ap-ahb/20600000.sdio/by-name/gpsbd";
+				sprd,file-length = <0x100000>;
+				memory_region = < &gnss_reserved >;
+				vddwcn-supply = <&vddcon>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				nvmem-cells = <&wcn_delta>, <&wcn_beta>, <&wcn_gamma>;
+				nvmem-cell-names = "gnss_efuse_blk0", "gnss_efuse_blk1",
+						   "gnss_efuse_blk2";
+			};
+
+			gnss_common_ctl {
+				compatible = "sprd,gnss";
+				sprd,name = "gnss_common_ctl";
+					};
+
+				};
+	};
+};
+
+/*
+ * quote sipc: sipc-virt bus node
+ * This is a child node
+ * core@3 is wcn, mailbox id is 5
+ * core@4 is gnss, mailbox id is 6
+ */
+&sipc {
+	sipc_wcn: core@3 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* endpoint id - should be same with mailbox channel id */
+		reg = <3>;
+		label = "sipc-wcn";
+		/* <&mailbox  channel_id  is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 5 0>;
+		/* This is temporary plan*/
+		sprd,smem-info = <0x84180000 0x00180000 0x180000>;
+
+		/* these nodes of channel should be probed by its parent node */
+		spipe_wcn: channel@4 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <4>;
+			label = "spipe_wcn";
+			sprd,ringnr = <16>;
+			sprd,size-rxbuf = <0x2400>;	/* 9*1024 */
+			sprd,size-txbuf = <0x2400>;	/* 9*1024 */
+		};
+
+		wcn_wifi_cmd: channel@7 {
+			compatible = "sprd,spool";
+			/* channel number */
+			reg = <7>;
+			label = "wcn_wifi_cmd";
+			sprd,tx-blksize = <2048>;
+			sprd,tx-blknum = <4>;
+			sprd,rx-blksize = <2048>;
+			sprd,rx-blknum = <16>;
+		};
+
+		wcn_wifi_data0: channel@8 {
+			compatible = "sprd,spool";
+			/* channel number */
+			reg = <8>;
+			label = "wcn_wifi_data0";
+			sprd,tx-blksize = <1664>;
+			sprd,tx-blknum = <64>;
+			sprd,rx-blksize = <1664>;
+			sprd,rx-blknum = <256>;
+		};
+
+		wcn_wifi_data1: channel@9 {
+			compatible = "sprd,spool";
+			/* channel number */
+			reg = <9>;
+			label = "wcn_wifi_data1";
+			sprd,tx-blksize = <1664>;
+			sprd,tx-blknum = <64>;
+			sprd,rx-blksize = <0>;
+			sprd,rx-blknum = <0>;
+		};
+
+		sprd-mtty {
+			compatible = "sprd,wcn_bt";
+			extcon = <&spipe_wcn>;
+			sprd,name = "ttyBT";
+		};
+
+		sprd-fm {
+			compatible = "sprd,wcn_fm";
+			extcon = <&spipe_wcn>;
+			sprd,name = "sprd-fm";
+		};
+	};
+
+	sipc_gnss: core@4 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* endpoint id - should be same with mailbox channel id */
+		reg = <4>;
+		label = "sipc-gnss";
+		/* <&mailbox  channel_id  is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 6 0>;
+		/* This is temporary plan*/
+		sprd,smem-info = <0x8441b000 0x11b000 0x32000>;
+
+		/* these nodes of channel should be probed by its parent node */
+		sttygnss0: channel@4 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <4>;
+			label = "sttygnss0";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x19000>;	/* 100*1024 */
+			sprd,size-txbuf = <0xc800>;	/* 50*1024 */
+		};
+	};
+};

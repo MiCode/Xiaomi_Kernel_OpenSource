@@ -105,8 +105,8 @@ INITFILE=$1
 shift;
 
 if [ ! -r "$INITFILE" ]; then
-	echo "The base file '$INITFILE' does not exist. Creating one..." >&2
-	touch "$INITFILE"
+	echo "The base file '$INITFILE' does not exist.  Exit." >&2
+	exit 1
 fi
 
 MERGE_LIST=$*

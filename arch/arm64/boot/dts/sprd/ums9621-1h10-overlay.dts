@@ -1,0 +1,606 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * ums9621-1h10-overlay.dts - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/sprd,ums9621-clk.h>
+#include <dt-bindings/usb/pd.h>
+#include "lcd/lcd_nt36528_kti_mipi_hdp.dtsi"
+#include "lcd/lcd_g40396_truly_mipi_fhd.dtsi"
+#include "lcd/lcd_nt36672e_truly_mipi_fhd.dtsi"
+#include "lcd/lcd_nt36672c_truly_mipi_fhd.dtsi"
+#include "lcd/amoled_g3655fp103ff_visionox_mipi_fhd.dtsi"
+#include "lcd/lcd_td4320_truly_mipi_fhd.dtsi"
+#include "lcd/lcd_ft8725_boe_mipi_fhd.dtsi"
+#include "lcd/lcd_dummy_mipi.dtsi"
+#include "reserved-memory/ums9621-1h10-overlay.dtsi"
+#include "touchscreen/ums9621-spi1-gpio13-14-tp.dtsi"
+#include "battery/ums9621-1h10-overlay.dtsi"
+#include <dt-bindings/mfd/sprd,ump9620-regs.h>
+#include <dt-bindings/mfd/sprd,ump9620-mask.h>
+#include <dt-bindings/input/input.h>
+#include "wcn/wcn_modules.h"
+#include "wcn/interface/wcn-sdio-register.dtsi"
+#include "wcn/chip/wcn-marlin3lite-umw2652-register.dtsi"
+
+/ {
+
+	model = "Spreadtrum UMS9621 1h10 Board";
+
+	compatible = "sprd,ums9621-1h10";
+
+	sprd,sc-id = "ums9621 1h10 1000";
+
+	sprd,board_id = <0x110000>;
+
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			dtbo: dtbo {
+				compatible = "sprd,dtbo-test";
+				reg = <0x0 0x0 0x0 0x11>;
+			};
+			sprd_marlin3: sprd-marlin3 {
+				compatible = "unisoc,marlin3lite_sdio";
+				m2-wakeup-ap-gpios = <&ap_gpio 128 GPIO_ACTIVE_LOW>;
+				reset-gpios = <&ap_gpio 172 GPIO_ACTIVE_LOW>;
+				enable-gpios = <&ap_gpio 171 GPIO_ACTIVE_LOW>;
+				m2-to-ap-irq-gpios = <&ap_gpio 173 GPIO_ACTIVE_LOW>;
+				/* xtal-26m-clk-type = "TCXO"; */
+				avdd12-supply = <&vddwcn>;
+				avdd33-supply = <&vddwifipa>;
+				dcxo18-supply = <&vddsim2>;
+				clock-names = "clk_32k","source","enable";
+				clocks = <&aonapb_gate CLK_AUX0>,
+					 <&ext_32k>,
+					 <&aonapb_gate CLK_AUX0_EB>;
+				extcon = <&sdio1>;
+				sdhci-name = <&sdio1>;
+				sprd,check-emmc-ufs = "need_to_check_emmc_or_ufs";
+				sprd,btwf-file-name = "/dev/block/by-name/wcnmodem";
+				sprd,gnss-file-name = "/vendor/firmware/gnssmodem.bin";
+				adma-tx;
+				adma-rx;
+				btwf-wakeup-lock;
+				n79-mode-support;
+				/*
+				 * bound parameter:
+				 * [0]:addr offset, [1]:mask, [2]:unboundval, [3]:boundval
+				 */
+				avdd12-parent-bound-chip = <REG_ANA_SLP_DCDC_PD_CTRL MASK_ANA_SLP_DCDCGEN1_PD_EN 0x0 MASK_ANA_SLP_DCDCGEN1_PD_EN>;
+				avdd12-bound-wbreq = <REG_ANA_LDO_XTL_EN10 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN>;
+				avdd33-bound-wbreq = <REG_ANA_LDO_XTL_EN11 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN>;
+
+				wlan {
+					compatible = "sprd,sc2355-sdio-wifi";
+					sprd,enable-n79;
+					sprd,enable-chr;
+				};
+
+				gnss {
+					compatible = "sprd,gnss";
+					/*pinctrl*/
+					pinctrl-names =
+					"uart_matrix_mtx_cfg",
+					"u4txd",
+					"u4rxd",
+					"u4cts",
+					"u4rts";
+					pinctrl-0 = <&uart_matrix_mtx_cfg>;
+					pinctrl-1 = <&u4txd>;
+					pinctrl-2 = <&u4rxd>;
+					pinctrl-3 = <&u4cts>;
+					pinctrl-4 = <&u4rts>;
+				};
+
+				sprd-mtty {
+					compatible = "sprd,mtty";
+					sprd,name = "ttyBT";
+				};
+
+				sprd-fm {
+					compatible = "sprd,marlin3-fm";
+					sprd,name = "sprd-fm";
+				};
+
+			};
+
+			front_sensor: front-sensor {
+				compatible = "sprd,shell-thermal";
+				#thermal-sensor-cells = <0>;
+				sensor-names = "board-thmzone",
+						"pa-thmzone",
+						"chg-thmzone";
+				temp-coeff = <258 6021 6717 6220 6403 5567 1932
+						22394 6883 6595 7336 7926 8495 9599
+						10327 6204 6741 7261 6727 6692 10702>;
+				coeff-offset = <7000>;
+				temp-const = <904>;
+				const-offset = <5000>;
+			};
+
+			back_sensor: back-sensor {
+				compatible = "sprd,shell-thermal";
+				#thermal-sensor-cells = <0>;
+				sensor-names = "board-thmzone",
+						"pa-thmzone",
+						"chg-thmzone";
+				temp-coeff = <719 3481 3711 3601 3420 2466 2753
+						10130 4929 4812 4919 5107 5523 8347
+						5330 3649 3909 4031 3694 3576 5893>;
+				coeff-offset = <4000>;
+				temp-const = <837>;
+				const-offset = <4000>;
+				temp-diff = <350 250 300>;
+				virt-temp-diff = <200>;
+			};
+
+			skin_sensor: skin-sensor {
+				compatible = "sprd,virt-thm";
+				#thermal-sensor-cells = <0>;
+				thmzone-cells = <&front_thmzone>, <&back_thmzone>;
+			};
+
+			sprd-uid {
+				compatible = "sprd,uid";
+				nvmem-cells = <&uid_start>, <&uid_end>;
+				nvmem-cell-names = "uid_start", "uid_end";
+			};
+
+			fingerprint@0 {
+				compatible = "microarray,afs121";
+				fpint-gpios = <&eic_async 29 0>;
+			};
+
+
+		};
+	};
+};
+
+&pin_controller {
+	uart_matrix_mtx_cfg: uart-matrix-mtx-cfg {
+		pins = "QOGIRN6LITE_UART_INF4_SYS_SEL";
+		sprd,control = <0x3>;
+	};
+
+	u4txd: u4-txd {
+		pins = "QOGIRN6LITE_U4TXD_MISC";
+		sprd,sleep-mode = <0x1>;
+	};
+
+	u4rxd: u4-rxd {
+		pins = "QOGIRN6LITE_U4RXD_MISC";
+		sprd,sleep-mode = <0x1>;
+	};
+
+	u4cts: u4-cts {
+		pins = "QOGIRN6LITE_U4CTS_MISC";
+		sprd,sleep-mode = <0x1>;
+	};
+
+	u4rts: u4-rts {
+		pins = "QOGIRN6LITE_U4RTS_MISC";
+		sprd,sleep-mode = <0x1>;
+	};
+};
+
+&chosen {
+	bootargs_ext = "";
+};
+
+&skin_thmzone {
+	thermal-sensors = <&skin_sensor>;
+};
+
+&front_thmzone {
+	status = "okay";
+	thermal-sensors = <&front_sensor>;
+};
+
+&back_thmzone {
+	status = "okay";
+	thermal-sensors = <&back_sensor>;
+};
+
+&adi_bus {
+	sprd,hw-channels = <2 0x20cc>, <9 0x2074>, <11 0x2054>, <13 0xa054>,
+			<15 0xa180>, <17 0xa1a0>, <19 0x244c>, <21 0xa0e8>,
+			<23 0x2044>, <25 0xa074>, <27 0xa044>, <30 0x2020>,
+			<32 0x217c>, <33 0x2188>, <34 0x21b8>, <35 0x21ac>;
+};
+
+&ddr_dfs {
+		sprd-scene = "boost", "lcd-high", "lcdon", "lcdoff", "camlow",
+			"camhigh", "camveryhigh", "faceid", "top", "boot-opt";
+		sprd-freq = <1244 1244 768 384 1536 1536 1866 1244 2133 1866>;
+};
+
+&vddwpa {
+	status = "disabled";
+};
+
+&vddldo0 {
+	status = "disabled";
+};
+
+&vddldo1 {
+	regulator-always-on;
+};
+
+&vddrf18 {
+	status = "disabled";
+};
+
+&vddrf1v1 {
+	status = "disabled";
+};
+
+&vddrf0v9 {
+	status = "disabled";
+};
+
+&vddldo4 {
+	status = "disabled";
+};
+
+&vddmm {
+	status = "disabled";
+};
+
+&vddsim0 {
+	status = "disabled";
+};
+
+&vddsim1 {
+	status = "disabled";
+};
+
+&vddgpu {
+	status = "disabled";
+};
+
+&avdd12 {
+	regulator-always-on;
+};
+
+&avdd18 {
+	regulator-always-on;
+};
+
+&vdd28 {
+	regulator-always-on;
+};
+
+&vddmodem {
+	regulator-always-on;
+};
+
+&vddai {
+	regulator-always-on;
+};
+
+&dmabuf {
+
+	fd-reserved {
+		label = "carveout_fd";
+		memory-region = <&fd_reserved>;
+	};
+	oemcrypto-reserved {
+		label = "uncached_carveout_oem";
+		memory-region = <&oemcrypto_reserved>;
+	};
+
+	protected-reserved {
+		label = "protected";
+		memory-region = <&protected_reserved>;
+	};
+};
+
+&sdio0 {
+	cd-gpios = <&eic_sync 35 GPIO_ACTIVE_HIGH>;
+};
+
+&chosen {
+	bootargs_ext = "kvm-arm.mode=none";
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_main: sensor-main@20 {
+		compatible = "sprd,sensor-main";
+		reg = <0x20>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR0>,<&mm_gate CLK_SENSOR0_EN>,
+				<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+				<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama0>;
+		vddcamd-supply = <&vddcamd0>;
+		vddcammot-supply = <&vddcammot0>;
+		reset-gpios = <&ap_gpio 39 0>;
+		/*power-down-gpios = <&ap_gpio 45 0>;*/
+		sprd,phyid = <0>;
+		csi = <&csi0>;
+		power-domains = <&mm_domain>;
+	};
+
+
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_main2: sensor-main2@20 {
+		compatible = "sprd,sensor-main2";
+		reg = <0x20>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR3>,<&mm_gate CLK_SENSOR3_EN>,
+			<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+			<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama1>;
+		/*avdd-gpios = <&ap_gpio 79 0>;*/
+		vddcamd-supply = <&vddcamd1>;
+		reset-gpios = <&ap_gpio 40 0>;
+		power-down-gpios = <&ap_gpio 46 0>;
+		sprd,phyid = <5>;/*2 for 2p2*/
+		csi = <&csi2>;
+		power-domains = <&mm_domain>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	fsa4480: fsa4480@42 {
+		compatible = "sprd,fsa4480-i2c";
+		reg = <0x42>;
+		extcon = <&pmic_typec>;
+	};
+};
+
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_sub2: sensor-sensor_sub2@2a {
+		compatible = "sprd,sensor-sub2";
+		reg = <0x2a>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR2>,<&mm_gate CLK_SENSOR2_EN>,
+			<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+			<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama2>;
+		vddcamd-supply = <&vddcamd2>;
+		vddcammot-supply = <&vddcammot1>;
+		reset-gpios = <&ap_gpio 41 0>;
+		/*power-down-gpios = <&ap_gpio 50 0>;*/
+		sprd,phyid = <6>;
+		csi = <&csi2>;
+		power-domains = <&mm_domain>;
+	};
+
+};
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_sub: sensor-sub@5a {
+		compatible = "sprd,sensor-sub";
+		reg = <0x5a>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR3>,<&mm_gate CLK_SENSOR3_EN>,
+			<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+			<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama0>;
+		vddcamd-supply = <&vddcamd0>;
+		vddcammot-supply = <&vddcammot0>;
+		reset-gpios = <&ap_gpio 42 0>;
+		power-down-gpios = <&ap_gpio 48 0>;
+		sprd,phyid = <1>;
+		csi = <&csi1>;
+		power-domains = <&mm_domain>;
+	};
+
+
+};
+
+&i2c6 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	flash_ic: flash-ic@63 {
+		compatible = "sprd,flash-ocp8137";
+		reg = <0x63>;
+		sprd,flash-ic = <8137>;
+		sprd,torch = <1>;
+		sprd,preflash = <1>;
+		sprd,highlight = <1>;
+		sprd,torch-level = <128>;
+		sprd,preflash-level = <128>;
+		sprd,highlight-level = <128>;
+		sprd,lvfm-enable = <1>;
+		flash-torch-en-gpios = <&ap_gpio 112 0>;
+		flash-chip-en-gpios = <&ap_gpio 119 0>;
+		flash-en-gpios = <&ap_gpio 111 0>;
+		flash-sync-gpios = <&ap_gpio 59 0>;
+	};
+
+	stm_vl53l0: vl53l0@52 {
+		compatible = "st,stmvl53l0";
+		reg = <0x52>;
+		reset_gpios = <258>;
+		irq_gpios = <213>;
+		interrupt-parent = <&ap_gpio>;
+		interrupts = <169 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&pmic_typec>;
+	/* first value is device eye-patt setting, the second is host */
+	sprd,hsphy-tunehsamp = /bits/ 8 <0x03 0x03>;
+	sprd,hsphy-tuneeq = /bits/ 8 <0x00 0x00>;
+	sprd,hsphy-tfregres = /bits/ 8 <0x0f 0x0f>;
+	/* avdd1v8 always off */
+	avdd1v8-always-off;
+	status = "okay";
+};
+
+&usb {
+	extcon = <&pmic_typec>, <&pmic_typec>;
+	vbus-supply = <&vddvbus>;
+	status = "okay";
+	use_pdhub_c2c;
+};
+
+&pmic_typec {
+	use_pdhub_c2c;
+	extcon = <&extcon_gpio>;
+	status = "okay";
+};
+
+&lcd_nt36672e_truly_mipi_fhd {
+	sprd,reset-off-sequence = <1 5>;
+
+	sprd,sr-width = <720>;
+	sprd,sr-height = <1600>;
+
+	sprd,phy-bit-clock = <1106000>;
+	sprd,dpi-clk-pixelpll;
+	sprd,dpi-clk-div = <0>;
+	sprd,video-lp-cmd-enable = <0>;
+	sprd,hporch-lp-disable = <0>;
+};
+
+&lcd_ft8725_boe_mipi_fhd {
+	sprd,sr-width = <720>;
+	sprd,sr-height = <1600>;
+
+	sprd,phy-bit-clock = <1106000>;
+	sprd,dpi-clk-pixelpll;
+	sprd,dpi-clk-div = <0>;
+	sprd,video-lp-cmd-enable = <0>;
+	sprd,hporch-lp-disable = <0>;
+};
+
+&lcd_g40396_truly_mipi_fhd {
+	sprd,sr-width = <720>;
+	sprd,sr-height = <1600>;
+};
+
+&amoled_g3655fp103ff_visionox_mipi_fhd {
+	sprd,sr-width = <720>;
+	sprd,sr-height = <1600>;
+	sprd,dpi-clk-pixelpll;
+};
+
+&pin_controller {
+	pinctrl-names =
+	/* IM1_CLK ,SIM1_DA ,SIM1_RST ,keyin0 */
+	 "gpio_4", "gpio_5", "gpio_6", "gpio_7",
+	/* keyin1 ,sd0_clk, emmc_cmd */
+	"gpio_8", "gpio_22", "gpio_24",
+	/* emmc_d6, emmc_d7, emmc_d7 */
+	"gpio_25", "gpio_26", "gpio_124";
+
+	pinctrl-0 = <&gpio_4>;
+	pinctrl-1 = <&gpio_5>;
+	pinctrl-2 = <&gpio_6>;
+	pinctrl-3 = <&gpio_7>;
+	pinctrl-4 = <&gpio_8>;
+	pinctrl-5 = <&gpio_22>;
+	pinctrl-6 = <&gpio_24>;
+	pinctrl-7 = <&gpio_25>;
+	pinctrl-8 = <&gpio_26>;
+	pinctrl-9 = <&gpio_124>;
+
+	gpio_4: simclk1 {
+		pins = "QOGIRN6LITE_SIMCLK1";
+		function = "func4";
+	};
+
+	gpio_5: simda1 {
+		pins = "QOGIRN6LITE_SIMDA1";
+		function = "func4";
+	};
+
+	gpio_6: simrst1 {
+		pins = "QOGIRN6LITE_SIMRST1";
+		function = "func4";
+	};
+
+	gpio_7: keyin0 {
+		pins = "QOGIRN6LITE_KEYIN0";
+		function = "func4";
+	};
+
+	gpio_8: keyin1 {
+		pins = "QOGIRN6LITE_KEYIN1";
+		function = "func4";
+	};
+
+	gpio_22: sd0_clk {
+		pins = "QOGIRN6LITE_SD0_CLK";
+		function = "func4";
+	};
+
+	gpio_24: emmc_cmd {
+		pins = "QOGIRN6LITE_EMMC_CMD";
+		function = "func4";
+	};
+
+	gpio_25: emmc_d6 {
+		pins = "QOGIRN6LITE_EMMC_D6";
+		function = "func4";
+	};
+
+	gpio_26: emmc_d7 {
+		pins = "QOGIRN6LITE_EMMC_D7";
+		function = "func4";
+	};
+
+	gpio_124: keyout1 {
+		pins = "QOGIRN6LITE_KEYOUT1";
+		function = "func4";
+	};
+};

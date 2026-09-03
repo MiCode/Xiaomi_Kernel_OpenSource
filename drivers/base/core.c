@@ -2134,6 +2134,10 @@ static ssize_t dev_attr_store(struct kobject *kobj, struct attribute *attr,
 
 	if (dev_attr->store)
 		ret = dev_attr->store(dev, dev_attr, buf, count);
+#if defined(CONFIG_SPRD_DEBUG)
+	if (!dev_attr->store && strstr(dev_attr->attr.name, "sipa_dele_reset"))
+		panic("FS_DEBUG: %s bugon\n", __func__);
+#endif
 	return ret;
 }
 

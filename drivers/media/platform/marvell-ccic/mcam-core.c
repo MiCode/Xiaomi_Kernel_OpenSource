@@ -935,12 +935,7 @@ static int mclk_enable(struct clk_hw *hw)
 	ret = pm_runtime_resume_and_get(cam->dev);
 	if (ret < 0)
 		return ret;
-	ret = clk_enable(cam->clk[0]);
-	if (ret) {
-		pm_runtime_put(cam->dev);
-		return ret;
-	}
-
+	clk_enable(cam->clk[0]);
 	mcam_reg_write(cam, REG_CLKCTRL, (mclk_src << 29) | mclk_div);
 	mcam_ctlr_power_up(cam);
 

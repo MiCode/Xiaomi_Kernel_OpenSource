@@ -1,0 +1,47 @@
+config SPRD_HANG_DEBUG
+	bool "Enable SPRD hang debug feature"
+	default n
+	help
+	  This option enables SPRD hang debug feature which dump and
+	  print debug info when kernel panics.
+
+config SPRD_APHANG
+	tristate "Enable SPRD hang debug wdf wdh feature"
+	depends on SPRD_HANG_DEBUG
+	help
+	  This option combines two ko, wdh and wdf,
+	  in order to reduce the number of ko and
+	  ensures that the original function
+	  is not lost.
+
+config SPRD_HANG_RESET
+	bool "trigger cm4 handling ap watchdog reset"
+	depends on SPRD_APHANG
+	default y
+
+config SPRD_HANG_TRIGGER
+	bool "supply a driver for trigger AP cpu hang"
+	depends on SPRD_HANG_DEBUG
+	help
+	  This option triggers SPRD cpu hang.
+
+config SPRD_WDF_FEED_TIME_MS
+	int "modify feed watchdog time ms"
+	depends on SPRD_HANG_DEBUG
+	default 8000
+	help
+	  This option enables modify feed watchdog interval config.
+
+config SPRD_WDT_TIMEOUT_MS
+	int "modify watchdog timeout ms"
+	depends on SPRD_HANG_DEBUG
+	default 40000
+	help
+	  This option enables modify watchdog timeout.
+
+config SPRD_WDT_PRETIMEOUT_MS
+	int "modify pertimeout ms"
+	depends on SPRD_HANG_DEBUG
+	default 20000
+	help
+	  This option enables modify watchdog pretimeout.

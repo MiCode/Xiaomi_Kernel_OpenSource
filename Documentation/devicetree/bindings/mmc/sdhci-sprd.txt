@@ -7,7 +7,7 @@ This file documents differences between the core properties in mmc.txt
 and the properties used by the sdhci-sprd driver.
 
 Required properties:
-- compatible: Should contain "sprd,sdhci-r11".
+- compatible: Should contain "sprd,sdhci-r10" or "sprd,sdhci-r11".
 - reg: physical base address of the controller and length.
 - interrupts: Interrupts used by the SDHCI controller.
 - clocks: Should contain phandle for the clock feeding the SDHCI controller

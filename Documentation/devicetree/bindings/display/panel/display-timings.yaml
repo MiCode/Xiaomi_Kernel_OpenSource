@@ -31,7 +31,8 @@ properties:
 patternProperties:
   "^timing":
     type: object
-    $ref: panel-timing.yaml#
+    allOf:
+      - $ref: panel-timing.yaml#
 
 additionalProperties: false
 

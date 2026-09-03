@@ -150,7 +150,6 @@
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
   bmap
-  bpf_redirect_info
   bpf_trace_run10
   bpf_trace_run11
   bpf_trace_run12
@@ -1387,7 +1386,6 @@
   nvmem_device_read
   nvmem_device_write
   of_address_to_resource
-  of_alias_get_highest_id
   of_alias_get_id
   of_clk_add_hw_provider
   of_clk_add_provider
@@ -2684,20 +2682,14 @@
   __v4l2_ctrl_modify_range
   __v4l2_ctrl_s_ctrl
   __v4l2_device_register_subdev_nodes
-  __v4l2_ctrl_handler_setup
   v4l2_event_dequeue
   v4l2_event_pending
   v4l2_fh_release
-  v4l2_get_link_freq
-  v4l2_pipeline_pm_get
-  v4l2_pipeline_pm_put
   v4l2_s_ctrl
   v4l2_subdev_call_wrappers
-  v4l2_i2c_subdev_set_name
   vabits_actual
   vb2_create_bufs
   vb2_prepare_buf
-  vb2_video_unregister_device
   vchan_dma_desc_free_list
   vchan_find_desc
   vchan_init

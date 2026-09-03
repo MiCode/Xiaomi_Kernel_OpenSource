@@ -2300,6 +2300,7 @@ struct rtl_hal_ops {
 			  u32 regaddr, u32 bitmask, u32 data);
 	void (*linked_set_reg)(struct ieee80211_hw *hw);
 	void (*chk_switch_dmdp)(struct ieee80211_hw *hw);
+	void (*dualmac_easy_concurrent)(struct ieee80211_hw *hw);
 	void (*dualmac_switch_to_dmdp)(struct ieee80211_hw *hw);
 	bool (*phy_rf6052_config)(struct ieee80211_hw *hw);
 	void (*phy_rf6052_set_cck_txpower)(struct ieee80211_hw *hw,
@@ -2335,6 +2336,8 @@ struct rtl_intf_ops {
 	void (*read_efuse_byte)(struct ieee80211_hw *hw, u16 _offset, u8 *pbuf);
 	int (*adapter_start)(struct ieee80211_hw *hw);
 	void (*adapter_stop)(struct ieee80211_hw *hw);
+	bool (*check_buddy_priv)(struct ieee80211_hw *hw,
+				 struct rtl_priv **buddy_priv);
 
 	int (*adapter_tx)(struct ieee80211_hw *hw,
 			  struct ieee80211_sta *sta,
@@ -2462,6 +2465,7 @@ struct rtl_works {
 
 	/*timer */
 	struct timer_list watchdog_timer;
+	struct timer_list dualmac_easyconcurrent_retrytimer;
 	struct timer_list fw_clockoff_timer;
 	struct timer_list fast_antenna_training_timer;
 	/*task */
@@ -2493,6 +2497,14 @@ struct rtl_debug {
 #define MIMO_PS_STATIC			0
 #define MIMO_PS_DYNAMIC			1
 #define MIMO_PS_NOLIMIT			3
+
+struct rtl_dualmac_easy_concurrent_ctl {
+	enum band_type currentbandtype_backfordmdp;
+	bool close_bbandrf_for_dmsp;
+	bool change_to_dmdp;
+	bool change_to_dmsp;
+	bool switch_in_process;
+};
 
 struct rtl_dmsp_ctl {
 	bool activescan_for_slaveofdmsp;
@@ -2576,6 +2588,14 @@ struct dig_t {
 
 	u32 antdiv_rssi_max;
 	u32 rssi_max;
+};
+
+struct rtl_global_var {
+	/* from this list we can get
+	 * other adapter's rtl_priv
+	 */
+	struct list_head glb_priv_list;
+	spinlock_t glb_list_lock;
 };
 
 #define IN_4WAY_TIMEOUT_TIME	(30 * MSEC_PER_SEC)	/* 30 seconds */
@@ -2723,7 +2743,10 @@ struct rtl_scan_list {
 struct rtl_priv {
 	struct ieee80211_hw *hw;
 	struct completion firmware_loading_complete;
+	struct list_head list;
 	struct rtl_priv *buddy_priv;
+	struct rtl_global_var *glb_var;
+	struct rtl_dualmac_easy_concurrent_ctl easy_concurrent_ctl;
 	struct rtl_dmsp_ctl dmsp_ctl;
 	struct rtl_locks locks;
 	struct rtl_works works;

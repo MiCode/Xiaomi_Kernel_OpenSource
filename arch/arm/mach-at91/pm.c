@@ -350,12 +350,11 @@ extern u32 at91_pm_suspend_in_sram_sz;
 
 static int at91_suspend_finish(unsigned long val)
 {
-	/* SYNOPSYS workaround to fix a bug in the calibration logic */
-	unsigned char modified_fix_code[] = {
-		0x00, 0x01, 0x01, 0x06, 0x07, 0x0c, 0x06, 0x07, 0x0b, 0x18,
-		0x0a, 0x0b, 0x0c, 0x0d, 0x0d, 0x0a, 0x13, 0x13, 0x12, 0x13,
-		0x14, 0x15, 0x15, 0x12, 0x18, 0x19, 0x19, 0x1e, 0x1f, 0x14,
-		0x1e, 0x1f,
+	unsigned char modified_gray_code[] = {
+		0x00, 0x01, 0x02, 0x03, 0x06, 0x07, 0x04, 0x05, 0x0c, 0x0d,
+		0x0e, 0x0f, 0x0a, 0x0b, 0x08, 0x09, 0x18, 0x19, 0x1a, 0x1b,
+		0x1e, 0x1f, 0x1c, 0x1d, 0x14, 0x15, 0x16, 0x17, 0x12, 0x13,
+		0x10, 0x11,
 	};
 	unsigned int tmp, index;
 	int i;
@@ -366,25 +365,25 @@ static int at91_suspend_finish(unsigned long val)
 		 * restore the ZQ0SR0 with the value saved here. But the
 		 * calibration is buggy and restoring some values from ZQ0SR0
 		 * is forbidden and risky thus we need to provide processed
-		 * values for these.
+		 * values for these (modified gray code values).
 		 */
 		tmp = readl(soc_pm.data.ramc_phy + DDR3PHY_ZQ0SR0);
 
 		/* Store pull-down output impedance select. */
 		index = (tmp >> DDR3PHY_ZQ0SR0_PDO_OFF) & 0x1f;
-		soc_pm.bu->ddr_phy_calibration[0] = modified_fix_code[index] << DDR3PHY_ZQ0SR0_PDO_OFF;
+		soc_pm.bu->ddr_phy_calibration[0] = modified_gray_code[index];
 
 		/* Store pull-up output impedance select. */
 		index = (tmp >> DDR3PHY_ZQ0SR0_PUO_OFF) & 0x1f;
-		soc_pm.bu->ddr_phy_calibration[0] |= modified_fix_code[index] << DDR3PHY_ZQ0SR0_PUO_OFF;
+		soc_pm.bu->ddr_phy_calibration[0] |= modified_gray_code[index];
 
 		/* Store pull-down on-die termination impedance select. */
 		index = (tmp >> DDR3PHY_ZQ0SR0_PDODT_OFF) & 0x1f;
-		soc_pm.bu->ddr_phy_calibration[0] |= modified_fix_code[index] << DDR3PHY_ZQ0SR0_PDODT_OFF;
+		soc_pm.bu->ddr_phy_calibration[0] |= modified_gray_code[index];
 
 		/* Store pull-up on-die termination impedance select. */
 		index = (tmp >> DDR3PHY_ZQ0SRO_PUODT_OFF) & 0x1f;
-		soc_pm.bu->ddr_phy_calibration[0] |= modified_fix_code[index] << DDR3PHY_ZQ0SRO_PUODT_OFF;
+		soc_pm.bu->ddr_phy_calibration[0] |= modified_gray_code[index];
 
 		/*
 		 * The 1st 8 words of memory might get corrupted in the process
@@ -404,21 +403,7 @@ static int at91_suspend_finish(unsigned long val)
 	return 0;
 }
 
-/**
- * at91_pm_switch_ba_to_auto() - Configure Backup Unit Power Switch
- * to automatic/hardware mode.
- *
- * The Backup Unit Power Switch can be managed either by software or hardware.
- * Enabling hardware mode allows the automatic transition of power between
- * VDDANA (or VDDIN33) and VDDBU (or VBAT, respectively), based on the
- * availability of these power sources.
- *
- * If the Backup Unit Power Switch is already in automatic mode, no action is
- * required. If it is in software-controlled mode, it is switched to automatic
- * mode to enhance safety and eliminate the need for toggling between power
- * sources.
- */
-static void at91_pm_switch_ba_to_auto(void)
+static void at91_pm_switch_ba_to_vbat(void)
 {
 	unsigned int offset = offsetof(struct at91_pm_sfrbu_regs, pswbu);
 	unsigned int val;
@@ -429,19 +414,24 @@ static void at91_pm_switch_ba_to_auto(void)
 
 	val = readl(soc_pm.data.sfrbu + offset);
 
-	/* Already on auto/hardware. */
-	if (!(val & soc_pm.sfrbu_regs.pswbu.ctrl))
+	/* Already on VBAT. */
+	if (!(val & soc_pm.sfrbu_regs.pswbu.state))
 		return;
 
-	val &= ~soc_pm.sfrbu_regs.pswbu.ctrl;
-	val |= soc_pm.sfrbu_regs.pswbu.key;
+	val &= ~soc_pm.sfrbu_regs.pswbu.softsw;
+	val |= soc_pm.sfrbu_regs.pswbu.key | soc_pm.sfrbu_regs.pswbu.ctrl;
 	writel(val, soc_pm.data.sfrbu + offset);
+
+	/* Wait for update. */
+	val = readl(soc_pm.data.sfrbu + offset);
+	while (val & soc_pm.sfrbu_regs.pswbu.state)
+		val = readl(soc_pm.data.sfrbu + offset);
 }
 
 static void at91_pm_suspend(suspend_state_t state)
 {
 	if (soc_pm.data.mode == AT91_PM_BACKUP) {
-		at91_pm_switch_ba_to_auto();
+		at91_pm_switch_ba_to_vbat();
 
 		cpu_suspend(0, at91_suspend_finish);
 

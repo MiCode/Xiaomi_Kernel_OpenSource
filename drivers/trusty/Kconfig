@@ -1,0 +1,58 @@
+#
+# Trusty
+#
+
+menu "Trusty"
+
+config TRUSTY
+	tristate "Trusty"
+	default n
+        help
+           This module adds support for trusty device node creat irq ,
+           log ,dynamic TA function depends on this module
+           If you don't need trusty function ,you should close
+           this module
+
+
+config TRUSTY_LOG
+	tristate
+	depends on TRUSTY
+	default m
+
+config TRUSTY_VIRTIO
+	tristate "Trusty virtio support"
+	depends on TRUSTY
+	select VIRTIO
+	default m
+
+config TRUSTY_VIRTIO_IPC
+	tristate "Trusty Virtio IPC driver"
+	depends on TRUSTY_VIRTIO
+	default m
+	help
+	  This module adds support for communications with Trusty Services
+
+	  If you choose to build a module, it'll be called trusty-ipc.
+	  Say N if unsure.
+
+config SPRD_TSHM
+	tristate "Spreadtrum TSHM driver"
+	depends on TRUSTY
+	default n
+	help
+	  This provides a simple method to allocate physical share memory
+	  in user space.
+	  Say N here if you are unsure about need this.
+	  Otherwise say Y to select.
+
+config TRUSTY_TUI
+	tristate "Trusty TUI driver"
+	depends on TRUSTY
+	default m
+	help
+	  This module provides a trusty tui driver, used to deal with
+	  conficts of ree tp/display access.
+	  If you choose to build a module, it'll be called trusty-tui.
+	  Say N if no TUI feature.
+
+endmenu

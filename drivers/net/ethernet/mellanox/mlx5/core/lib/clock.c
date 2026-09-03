@@ -177,16 +177,17 @@ static void mlx5_pps_out(struct work_struct *work)
 	}
 }
 
-static long mlx5_timestamp_overflow(struct ptp_clock_info *ptp_info)
+static void mlx5_timestamp_overflow(struct work_struct *work)
 {
+	struct delayed_work *dwork = to_delayed_work(work);
 	struct mlx5_core_dev *mdev;
 	struct mlx5_timer *timer;
 	struct mlx5_clock *clock;
 	unsigned long flags;
 
-	clock = container_of(ptp_info, struct mlx5_clock, ptp_info);
+	timer = container_of(dwork, struct mlx5_timer, overflow_work);
+	clock = container_of(timer, struct mlx5_clock, timer);
 	mdev = container_of(clock, struct mlx5_core_dev, clock);
-	timer = &clock->timer;
 
 	if (mdev->state == MLX5_DEVICE_STATE_INTERNAL_ERROR)
 		goto out;
@@ -197,7 +198,7 @@ static long mlx5_timestamp_overflow(struct ptp_clock_info *ptp_info)
 	write_sequnlock_irqrestore(&clock->lock, flags);
 
 out:
-	return timer->overflow_period;
+	schedule_delayed_work(&timer->overflow_work, timer->overflow_period);
 }
 
 static int mlx5_ptp_settime_real_time(struct mlx5_core_dev *mdev,
@@ -365,7 +366,6 @@ static int mlx5_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
 				       timer->nominal_c_mult + diff;
 	mlx5_update_clock_info_page(mdev);
 	write_sequnlock_irqrestore(&clock->lock, flags);
-	ptp_schedule_worker(clock->ptp, timer->overflow_period);
 
 	return 0;
 }
@@ -616,7 +616,6 @@ static const struct ptp_clock_info mlx5_ptp_clock_info = {
 	.settime64	= mlx5_ptp_settime,
 	.enable		= NULL,
 	.verify		= NULL,
-	.do_aux_work	= mlx5_timestamp_overflow,
 };
 
 static int mlx5_query_mtpps_pin_mode(struct mlx5_core_dev *mdev, u8 pin,
@@ -810,11 +809,12 @@ static void mlx5_init_overflow_period(struct mlx5_clock *clock)
 	do_div(ns, NSEC_PER_SEC / HZ);
 	timer->overflow_period = ns;
 
-	if (!timer->overflow_period) {
-		timer->overflow_period = HZ;
+	INIT_DELAYED_WORK(&timer->overflow_work, mlx5_timestamp_overflow);
+	if (timer->overflow_period)
+		schedule_delayed_work(&timer->overflow_work, 0);
+	else
 		mlx5_core_warn(mdev,
-			       "invalid overflow period, overflow_work is scheduled once per second\n");
-	}
+			       "invalid overflow period, overflow_work is not scheduled\n");
 
 	if (clock_info)
 		clock_info->overflow_period = timer->overflow_period;
@@ -900,9 +900,6 @@ void mlx5_init_clock(struct mlx5_core_dev *mdev)
 
 	MLX5_NB_INIT(&clock->pps_nb, mlx5_pps_event, PPS_EVENT);
 	mlx5_eq_notifier_register(mdev, &clock->pps_nb);
-
-	if (clock->ptp)
-		ptp_schedule_worker(clock->ptp, 0);
 }
 
 void mlx5_cleanup_clock(struct mlx5_core_dev *mdev)
@@ -919,6 +916,7 @@ void mlx5_cleanup_clock(struct mlx5_core_dev *mdev)
 	}
 
 	cancel_work_sync(&clock->pps_info.out_work);
+	cancel_delayed_work_sync(&clock->timer.overflow_work);
 
 	if (mdev->clock_info) {
 		free_page((unsigned long)mdev->clock_info);

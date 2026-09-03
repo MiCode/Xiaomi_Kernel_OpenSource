@@ -1,0 +1,291 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc THERMAL dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+#include <dt-bindings/thermal/thermal.h>
+
+&aon {
+  ap_thm0: thermal@270000 {
+	  compatible = "sprd,thermal_r5p0";
+	  reg = <0x270000 0x10000>;
+	  clock-names = "enable";
+	  clocks = <&aonapb_gate CLK_THM0_EB>;
+	  #thermal-sensor-cells = <1>;
+	  nvmem-cells = <&thm0_ratio>;
+	  nvmem-cell-names = "thm_ratio_cal";
+	  #address-cells = <1>;
+	  #size-cells = <0>;
+
+	  sensor@0 {
+		  reg = <0>;
+		  nvmem-cells = <&thm0_sen0>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@1 {
+		  reg = <1>;
+		  nvmem-cells = <&thm0_sen1>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+  };
+
+  ap_thm1: thermal@280000 {
+	  compatible = "sprd,thermal_r5p0";
+	  reg = <0x280000 0x10000>;
+	  clock-names = "enable";
+	  clocks = <&aonapb_gate CLK_THM1_EB>;
+	  #thermal-sensor-cells = <1>;
+	  nvmem-cells = <&thm1_ratio>;
+	  nvmem-cell-names = "thm_ratio_cal";
+	  #address-cells = <1>;
+	  #size-cells = <0>;
+
+	  sensor@0 {
+		  reg = <0>;
+		  nvmem-cells = <&thm1_sen0>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@1 {
+		  reg = <1>;
+		  nvmem-cells = <&thm1_sen1>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@2 {
+		  reg = <2>;
+		  nvmem-cells = <&thm1_sen2>;
+		  nvmem-cell-names = "sen_delta_cal";
+	   };
+
+	  sensor@3 {
+		  reg = <3>;
+		  nvmem-cells = <&thm1_sen3>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+  };
+
+  ap_thm2: thermal@290000 {
+	  compatible = "sprd,thermal_r5p0";
+	  reg = <0x290000 0x10000>;
+	  clock-names = "enable";
+	  clocks = <&aonapb_gate CLK_THM2_EB>;
+	  #thermal-sensor-cells = <1>;
+	  nvmem-cells = <&thm2_ratio>;
+	  nvmem-cell-names = "thm_ratio_cal";
+	  #address-cells = <1>;
+	  #size-cells = <0>;
+
+	  sensor@0 {
+		  reg = <0>;
+		  nvmem-cells = <&thm2_sen0>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@1 {
+		  reg = <1>;
+		  nvmem-cells = <&thm2_sen1>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@2 {
+		  reg = <2>;
+		  nvmem-cells = <&thm2_sen2>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@3 {
+		  reg = <3>;
+		  nvmem-cells = <&thm2_sen3>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@4 {
+		  reg = <4>;
+		  nvmem-cells = <&thm2_sen4>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@5 {
+		  reg = <5>;
+		  nvmem-cells = <&thm2_sen5>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@6 {
+		  reg = <6>;
+		  nvmem-cells = <&thm2_sen6>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+  };
+
+  ap_thm3: thermal@2A0000 {
+	  compatible = "sprd,thermal_r5p0";
+	  reg = <0x2A0000 0x10000>;
+	  clock-names = "enable";
+	  clocks = <&aonapb_gate CLK_THM3_EB>;
+	  #thermal-sensor-cells = <1>;
+	  nvmem-cells = <&thm3_ratio>;
+	  nvmem-cell-names = "thm_ratio_cal";
+	  #address-cells = <1>;
+	  #size-cells = <0>;
+
+	  sensor@0 {
+		  reg = <0>;
+		  nvmem-cells = <&thm3_sen0>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@1 {
+		  reg = <1>;
+		  nvmem-cells = <&thm3_sen1>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@2 {
+		  reg = <2>;
+		  nvmem-cells = <&thm3_sen2>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@3 {
+		  reg = <3>;
+		  nvmem-cells = <&thm3_sen3>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@4 {
+		  reg = <4>;
+		  nvmem-cells = <&thm3_sen4>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+
+	  sensor@5 {
+		  reg = <5>;
+		  nvmem-cells = <&thm3_sen5>;
+		  nvmem-cell-names = "sen_delta_cal";
+	  };
+	};
+};
+
+/ {
+  thm_zone: thermal-zones {
+	  big7mid4_thmzone: big7mid4-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm0 0>;
+	  };
+
+          big7_thmzone: big7-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm0 1>;
+	   };
+
+	  mid5mid6_thmzone: mid5mid6-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm1 0>;
+	  };
+
+	  mid4_thmzone: mid4-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm1 1>;
+	  };
+
+	  mid5_thmzone: mid5-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm1 2>;
+	  };
+
+	  mid6_thmzone: mid6-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm1 3>;
+	  };
+
+	  apcpu0_thmzone: apcpu0-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 0>;
+          };
+
+	  lit0_thmzone: lit0-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 1>;
+	   };
+
+          lit1_thmzone: lit1-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 2>;
+	   };
+
+	  lit2_thmzone: lit2-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 3>;
+	  };
+
+	  lit3_thmzone: lit3-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 4>;
+	   };
+
+	  gpu_thmzone: gpu-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 5>;
+	  };
+
+	  apcpu1_thmzone: apcpu1-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm2 6>;
+	   };
+
+	  ai0_thmzone: ai0-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm3 0>;
+	  };
+
+	  ai1_thmzone: ai1-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm3 1>;
+	  };
+
+	  mm_thmzone: mm-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm3 2>;
+	  };
+
+	  lte_thmzone: lte-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm3 3>;
+	  };
+
+	  nr0_thmzone: nr0-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm3 4>;
+	  };
+
+	  nr1_thmzone: nr1-thmzone {
+		  polling-delay-passive = <0>;
+		  polling-delay = <0>;
+		  thermal-sensors = <&ap_thm3 5>;
+	  };
+	};
+};

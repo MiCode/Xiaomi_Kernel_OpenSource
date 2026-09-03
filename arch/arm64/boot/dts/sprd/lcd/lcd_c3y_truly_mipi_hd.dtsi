@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc c3y Truly LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				lcd_c3y_truly_mipi_hd: lcd_c3y_truly_mipi_hd {
+
+					sprd,dsi-work-mode = <1>; /* video burst mode*/
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+					sprd,vrr-enabled;
+
+					sprd,phy-bit-clock = <1105000>;/* kbps */
+					sprd,phy-escape-clock = <20000>;/* kHz */
+
+					sprd,width-mm = <68>;
+					sprd,height-mm = <121>;
+
+					sprd,esd-check-enable = <0>;
+					sprd,esd-check-mode = <1>;
+
+					sprd,reset-on-sequence = <1 5>, <0 5>, <1 20>;
+					sprd,reset-off-sequence = <1 5>;
+
+					sprd,initial-command = [
+						23 01 00 02 FF 27
+						23 00 00 02 FB 01
+						23 00 00 02 78 00
+						23 00 00 02 B4 00
+						23 01 00 02 FF 23
+						23 00 00 02 FB 01
+						23 00 00 02 00 60 //11bit
+						23 00 00 02 07 00
+						23 00 00 02 08 01
+						23 00 00 02 09 AE
+						//ERR-FLAG FTE Normal : High Abnormal : Low
+						23 00 00 02 FF 27
+						23 00 00 02 FB 01
+						23 00 00 02 D0 31
+						23 00 00 02 D1 28
+						23 00 00 02 D2 30
+						23 00 00 02 D4 08
+						23 00 00 02 DE 43
+						23 00 00 02 DF 02
+						//Fix eye protection mode flash screen
+						23 00 00 02 FF 2A
+						23 00 00 02 FB 01
+						//BIST_VFP
+						23 00 00 02 27 00
+						23 00 00 02 28 0A
+						23 00 00 02 2B 00
+						23 00 00 02 2D 0A
+
+						23 00 00 02 AE B2
+						23 00 00 02 B0 86
+						23 00 00 02 B1 9D
+						23 00 00 02 B3 66
+
+						23 00 00 02 FF 24
+						23 00 00 02 FB 01
+						//VFP
+						39 00 00 03 93 0A 00
+						//VBP
+						23 00 00 02 94 FF
+
+						23 00 00 02 FF 25
+						23 00 00 02 FB 01
+						//VDO_trim
+						23 00 00 02 14 86
+
+						23 00 00 02 FF 27
+						23 00 00 02 FB 01
+						//TP sync signal_startend
+						23 00 00 02 58 A4
+						39 00 00 03 59 00 0A
+						39 00 00 03 5A 01 24
+
+						23 01 00 02 FF 10
+						23 00 00 02 FB 01
+						23 00 00 02 53 2C
+						39 00 00 03 68 02 01
+						23 00 00 02 55 00
+
+						23 78 00 02 11 00
+						//Sleep_out
+						23 14 00 02 29 00
+						];
+					sprd,sleep-in-command = [
+						05 0a 00 01 28
+						05 64 00 01 10
+						];
+					sprd,sleep-out-command = [
+						13 78 00 01 11
+						13 32 00 01 29
+						];
+
+					display-timings {
+						native-mode = <&c3y_truly_timing0>;
+
+						c3y_truly_timing0: timing0 {
+							clock-frequency = <153600000>;
+							hactive = <720>;
+							vactive = <1650>;
+							hback-porch = <80>;
+							hfront-porch = <70>;
+							vback-porch = <292>;
+							vfront-porch = <10>;
+							hsync-len = <4>;
+							vsync-len = <2>;
+						};
+						c3y_truly_timing1: timing1 {
+							clock-frequency = <153600000>;
+							hactive = <720>;
+							vactive = <1650>;
+							hback-porch = <80>;
+							hfront-porch = <60>;
+							vback-porch = <292>;
+							vfront-porch = <987>;
+							hsync-len = <10>;
+							vsync-len = <2>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
+

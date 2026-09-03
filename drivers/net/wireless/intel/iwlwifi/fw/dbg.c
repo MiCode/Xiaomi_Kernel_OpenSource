@@ -558,71 +558,41 @@ static void iwl_dump_prph(struct iwl_fw_runtime *fwrt,
 }
 
 /*
- * alloc_sgtable - allocates (chained) scatterlist in the given size,
- *	fills it with pages and returns it
+ * alloc_sgtable - allocates scallerlist table in the given size,
+ * fills it with pages and returns it
  * @size: the size (in bytes) of the table
- */
-static struct scatterlist *alloc_sgtable(ssize_t size)
+*/
+static struct scatterlist *alloc_sgtable(int size)
 {
-	struct scatterlist *result = NULL, *prev;
-	int nents, i, n_prev;
+	int alloc_size, nents, i;
+	struct page *new_page;
+	struct scatterlist *iter;
+	struct scatterlist *table;
 
 	nents = DIV_ROUND_UP(size, PAGE_SIZE);
-
-#define N_ENTRIES_PER_PAGE (PAGE_SIZE / sizeof(*result))
-	/*
-	 * We need an additional entry for table chaining,
-	 * this ensures the loop can finish i.e. we can
-	 * fit at least two entries per page (obviously,
-	 * many more really fit.)
-	 */
-	BUILD_BUG_ON(N_ENTRIES_PER_PAGE < 2);
-
-	while (nents > 0) {
-		struct scatterlist *new, *iter;
-		int n_fill, n_alloc;
-
-		if (nents <= N_ENTRIES_PER_PAGE) {
-			/* last needed table */
-			n_fill = nents;
-			n_alloc = nents;
-			nents = 0;
-		} else {
-			/* fill a page with entries */
-			n_alloc = N_ENTRIES_PER_PAGE;
-			/* reserve one for chaining */
-			n_fill = n_alloc - 1;
-			nents -= n_fill;
-		}
-
-		new = kcalloc(n_alloc, sizeof(*new), GFP_KERNEL);
-		if (!new) {
-			if (result)
-				_devcd_free_sgtable(result);
+	table = kcalloc(nents, sizeof(*table), GFP_KERNEL);
+	if (!table)
+		return NULL;
+	sg_init_table(table, nents);
+	iter = table;
+	for_each_sg(table, iter, sg_nents(table), i) {
+		new_page = alloc_page(GFP_KERNEL);
+		if (!new_page) {
+			/* release all previous allocated pages in the table */
+			iter = table;
+			for_each_sg(table, iter, sg_nents(table), i) {
+				new_page = sg_page(iter);
+				if (new_page)
+					__free_page(new_page);
+			}
+			kfree(table);
 			return NULL;
 		}
-		sg_init_table(new, n_alloc);
-
-		if (!result)
-			result = new;
-		else
-			sg_chain(prev, n_prev, new);
-		prev = new;
-		n_prev = n_alloc;
-
-		for_each_sg(new, iter, n_fill, i) {
-			struct page *new_page = alloc_page(GFP_KERNEL);
-
-			if (!new_page) {
-				_devcd_free_sgtable(result);
-				return NULL;
-			}
-
-			sg_set_page(iter, new_page, PAGE_SIZE, 0);
-		}
+		alloc_size = min_t(int, size, PAGE_SIZE);
+		size -= PAGE_SIZE;
+		sg_set_page(iter, new_page, alloc_size, 0);
 	}
-
-	return result;
+	return table;
 }
 
 static void iwl_fw_get_prph_len(struct iwl_fw_runtime *fwrt,
@@ -2561,7 +2531,6 @@ int iwl_fw_dbg_collect(struct iwl_fw_runtime *fwrt,
 	struct iwl_fw_dump_desc *desc;
 	unsigned int delay = 0;
 	bool monitor_only = false;
-	int ret;
 
 	if (trigger) {
 		u16 occurrences = le16_to_cpu(trigger->occurrences) - 1;
@@ -2592,11 +2561,7 @@ int iwl_fw_dbg_collect(struct iwl_fw_runtime *fwrt,
 	desc->trig_desc.type = cpu_to_le32(trig);
 	memcpy(desc->trig_desc.data, str, len);
 
-	ret = iwl_fw_dbg_collect_desc(fwrt, desc, monitor_only, delay);
-	if (ret)
-		kfree(desc);
-
-	return ret;
+	return iwl_fw_dbg_collect_desc(fwrt, desc, monitor_only, delay);
 }
 IWL_EXPORT_SYMBOL(iwl_fw_dbg_collect);
 

@@ -65,3 +65,7 @@ config REGMAP_I3C
 config REGMAP_SPI_AVMM
 	tristate
 	depends on SPI
+
+config REGMAP_HOOK
+	tristate "Unisoc regmap hook"
+	depends on REGMAP_MMIO

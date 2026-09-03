@@ -1,0 +1,21 @@
+menu "SLA modules"
+
+config SPRD_SLA_SUPPORT
+	tristate "Smartlink Aggregation (SLA) Technology"
+	default n
+	help
+		Choosing this option will include conntrack support in the image.
+		This will enable sla from conntrack.
+		Include api for net drivers.
+		Support sla.
+
+config SPRD_SLA_GCOV
+	bool "open gcov for Smartlink Aggregation (SLA) Technology"
+	depends on GCOV_PROFILE_MODULES
+	help
+		This will enable gcov.
+		Based on Smartlink Aggregation (SLA) Technology.
+		Say y in configs.
+		Perform statistics on the entire directory.
+
+endmenu

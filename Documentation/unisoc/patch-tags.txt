@@ -1,0 +1,246 @@
+所有提交到gerrit的patch均需在commit message的标题中，标注patch的类别。
+类标标识通过以下由冒号分隔的一系列tag构成。一组tag只能用来提交该tag相关的代码，不能跨tag提交。
+
+标题示例如下：
+Bug<空格>#"bug_id"<空格>[attributetag:<空格>]"subsystem-tag":<空格>"module-tag":<空格>"summary title"
+
+例如：Bug #336699 clk: sprd: Add ums512 clock driver
+     Bug #112233 FROMGIT: BACKPORT: net: Fix ipv6 package control errors
+
+    |bug_id为合法的Bug号，系统会根据Bug级别排列Review优先级
+    |summary phase用命令句式
+    |标题不能折行，结尾无句号
+    |每个patch至少有一个tag，最多有两个attribute tag和三个subsystem/module tags
+    |attribute tag为全大写，subsystem tag为全小写(Documentation除外)
+    |每个tag后面带一个英文的冒号(":")，用一个空格和后面内容分开
+    |tag必须在对应的tag范围内，超过范围的tag不允许使用
+
+    attribute tag范围及描述：
+        ANDROID: 解决公共代码中Android特有问题(无法upstream)。必须有Google Issue Number，一般可免于Review，直接+2。
+        UPGRADE: 来自其他分支merged的提交。必须注明出处，一般可免于Review，直接+2。
+        CVE: 安全patch（特指Kernel CVE修复）。
+        FROMLIST: 来自社区邮件列表，但还未合入，或被拒绝。必须注明出处，一般可免于Review，直接+2。
+        UPSTREAM: 来自linux mainline分支。必须注明commit id，一般可免于Review，直接+2。
+        BACKPORT: 带UPSTREAM标签需要修改才能合入，需用BACKPORT代替UPSTREAM；带FROMGIT、FROMLIST需要修改才能合入，
+                  就在对应标签前面加上"BACKPORT:"。
+        FROMGIT: 来自非linux mainline的其他仓库。必须注明commit id，如无commit id注明出处，一般可免于Review，直接+2。
+        REVERT: 需要回退的patch。必须填写回退patch的commit id。
+        PRIVATE: /*表示经开源委员会审定无需upstream。*/ 本仓库为开源仓库，此条与开源合规冲突，故予以废止。
+        WORKAROUND: 临时性合入，针对某些极端问题（多是硬件BUG）的特殊解决方法。代码量一般不多。可调低代码审查标准。
+        DIRTY: 一般为对公共代码的修改，且不具备Upstream资质。比如调试性代码、内部功能等。可调低代码审查标准。
+        TEST: 测试case相关代码。
+
+自动检查脚本对属性标签检查执行如下规则：
+    [ANDROID:FROMLIST]:不检查commit id，不检查subsystem tag
+    [UPSTREAM:REVERT]:检查commit id，不检subsystem tag
+    [PRIVATE:TEST]:不检查commit id，检查subsystem tag
+不带属性标签,检查subsystem tag。
+所有标签必须和标签范围内容一致，大小写敏感。
+
+subsystem tag和修改文件的检查规则：
+    |subsystem tag必须至少在一个修改文件的路径上
+    |dts、Documentation作为标签或在修改文件路径上时，subsystem tag必须在每一个修改文件的路径上
+    |不检查subsystem tag的属性标签，不做此检查
+    |只有一级标签能带*，带*的一级标签在只检查一级标签，忽略其他标签的修改文件和标签一致的检查
+
+可用Subsystem/module tag范围列表：（可通过提交patch增删）
+[info]
+ANDROID,UPGRADE,CVE,FROMLIST,UPSTREAM,BACKPORT,FROMGIT,REVERT,WORKAROUND,DIRTY,TEST
+
+arm64:configs:
+arm64:dts:
+arm64:topology:
+arm/arm64:configs:
+arm/arm64:dts:
+arm/arm64:topology:
+arm:configs:
+arm:dts:
+arm:topology:
+arm:
+asoc:sprd:
+asoc:sprd:codec:
+asoc:sprd:dai:
+asoc:sprd:include:
+asoc:sprd:platform:
+asoc:usb:
+
+base:
+block:
+block:zram:
+build.config:
+
+char:hw_random:
+clk:sprd:
+clocksource:sprd:
+coresight:
+cpufreq:
+cpufreq:sprd:
+cpuhotplug:sprd:
+cpuidle:
+crypto:
+
+devfreq:
+devfreq:sprd:
+devicetree:bindings:*
+dmaengine:sprd:
+dma-buf:
+dma:
+Documentation:
+Documentation:unisoc:
+Documentation:dt-bindings:
+drm:sprd:
+drm:sprd:cabc:
+drm:sprd:dphy:
+drm:sprd:dpu:
+drm:sprd:dsi:
+drm:sprd:dummy:
+drm:sprd:gsp:
+drm:sprd:sysfs:
+drm:panfrost:
+drivers:android:
+dt-bindings:*
+
+extcon:
+
+firmware:psci:
+firmware:sprd:
+firmware:
+fs:
+fs:erofs
+fs:ext4
+fs:f2fs:
+fs:proc:
+fs:sdcardfs:
+
+gpio:sprd:
+
+hwspinlock:sprd:
+hwtracing:stm:
+
+i2c:sprd:
+iio:adc:
+iio:sprd:
+iio:sprd_hub:
+include:*
+include:dt-bindings:
+input:keyboard:
+input:sprd:
+input:touchscreen:
+iommu:
+iommu:sprd:
+irqchip:
+
+kernel:
+kernel:sysctl:
+kernel:gcov:
+kernel:irq:
+
+leds:sc27xx:
+leds:trigger:
+lib:e_show_mem:
+
+mailbox:sprd:
+Makefile:
+media:platform:sprd-jpg:
+media:platform:sprd-vsp:
+media:platform:sprd-vpu:
+md:
+mfd:
+mfd:sprd:
+misc:audio:
+misc:sprd_uid:
+misc:vibrator:
+mm:
+mmc:core:
+mmc:sprd:
+mmc:host:
+mm:emem:
+mm:memblock:
+mm:vmscan:
+mtd:rawnand:sprd:
+mtd:nand:raw:
+
+net:
+net:ims_bridge:
+nvmem:sprd:
+
+of:
+
+pci:dwc:
+pci:dwc:sprd:
+pinctrl:sprd:
+power:
+power:reset:
+power:supply:
+power:supply:charger-manager:
+power:supply:fan54015:
+power:supply:sc2703:
+power:suspend:
+printk:
+pwm:sprd:
+
+regulator:
+regulator:sc2721:
+regulator:sc2730:
+regulator:ump7520:
+regulator:ump7521:
+regulator:ump7522:
+regulator:umps520:
+rtc:sc27xx:
+
+sched:*
+scripts:dtc:
+scripts:unisoc:
+scsi:ufs:sprd:
+security:
+security:selinux:
+serial:sprd:
+soc:sprd:
+soc:sprd:domain:
+spi:
+spi:sprd:
+sprd-diffconfig:*
+staging:android:ion:
+
+thermal:
+thermal:core:
+thermal:sprd:
+time:
+trace:
+trusty:
+tty:
+
+unisoc_platform:
+unisoc_platform:audio:
+unisoc_platform:binder:
+unisoc_platform:cpufreq:
+unisoc_platform:gnss:
+unisoc_platform:io:
+unisoc_platform:iommu:
+unisoc_platform:mailbox:
+unisoc_platform:misc:
+unisoc_platform:mm:
+unisoc_platform:modem_loader:
+unisoc_platform:net:
+unisoc_platform:sched:
+unisoc_platform:sfp:
+unisoc_platform:sipc:
+unisoc_platform:soc:
+unisoc_platform:sprdwcn:
+unisoc_platform:sysdump:
+unisoc_platform:thermal:
+unisoc_platform:wlan:
+
+usb:core:
+usb:dwc3:
+usb:host:
+usb:gadget:
+usb:misc:
+usb:musb:
+usb:phy:
+usb:typec:
+
+video:backlight:
+
+watchdog:sprd:
+wireless:sprd:

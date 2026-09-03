@@ -46,6 +46,19 @@ config ARM_BIG_LITTLE_CPUIDLE
 	  define different C-states for little and big cores through the
 	  multiple CPU idle drivers infrastructure.
 
+config ARM_SPRD_CPUIDLE
+	bool "CPU Idle Driver for Spreadtrum processors"
+	depends on ARCH_SPRD
+	depends on !ARM64
+	select ARM_CPU_SUSPEND
+	select DT_IDLE_STATES
+	help
+	  Select this to enable sprd cpuidle on cortex-a7 SoCs.
+	  Select this option to enable CPU idle driver for big.LITTLE based
+	  ARM systems. Driver manages CPUs coordination through MCPM and
+	  define different C-states for little and big cores through the
+	  multiple CPU idle drivers infrastructure.
+
 config ARM_CLPS711X_CPUIDLE
 	bool "CPU Idle Driver for CLPS711X processors"
 	depends on ARCH_CLPS711X && !ARM64 || COMPILE_TEST

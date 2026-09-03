@@ -944,7 +944,7 @@ static long madvise_remove(struct vm_area_struct *vma,
 			return -EINVAL;
 	}
 
-	if (!vma_is_shared_maywrite(vma))
+	if ((vma->vm_flags & (VM_SHARED|VM_WRITE)) != (VM_SHARED|VM_WRITE))
 		return -EACCES;
 
 	offset = (loff_t)(start - vma->vm_start)

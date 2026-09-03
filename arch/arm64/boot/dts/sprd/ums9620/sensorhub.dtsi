@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc sensorhub dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+ / {
+	sensorhub {
+		compatible = "sprd,qogirn6pro-sensorhub", "sprd,sensor-hub";
+		sipc-sensorhub-id = <9>;
+	};
+};

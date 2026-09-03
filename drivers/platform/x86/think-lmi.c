@@ -765,31 +765,25 @@ static struct kobj_attribute debug_cmd = __ATTR_WO(debug_cmd);
 /* ---- Initialisation --------------------------------------------------------- */
 static void tlmi_release_attr(void)
 {
-	struct kobject *pos, *n;
 	int i;
 
 	/* Attribute structures */
 	for (i = 0; i < TLMI_SETTINGS_COUNT; i++) {
 		if (tlmi_priv.setting[i]) {
 			sysfs_remove_group(&tlmi_priv.setting[i]->kobj, &tlmi_attr_group);
+			kobject_put(&tlmi_priv.setting[i]->kobj);
 		}
 	}
 	sysfs_remove_file(&tlmi_priv.attribute_kset->kobj, &pending_reboot.attr);
 	if (tlmi_priv.can_debug_cmd && debug_support)
 		sysfs_remove_file(&tlmi_priv.attribute_kset->kobj, &debug_cmd.attr);
-
-	list_for_each_entry_safe(pos, n, &tlmi_priv.attribute_kset->list, entry)
-		kobject_put(pos);
-
 	kset_unregister(tlmi_priv.attribute_kset);
 
 	/* Authentication structures */
 	sysfs_remove_group(&tlmi_priv.pwd_admin->kobj, &auth_attr_group);
+	kobject_put(&tlmi_priv.pwd_admin->kobj);
 	sysfs_remove_group(&tlmi_priv.pwd_power->kobj, &auth_attr_group);
-
-	list_for_each_entry_safe(pos, n, &tlmi_priv.authentication_kset->list, entry)
-		kobject_put(pos);
-
+	kobject_put(&tlmi_priv.pwd_power->kobj);
 	kset_unregister(tlmi_priv.authentication_kset);
 }
 
@@ -833,14 +827,6 @@ static int tlmi_sysfs_init(void)
 		goto fail_device_created;
 	}
 
-	tlmi_priv.authentication_kset = kset_create_and_add("authentication", NULL,
-							    &tlmi_priv.class_dev->kobj);
-	if (!tlmi_priv.authentication_kset) {
-		kset_unregister(tlmi_priv.attribute_kset);
-		ret = -ENOMEM;
-		goto fail_device_created;
-	}
-
 	for (i = 0; i < TLMI_SETTINGS_COUNT; i++) {
 		/* Check if index is a valid setting - skip if it isn't */
 		if (!tlmi_priv.setting[i])
@@ -857,8 +843,8 @@ static int tlmi_sysfs_init(void)
 
 		/* Build attribute */
 		tlmi_priv.setting[i]->kobj.kset = tlmi_priv.attribute_kset;
-		ret = kobject_init_and_add(&tlmi_priv.setting[i]->kobj, &tlmi_attr_setting_ktype,
-					   NULL, "%s", tlmi_priv.setting[i]->display_name);
+		ret = kobject_add(&tlmi_priv.setting[i]->kobj, NULL,
+				  "%s", tlmi_priv.setting[i]->display_name);
 		if (ret)
 			goto fail_create_attr;
 
@@ -877,9 +863,14 @@ static int tlmi_sysfs_init(void)
 			goto fail_create_attr;
 	}
 	/* Create authentication entries */
+	tlmi_priv.authentication_kset = kset_create_and_add("authentication", NULL,
+								&tlmi_priv.class_dev->kobj);
+	if (!tlmi_priv.authentication_kset) {
+		ret = -ENOMEM;
+		goto fail_create_attr;
+	}
 	tlmi_priv.pwd_admin->kobj.kset = tlmi_priv.authentication_kset;
-	ret = kobject_init_and_add(&tlmi_priv.pwd_admin->kobj, &tlmi_pwd_setting_ktype,
-				   NULL, "%s", "Admin");
+	ret = kobject_add(&tlmi_priv.pwd_admin->kobj, NULL, "%s", "Admin");
 	if (ret)
 		goto fail_create_attr;
 
@@ -888,8 +879,7 @@ static int tlmi_sysfs_init(void)
 		goto fail_create_attr;
 
 	tlmi_priv.pwd_power->kobj.kset = tlmi_priv.authentication_kset;
-	ret = kobject_init_and_add(&tlmi_priv.pwd_power->kobj, &tlmi_pwd_setting_ktype,
-				   NULL, "%s", "Power-on");
+	ret = kobject_add(&tlmi_priv.pwd_power->kobj, NULL, "%s", "System");
 	if (ret)
 		goto fail_create_attr;
 
@@ -902,7 +892,7 @@ static int tlmi_sysfs_init(void)
 fail_create_attr:
 	tlmi_release_attr();
 fail_device_created:
-	device_unregister(tlmi_priv.class_dev);
+	device_destroy(fw_attr_class, MKDEV(0, 0));
 fail_class_created:
 	fw_attributes_class_put();
 	return ret;
@@ -1003,6 +993,7 @@ static int tlmi_analyze(void)
 		if (setting->possible_values)
 			strreplace(setting->possible_values, ',', ';');
 
+		kobject_init(&setting->kobj, &tlmi_attr_setting_ktype);
 		tlmi_priv.setting[i] = setting;
 		kfree(item);
 	}
@@ -1028,6 +1019,8 @@ static int tlmi_analyze(void)
 	if (pwdcfg.password_state & TLMI_PAP_PWD)
 		tlmi_priv.pwd_admin->valid = true;
 
+	kobject_init(&tlmi_priv.pwd_admin->kobj, &tlmi_pwd_setting_ktype);
+
 	tlmi_priv.pwd_power = kzalloc(sizeof(struct tlmi_pwd_setting), GFP_KERNEL);
 	if (!tlmi_priv.pwd_power) {
 		ret = -ENOMEM;
@@ -1042,6 +1035,8 @@ static int tlmi_analyze(void)
 
 	if (pwdcfg.password_state & TLMI_POP_PWD)
 		tlmi_priv.pwd_power->valid = true;
+
+	kobject_init(&tlmi_priv.pwd_power->kobj, &tlmi_pwd_setting_ktype);
 
 	return 0;
 
@@ -1060,7 +1055,7 @@ fail_clear_attr:
 static void tlmi_remove(struct wmi_device *wdev)
 {
 	tlmi_release_attr();
-	device_unregister(tlmi_priv.class_dev);
+	device_destroy(fw_attr_class, MKDEV(0, 0));
 	fw_attributes_class_put();
 }
 

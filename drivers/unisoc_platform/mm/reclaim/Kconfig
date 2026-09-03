@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config UNISOC_MM_RECLAIM
+	tristate "mm vendor hook for unisoc"
+	default n
+	help
+	  This option enables unisoc precise reclaim policy,
+	  which include asynchronously reclaiming inactive file LRU,
+	  shrinking reclaimable slabs cache and changing swappiness
+	  in dirctly reclaim path.
+
+config UNISOC_MM_SHRINKLRU
+	bool "mm kshrink lru for unisoc"
+	depends on UNISOC_MM_RECLAIM
+	default n
+	help
+	  This option enables unisoc asynchronous shrinklru reclaim function
+
+config UNISOC_MM_SHRINKSLAB
+	bool "mm kshrink slab for unisoc"
+	depends on UNISOC_MM_RECLAIM
+	default n
+	help
+	  This option enables unisoc asynchronous shrinkslab reclaim function
+
+config UNISOC_MM_DIRECT_SWAPPINESS
+	bool "config swappiness on direct reclaim"
+	depends on UNISOC_MM_RECLAIM && ARM64
+	default n
+	help
+	  The swappiness value influnce file pages and anon pages when page
+	  reclaim. The value may not be the same in kswapd reclaim path and
+	  direct reclaim path and range is 0 ~ 100.
+
+config UNISOC_MM_SHRINK_ANON
+	bool "mm shrink anon for unisoc"
+	depends on UNISOC_MM_RECLAIM
+	default n
+	help
+	  This option enables unisoc shrink anon reclaim function

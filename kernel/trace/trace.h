@@ -776,15 +776,13 @@ static inline void __init disable_tracing_selftest(const char *reason)
 
 extern void *head_page(struct trace_array_cpu *data);
 extern unsigned long long ns2usecs(u64 nsec);
-
-__printf(2, 0)
-int trace_vbprintk(unsigned long ip, const char *fmt, va_list args);
-__printf(2, 0)
-int trace_vprintk(unsigned long ip, const char *fmt, va_list args);
-__printf(3, 0)
-int trace_array_vprintk(struct trace_array *tr,
-			unsigned long ip, const char *fmt, va_list args);
-__printf(3, 4)
+extern int
+trace_vbprintk(unsigned long ip, const char *fmt, va_list args);
+extern int
+trace_vprintk(unsigned long ip, const char *fmt, va_list args);
+extern int
+trace_array_vprintk(struct trace_array *tr,
+		    unsigned long ip, const char *fmt, va_list args);
 int trace_array_printk_buf(struct trace_buffer *buffer,
 			   unsigned long ip, const char *fmt, ...);
 void trace_printk_seq(struct trace_seq *s);
@@ -1127,7 +1125,6 @@ bool ftrace_event_is_function(struct trace_event_call *call);
  */
 struct trace_parser {
 	bool		cont;
-	bool		fail;
 	char		*buffer;
 	unsigned	idx;
 	unsigned	size;
@@ -1135,7 +1132,7 @@ struct trace_parser {
 
 static inline bool trace_parser_loaded(struct trace_parser *parser)
 {
-	return !parser->fail && parser->idx != 0;
+	return (parser->idx != 0);
 }
 
 static inline bool trace_parser_cont(struct trace_parser *parser)
@@ -1147,11 +1144,6 @@ static inline void trace_parser_clear(struct trace_parser *parser)
 {
 	parser->cont = false;
 	parser->idx = 0;
-}
-
-static inline void trace_parser_fail(struct trace_parser *parser)
-{
-	parser->fail = true;
 }
 
 extern int trace_parser_get_init(struct trace_parser *parser, int size);

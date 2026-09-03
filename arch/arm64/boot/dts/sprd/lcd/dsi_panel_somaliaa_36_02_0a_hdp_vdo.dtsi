@@ -1,0 +1,246 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc ili9881c TM LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				dsi_panel_somaliaa_36_02_0a_hdp_vdo: dsi_panel_somaliaa_36_02_0a_hdp_vdo {
+					sprd,dsi-work-mode = <1>; /* video burst mode*/
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+
+					sprd,phy-bit-clock = <1122000>; /* kbps */
+					sprd,phy-escape-clock = <20000>;/* kHz */
+					sprd,vrr-enable;  /*120hz 90hz 60hz*/
+					sprd,supported-vrefresh-count = <3>;
+					sprd,supported-vrefresh-rate = <120 90 60>;
+
+					sprd,dpi-clk-div = <6>;
+					sprd,video-lp-cmd-enable = <1>;
+					sprd,hporch-lp-disable = <1>;
+					sprd,power-gpio-delay = <20>;/* ms */
+
+					sprd,lcm-index = <1>;/* panel Batch */
+					sprd,width-um = <71928>;
+					sprd,height-um = <159840>;
+					sprd,width-mm = <72>;
+					sprd,height-mm = <160>;
+					sprd,esd-check-enable = <1>;
+					sprd,esd-check-mode = <2>;
+					sprd,esd-check-period = <3000>;
+					//sprd,esd-check-num = <1>;
+					// sprd,esd-check-register = <0x0A>;
+					// sprd,esd-check-value = <0x9C>;
+
+					mi,bkl-normal-matrix = <8 2047 4095>;
+					mi,bkl-remap-matrix = <10 3264 4095>;
+
+					sprd,reset-on-sequence = <0 5>, <1 10>, <0 10>, <1 10>;
+					sprd,reset-off-sequence = <1 5>;
+					/*
+					* Use 4 bits number for descripting video lp mode, and it can be combined used.
+					* BIT(0): allow vactive enter lp;
+					* BIT(1): allow vfp enter lp;
+					* BIT(2): allow vbp enter lp;
+					* BIT(3): allow vsa enter lp;
+					* For example:
+					* If we need vfp & vbp enter lp, we can calculate this value as a result of BIT(1) | BIT(2)
+					* And we get the result of 3 and set this value to lcd dt property sprd,video-lp-en-mode.
+					* If we need all stage can enter lp, we can calculate this value as a result of BIT(0) | BIT(1) | BIT(2) | BIT(3).
+					* And we get the result of 15 and set this value to lcd dt property sprd,video-lp-en-mode.
+					*/
+					sprd,video-lp-en-mode = <3>;
+					sprd,initial-command = [
+						23 00 00 02 FF 23
+						23 00 00 02 FB 01
+
+						23 00 00 02 00 80
+						23 00 00 02 05 37
+						23 00 00 02 07 00
+						23 00 00 02 08 01
+						23 00 00 02 09 00
+
+						23 00 00 02 10 00
+						23 00 00 02 2A 09
+						23 00 00 02 2B 10
+
+						23 00 00 02 30 FF
+						23 00 00 02 31 FE
+						23 00 00 02 32 FD
+						23 00 00 02 33 FC
+						23 00 00 02 34 FB
+						23 00 00 02 35 FA
+						23 00 00 02 36 F9
+						23 00 00 02 37 F8
+						23 00 00 02 38 F7
+						23 00 00 02 39 F6
+						23 00 00 02 3A F6
+						23 00 00 02 3B F5
+						23 00 00 02 3D F5
+						23 00 00 02 3F F4
+						23 00 00 02 40 F4
+						23 00 00 02 41 F0
+
+						23 00 00 02 46 FD
+						23 00 00 02 47 FC
+						23 00 00 02 48 FA
+						23 00 00 02 49 F8
+						23 00 00 02 4A F5
+						23 00 00 02 4B F1
+						23 00 00 02 4C E9
+						23 00 00 02 4D DF
+						23 00 00 02 4E D1
+						23 00 00 02 4F CB
+						23 00 00 02 50 C9
+						23 00 00 02 51 C5
+						23 00 00 02 52 BF
+						23 00 00 02 53 B2
+						23 00 00 02 54 B0
+
+						23 00 00 02 58 FF
+						23 00 00 02 59 FD
+						23 00 00 02 5A FC
+						23 00 00 02 5B FA
+						23 00 00 02 5C F8
+						23 00 00 02 5D F5
+						23 00 00 02 5E F1
+						23 00 00 02 5F E9
+						23 00 00 02 60 DF
+						23 00 00 02 61 D1
+						23 00 00 02 62 CB
+						23 00 00 02 63 C9
+						23 00 00 02 64 C5
+						23 00 00 02 65 C1
+						23 00 00 02 66 C0
+						23 00 00 02 67 BD
+
+						23 00 00 02 FF 24
+						23 00 00 02 FB 01
+
+						23 00 00 02 5A 63
+						23 00 00 02 5B 60
+						23 00 00 02 DB 0F
+						23 00 00 02 ED F0
+						23 00 00 02 F1 05
+
+						23 00 00 02 FF 27
+						23 00 00 02 FB 01
+
+						23 00 00 02 D0 31
+						23 00 00 02 D1 25
+						23 00 00 02 D2 30
+						23 00 00 02 D4 08
+						23 00 00 02 DE C3
+						23 00 00 02 DF 02
+						23 00 00 02 FF D0
+						23 00 00 02 FB 01
+						23 00 00 02 C9 1C
+
+						23 00 00 02 FF 10
+						23 00 00 02 FB 01
+						23 00 00 02 35 00
+						39 00 00 03 51 00 00
+						23 00 00 02 53 24
+						23 00 00 02 55 00
+						39 00 00 03 68 02 01
+						13 78 00 01 11
+						13 00 00 01 29
+					];
+
+
+					sprd,sleep-in-command = [
+						13 14 00 01 28
+						13 78 00 01 10
+					];
+
+					sprd,sleep-out-command = [
+						13 78 00 01 11
+						13 14 00 01 29
+					];
+
+					sprd,tp-proximity-command = [
+						13 14 00 01 28
+					];
+
+					sprd,cabc-off-mode = [
+						23 00 00 02 55 00
+					];
+
+					sprd,cabc-ui-mode = [
+						23 00 00 02 55 01
+					];
+
+					sprd,cabc-mov-mode = [
+						23 00 00 02 55 03
+					];
+
+					sprd,cabc-still-mode = [
+						23 00 00 02 55 02
+					];
+
+					sprd,cabc-bl-ctrl-on = [
+						39 00 00 03 5E 00 0A
+						23 00 00 02 53 2C
+					];
+
+					sprd,cabc-bl-ctrl-off = [
+						39 00 00 03 5E 00 00
+						23 00 00 02 53 24
+					];
+
+					display-timings {
+						native-mode = <&nt36528a_tianma_timing0>;
+
+						nt36528a_tianma_timing0: timing0 { //60hz
+							clock-frequency = <187000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <36>;
+							hfront-porch = <39>;
+							vback-porch = <64>;
+							vfront-porch = <2232>;
+							hsync-len = <4>;
+							vsync-len = <4>;
+						};
+
+						nt36528a_tianma_timing1: timing1 {  //90hz
+							clock-frequency = <187000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <36>;
+							hfront-porch = <39>;
+							vback-porch = <64>;
+							vfront-porch = <932>;
+							hsync-len = <4>;
+							vsync-len = <4>;
+						};
+
+						nt36528a_tianma_timing2: timing2 {  //120hz
+							clock-frequency = <187000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <36>;
+							hfront-porch = <39>;
+							vback-porch = <64>;
+							vfront-porch = <282>;
+							hsync-len = <4>;
+							vsync-len = <4>;
+						};
+					};
+					oled-backlight {
+						default-brightness-level = <1000>;
+						sprd,max-level = <4095>;
+						brightness-levels = [
+							39 00 00 03 51 03 E8
+						];
+					};
+				};
+			};
+		};
+	};
+};

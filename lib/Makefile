@@ -290,6 +290,8 @@ obj-$(CONFIG_ASN1_ENCODER) += asn1_encoder.o
 
 obj-$(CONFIG_FONT_SUPPORT) += fonts/
 
+obj-$(CONFIG_E_SHOW_MEM) += e_show_mem.o
+
 hostprogs	:= gen_crc32table
 hostprogs	+= gen_crc64table
 clean-files	:= crc32table.h

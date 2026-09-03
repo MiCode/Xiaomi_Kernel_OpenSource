@@ -320,16 +320,7 @@ static const struct rtc_class_ops pcf85063_rtc_ops = {
 static int pcf85063_nvmem_read(void *priv, unsigned int offset,
 			       void *val, size_t bytes)
 {
-	unsigned int tmp;
-	int ret;
-
-	ret = regmap_read(priv, PCF85063_REG_RAM, &tmp);
-	if (ret < 0)
-		return ret;
-
-	*(u8 *)val = tmp;
-
-	return 0;
+	return regmap_read(priv, PCF85063_REG_RAM, val);
 }
 
 static int pcf85063_nvmem_write(void *priv, unsigned int offset,
@@ -407,7 +398,7 @@ static long pcf85063_clkout_round_rate(struct clk_hw *hw, unsigned long rate,
 		if (clkout_rates[i] <= rate)
 			return clkout_rates[i];
 
-	return clkout_rates[0];
+	return 0;
 }
 
 static int pcf85063_clkout_set_rate(struct clk_hw *hw, unsigned long rate,

@@ -1,0 +1,18 @@
+/*
+  * UNISOC UMP9621 PMIC efuse dts file
+  *
+  * Copyright (C) 2020, UNISOC Communications Inc.
+  *
+  * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+  */
+&ump9621_pmic {
+	ump9621_efuse: efuse@800 {
+ 		compatible = "sprd,ump9621-efuse", "sprd,sc27xx-efuse";
+		reg = <0x800>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		hwlocks = <&hwlock 15>;
+		/* Data cells */
+	};
+};
+

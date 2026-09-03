@@ -1,0 +1,305 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc CAM dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&mm {
+	mm_domain: mm-domain {
+		syscon-names = "force_shutdown",
+			"shutdown_en",
+			"power_state",
+			"qos_ar",
+			"qos_aw",
+			"aon-apb-mm-eb";
+		compatible = "sprd,sharkl5-camsys-domain";
+		force_shutdown = <&pmu_apb_regs
+			REG_PMU_APB_PD_MM_TOP_CFG MASK_PMU_APB_PD_MM_TOP_FORCE_SHUTDOWN>;
+		shutdown_en = <&pmu_apb_regs
+			REG_PMU_APB_PD_MM_TOP_CFG MASK_PMU_APB_PD_MM_TOP_AUTO_SHUTDOWN_EN>;
+		power_state = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS3_DBG MASK_PMU_APB_PD_MM_TOP_STATE>;
+		qos_ar = <&mm_ahb_regs REG_MM_AHB_MM_QOS MASK_MM_AHB_AR_QOS_THRESHOLD_MM>;
+		qos_aw = <&mm_ahb_regs REG_MM_AHB_MM_QOS MASK_MM_AHB_AW_QOS_THRESHOLD_MM>;
+		aon-apb-mm-eb = <&aon_apb_regs REG_AON_APB_APB_EB0 MASK_AON_APB_MM_EB>;
+		clock-names = "mm_eb",
+			"mm_ahb_eb",
+			"clk_mm_ahb",
+			"clk_mm_ahb_parent",
+			"mm_mtx_eb",
+			"clk_mm_mtx",
+			"clk_mm_mtx_parent";
+		clocks = <&aonapb_gate CLK_MM_EB>,
+			<&mm_gate CLK_MM_CKG_EB>,
+			<&mm_clk CLK_MM_AHB>,
+			<&pll2 CLK_TWPLL_153M6>,
+			<&mm_gate CLK_ISP_AHB_EB>, /* TBC */
+			<&mm_clk CLK_MM_MTX>,
+			<&pll2 CLK_ISPPLL_468M>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		mm_qos_threshold = <&mm_qos_threshold>;
+		#power-domain-cells = <0>;
+		status = "okay";
+	};
+
+	isp: isp@62000000 {
+		#syscon-cells = <2>;
+		compatible = "sprd,isp";
+		reg = <0 0x62000000 0 0x100000>;
+		interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts_name = "ispch0", "ispch1";
+		clock-names = "isp_eb",
+			"isp_axi_eb", /* no need read, TBC */
+			"isp_clk",
+			"isp_clk_256m",
+			"isp_clk_307m2",
+			"isp_clk_384m",
+			"isp_clk_468m",
+			"isp_clk_parent";
+		clocks = <&mm_gate CLK_MM_ISP_EB>,
+			<&mm_gate CLK_ISP_AHB_EB>,
+			<&mm_clk CLK_ISP>,
+			<&pll2 CLK_TWPLL_256M>,
+			<&pll2 CLK_TWPLL_307M2>,
+			<&pll2 CLK_TWPLL_384M>,
+			<&pll2 CLK_ISPPLL_468M>,
+			<&pll2 CLK_ISPPLL_468M>;
+		reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST MASK_MM_AHB_ISP_SOFT_RST>;
+		isp_ahb_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST MASK_MM_AHB_ISP_AHB_SOFT_RST>;
+		syscon-names = "reset", "isp_ahb_reset";
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,isp-count = <1>;
+		power-domains = <&mm_domain>;
+		iommus = <&iommu_isp>;
+		isp_qos = <&isp_qos>;
+		status = "okay";
+	};
+
+	iommu_isp: iommu@62000000 {
+		compatible = "unisoc,iommuexl5-isp";
+		/* sharkl3 isp need pagetalbe size */
+		reg = <0 0x62000000 0 0xffc00>,
+			  <0 0x620ffc00 0 0x400>;
+		iova-base = <0x40000000>;
+		iova-size = <0x20000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg",
+			   "iova pool";
+		status = "okay";
+		#iommu-cells = <0>;
+	};
+
+	cpp: cpp@62800000 {
+		compatible = "sprd,cpp";
+		reg = <0 0x62800000 0 0x1000>;
+		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "cpp_eb",
+			"cpp_axi_eb", /* no need read, TBC */
+			"cpp_clk",
+			"cpp_clk_parent";
+		clocks = <&mm_gate CLK_MM_CPP_EB>,
+			<&mm_gate CLK_MM_ISP_EB>,
+			<&mm_clk CLK_CPP>,
+			<&pll2 CLK_TWPLL_307M2>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		iommus = <&iommu_cpp>;
+		cpp_qos = <&cpp_qos>;
+		status = "okay";
+	};
+
+	iommu_cpp: iommu@62800000 {
+		compatible = "unisoc,iommuexl5-cpp";
+		reg = <0 0x62800000 0 0x200>,
+			<0 0x62800200 0 0x60>;
+		iova-base = <0x20000000>;
+		iova-size = <0x8000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg",
+			"iova pool";
+		status = "okay";
+		#iommu-cells = <0>;
+	};
+
+	dcam: dcam@62900000 {
+		#syscon-cells = <2>;
+		compatible = "sprd,sharkl5-cam";
+		reg = <0 0x62900000 0 0x1000>,
+			<0 0x62901000 0 0x1000>,
+			<0 0x62902000 0 0x1000>,
+			<0 0x62903000 0 0x1000>;
+		reg-names = "dcam0_reg",
+				 "dcam1_reg",
+				 "dcam2_reg",
+				 "axi_ctrl_reg";
+		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dcam0",
+					"dcam1",
+					"dcam2";
+		clock-names = "dcam_eb",
+			"dcam_clk",
+			"dcam_clk_192m",
+			"dcam_clk_256m",
+			"dcam_clk_307m2",
+			"dcam_clk_384m",
+			"dcam_clk_parent",
+			"dcam_axi_eb",
+			"dcam_axi_clk",
+			"dcam_axi_clk_192m",
+			"dcam_axi_clk_256m",
+			"dcam_axi_clk_307m2",
+			"dcam_axi_clk_384m",
+			"dcam_axi_clk_parent";
+		clocks = <&mm_gate CLK_MM_DCAM_EB>,
+			<&mm_clk CLK_DCAM_IF>,
+			<&pll2 CLK_TWPLL_192M>,
+			<&pll2 CLK_TWPLL_256M>,
+			<&pll2 CLK_TWPLL_307M2>,
+			<&pll2 CLK_TWPLL_384M>,
+			<&pll2 CLK_TWPLL_384M>,
+			<&mm_gate CLK_DCAM_AXI_EB>,
+			<&mm_clk CLK_DCAM_AXI>,
+			<&pll2 CLK_TWPLL_192M>,
+			<&pll2 CLK_TWPLL_256M>,
+			<&pll2 CLK_TWPLL_307M2>,
+			<&pll2 CLK_TWPLL_384M>,
+			<&pll2 CLK_TWPLL_384M>;
+		dcam_all_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+			MASK_MM_AHB_DCAM_ALL_SOFT_RST>;
+		dcam0_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+			MASK_MM_AHB_DCAM0_SOFT_RST>;
+		dcam1_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+			MASK_MM_AHB_DCAM1_SOFT_RST>;
+		dcam2_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+			MASK_MM_AHB_DCAM2_SOFT_RST>;
+		syscon-names = "dcam_all_reset",
+				"dcam0_reset",
+				"dcam1_reset",
+				"dcam2_reset";
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,isp = <&isp>;
+		sprd,dcam-count = <3>;
+		power-domains = <&mm_domain>;
+		iommus = <&iommu_dcam>;
+		sprd,project-id = <1>;
+		dcam_qos = <&dcam_qos>;
+		status = "okay";
+	};
+
+	iommu_dcam: iommu@62900000 {
+		compatible = "unisoc,iommuexl5-dcam";
+		reg = <0 0x62900000 0 0xc000>,
+			  <0 0x6290c000 0 0x60>;
+		iova-base = <0x40000000>;
+		iova-size = <0x20000000>;
+		reg_name = "mmu_interrupt_reg", "mmu_reg",
+			   "iova pool";
+		status = "okay";
+		#iommu-cells = <0>;
+	};
+
+	iommu_fd: iommu@62a00000 {
+		compatible = "unisoc,iommuexl5-fd";
+		reg = <0 0x62A00000 0 0x30>,
+			  <0 0x62A00200 0 0x400>;
+		iova-base = <0x60000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg",
+			"iova pool";
+		status = "okay";
+		#iommu-cells = <0>;
+	};
+};
+
+/ {
+	isp_dvfs: isp-dvfs {
+		compatible = "sprd,hwdvfs-isp";
+		operating-points = <
+			/* kHz    uV */
+			256000    700000
+			307200    700000
+			384000    750000
+			468000    750000
+			>;
+	};
+
+	cpp_dvfs: cpp-dvfs {
+		compatible = "sprd,hwdvfs-cpp";
+		operating-points = <
+			/* kHz    uV */
+			76800     700000
+			128000    700000
+			256000    700000
+			307200    750000
+			>;
+	};
+
+	jpg_dvfs: jpg-dvfs {
+		compatible = "sprd,hwdvfs-jpg";
+		operating-points = <
+			/* kHz    uV */
+			76800     700000
+			128000    700000
+			192000    700000
+			256000    750000
+			>;
+	};
+
+	fd_dvfs: fd-dvfs {
+		compatible = "sprd,hwdvfs-fd";
+		operating-points = <
+			/* kHz    uV */
+			76800     700000
+			192000    700000
+			307200    700000
+			384000    750000
+			>;
+	};
+
+	mtx_dvfs: mtx-dvfs {
+		compatible = "sprd,hwdvfs-mtx";
+		operating-points = <
+			/* kHz    uV */
+			76800     700000
+			128000    700000
+			256000    700000
+			307200    700000
+			384000    750000
+			468000    750000
+			>;
+	};
+
+	dcam_if_dvfs: dcam-if-dvfs {
+		compatible = "sprd,hwdvfs-dcam-if";
+		operating-points = <
+			/* kHz    uV */
+			192000    700000
+			256000    700000
+			307200    700000
+			384000    750000
+			>;
+	};
+	dcam_axi_dvfs: dcam-axi-dvfs {
+		compatible = "sprd,hwdvfs-dcam-axi";
+		operating-points = <
+			/* kHz    uV */
+			192000    700000
+			256000    700000
+			307200    700000
+			384000    750000
+			>;
+	};
+	mmsys_dvfs: mmsys-dvfs {
+		compatible = "sprd,hwdvfs-mmsys";
+		sprd,topdvfs_controller = <&topdvfs_controller>;
+		operating-points = <
+			/* kHz    uV */
+			192000    700000
+			256000    700000
+			307200    700000
+			384000    750000
+			>;
+	};
+};

@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc JPG SoC dts file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&mm {
+	jpg: jpg-codec@36000000 {
+		compatible = "sprd,qogirn6lite-jpg";
+		reg = <0 0x36000000 0 0xc000>;
+		interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
+		reset-syscon = <&mm_ahb_regs
+			REG_CAMERASYS_GLB_SYS_SOFT_RST
+			MASK_CAMERASYS_GLB_JPG_SOFT_RST>;
+		aon-apb-eb-syscon = <&aon_apb_regs
+			REG_AON_APB_APB_EB0
+			MASK_AON_APB_MM_EB>;
+		iommus = <&iommu_jpg>;
+		power-domains = <&mm_domain>;
+		status = "disabled";
+
+		clock-names = "jpg_domain_eb",
+			"jpg_dev_eb",
+			"jpg_ckg_eb",
+			"jpg_clk",
+			"clk_src_153m6",
+			"clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_409m6",
+			"clk_src_512m";
+
+		clocks = <&aonapb_gate CLK_MM_EB>,
+			<&mm_gate CLK_JPG_EN>,
+			<&mm_gate CLK_CKG_EN>,
+			<&mm_clk CLK_JPG>,
+			<&g5l_pll CLK_TGPLL_153M6>,
+			<&g5l_pll CLK_TGPLL_256M>,
+			<&g5l_pll CLK_TGPLL_307M2>,
+			<&g5l_pll CLK_V4NRPLL_409M6>,
+			<&g5l_pll CLK_TGPLL_512M>;
+	};
+
+	iommu_jpg: iommu@36000300 {
+		compatible = "unisoc,iommuvaun6l-jpg";
+		reg = <0x0 0x36000000 0x0 0x300>,
+			<0x0 0x36000300 0x0 0x80>;
+		iova-base = <0x60000000>;
+		iova-size = <0x10000000>;
+		reg_name = "mmu_interrupt_reg","mmu_reg";
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+};
+

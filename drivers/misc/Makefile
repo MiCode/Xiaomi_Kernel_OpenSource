@@ -56,8 +56,14 @@ obj-y				+= cardreader/
 obj-$(CONFIG_PVPANIC)   	+= pvpanic/
 obj-$(CONFIG_HABANA_AI)		+= habanalabs/
 obj-$(CONFIG_UACCE)		+= uacce/
+obj-$(CONFIG_LEDS_SC27XX_VIBRA)	+= vibrator/
 obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_HI6421V600_IRQ)	+= hi6421v600-irq.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
+obj-$(CONFIG_SPRD_UID)		+= sprd_uid.o
+obj-y   += launch_boost/
 obj-$(CONFIG_OPEN_DICE)		+= open-dice.o
+obj-$(CONFIG_SPRD_SOCID)	+= sprd_soc_id.o
+# Add cpumaxfreq
+obj-$(CONFIG_CPUMAXFREQ_SUPPORT) += cpumaxfreq/

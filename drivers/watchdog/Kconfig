@@ -954,13 +954,33 @@ config RTD119X_WATCHDOG
 	  Say Y here to include support for the watchdog timer in
 	  Realtek RTD1295 SoCs.
 
+config SPRD_WATCHDOG_FIQ
+	tristate "Spreadtrum watchdog support with FIQ ISR"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select WATCHDOG_CORE
+	help
+	  This is the fiq version driver for the hardware watchdog on
+	  sprd platform. This watchdog driver matched with the solution
+	  of AP CPU hang debug.
+
+	  Say Y here to include watchdog timer fiq version supported
+	  by Spreadtrum system.
+
 config SPRD_WATCHDOG
 	tristate "Spreadtrum watchdog support"
-	depends on ARCH_SPRD || COMPILE_TEST
+	depends on ARCH_SPRD || COMPILE_TEST && SPRD_WATCHDOG_PMIC
 	select WATCHDOG_CORE
 	help
 	  Say Y here to include watchdog timer supported
 	  by Spreadtrum system.
+
+config SPRD_WATCHDOG_PMIC
+	tristate "SPRD PMIC WDT Watchdog timer"
+	depends on ARCH_SPRD && SPI_SPRD_ADI && UNISOC_SIPC_SPIPE
+	help
+	  If you have a PMIC  watchdog board, say Y here, When PMIC watchdog
+	  is triggered, PMIC system, AP system and modem systemare both reset
+	  by power.
 
 config PM8916_WATCHDOG
 	tristate "QCOM PM8916 pmic watchdog"

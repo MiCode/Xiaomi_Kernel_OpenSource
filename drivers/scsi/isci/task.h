@@ -140,6 +140,10 @@ int isci_task_abort_task_set(
 	struct domain_device *d_device,
 	u8 *lun);
 
+int isci_task_clear_aca(
+	struct domain_device *d_device,
+	u8 *lun);
+
 int isci_task_clear_task_set(
 	struct domain_device *d_device,
 	u8 *lun);

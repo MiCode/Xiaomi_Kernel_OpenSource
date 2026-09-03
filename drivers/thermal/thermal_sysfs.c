@@ -40,13 +40,10 @@ temp_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 	ret = thermal_zone_get_temp(tz, &temperature);
 
-	if (!ret)
-		return sprintf(buf, "%d\n", temperature);
+	if (ret)
+		return ret;
 
-	if (ret == -EAGAIN)
-		return -ENODATA;
-
-	return ret;
+	return sprintf(buf, "%d\n", temperature);
 }
 
 static ssize_t

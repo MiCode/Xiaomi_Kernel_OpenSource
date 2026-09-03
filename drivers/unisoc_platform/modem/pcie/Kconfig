@@ -1,0 +1,22 @@
+
+config UNISOC_PCIE_EP_DEVICE
+	tristate "SPRD PCIE EP device"
+	default n
+	depends on PCI_MSI
+	help
+	  SPRD pcie ep device driver in host side for Spreadtrum.
+	  This module provides user api to aplly msi interrupt,
+	  raise doorbell interrupt,map/ummap pcie memory.
+	  Set M or Y for this module if want to use it.
+
+config UNISOC_PCIE_DOORBELL_WORKAROUND
+	bool "SPRD PCIE DOORBELL WORKAROUND"
+	default n
+	depends on PCIE_EPF_SPRD
+	help
+	  Enable SPRD pcie doorbell workaround.
+	  The pcie have a chip defect:
+	  when the pcie enter L1.x sleep state(PCIE LOW POWER STATE),
+	  the ep can't access to the doorbell register. So the workaroud
+	  is that before the ep access to the doorbell register, it must
+	  a write action to make PCIE exit L1 state.

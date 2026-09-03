@@ -1,0 +1,5 @@
+config SPRD_UNDEF_HOOK
+	bool "SPRD print cache when undefined instruction exception occurs"
+	depends on ARM64 && SPRD_DEBUG
+	help
+	  SPRD print cache when undefined instruction exception occurs

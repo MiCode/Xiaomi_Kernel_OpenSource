@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc VDSP dts file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&mm {
+	vdsp: vdsp {
+		compatible = "sprd,vdsp";
+		vdsp_force_shutdown = <&pmu_apb_regs
+			REG_PMU_APB_PD_VDSP_BLK_CFG_0
+			MASK_PMU_APB_PD_VDSP_BLK_FORCE_SHUTDOWN>;
+		vdsp_auto_shutdown = <&pmu_apb_regs
+			REG_PMU_APB_PD_VDSP_BLK_CFG_0
+			MASK_PMU_APB_PD_VDSP_BLK_AUTO_SHUTDOWN_EN>;
+		vdsp_power_state = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_8
+			MASK_PMU_APB_PD_VDSP_BLK_STATE>;
+		vdsp_intr_disable = <&pmu_apb_regs
+			REG_PMU_APB_VDSP_BLK_CORE_INT_DISABLE
+			MASK_PMU_APB_VDSP_BLK_CORE_INT_DISABLE>;
+		vdsp_deepsleep_enable = <&pmu_apb_regs
+			REG_PMU_APB_VDSP_BLK_DSLP_ENA
+			MASK_PMU_APB_VDSP_BLK_DSLP_ENA>;
+		vdsp_pd_sel = <&pmu_apb_regs
+			REG_PMU_APB_PD_VDSP_BLK_CFG_0
+			MASK_PMU_APB_PD_VDSP_BLK_PD_SEL>;
+		vdsppll_force_off = <&pmu_apb_regs
+			REG_PMU_APB_VDSPPLL_REL_CFG
+			MASK_PMU_APB_VDSPPLL_FRC_OFF>;
+		vdsppll_force_on = <&pmu_apb_regs
+			REG_PMU_APB_VDSPPLL_REL_CFG
+			MASK_PMU_APB_VDSPPLL_FRC_ON>;
+		sprd,syscon-mmahb = <&mm_ahb_regs>;
+		sprd,syscon-mailbox = <&vdsp_mailbox>;
+		clock-names = "ext_26m","ext_26m";
+		iommu_names =
+			"sprd,iommuvau-epp-n6pro",
+			"sprd,iommuvau-idma-n6pro",
+			"sprd,iommuvau-vdma-n6pro";
+		power-domains = <&mm_domain>;
+		queue-priority = <7 8 9>;
+		/* 0 - ap coreid, 2 - vdsp coreid, 1 - unused */
+		device-irq = <0 2 1>;
+		device-irq-host-offset = <0>;
+		device-irq-mode = <1>;
+		/* offset, bit# */
+		host-irq = <0x8 0>;
+		host-irq-mode = <1>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+		firmware-name = "vdsp_firmware.bin";
+		status = "disabled";
+	};
+
+	vdsp_mailbox: mailbox@30020000 {
+		compatible = "sprd,vdsp-mailbox";
+		reg = <0x0 0x30020000 0x0 0x10000>,
+				<0x0 0x30024000 0x0 0x4000>;
+		sprd,vdsp-core-cnt = <3>;
+		sprd,vdsp-version = <3>;
+		status = "disabled";
+	};
+
+	iommu_vdsp_msti: iommu@34300000 {
+		compatible = "sprd,iommuvau-epp-n6pro";
+		reg = <0x0 0x34300000 0x0 0x400>;
+		reg_name = "mmu_reg";
+		sprd,iova-base = <0x40000000>;
+		sprd,iova-size = <0x20000000>;
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	iommu_vdsp_idma: iommu@34400000 {
+		compatible = "sprd,iommuvau-idma-n6pro";
+		reg = <0x0 0x34400000 0x0 0x400>;
+		reg_name = "mmu_reg";
+		sprd,iova-base = <0x40000000>;
+		sprd,iova-size = <0x20000000>;
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+
+	iommu_vdsp_vdma: iommu@34100200 {
+		compatible = "sprd,iommuvau-vdma-n6pro";
+		reg = <0x0 0x34100200 0x0 0x400>;
+		reg_name = "mmu_reg";
+		sprd,iova-base = <0x40000000>;
+		sprd,iova-size = <0x20000000>;
+		status = "disabled";
+		#iommu-cells = <0>;
+	};
+};

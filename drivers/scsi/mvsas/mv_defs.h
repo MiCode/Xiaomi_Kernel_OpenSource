@@ -486,4 +486,9 @@ enum datapres_field {
 	SENSE_DATA	= 2,
 };
 
+/* define task management IU */
+struct mvs_tmf_task{
+	u8 tmf;
+	u16 tag_of_task_to_be_managed;
+};
 #endif

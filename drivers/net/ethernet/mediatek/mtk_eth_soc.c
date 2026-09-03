@@ -1196,13 +1196,6 @@ static netdev_tx_t mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	bool gso = false;
 	int tx_num;
 
-	if (skb_vlan_tag_present(skb) &&
-	    !eth_proto_is_802_3(eth_hdr(skb)->h_proto)) {
-		skb = __vlan_hwaccel_push_inside(skb);
-		if (!skb)
-			goto dropped;
-	}
-
 	/* normally we can rely on the stack not calling this more than once,
 	 * however we have 2 queues running on the same ring so we need to lock
 	 * the ring access
@@ -1248,9 +1241,8 @@ static netdev_tx_t mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 drop:
 	spin_unlock(&eth->page_lock);
-	dev_kfree_skb_any(skb);
-dropped:
 	stats->tx_dropped++;
+	dev_kfree_skb_any(skb);
 	return NETDEV_TX_OK;
 }
 

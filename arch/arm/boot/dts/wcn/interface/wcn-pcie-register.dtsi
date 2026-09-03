@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			sprd-marlin3 {
+				wcn-dump {
+					btwf-dump {
+						/* base    size    offset    domain*/
+						sprd,edma-glb-regs = <0x40160000 0x3c 0 PCIE>;
+						sprd,edma-chn-regs = <0x40161000 0x480 0 PCIE>;
+						sprd,pcie-config = <0x40180000 0x17c 0 PCIE>;
+						sprd,pcie-status = <0x40180720 0x30 0 PCIE>;
+						sprd,pcie-sub-sys = <0x40180e50 0x30 0 PCIE>;
+					};
+				};
+			};
+		};
+	};
+};

@@ -170,6 +170,122 @@ config USB_TEGRA_PHY
 	  This driver provides PHY support for the USB controllers found
 	  on NVIDIA Tegra SoC's.
 
+config SPRD_SHARKL3_USB2_PHY
+	tristate "Unisoc Sharkl3 USB2 PHY Driver"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD SHARKL3 USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+
+config SPRD_SHARKL5_USB2_PHY
+	tristate "Unisoc Sharkl5 USB2 PHY Driver"
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD SHARKL5 USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+	  different config parameter define different way to load devices.
+
+config USB_SPRD_UMS512_PHY
+	tristate "Unisoc ums512 USB2 PHY Driver"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD ums512 USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+
+config SPRD_PIKE2_USB2_PHY
+	tristate "Spreadtrum PIKE2 USB2 PHY Driver"
+	depends on (ARM && ARCH_SPRD) || COMPILE_TEST
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD PIKE2 USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+	  different config parameter define different way to load devices.
+
+config SPRD_SHARKLE_USB2_PHY
+	tristate "Spreadtrum Sharkle USB2 PHY Driver"
+	depends on (ARM && ARCH_SPRD) || COMPILE_TEST
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD SHARKLE USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+	  different config parameter define different way to load devices.
+
+config SPRD_QOGIRL6_USB2_PHY
+	tristate "Unisoc Qogirl6 USB2 PHY Driver"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD QOGIRL6 USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality,
+	  normally paired with DesignWare USB20 (DRD) Controller or
+	  UNISOC musb phy (DRD )controller.
+
+config SPRD_USB_DUMMY_PHY
+	tristate "Unisoc USB DUMMY PHY Driver"
+	select USB_PHY
+	help
+	  Enable this to support the SPRD USB DUMMY PHY that is needed for
+	  usb (DWC3/MUSB) switch function.
+
+config SPRD_BC1P2
+	tristate "Spreadtrum USB BC1P2 support"
+	select USB_PHY
+	help
+	  Added this to support the sprd USB BC1P2.
+	  This driver provides secondary BC1P2 detection.
+	  This driver is supported by default.
+
+config SPRD_QOGIRN6PRO_USB2_PHY
+	tristate "Spreadtrum Qogirn6pro USB2 PHY Driver"
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD QOGIRN6PRO USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+
+config SPRD_QOGIRN6PRO_USB31_PHY
+	tristate "Unisoc QOGIRN6PRO PHY Driver"
+	select USB_PHY
+	select SPRD_BC1P2
+	depends on USB_DWC3_SPRD ||  COMPILE_TEST
+	help
+	  Enable this to support QOGIRN6PRO USB3 PHY that is part of SOC. This
+	  driver takes care of all the PHY functionality, normally paired
+	  with DesignWare USB3.0 (DRD) Controller.
+
+config SPRD_QOGIRN6LITE_USB2_PHY
+	tristate "Spreadtrum Qogirn6lite USB2 PHY Driver"
+	select USB_PHY
+	select SPRD_BC1P2
+	help
+	  Enable this to support the SPRD QOGIRN6LITE USB2 PHY that is part of SOC.
+	  This driver takes care of all the PHY functionality, normally paired with
+	  DesignWare USB20 (DRD) Controller.
+
+config SPRD_COMMONPHY
+	tristate "Spreadtrum COMMON PHY EVENT Driver"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select USB_PHY
+	help
+	  Enable this to support the SPRD USB PHY that is part of data role switch.
+	  Used for event notification, dpdm switch to the hardware or the usb phy.
+	  It is an indispensable part of the data role switch.
+	  Group the same members of different structures together
+
 config USB_ULPI
 	bool "Generic ULPI Transceiver Driver"
 	depends on ARM || ARM64 || COMPILE_TEST
@@ -191,5 +307,13 @@ config JZ4770_PHY
 	help
 	  This driver provides PHY support for the USB controller found
 	  on the JZ-series and X-series SoCs from Ingenic.
+
+config SPRD_REDRIVER_PTN38003A
+	tristate "Unisoc PTN38003A Driver"
+	select USB_PHY
+	depends on SPRD_QOGIRN6PRO_USB31_PHY
+	help
+	  Enable this to support QOGIRN6PRO USB3 PHY . This
+	  driver is redriver for usb3.0.
 
 endmenu

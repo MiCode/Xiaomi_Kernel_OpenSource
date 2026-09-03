@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS512 SoC DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&soc {
+
+	gpu_apb_regs: syscon@60100000 {
+		compatible = "sprd,ums512-glbregs", "syscon",
+			     "simple-mfd";
+		reg = <0 0x60100000 0 0x3000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0x60100000 0x3000>;
+
+		gpu_clk: gpu-clk {
+			compatible = "sprd,ums512-gpu-clk";
+			clocks = <&ext_26m>;
+			clock-names = "ext-26m";
+			reg = <0x0 0x100>;
+			#clock-cells = <1>;
+		};
+	};
+
+	gpu_dvfs_apb_regs: syscon@60110000 {
+		compatible = "sprd,ums512-glbregs", "syscon",
+			     "simple-mfd";
+		reg = <0 0x60110000 0 0x3000>;
+	};
+};
+
+&mm {
+
+	gpu: gpu@60000000 {
+		compatible = "sprd,mali-gondul";
+		reg = <0x0 0x60000000 0x0 0x100000>;
+		gpu-supply = <&vddgpu>;
+		system-coherency = <31>;
+		dcdc_mm_voltage3 = <&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_RF_DCDC_MM_DVFS_VOLTAGE_VALUE1
+			MASK_TOP_DVFS_APB_RF_DCDC_MODEM_VOLTAGE3>;
+		top_dvfs_cfg = <&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_SUBSYS_SW_DVFS_EN_CFG
+			MASK_TOP_DVFS_APB_GPU_SW_DVFS_EN>;
+		top_force_shutdown = <&pmu_apb_regs
+			REG_PMU_APB_RF_PD_GPU_TOP_CFG0
+			MASK_PMU_APB_RF_PD_GPU_TOP_FORCE_SHUTDOWN>;
+		mem_repaired_flag = <&aon_apb_regs
+			REG_AON_APB_RF_BOND_OPT0
+			MASK_AON_APB_RF_BOND_OPTION0>;
+		gpu_qos_sel = <&gpu_apb_regs
+			REG_GPU_APB_RF_GPU_NIC400_QOS
+			MASK_GPU_APB_RF_GPU_QOS_SEL>;
+		gpu_qos = <&gpu_apb_regs
+			REG_GPU_APB_RF_GPU_NIC400_QOS
+			(MASK_GPU_APB_RF_AWQOS_THRESHOLD_GPU |
+			MASK_GPU_APB_RF_ARQOS_THRESHOLD_GPU |
+			MASK_GPU_APB_RF_AWQOS_GPU |
+			MASK_GPU_APB_RF_ARQOS_GPU)>;
+		dvfs_index_cfg = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_DVFS_INDEX_CFG
+			MASK_GPU_DVFS_APB_RF_GPU_DVFS_INDEX>;
+		sw_dvfs_ctrl = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_SW_DVFS_CTRL
+			(MASK_GPU_DVFS_APB_RF_GPU_DVFS_ACK |
+			MASK_GPU_DVFS_APB_RF_GPU_DVFS_VOLTAGE_SW |
+			MASK_GPU_DVFS_APB_RF_GPU_DVFS_REQ_SW)>;
+		freq_upd_cfg = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_FREQ_UPD_TYPE_CFG
+			(MASK_GPU_DVFS_APB_RF_GPU_CORE_FREQ_UPD_HDSK_EN |
+			 MASK_GPU_DVFS_APB_RF_GPU_CORE_FREQ_UPD_DELAY_EN)>;
+		core_index0_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX0_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX0>;
+		core_index1_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX1_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX1>;
+		core_index2_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX2_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX2>;
+		core_index3_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX3_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX3>;
+		core_index4_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX4_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX4>;
+		core_index5_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX5_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX5>;
+		core_index6_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX6_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX6>;
+		core_index7_map = <&gpu_dvfs_apb_regs
+			REG_GPU_DVFS_APB_RF_GPU_CORE_INDEX7_MAP
+			MASK_GPU_DVFS_APB_RF_GPU_CORE_VOL_INDEX7>;
+
+		interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "JOB",
+			"MMU",
+			"GPU";
+
+		nvmem-cells = <&gpu_bin>, <&cpu_flag>;
+		nvmem-cell-names = "gpu_bin", "cpu_flag";
+
+		operating-points = <
+			/* kHz    uV */
+			384000    700000
+			512000    750000
+			614400    750000
+			768000    800000
+			850000    800000
+			>;
+
+		sprd,dvfs-lists = <
+			/* kHz   uV      idx div */
+			384000  700000    4    1
+			512000  750000    5    1
+			614400  750000    6    1
+			768000  800000    7    1
+			850000  800000    8    1
+			>;
+
+		sprd,dvfs-default = <0>;
+		/*sprd,qos = <&gpu_qos>;*/
+		sprd,dvfs-scene-extreme = <3>;
+		sprd,dvfs-scene-high = <2>;
+		sprd,dvfs-scene-medium = <1>;
+		sprd,dvfs-scene-low = <0>;
+		sprd,dvfs-range-max = <4>;
+		sprd,dvfs-range-min = <0>;
+		#cooling-cells = <2>;
+		dynamic-power-coefficient = <1446>;
+
+		clocks = <&aonapb_gate CLK_GPU_EB>,
+			<&gpu_clk CLK_GPU_CORE_EB>,
+			<&gpu_clk CLK_GPU_MEM_EB>,
+			<&gpu_clk CLK_GPU_SYS_EB>,
+			<&pll2 CLK_TWPLL_384M>,
+			<&pll2 CLK_TWPLL_512M>,
+			<&pll2 CLK_LPLL_614M4>,
+			<&pll2 CLK_TWPLL_768M>,
+			<&pll2 CLK_GPLL>;
+	};
+};

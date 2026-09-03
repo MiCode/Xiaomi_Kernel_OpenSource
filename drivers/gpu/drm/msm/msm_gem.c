@@ -886,8 +886,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m,
 	uint64_t off = drm_vma_node_start(&obj->vma_node);
 	const char *madv;
 
-	if (!msm_gem_trylock(obj))
-		return;
+	msm_gem_lock(obj);
 
 	stats->all.count++;
 	stats->all.size += obj->size;

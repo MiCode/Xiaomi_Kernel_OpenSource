@@ -636,8 +636,7 @@ acpi_status
 acpi_ps_complete_final_op(struct acpi_walk_state *walk_state,
 			  union acpi_parse_object *op, acpi_status status)
 {
-	acpi_status return_status = status;
-	u8 ascending = TRUE;
+	acpi_status status2;
 
 	ACPI_FUNCTION_TRACE_PTR(ps_complete_final_op, walk_state);
 
@@ -651,7 +650,7 @@ acpi_ps_complete_final_op(struct acpi_walk_state *walk_state,
 			  op));
 	do {
 		if (op) {
-			if (ascending && walk_state->ascending_callback != NULL) {
+			if (walk_state->ascending_callback != NULL) {
 				walk_state->op = op;
 				walk_state->op_info =
 				    acpi_ps_get_opcode_info(op->common.
@@ -673,26 +672,49 @@ acpi_ps_complete_final_op(struct acpi_walk_state *walk_state,
 				}
 
 				if (status == AE_CTRL_TERMINATE) {
-					ascending = FALSE;
-					return_status = AE_CTRL_TERMINATE;
+					status = AE_OK;
+
+					/* Clean up */
+					do {
+						if (op) {
+							status2 =
+							    acpi_ps_complete_this_op
+							    (walk_state, op);
+							if (ACPI_FAILURE
+							    (status2)) {
+								return_ACPI_STATUS
+								    (status2);
+							}
+						}
+
+						acpi_ps_pop_scope(&
+								  (walk_state->
+								   parser_state),
+								  &op,
+								  &walk_state->
+								  arg_types,
+								  &walk_state->
+								  arg_count);
+
+					} while (op);
+
+					return_ACPI_STATUS(status);
 				}
 
 				else if (ACPI_FAILURE(status)) {
 
 					/* First error is most important */
 
-					ascending = FALSE;
-					return_status = status;
+					(void)
+					    acpi_ps_complete_this_op(walk_state,
+								     op);
+					return_ACPI_STATUS(status);
 				}
 			}
 
-			status = acpi_ps_complete_this_op(walk_state, op);
-			if (ACPI_FAILURE(status)) {
-				ascending = FALSE;
-				if (ACPI_SUCCESS(return_status) ||
-				    return_status == AE_CTRL_TERMINATE) {
-					return_status = status;
-				}
+			status2 = acpi_ps_complete_this_op(walk_state, op);
+			if (ACPI_FAILURE(status2)) {
+				return_ACPI_STATUS(status2);
 			}
 		}
 
@@ -702,5 +724,5 @@ acpi_ps_complete_final_op(struct acpi_walk_state *walk_state,
 
 	} while (op);
 
-	return_ACPI_STATUS(return_status);
+	return_ACPI_STATUS(status);
 }

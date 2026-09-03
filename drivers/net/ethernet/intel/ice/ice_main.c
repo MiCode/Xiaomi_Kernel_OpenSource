@@ -222,45 +222,32 @@ static bool ice_vsi_fltr_changed(struct ice_vsi *vsi)
 }
 
 /**
- * ice_set_promisc - Enable promiscuous mode for a given PF
+ * ice_cfg_promisc - Enable or disable promiscuous mode for a given PF
  * @vsi: the VSI being configured
  * @promisc_m: mask of promiscuous config bits
+ * @set_promisc: enable or disable promisc flag request
  *
  */
-static int ice_set_promisc(struct ice_vsi *vsi, u8 promisc_m)
+static int ice_cfg_promisc(struct ice_vsi *vsi, u8 promisc_m, bool set_promisc)
 {
-	enum ice_status status;
+	struct ice_hw *hw = &vsi->back->hw;
+	enum ice_status status = 0;
 
 	if (vsi->type != ICE_VSI_PF)
 		return 0;
 
-	if (vsi->num_vlan > 1)
-		status = ice_fltr_set_vlan_vsi_promisc(&vsi->back->hw, vsi, promisc_m);
-	else
-		status = ice_fltr_set_vsi_promisc(&vsi->back->hw, vsi->idx, promisc_m, 0);
-	if (status)
-		return -EIO;
+	if (vsi->num_vlan > 1) {
+		status = ice_set_vlan_vsi_promisc(hw, vsi->idx, promisc_m,
+						  set_promisc);
+	} else {
+		if (set_promisc)
+			status = ice_set_vsi_promisc(hw, vsi->idx, promisc_m,
+						     0);
+		else
+			status = ice_clear_vsi_promisc(hw, vsi->idx, promisc_m,
+						       0);
+	}
 
-	return 0;
-}
-
-/**
- * ice_clear_promisc - Disable promiscuous mode for a given PF
- * @vsi: the VSI being configured
- * @promisc_m: mask of promiscuous config bits
- *
- */
-static int ice_clear_promisc(struct ice_vsi *vsi, u8 promisc_m)
-{
-	enum ice_status status;
-
-	if (vsi->type != ICE_VSI_PF)
-		return 0;
-
-	if (vsi->num_vlan > 1)
-		status = ice_fltr_clear_vlan_vsi_promisc(&vsi->back->hw, vsi, promisc_m);
-	else
-		status = ice_fltr_clear_vsi_promisc(&vsi->back->hw, vsi->idx, promisc_m, 0);
 	if (status)
 		return -EIO;
 
@@ -356,7 +343,7 @@ static int ice_vsi_sync_fltr(struct ice_vsi *vsi)
 			else
 				promisc_m = ICE_MCAST_PROMISC_BITS;
 
-			err = ice_set_promisc(vsi, promisc_m);
+			err = ice_cfg_promisc(vsi, promisc_m, true);
 			if (err) {
 				netdev_err(netdev, "Error setting Multicast promiscuous mode on VSI %i\n",
 					   vsi->vsi_num);
@@ -370,7 +357,7 @@ static int ice_vsi_sync_fltr(struct ice_vsi *vsi)
 			else
 				promisc_m = ICE_MCAST_PROMISC_BITS;
 
-			err = ice_clear_promisc(vsi, promisc_m);
+			err = ice_cfg_promisc(vsi, promisc_m, false);
 			if (err) {
 				netdev_err(netdev, "Error clearing Multicast promiscuous mode on VSI %i\n",
 					   vsi->vsi_num);
@@ -2393,13 +2380,6 @@ static int ice_vsi_req_irq_msix(struct ice_vsi *vsi, char *basename)
 		irq_set_affinity_hint(irq_num, &q_vector->affinity_mask);
 	}
 
-	err = ice_set_cpu_rx_rmap(vsi);
-	if (err) {
-		netdev_err(vsi->netdev, "Failed to setup CPU RMAP on VSI %u: %pe\n",
-			   vsi->vsi_num, ERR_PTR(err));
-		goto free_q_irqs;
-	}
-
 	vsi->irqs_ready = true;
 	return 0;
 
@@ -3387,11 +3367,21 @@ static int ice_setup_pf_sw(struct ice_pf *pf)
 	 */
 	ice_napi_add(vsi);
 
+	status = ice_set_cpu_rx_rmap(vsi);
+	if (status) {
+		dev_err(ice_pf_to_dev(pf), "Failed to set CPU Rx map VSI %d error %d\n",
+			vsi->vsi_num, status);
+		status = -EINVAL;
+		goto unroll_napi_add;
+	}
 	status = ice_init_mac_fltr(pf);
 	if (status)
-		goto unroll_napi_add;
+		goto free_cpu_rx_map;
 
 	return status;
+
+free_cpu_rx_map:
+	ice_free_cpu_rx_rmap(vsi);
 
 unroll_napi_add:
 	if (vsi) {
@@ -4883,6 +4873,7 @@ static int __maybe_unused ice_suspend(struct device *dev)
 			continue;
 		ice_vsi_free_q_vectors(pf->vsi[v]);
 	}
+	ice_free_cpu_rx_rmap(ice_get_main_vsi(pf));
 	ice_clear_interrupt_scheme(pf);
 
 	pci_save_state(pdev);
@@ -5731,15 +5722,14 @@ ice_fetch_u64_stats_per_ring(struct ice_ring *ring, u64 *pkts, u64 *bytes)
 /**
  * ice_update_vsi_tx_ring_stats - Update VSI Tx ring stats counters
  * @vsi: the VSI to be updated
- * @vsi_stats: the stats struct to be updated
  * @rings: rings to work on
  * @count: number of rings
  */
 static void
-ice_update_vsi_tx_ring_stats(struct ice_vsi *vsi,
-			     struct rtnl_link_stats64 *vsi_stats,
-			     struct ice_ring **rings, u16 count)
+ice_update_vsi_tx_ring_stats(struct ice_vsi *vsi, struct ice_ring **rings,
+			     u16 count)
 {
+	struct rtnl_link_stats64 *vsi_stats = &vsi->net_stats;
 	u16 i;
 
 	for (i = 0; i < count; i++) {
@@ -5762,13 +5752,15 @@ ice_update_vsi_tx_ring_stats(struct ice_vsi *vsi,
  */
 static void ice_update_vsi_ring_stats(struct ice_vsi *vsi)
 {
-	struct rtnl_link_stats64 *vsi_stats;
+	struct rtnl_link_stats64 *vsi_stats = &vsi->net_stats;
 	u64 pkts, bytes;
 	int i;
 
-	vsi_stats = kzalloc(sizeof(*vsi_stats), GFP_ATOMIC);
-	if (!vsi_stats)
-		return;
+	/* reset netdev stats */
+	vsi_stats->tx_packets = 0;
+	vsi_stats->tx_bytes = 0;
+	vsi_stats->rx_packets = 0;
+	vsi_stats->rx_bytes = 0;
 
 	/* reset non-netdev (extended) stats */
 	vsi->tx_restart = 0;
@@ -5780,8 +5772,7 @@ static void ice_update_vsi_ring_stats(struct ice_vsi *vsi)
 	rcu_read_lock();
 
 	/* update Tx rings counters */
-	ice_update_vsi_tx_ring_stats(vsi, vsi_stats, vsi->tx_rings,
-				     vsi->num_txq);
+	ice_update_vsi_tx_ring_stats(vsi, vsi->tx_rings, vsi->num_txq);
 
 	/* update Rx rings counters */
 	ice_for_each_rxq(vsi, i) {
@@ -5796,17 +5787,10 @@ static void ice_update_vsi_ring_stats(struct ice_vsi *vsi)
 
 	/* update XDP Tx rings counters */
 	if (ice_is_xdp_ena_vsi(vsi))
-		ice_update_vsi_tx_ring_stats(vsi, vsi_stats, vsi->xdp_rings,
+		ice_update_vsi_tx_ring_stats(vsi, vsi->xdp_rings,
 					     vsi->num_xdp_txq);
 
 	rcu_read_unlock();
-
-	vsi->net_stats.tx_packets = vsi_stats->tx_packets;
-	vsi->net_stats.tx_bytes = vsi_stats->tx_bytes;
-	vsi->net_stats.rx_packets = vsi_stats->rx_packets;
-	vsi->net_stats.rx_bytes = vsi_stats->rx_bytes;
-
-	kfree(vsi_stats);
 }
 
 /**

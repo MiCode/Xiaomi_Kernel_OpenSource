@@ -56,7 +56,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr,
 	__typeof__(ptr) __ptr = (ptr);				\
 	__typeof__(*(ptr)) __old = (old);			\
 	__typeof__(*(ptr)) __new = (new);			\
-	__typeof__(*(ptr)) __oldval = (__typeof__(*(ptr))) 0;	\
+	__typeof__(*(ptr)) __oldval = 0;			\
 								\
 	asm volatile(						\
 		"1:	%0 = memw_locked(%1);\n"		\

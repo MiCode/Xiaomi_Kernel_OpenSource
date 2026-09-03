@@ -367,7 +367,6 @@
   devm_clk_bulk_get_all
   devm_clk_bulk_get_optional
   devm_clk_get
-  devm_clk_get_enabled
   devm_clk_get_optional
   devm_clk_get_optional_enabled
   devm_clk_put
@@ -2402,7 +2401,6 @@
   v4l2_ctrl_new_std
   v4l2_ctrl_new_std_menu
   v4l2_ctrl_new_std_menu_items
-  v4l2_ctrl_notify
   v4l2_ctrl_query_fill
   v4l2_ctrl_radio_filter
   v4l2_ctrl_request_complete
@@ -2411,7 +2409,6 @@
   __v4l2_ctrl_s_ctrl_compound
   v4l2_ctrl_subdev_subscribe_event
   v4l2_ctrl_subscribe_event
-  v4l2_device_disconnect
   v4l2_device_register
   v4l2_device_register_subdev
   __v4l2_device_register_subdev_nodes
@@ -2469,7 +2466,6 @@
   v4l2_subdev_init
   v4l2_subdev_link_validate
   v4l2_subdev_link_validate_default
-  v4l2_type_names
   v4l_bound_align_image
   vabits_actual
   vb2_buffer_done

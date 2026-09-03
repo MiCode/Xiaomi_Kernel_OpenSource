@@ -3,13 +3,12 @@
  * Copyright (C) 2018 Spreadtrum Communications Inc.
  */
 
-#include <linux/device.h>
-#include <linux/input.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/property.h>
 #include <linux/regmap.h>
+#include <linux/input.h>
 #include <linux/workqueue.h>
 
 #define CUR_DRV_CAL_SEL			GENMASK(13, 12)
@@ -18,6 +17,9 @@
 #define SC2730_CUR_DRV_CAL_SEL		0
 #define SC2730_SLP_LDOVIBR_PD_EN	BIT(14)
 #define SC2730_LDO_VIBR_PD		BIT(13)
+#define UMP9620_CUR_DRV_CAL_SEL		0
+#define UMP9620_SLP_LDOVIBR_PD_EN	BIT(14)
+#define UMP9620_LDO_VIBR_PD		BIT(13)
 
 struct sc27xx_vibra_data {
 	u32 cur_drv_cal_sel;
@@ -53,6 +55,12 @@ static const struct sc27xx_vibra_data sc2721_data = {
 	.ldo_pd = LDO_VIBR_PD,
 };
 
+struct sc27xx_vibra_data ump9620_data = {
+	.cur_drv_cal_sel = UMP9620_CUR_DRV_CAL_SEL,
+	.slp_pd_en = UMP9620_SLP_LDOVIBR_PD_EN,
+	.ldo_pd = UMP9620_LDO_VIBR_PD,
+};
+
 static void sc27xx_vibra_set(struct vibra_info *info, bool on)
 {
 	const struct sc27xx_vibra_data *data = info->data;
@@ -76,9 +84,7 @@ static int sc27xx_vibra_hw_init(struct vibra_info *info)
 
 	if (!data->cur_drv_cal_sel)
 		return 0;
-
-	return regmap_update_bits(info->regmap, info->base,
-				  data->cur_drv_cal_sel, 0);
+	return regmap_update_bits(info->regmap, info->base, data->cur_drv_cal_sel, 0);
 }
 
 static void sc27xx_vibra_play_work(struct work_struct *work)
@@ -118,7 +124,7 @@ static int sc27xx_vibra_probe(struct platform_device *pdev)
 	const struct sc27xx_vibra_data *data;
 	int error;
 
-	data = device_get_match_data(&pdev->dev);
+	data = of_device_get_match_data(&pdev->dev);
 	if (!data) {
 		dev_err(&pdev->dev, "no matching driver data found\n");
 		return -EINVAL;
@@ -179,9 +185,10 @@ static int sc27xx_vibra_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id sc27xx_vibra_of_match[] = {
-	{ .compatible = "sprd,sc2721-vibrator", .data = &sc2721_data },
-	{ .compatible = "sprd,sc2730-vibrator", .data = &sc2730_data },
 	{ .compatible = "sprd,sc2731-vibrator", .data = &sc2731_data },
+	{ .compatible = "sprd,sc2730-vibrator", .data = &sc2730_data },
+	{ .compatible = "sprd,sc2721-vibrator", .data = &sc2721_data },
+	{ .compatible = "sprd,ump9620-vibrator", .data = &ump9620_data },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sc27xx_vibra_of_match);

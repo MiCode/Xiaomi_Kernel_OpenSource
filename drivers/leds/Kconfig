@@ -734,6 +734,16 @@ config LEDS_SC27XX_BLTC
 	  This driver can also be built as a module. If so the module will be
 	  called leds-sc27xx-bltc.
 
+config LEDS_SC27XX_KEYPAD
+	tristate "LED support for the SC27XX keypad led controller"
+	depends on LEDS_CLASS && MFD_SC27XX_PMIC
+	depends on OF
+	help
+	  Say Y here to include support for the SC27xx keypad led.
+
+	  This driver can also be built as a module. If so the module will be
+	  called leds-sc27xx-keypad.
+
 comment "LED driver for blink(1) USB RGB LED is under Special HID drivers (HID_THINGM)"
 
 config LEDS_BLINKM

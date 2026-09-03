@@ -263,8 +263,8 @@ struct mhi_ring_element {
 };
 
 struct bhi_vec_entry {
-	__le64 dma_addr;
-	__le64 size;
+	u64 dma_addr;
+	u64 size;
 };
 
 enum mhi_cmd_type {

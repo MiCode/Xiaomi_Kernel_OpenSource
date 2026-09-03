@@ -634,7 +634,7 @@ static const struct vm_operations_struct bpf_map_default_vmops = {
 static int bpf_map_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct bpf_map *map = filp->private_data;
-	int err = 0;
+	int err;
 
 	if (!map->ops->map_mmap || map_value_has_spin_lock(map) ||
 	    map_value_has_timer(map))
@@ -659,12 +659,7 @@ static int bpf_map_mmap(struct file *filp, struct vm_area_struct *vma)
 			err = -EACCES;
 			goto out;
 		}
-		bpf_map_write_active_inc(map);
 	}
-out:
-	mutex_unlock(&map->freeze_mutex);
-	if (err)
-		return err;
 
 	/* set default open/close callbacks */
 	vma->vm_ops = &bpf_map_default_vmops;
@@ -675,11 +670,13 @@ out:
 		vma->vm_flags &= ~VM_MAYWRITE;
 
 	err = map->ops->map_mmap(map, vma);
-	if (err) {
-		if (vma->vm_flags & VM_WRITE)
-			bpf_map_write_active_dec(map);
-	}
+	if (err)
+		goto out;
 
+	if (vma->vm_flags & VM_MAYWRITE)
+		bpf_map_write_active_inc(map);
+out:
+	mutex_unlock(&map->freeze_mutex);
 	return err;
 }
 
@@ -1418,6 +1415,8 @@ int generic_map_update_batch(struct bpf_map *map,
 	return err;
 }
 
+#define MAP_LOOKUP_RETRIES 3
+
 int generic_map_lookup_batch(struct bpf_map *map,
 				    const union bpf_attr *attr,
 				    union bpf_attr __user *uattr)
@@ -1427,8 +1426,8 @@ int generic_map_lookup_batch(struct bpf_map *map,
 	void __user *values = u64_to_user_ptr(attr->batch.values);
 	void __user *keys = u64_to_user_ptr(attr->batch.keys);
 	void *buf, *buf_prevkey, *prev_key, *key, *value;
+	int err, retry = MAP_LOOKUP_RETRIES;
 	u32 value_size, cp, max_count;
-	int err;
 
 	if (attr->batch.elem_flags & ~BPF_F_LOCK)
 		return -EINVAL;
@@ -1474,8 +1473,14 @@ int generic_map_lookup_batch(struct bpf_map *map,
 		err = bpf_map_copy_value(map, key, value,
 					 attr->batch.elem_flags);
 
-		if (err == -ENOENT)
-			goto next_key;
+		if (err == -ENOENT) {
+			if (retry) {
+				retry--;
+				continue;
+			}
+			err = -EINTR;
+			break;
+		}
 
 		if (err)
 			goto free_buf;
@@ -1490,12 +1495,12 @@ int generic_map_lookup_batch(struct bpf_map *map,
 			goto free_buf;
 		}
 
-		cp++;
-next_key:
 		if (!prev_key)
 			prev_key = buf_prevkey;
 
 		swap(prev_key, key);
+		retry = MAP_LOOKUP_RETRIES;
+		cp++;
 		cond_resched();
 	}
 

@@ -210,7 +210,7 @@ void put_ucounts(struct ucounts *ucounts)
 	}
 }
 
-static inline bool atomic_long_inc_below(atomic_long_t *v, long u)
+static inline bool atomic_long_inc_below(atomic_long_t *v, int u)
 {
 	long c, old;
 	c = atomic_long_read(v);

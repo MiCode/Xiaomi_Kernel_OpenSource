@@ -3,7 +3,13 @@ Spreadtrum PWM controller
 Spreadtrum SoCs PWM controller provides 4 PWM channels.
 
 Required properties:
-- compatible : Should be "sprd,ums512-pwm".
+- compatible : Should be one of the following:
+  "sprd,ums512-pwm",
+  "sprd,ums9620-pwm",
+  "sprd,ums9621-pwm",
+  "sprd,ums9230-pwm",
+  "sprd,sc9863a-pwm".
+
 - reg: Physical base address and length of the controller's registers.
 - clocks: The phandle and specifier referencing the controller's clocks.
 - clock-names: Should contain following entries:

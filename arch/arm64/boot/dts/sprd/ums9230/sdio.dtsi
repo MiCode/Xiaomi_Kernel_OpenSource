@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS9230 SDIO dts file
+ *
+ * Copyright (C) 2020~2021, Unisoc Communications Inc.
+ */
+
+&ap_apb {
+	sdio0: sdio@201a0000 {
+		compatible = "sprd,sdhci-r11";
+		reg = <0 0x201a0000 0 0x1000>;
+		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+		sd-detect-pol-syscon = <&aon_apb_regs
+			REG_AON_APB_AP_SDIO0_PHY_CTRL
+			MASK_AON_APB_AP_SDIO0_CARD_PRESENT_32K>;
+		sd-hotplug-protect-en-syscon = <&aon_apb_regs
+			REG_AON_APB_AP_SDIO0_PHY_CTRL
+			MASK_AON_APB_AP_SDIO0_CARD_PROTECT_32K>;
+		sd-hotplug-debounce-en-syscon = <&aon_apb_regs
+			REG_AON_APB_AP_SDIO0_PHY_CTRL
+			MASK_AON_APB_AP_SDIO0_CARDDET_DBNC_EN_32K>;
+		sd-hotplug-debounce-cn-syscon = <&aon_apb_regs
+			REG_AON_APB_AP_SDIO0_PHY_CTRL
+			MASK_AON_APB_AP_SDIO0_CARDDET_DBNC_THD_32K>;
+		clock-names = "sdio", "enable";
+		clocks = <&ap_clk CLK_SDIO0_2X>,
+				<&apapb_gate CLK_SDIO0_EB>;
+		assigned-clocks = <&ap_clk CLK_SDIO0_2X>;
+		assigned-clock-parents = <&mpll1 CLK_RPLL>;
+		status = "disabled";
+	};
+
+	sdio1: sdio@201b0000 {
+		compatible = "sprd,sdhci-r11";
+		reg = <0 0x201b0000 0 0x1000>;
+		interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "sdio", "enable";
+		clocks = <&ap_clk CLK_SDIO1_2X>,
+				<&apapb_gate CLK_SDIO1_EB>;
+		assigned-clocks = <&ap_clk CLK_SDIO1_2X>;
+		assigned-clock-parents = <&pll1 CLK_LPLL_409M6>;
+		status = "disabled";
+	};
+
+	sdio3: sdio@201d0000 {
+		compatible = "sprd,sdhci-r11";
+		reg = <0 0x201d0000 0 0x1000>;
+		interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "sdio", "enable";
+		clocks = <&ap_clk CLK_EMMC_2X>,
+				<&apapb_gate CLK_EMMC_EB>;
+		assigned-clocks = <&ap_clk CLK_EMMC_2X>;
+		assigned-clock-parents = <&mpll1 CLK_RPLL>;
+		status = "disabled";
+	};
+};
+
+&sdio0 {
+	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0x73 0x72 0x72>;
+	sprd,phy-delay-sd-uhs-sdr50 = <0x6e 0x7f 0x01 0x01>;
+	sprd,phy-delay-sd-highspeed = <0x7f 0x1a 0x9a 0x9a>;
+	sprd,phy-delay-legacy = <0x7f 0x1a 0x9a 0x9a>;
+	vmmc-supply = <&vddsdcore>;
+	vqmmc-supply = <&vddsdio>;
+	voltage-ranges = <3000 3000>;
+	bus-width = <4>;
+	sd-uhs-sdr104;
+	sd-uhs-sdr50;
+	sprd,name = "sdio_sd";
+	sprd,sdio-adma;
+	no-sdio;
+	no-mmc;
+	status = "okay";
+};
+
+&sdio1 {
+	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0x61 0x5e 0x5e>;
+	sprd,phy-delay-sd-uhs-sdr50 = <0x7f 0x7f 0x8f 0x8f>;
+	bus-width = <4>;
+	sd-uhs-sdr104;
+	sd-uhs-sdr50;
+	sprd,name = "sdio_wifi";
+	sprd,sdio-adma;
+	no-sd;
+	no-mmc;
+	status = "disabled";
+};
+
+&sdio3 {
+	sprd,phy-delay-mmc-hs400es = <0x40 0x80 0x3d 0x3d>;
+	sprd,phy-delay-mmc-hs400 = <0x3f 0xb5 0x3d 0x3d>;
+	sprd,phy-delay-mmc-hs200 = <0x7f 0xb5 0xb5 0xb5>;
+	sprd,phy-delay-mmc-ddr52 = <0x3e 0x6a 0x48 0x48>;
+	sprd,phy-delay-mmc-highspeed = <0x60 0x2e 0x2c 0x2c>;
+	vmmc-supply = <&vddemmccore>;
+	voltage-ranges = <3000 3000>;
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-hw-reset;
+	mmc-hs400-enhanced-strobe;
+	mmc-hs400-1_8v;
+	mmc-hs200-1_8v;
+	mmc-ddr-1_8v;
+	sprd,name = "sdio_emmc";
+	sprd,sdio-adma;
+	no-sdio;
+	no-sd;
+	status = "disabled";
+	supports-swcq;
+};

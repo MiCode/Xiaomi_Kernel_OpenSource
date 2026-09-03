@@ -261,18 +261,6 @@ unmask_layers(const struct landlock_rule *const rule,
 	return false;
 }
 
-/*
- * Allows access to pseudo filesystems that will never be mountable (e.g.
- * sockfs, pipefs), but can still be reachable through
- * /proc/<pid>/fd/<file-descriptor>
- */
-static inline bool is_nouser_or_private(const struct dentry *dentry)
-{
-	return (dentry->d_sb->s_flags & SB_NOUSER) ||
-	       (d_is_positive(dentry) &&
-		unlikely(IS_PRIVATE(d_backing_inode(dentry))));
-}
-
 static int check_access_path(const struct landlock_ruleset *const domain,
 			     const struct path *const path,
 			     const access_mask_t access_request)
@@ -286,7 +274,14 @@ static int check_access_path(const struct landlock_ruleset *const domain,
 		return 0;
 	if (WARN_ON_ONCE(!domain || !path))
 		return 0;
-	if (is_nouser_or_private(path->dentry))
+	/*
+	 * Allows access to pseudo filesystems that will never be mountable
+	 * (e.g. sockfs, pipefs), but can still be reachable through
+	 * /proc/<pid>/fd/<file-descriptor> .
+	 */
+	if ((path->dentry->d_sb->s_flags & SB_NOUSER) ||
+	    (d_is_positive(path->dentry) &&
+	     unlikely(IS_PRIVATE(d_backing_inode(path->dentry)))))
 		return 0;
 	if (WARN_ON_ONCE(domain->num_layers < 1))
 		return -EACCES;
@@ -363,38 +358,6 @@ static inline int current_check_access_path(const struct path *const path,
 	if (!dom)
 		return 0;
 	return check_access_path(dom, path, access_request);
-}
-
-static inline access_mask_t get_mode_access(const umode_t mode)
-{
-	switch (mode & S_IFMT) {
-	case S_IFLNK:
-		return LANDLOCK_ACCESS_FS_MAKE_SYM;
-	case S_IFDIR:
-		return LANDLOCK_ACCESS_FS_MAKE_DIR;
-	case S_IFCHR:
-		return LANDLOCK_ACCESS_FS_MAKE_CHAR;
-	case S_IFBLK:
-		return LANDLOCK_ACCESS_FS_MAKE_BLOCK;
-	case S_IFIFO:
-		return LANDLOCK_ACCESS_FS_MAKE_FIFO;
-	case S_IFSOCK:
-		return LANDLOCK_ACCESS_FS_MAKE_SOCK;
-	case S_IFREG:
-	case 0:
-		/* A zero mode translates to S_IFREG. */
-	default:
-		/* Treats weird files as regular files. */
-		return LANDLOCK_ACCESS_FS_MAKE_REG;
-	}
-}
-
-static inline access_mask_t maybe_remove(const struct dentry *const dentry)
-{
-	if (d_is_negative(dentry))
-		return 0;
-	return d_is_dir(dentry) ? LANDLOCK_ACCESS_FS_REMOVE_DIR :
-				  LANDLOCK_ACCESS_FS_REMOVE_FILE;
 }
 
 /* Inode hooks */
@@ -590,6 +553,31 @@ static int hook_sb_pivotroot(const struct path *const old_path,
 
 /* Path hooks */
 
+static inline access_mask_t get_mode_access(const umode_t mode)
+{
+	switch (mode & S_IFMT) {
+	case S_IFLNK:
+		return LANDLOCK_ACCESS_FS_MAKE_SYM;
+	case 0:
+		/* A zero mode translates to S_IFREG. */
+	case S_IFREG:
+		return LANDLOCK_ACCESS_FS_MAKE_REG;
+	case S_IFDIR:
+		return LANDLOCK_ACCESS_FS_MAKE_DIR;
+	case S_IFCHR:
+		return LANDLOCK_ACCESS_FS_MAKE_CHAR;
+	case S_IFBLK:
+		return LANDLOCK_ACCESS_FS_MAKE_BLOCK;
+	case S_IFIFO:
+		return LANDLOCK_ACCESS_FS_MAKE_FIFO;
+	case S_IFSOCK:
+		return LANDLOCK_ACCESS_FS_MAKE_SOCK;
+	default:
+		WARN_ON_ONCE(1);
+		return 0;
+	}
+}
+
 /*
  * Creating multiple links or renaming may lead to privilege escalations if not
  * handled properly.  Indeed, we must be sure that the source doesn't gain more
@@ -616,6 +604,14 @@ static int hook_path_link(struct dentry *const old_dentry,
 	return check_access_path(
 		dom, new_dir,
 		get_mode_access(d_backing_inode(old_dentry)->i_mode));
+}
+
+static inline access_mask_t maybe_remove(const struct dentry *const dentry)
+{
+	if (d_is_negative(dentry))
+		return 0;
+	return d_is_dir(dentry) ? LANDLOCK_ACCESS_FS_REMOVE_DIR :
+				  LANDLOCK_ACCESS_FS_REMOVE_FILE;
 }
 
 static int hook_path_rename(const struct path *const old_dir,

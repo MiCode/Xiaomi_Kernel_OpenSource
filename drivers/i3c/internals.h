@@ -9,7 +9,6 @@
 #define I3C_INTERNALS_H
 
 #include <linux/i3c/master.h>
-#include <linux/io.h>
 
 extern struct bus_type i3c_bus_type;
 

@@ -112,9 +112,7 @@ struct atm_dev *atm_dev_register(const char *type, struct device *parent,
 
 	if (atm_proc_dev_register(dev) < 0) {
 		pr_err("atm_proc_dev_register failed for dev %s\n", type);
-		mutex_unlock(&atm_dev_mutex);
-		kfree(dev);
-		return NULL;
+		goto out_fail;
 	}
 
 	if (atm_register_sysfs(dev, parent) < 0) {
@@ -130,7 +128,7 @@ out:
 	return dev;
 
 out_fail:
-	put_device(&dev->class_dev);
+	kfree(dev);
 	dev = NULL;
 	goto out;
 }
@@ -148,10 +146,11 @@ void atm_dev_deregister(struct atm_dev *dev)
 	 */
 	mutex_lock(&atm_dev_mutex);
 	list_del(&dev->dev_list);
+	mutex_unlock(&atm_dev_mutex);
+
 	atm_dev_release_vccs(dev);
 	atm_unregister_sysfs(dev);
 	atm_proc_dev_deregister(dev);
-	mutex_unlock(&atm_dev_mutex);
 
 	atm_dev_put(dev);
 }

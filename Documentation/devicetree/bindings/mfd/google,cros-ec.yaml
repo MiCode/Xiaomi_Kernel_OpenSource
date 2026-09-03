@@ -39,14 +39,18 @@ properties:
     description:
       This property specifies the delay in usecs between the
       assertion of the CS and the first clock pulse.
-    $ref: /schemas/types.yaml#/definitions/uint32
-    default: 0
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - default: 0
+      - minimum: 0
 
   google,cros-ec-spi-msg-delay:
     description:
       This property specifies the delay in usecs between messages.
-    $ref: /schemas/types.yaml#/definitions/uint32
-    default: 0
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - default: 0
+      - minimum: 0
 
   google,has-vbc-nvram:
     description:

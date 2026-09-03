@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS312 Pinctrl DTS file
+ *
+ * Copyright (C) 2022, Unisoc Inc.
+ */
+
+&aon {
+	pin_controller: pinctrl@32450000 {
+		compatible = "sprd,sharkl5-pinctrl";
+		reg = <0 0x32450000 0 0x10000>;
+	};
+};

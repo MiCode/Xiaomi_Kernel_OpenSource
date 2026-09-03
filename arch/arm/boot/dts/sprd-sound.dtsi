@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum Audio dts file
+ *
+ * Copyright (C) 2019, Spreadtrum Communications Inc.
+ */
+
+/ {
+	sprd_headset: sprd-headset {
+		compatible = "unisoc,headset";
+		status = "disabled";
+		jack-type = <0>; /* 0: normal-open jack; 1: normal-close jack */
+		io-channels =  <&pmic_adc 20>;
+		io-channel-names = "headmic_in_little";
+		gpios = <&pmic_eic 3 GPIO_ACTIVE_HIGH>, <&pmic_eic 8 GPIO_ACTIVE_HIGH>,
+			 <&pmic_eic 12 GPIO_ACTIVE_HIGH>, <&pmic_eic 5 GPIO_ACTIVE_HIGH>,
+			 <&pmic_eic 13 GPIO_ACTIVE_HIGH>;
+		gpio-trigger-levels = <1 1 1 1 1>;
+		/*
+		 * 10ms debounce time is recommended from
+		 * asic from headset button
+		 */
+		gpio-dbnc-intervals = <10 100 100 100 100>;
+		gpio-names = "button", "detect_l",
+			     "detect_h", "detect_mic",
+			     "detect_all";
+		adc-threshold-3pole-detect = <3054>;
+		sprd,adc-gnd = <336>;
+		sprd,stable-value = <2223>;
+		sprd,coefficient = <939836>;
+		irq-threshold-button = <9>;
+
+		nvmem-cells = <&hp_efuse_protectbit>, <&hp_efuse_auxadc>, <&hp_efuse_headmic>;
+		nvmem-cell-names = "protectbit", "auxadc", "headmic";
+
+		headset-button@0 {
+			/* media */
+			adc-min = <0>;
+			adc-max = <490>;
+			code = <226>;
+		};
+		headset-button@1 {
+			/* volume up */
+			adc-min = <540>;
+			adc-max = <1020>;
+			code = <115>;
+		};
+		headset-button@2 {
+			/* volume down */
+			adc-min = <1090>;
+			adc-max =<2400>;
+			code = <114>;
+		};
+	};
+
+	sound_vbc_r1p0v3_sprd_codec: sound@0 {
+		compatible = "unisoc,vbc-r1p0v3-codec-sc2721",
+			     "unisoc,vbc-r1p0v3-codec-sc2731";
+		status = "disabled";
+		sprd-audio-card,name = "sprdphone";
+		sprd-audio-card,routing =
+			"HPMIC Pin", "HP Mic Jack",
+			"MIC Pin", "Mic Jack",
+			"MIC2 Pin", "Aux Mic Jack",
+			"HeadPhone Jack", "HP Pin",
+			"Ext Spk", "HP Pin",
+			"Ext Spk1", "HP Pin",
+			"Ext Spk", "SPK Pin",
+			"Ext Spk1", "SPK Pin",
+			"Ext Ear", "EAR Pin",
+			"Ext Ear", "SPK Pin",
+			"Ext Ear", "HP Pin",
+			"DMIC", "DMic Jack",
+			"DMIC1", "DMic1 Jack",
+
+			/* For vbc loopback */
+			"Aud input", "AD Clk",
+			"Aud1 input", "AD Clk",
+			"Aud input", "Digital ADCL Switch",
+			"Aud input", "Digital ADCR Switch",
+			"Aud1 input", "Digital ADC1L Switch",
+			"Aud1 input", "Digital ADC1R Switch";
+		sprd-audio-card,headset = <&sprd_headset>;
+		/* fm-open-src:0 not open, 1 open */
+		sprd-audio-card,fm-open-src = <1>;
+		sprd-audio-card,fm-hw-rate = <32000>;
+		sprd-audio-card,codec-replace-adc-rate = <48000>;
+		/* dai-links */
+		sprd-audio-card,dai-link@0 {
+			ignore-suspend = <0>;
+			plat {
+				sound-dai = <&sprd_pcm>;
+			};
+			cpu {
+				/* vbc-r2p0(normal playback & fm capture) */
+				sound-dai = <&vbc 0>;
+			};
+			codec {
+				/* sprd-codec-normal */
+				sound-dai = <&sprd_audio_codec_ana 0>;
+			};
+		};
+		sprd-audio-card,dai-link@1 {
+			ignore-suspend = <0>;
+			plat {
+				sound-dai = <&sprd_pcm>;
+			};
+			cpu {
+				/* voice */
+				sound-dai = <&vaudio 0>;
+			};
+			codec {
+				/* sprd-codec-voice */
+				sound-dai = <&sprd_audio_codec_ana 0>;
+			};
+		};
+		sprd-audio-card,dai-link@2 {
+			ignore-suspend = <0>;
+			plat {
+				sound-dai = <&sprd_pcm>;
+			};
+			cpu {
+				/* vbc-r2p0-ad23(normal capture) */
+				sound-dai = <&vbc 1>;
+			};
+			codec {
+				/* sprd-codec-ad1 */
+				sound-dai = <&sprd_audio_codec_ana 1>;
+			};
+		};
+		sprd-audio-card,dai-link@3 {
+			ignore-suspend = <0>;
+			plat {
+				sound-dai = <&sprd_pcm>;
+			};
+			cpu {
+				/* vaudio-ad23 */
+				sound-dai = <&vaudio 1>;
+			};
+			codec {
+				/* sprd-codec-ad1-voice */
+				sound-dai = <&sprd_audio_codec_ana 1>;
+			};
+		};
+		sprd-audio-card,dai-link@4 {
+			ignore-suspend = <0>;
+			ops = <0>;
+			plat {
+				sound-dai = <&sprd_pcm>;
+			};
+			cpu {
+				/* vbc-dfm */
+				sound-dai = <&vbc 2>;
+			};
+			codec {
+				/* sprd-codec-fm */
+				sound-dai = <&sprd_audio_codec_ana 0>;
+			};
+		};
+		sprd-audio-card,dai-link@5 {
+			ignore-suspend = <0>;
+			plat {
+				sound-dai = <&sprd_pcm>;
+			};
+			cpu {
+				/* vbc-deep-buf(deep buffer playback) */
+				sound-dai = <&vbc 3>;
+			};
+			codec {
+				/* sprd-codec-offload-playback */
+				sound-dai = <&sprd_audio_codec_ana 0>;
+			};
+		};
+	};
+
+	sound_sprd_ap_alliis: sound@1 {
+		compatible = "unisoc,i2s-null-codec";
+		status = "disabled";
+		sprd-audio-card,name = "all-i2s";
+		/* dai-links */
+		sprd-audio-card,dai-link@0 {
+			plat {
+				sound-dai = <&sprd_pcm_iis>;
+			};
+			cpu {
+				sound-dai = <&i2s0 0>;
+			};
+			codec {
+				sound-dai = <0 0>;
+			};
+		};
+	};
+};
+
+&i2s0 {
+	sprd,config_type = "pcm";
+	sprd,slave_timeout = <0xF11>;
+	sprd,_hw_port = <0>;
+	sprd,fs = <8000>;
+	sprd,bus_type = <1>;
+	sprd,rtx_mode = <3>;
+	sprd,byte_per_chan = <1>;
+	sprd,slave_mode = <0>;
+	sprd,lsb = <0>;
+	sprd,lrck = <0>;
+	sprd,low_for_left = <1>;
+	sprd,clk_inv = <0>;
+	sprd,pcm_short_frame = <1>;
+	sprd,pcm_slot = <0x1>;
+	sprd,pcm_cycle = <1>;
+	sprd,tx_watermark = <12>;
+	sprd,rx_watermark = <20>;
+	status = "okay";
+};

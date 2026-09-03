@@ -1,0 +1,5 @@
+config UNISOC_DMABUF
+	tristate "UNISOC DMABUF Support"
+	depends on DMABUF_HEAPS
+	help
+	   Choose this option to enable UNISOC dmabuf support.

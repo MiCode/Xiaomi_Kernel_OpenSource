@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum QogirN6Pro modem board DTSI file
+ * These dt is used for modem drivers
+ *
+ * Copyright (C) 2020, Spreadtrum Communications Inc.
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+
+/ {
+	aliases {
+		v4-modem0 = &nr_pm;
+		v4-modem1 = &nr_ch;
+		v4-modem2 = &nr_pscp;
+		v4-modem3 = &nr_phycp;
+	};
+
+	nr_pm: modem@0 {
+		compatible = "unisoc,modem";
+		syscon0 = <&aon_apb_regs 0xff 0x0>;
+		syscon1 = <&pmu_apb_regs 0xff 0x100000>;
+		syscon2	= <&aon_apb_regs 0x0090 0x1>;
+		syscon3 = <&aon_apb_regs 0xff 0x0>;
+		syscon4	= <&aon_apb_regs 0xff 0x0>;
+		syscon-names = "shutdown", "deepsleep", "corereset",
+					"sysreset", "getstatus";
+		sprd,sys-bus-ctrl = <&aon_apb_regs 0x0128 0x1>;
+		sprd,version = <0x04>;
+	};
+
+	nr_ch: modem@1 {
+		compatible = "unisoc,modem";
+		syscon0 = <&aon_apb_regs 0xff 0x0>;
+		syscon1	= <&pmu_apb_regs 0xff 0x100000>;
+		syscon2	= <&aon_apb_regs 0x008C 0x1>;
+		syscon3 = <&aon_apb_regs 0xff 0x0>;
+		syscon4 = <&aon_apb_regs 0xff 0x0>;
+		syscon-names = "shutdown", "deepsleep", "corereset",
+					"sysreset", "getstatus";
+		sprd,sys-bus-ctrl = <&aon_apb_regs 0x0124 0x1>;
+		sprd,version = <0x04>;
+	};
+
+	nr_pscp: modem@2 {
+		compatible = "unisoc,modem";
+		syscon0 = <&pmu_apb_regs 0x0330 0x2000000>;
+		syscon1 = <&pmu_apb_regs 0x0818 0x2>;
+		syscon2	= <&aon_apb_regs 0x0174 0x3000>;
+		syscon3 = <&aon_apb_regs 0xff 0x0>;
+		syscon4	= <&aon_apb_regs 0xff 0x0>;
+		syscon-names = "shutdown", "deepsleep", "corereset",
+					"sysreset", "getstatus";
+		sprd,version = <0x04>;
+	};
+
+	nr_phycp: modem@3 {
+		compatible = "unisoc,modem";
+		syscon0 = <&pmu_apb_regs 0xff 0x0>;
+		syscon1 = <&pmu_apb_regs 0xff 0x0>;
+		syscon2 = <&aon_apb_regs 0x0cb0 0x3000>;
+		syscon3 = <&aon_apb_regs 0xff 0x0>;
+		syscon4 = <&aon_apb_regs 0xff 0x0>;
+		syscon-names = "shutdown", "deepsleep", "corereset",
+					"sysreset", "getstatus";
+		sprd,version = <0x04>;
+	};
+
+	nr_cp_dump: cp_dump {
+		compatible = "sprd,cp_dump";
+		sprd,sys-bus-ctrl-sp = <&aon_apb_regs 0x0128 0x1>;
+		sprd,sys-bus-ctrl-ch = <&aon_apb_regs 0x0124 0x1>;
+	};
+
+	dvfs_pscp {
+		compatible = "sprd,pscp-dvfs";
+		sprd,core_id = <2>;
+		sprd,devices-num = <3>;
+		sprd,devices-name = "core", "axi", "apb";
+		sprd,devices-id = <0>, <1>, <2>;
+	};
+
+	dvfs_phycp {
+		compatible = "sprd,phycp-dvfs";
+		sprd,core_id = <3>;
+		sprd,devices-num = <3>;
+		sprd,devices-name = "core", "axi", "apb";
+		sprd,devices-id = <0>, <1>, <2>;
+	};
+};
+
+&sipc {
+	sipc_pm: core@6 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* endpoint id - should be same with sipc processor id */
+		reg = <6>;
+		label = "sipc-pmsys";
+		/* <&mailbox channel_id is_no_wakeup(default 0)> */
+		mboxes = <&mailbox 1 0>;
+		sprd,smem-info = <0x65007400 0x65007400 0x1000>;
+
+		slog_pm: channel@5 {
+			compatible = "sprd,spipe";
+			/* channel number */
+			reg = <5>;
+			label = "slog_pm";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x5c0>;
+			sprd,size-txbuf = <0x0>;
+		};
+
+		sctl_pm: channel@6 {
+			compatible = "sprd,spipe";
+			reg = <6>;
+			label = "sctl_pm";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x80>;
+			sprd,size-txbuf = <0x20>;
+		};
+	};
+
+	sipc_ch: core@9 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <9>;
+		label = "sipc-chsys";
+		mboxes = <&mailbox 2 0>,<&mailbox 6 1>;
+		sprd,smem-info = <0x6500cc00 0x6500cc00 0x2000>,
+				 <0xae600000 0x80000000 0x40000>;
+		spipe_ch: channel@4 {
+			compatible = "sprd,spipe";
+			reg = <4>;
+			label = "spipe_ch";
+			sprd,ringnr = <2>;
+			sprd,size-rxbuf = <0xb00>;
+			sprd,size-txbuf = <0x180>;
+		};
+
+		slog_ch: channel@5 {
+			compatible = "sprd,spipe";
+			reg = <5>;
+			label = "slog_ch";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x4e0>;
+			sprd,size-txbuf = <0x0>;
+		};
+
+		sctl_ch: channel@6 {
+			compatible = "sprd,spipe";
+			reg = <6>;
+			label = "sctl_ch";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x80>;
+			sprd,size-txbuf = <0x20>;
+		};
+
+		data0_gnss: channel@7 {
+			compatible = "sprd,spipe";
+			reg = <7>;
+			label = "data0_gnss";
+			sprd,smem = <1>;
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x20000>;
+			sprd,size-txbuf = <0x18000>;
+		};
+
+		stime_ch: channel@41 {
+			compatible = "sprd,spipe";
+			reg = <41>;
+			label = "stime_ch";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x40>;
+			sprd,size-txbuf = <0x80>;
+		};
+	};
+
+	sipc_pscp: core@5 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+		label = "sipc-pscp";
+		mboxes = <&mailbox 3 0>;
+		sprd,smem-info = <0x87800000 0x87800000 0x400000>;
+
+		imsbr_data: channel@2 {
+			compatible = "sprd,spool";
+			reg = <2>;
+			label = "imsbr_data";
+			sprd,tx-blksize = <0x5F4>;
+			sprd,tx-blknum = <64>;
+			sprd,rx-blksize = <0x5F4>;
+			sprd,rx-blknum = <64>;
+		};
+
+		imsbr_ctrl: channel@3 {
+			compatible = "sprd,spool";
+			reg = <3>;
+			label = "imsbr_ctrl";
+			sprd,tx-blksize = <0x80>;
+			sprd,tx-blknum = <64>;
+			sprd,rx-blksize = <0x80>;
+			sprd,rx-blknum = <64>;
+		};
+
+		spipe_nr: channel@4 {
+			compatible = "sprd,spipe";
+			reg = <4>;
+			label = "spipe_nr";
+			sprd,ringnr = <20>;
+			sprd,size-rxbuf = <0x1000>; /* 4*1024 */
+			sprd,size-txbuf = <0x1000>; /* 4*1024 */
+		};
+
+		sdiag_nr: channel@21 {
+			compatible = "sprd,spipe";
+			reg = <21>;
+			label = "sdiag_nr";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x40000>; /* 256*1024*/
+			sprd,size-txbuf = <0x8000>; /* 32*1024 */
+		};
+
+		stty_nr: channel@6 {
+			compatible = "sprd,spipe";
+			reg = <6>;
+			label = "stty_nr";
+			sprd,ringnr = <32>;
+			sprd,size-rxbuf = <0x0800>; /* 2*1024*/
+			sprd,size-txbuf = <0x0800>; /* 2*1024 */
+		};
+
+		snv_nr: channel@40 {
+			compatible = "sprd,spipe";
+			reg = <40>;
+			label = "snv_nr";
+			sprd,ringnr = <1>;
+			sprd,size-rxbuf = <0x40400>; /* 257*1024*/
+			sprd,size-txbuf = <0x1000>; /* 4*1024 */
+		};
+
+		slog_nr: channel@5 {
+			compatible = "sprd,spool";
+			reg = <5>;
+			label = "slog_nr";
+			sprd,preconfigured = <1>;
+			sprd,tx-blksize = <0>;
+			sprd,tx-blknum = <0>;
+			sprd,rx-blksize = <0x800>;
+			sprd,rx-blknum = <1000>;
+		};
+	};
+
+	sipc_phycp: core@7 {
+		compatible = "sprd,sipc";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <7>;
+		label = "sipc-phycp";
+		mboxes = <&mailbox 4 0>;
+		sprd,smem-info = <0x87c00000 0x87c00000 0x400000>;
+
+		slog_phy: channel@5 {
+			compatible = "sprd,spool";
+			reg = <5>;
+			label = "slog_phy";
+			sprd,preconfigured = <1>;
+			sprd,tx-blksize = <0>;
+			sprd,tx-blknum = <0>;
+			sprd,rx-blksize = <0x2000>;
+			sprd,rx-blknum = <500>;
+		};
+	};
+
+	sbridge_log: sbridge@0 {
+		compatible = "sprd,slog_bridge";
+		sprd,tx_is_usb = <1>;
+		sprd,tx_dst = <0>;
+		sprd,rx_dst = <5 7>;
+		sprd,priority = <86>;
+	};
+
+	time_sync {
+		compatible = "sprd,time-sync";
+	};
+};

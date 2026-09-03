@@ -215,7 +215,7 @@ v3d_hub_irq(int irq, void *arg)
 int
 v3d_irq_init(struct v3d_dev *v3d)
 {
-	int irq, ret, core;
+	int irq1, ret, core;
 
 	INIT_WORK(&v3d->overflow_mem_work, v3d_overflow_mem_work);
 
@@ -226,24 +226,17 @@ v3d_irq_init(struct v3d_dev *v3d)
 		V3D_CORE_WRITE(core, V3D_CTL_INT_CLR, V3D_CORE_IRQS);
 	V3D_WRITE(V3D_HUB_INT_CLR, V3D_HUB_IRQS);
 
-	irq = platform_get_irq_optional(v3d_to_pdev(v3d), 1);
-	if (irq == -EPROBE_DEFER)
-		return irq;
-	if (irq > 0) {
-		v3d->irq[V3D_CORE_IRQ] = irq;
-
-		ret = devm_request_irq(v3d->drm.dev, v3d->irq[V3D_CORE_IRQ],
+	irq1 = platform_get_irq_optional(v3d_to_pdev(v3d), 1);
+	if (irq1 == -EPROBE_DEFER)
+		return irq1;
+	if (irq1 > 0) {
+		ret = devm_request_irq(v3d->drm.dev, irq1,
 				       v3d_irq, IRQF_SHARED,
 				       "v3d_core0", v3d);
 		if (ret)
 			goto fail;
-
-		irq = platform_get_irq(v3d_to_pdev(v3d), 0);
-		if (irq < 0)
-			return irq;
-		v3d->irq[V3D_HUB_IRQ] = irq;
-
-		ret = devm_request_irq(v3d->drm.dev, v3d->irq[V3D_HUB_IRQ],
+		ret = devm_request_irq(v3d->drm.dev,
+				       platform_get_irq(v3d_to_pdev(v3d), 0),
 				       v3d_hub_irq, IRQF_SHARED,
 				       "v3d_hub", v3d);
 		if (ret)
@@ -251,12 +244,8 @@ v3d_irq_init(struct v3d_dev *v3d)
 	} else {
 		v3d->single_irq_line = true;
 
-		irq = platform_get_irq(v3d_to_pdev(v3d), 0);
-		if (irq < 0)
-			return irq;
-		v3d->irq[V3D_CORE_IRQ] = irq;
-
-		ret = devm_request_irq(v3d->drm.dev, v3d->irq[V3D_CORE_IRQ],
+		ret = devm_request_irq(v3d->drm.dev,
+				       platform_get_irq(v3d_to_pdev(v3d), 0),
 				       v3d_irq, IRQF_SHARED,
 				       "v3d", v3d);
 		if (ret)
@@ -290,18 +279,12 @@ v3d_irq_enable(struct v3d_dev *v3d)
 void
 v3d_irq_disable(struct v3d_dev *v3d)
 {
-	int core, i;
+	int core;
 
 	/* Disable all interrupts. */
 	for (core = 0; core < v3d->cores; core++)
 		V3D_CORE_WRITE(core, V3D_CTL_INT_MSK_SET, ~0);
 	V3D_WRITE(V3D_HUB_INT_MSK_SET, ~0);
-
-	/* Finish any interrupt handler still in flight. */
-	for (i = 0; i < V3D_MAX_IRQS; i++) {
-		if (v3d->irq[i])
-			synchronize_irq(v3d->irq[i]);
-	}
 
 	/* Clear any pending interrupts we might have left. */
 	for (core = 0; core < v3d->cores; core++)

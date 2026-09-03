@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * clock.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&soc {
+	ap_clk: clock-controller@20010000 {
+		compatible = "sprd,ums9621-ap-clk";
+		reg = <0 0x20010000 0 0x3000>;
+		clocks = <&ext_26m>;
+		clock-names = "ext-26m";
+		#clock-cells = <1>;
+	};
+
+	gpu_clk: clock-controller@23010000 {
+		compatible = "sprd,ums9621-gpu-clk";
+		reg = <0 0x23010000 0 0x3000>;
+		clocks = <&ext_26m>;
+		clock-names = "ext-26m";
+		#clock-cells = <1>;
+	};
+
+	mm_clk: clock-controller@30010000 {
+		compatible = "sprd,ums9621-mm-clk";
+		reg = <0 0x30010000 0 0x3000>;
+		clocks = <&ext_26m>;
+		clock-names = "ext-26m";
+		#clock-cells = <1>;
+	};
+
+	dpu_vsp_clk: clock-controller@30110000 {
+		compatible = "sprd,ums9621-dpu-vsp-clk";
+		reg = <0 0x30110000 0 0x3000>;
+		clocks = <&ext_26m>, <&dphy_312m5>, <&dphy_416m7>;
+		clock-names = "ext-26m", "dphy-312m5", "dphy-416m7";
+		#clock-cells = <1>;
+	};
+
+	aonapb_clk: clock-controller@64920000 {
+		compatible = "sprd,ums9621-aonapb-clk";
+		reg = <0 0x64920000 0 0x3000>;
+		clocks = <&ext_26m>, <&ext_32k>, <&ext_4m>,
+			<&rco_100m>, <&ext_52m>;
+		clock-names = "ext-26m", "ext-32k", "ext-4m",
+			 "rco-100m", "ext-52m";
+		#clock-cells = <1>;
+	};
+
+	topdvfs_clk: clock-controller@64940000 {
+		compatible = "sprd,ums9621-topdvfs-clk";
+		reg = <0 0x64940000 0 0x3000>;
+		clocks = <&ext_26m>;
+		clock-names = "ext-26m";
+		#clock-cells = <1>;
+	};
+};
+
+/ {
+	ext_26m: ext-26m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <26000000>;
+		clock-output-names = "ext-26m";
+	};
+
+	ext_52m: ext-52m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <52000000>;
+		clock-output-names = "ext-52m";
+	};
+
+	ext_32k: ext-32k {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "ext-32k";
+	};
+
+	ext_4m: ext-4m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <4000000>;
+		clock-output-names = "ext-4m";
+	};
+
+	rco_100m: rco-100m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "rco-100m";
+	};
+
+	dphy_312m5: dphy-312m5 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <312500000>;
+		clock-output-names = "dphy-312m5";
+	};
+
+	dphy_416m7: dphy-416m7 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <416700000>;
+		clock-output-names = "dphy-416m7";
+	};
+};

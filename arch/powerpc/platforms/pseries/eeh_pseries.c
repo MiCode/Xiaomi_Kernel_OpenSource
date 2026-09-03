@@ -578,10 +578,8 @@ static int pseries_eeh_get_state(struct eeh_pe *pe, int *delay)
 
 	switch(rets[0]) {
 	case 0:
-		result = EEH_STATE_MMIO_ACTIVE	|
-			 EEH_STATE_DMA_ACTIVE	|
-			 EEH_STATE_MMIO_ENABLED	|
-			 EEH_STATE_DMA_ENABLED;
+		result = EEH_STATE_MMIO_ACTIVE |
+			 EEH_STATE_DMA_ACTIVE;
 		break;
 	case 1:
 		result = EEH_STATE_RESET_ACTIVE |

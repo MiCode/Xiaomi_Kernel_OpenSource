@@ -1007,13 +1007,8 @@ static int imxfb_probe(struct platform_device *pdev)
 
 
 	INIT_LIST_HEAD(&info->modelist);
-	for (i = 0; i < fbi->num_modes; i++) {
-		ret = fb_add_videomode(&fbi->mode[i].mode, &info->modelist);
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to add videomode\n");
-			goto failed_cmap;
-		}
-	}
+	for (i = 0; i < fbi->num_modes; i++)
+		fb_add_videomode(&fbi->mode[i].mode, &info->modelist);
 
 	/*
 	 * This makes sure that our colour bitfield

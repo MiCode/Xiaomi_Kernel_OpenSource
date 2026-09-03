@@ -1,0 +1,41 @@
+menu "SFP modules"
+
+config SPRD_SFP_SUPPORT
+	tristate "Software Network Fast Processing (SFP) Support"
+	default m
+	help
+		Choosing this option will include conntrack support in the image.
+		This will enable fast path rule from conntrack.
+		Include api for net drivers.
+		Support soft and hardware fast path.
+
+config SPRD_IPA_SUPPORT
+	bool "Sfp ipa config"
+	depends on SPRD_SFP_SUPPORT
+	default n
+	help
+		Sfp ipa configurations.
+		This will enable hardware fast path.
+		Hash table and entries on dma.
+		Software fastpath will disnable when this marco open.
+
+config SPRD_SFP_TEST
+	bool "Do snfp test"
+	depends on SPRD_SFP_SUPPORT
+	default n
+	help
+		This will include ipa test module.
+		Do snfp self test.
+		Echo m to test proc file
+		to run foward rule config.
+
+config SPRD_SFP_GCOV
+	bool "open gcov for Software Network Fast Processing"
+	depends on GCOV_PROFILE_MODULES
+	help
+		This will enable gcov.
+		Based on Software Network Fast Processing.
+		Say y in configs.
+		Perform statistics on the entire directory.
+
+endmenu

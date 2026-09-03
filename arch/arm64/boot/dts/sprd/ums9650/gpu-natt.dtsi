@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc GPU DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&mm {
+
+	gpu: gpu@23140000 {
+		compatible = "sprd,mali-natt";
+		reg = <0x0 0x23140000 0x0 0x4000>;
+
+		gpu-supply = <&vddgpu>;
+		system-coherency = <31>;
+
+		sprd,gpu-apb-syscon = <&gpu_apb_regs>;
+		sprd,gpu-dvfs-apb-syscon = <&gpu_dvfs_apb_regs>;
+
+		top_dvfs_cfg = <&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_SUBSYS_SW_DVFS_EN_CFG
+			MASK_TOP_DVFS_APB_GPU_SW_DVFS_EN>;
+		gpu_sw_dvfs_ctrl=<&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_DCDC_GPU_SW_DVFS_CTRL
+			MASK_TOP_DVFS_APB_DCDC_GPU_SW_TUNE_EN>;
+		dcdc_gpu_voltage0=<&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_DCDC_GPU_DVFS_VOLTAGE_VALUE0
+			MASK_TOP_DVFS_APB_DCDC_GPU_VOLTAGE0>;
+		dcdc_gpu_voltage1=<&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_DCDC_GPU_DVFS_VOLTAGE_VALUE0
+			MASK_TOP_DVFS_APB_DCDC_GPU_VOLTAGE1>;
+		dcdc_gpu_voltage2=<&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_DCDC_GPU_DVFS_VOLTAGE_VALUE1
+			MASK_TOP_DVFS_APB_DCDC_GPU_VOLTAGE2>;
+		dcdc_gpu_voltage3=<&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_DCDC_GPU_DVFS_VOLTAGE_VALUE1
+			MASK_TOP_DVFS_APB_DCDC_GPU_VOLTAGE3>;
+		top_force_shutdown=<&pmu_apb_regs
+			REG_PMU_APB_PD_GPU_CFG_0
+			MASK_PMU_APB_PD_GPU_FORCE_SHUTDOWN>;
+		gpu_top_state=<&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_4
+			MASK_PMU_APB_PD_GPU_STATE>;
+		gpll_cfg_frc_off=<&pmu_apb_regs
+			REG_PMU_APB_GPLL_REL_CFG
+			MASK_PMU_APB_GPLL_FRC_OFF>;
+		gpll_cfg_frc_on=<&pmu_apb_regs
+			REG_PMU_APB_GPLL_REL_CFG
+			MASK_PMU_APB_GPLL_FRC_ON>;
+		gpu_soft_rst=<&pmu_apb_regs
+			REG_PMU_APB_SYS_SOFT_RST_0
+			MASK_PMU_APB_GPU_SOFT_RST>;
+
+		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "JOB",
+			"MMU",
+			"GPU";
+
+		nvmem-cells = <&gpu_bin>;
+		nvmem-cell-names = "gpu_bin";
+
+		operating-points = <
+			/* kHz    uV */
+			26000     550000
+			76800     550000
+			153600    550000
+			384000    600000
+			512000    650000
+			680000    700000
+			850000    750000
+			>;
+
+		/*sprd,qos = <&gpu_qos>;*/
+		sprd,dvfs-default = <0>;
+
+		clocks = <&aonapb_gate CLK_GPU_EB>,
+			<&g1_pll CLK_RPLL_26M>,
+			<&g5l_pll CLK_TGPLL_76M8>,
+			<&g5l_pll CLK_TGPLL_153M6>,
+			<&g5l_pll CLK_TGPLL_384M>,
+			<&g5l_pll CLK_TGPLL_512M>,
+			<&g5r_pll CLK_GPLL_680M>,
+			<&g5r_pll CLK_GPLL_850M>;
+	};
+};
+

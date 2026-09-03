@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc Sharkl5 platform DTS file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ */
+
+&bat {
+	compatible = "simple-battery";
+	status = "okay";
+	charge-full-design-microamp-hours = <2780000>;
+	charge-full-microamp-hours = <2780000>;
+	charge-term-current-microamp = <120000>;
+	constant-charge-voltage-max-microvolt = <4350000>;
+	factory-internal-resistance-micro-ohms = <320000>;
+	voltage-min-design-microvolt = <3450000>;
+	fullbatt-voltage = <4300000>;
+	fullbatt-current = <120000>;
+	first-fullbatt-current = <150000>;
+	fullbatt-track-end-vol = <4295000>;
+	fullbatt-track-end-cur = <130000>;
+	first-calib-voltage = <3630000>;
+	first-calib-capacity = <40>;
+	batt-ovp-threshold-microvolt = <4800000>;
+
+	ocv-capacity-celsius = <20>;
+	ocv-capacity-table-0 = <4360000 100>, <4249000 95>, <4189000 90>,
+				<4133000 85>, <4081000 80>, <4034000 75>,
+				<3991000 70>, <3953000 65>, <3910000 60>,
+				<3866000 55>, <3836000 50>, <3813000 45>,
+				<3795000 40>, <3782000 35>, <3774000 30>,
+				<3765000 25>, <3750000 20>, <3726000 15>,
+				<3687000 10>, <3658000 5>, <3400000 0>;
+	voltage-temp-table = <1095000 800>, <986000 850>, <878000 900>,
+				<775000 950>, <678000 1000>, <590000 1050>,
+				<510000 1100>, <440000 1150>, <378000 1200>,
+				<324000 1250>, <278000 1300>, <238000 1350>,
+				<204000 1400>, <175000 1450>, <150000 1500>,
+				<129000 1550>, <111000 1600>, <96000 1650>;
+	capacity-temp-table = <25 100>, <10 97>, <(-10) 60>;
+	resistance-temp-table = <20 100>, <10 243>, <(-10) 468>;
+	temp-advance-fullcap-table = <50 100>, <25 100>, <10 100>, <0 100>,
+		<(-10) 100>, <(-20) 100>;
+
+	charge-sdp-current-microamp = <500000 500000>;
+	charge-dcp-current-microamp = <1150000 3000000>;
+	charge-cdp-current-microamp = <1150000 1150000>;
+	charge-unknown-current-microamp = <1050000 1050000>;
+
+	cap-calib-energy-density-ocv-table = <3350000 3800000>, <4150000 4350000>;
+	cap-track-energy-density-ocv-table = <3400000 3722000>;
+
+	dcp-jeita-temp-table = <1000 1030 0 4350000>, <1150 1180 700000 4350000>,
+		<1450 1420 1150000 4350000>, <1600 1570 700000 4100000>;
+	sdp-jeita-temp-table = <1000 1030 0 4350000>, <1150 1180 500000 4350000>,
+		<1450 1420 500000 4350000>, <1600 1570 500000 4100000>;
+	cdp-jeita-temp-table = <1000 1030 0 4350000>, <1150 1180 700000 4350000>,
+		<1450 1420 1150000 4350000>, <1600 1570 700000 4100000>;
+	unknown-jeita-temp-table = <1000 1030 0 4350000>, <1150 1180 700000 4350000>,
+		<1450 1420 1050000 4350000>, <1600 1570 700000 4100000>;
+};
+
+&cm {
+	compatible = "charger-manager";
+	status = "okay";
+	cm-name = "battery";
+	cm-poll-mode = <2>;
+	cm-poll-interval = <15000>;
+	cm-battery-stat = <2>;
+
+	cm-fullbatt-vchkdrop-ms = <30000>;
+	cm-fullbatt-vchkdrop-volt = <12000>;
+	cm-fullbatt-capacity = <100>;
+
+	cm-battery = "battery";
+	cm-chargers = "fan54015_charger";
+	cm-fuel-gauge = "sc27xx-fgu";
+
+	/* in deci centigrade */
+	cm-battery-cold = <50>;
+	cm-battery-cold-in-minus;
+	cm-battery-hot = <800>;
+	cm-battery-temp-diff = <100>;
+
+	/* Allow charging for 6hr */
+	cm-charging-max = <18000000>;
+	/* recovery charging after stop charging 45min */
+	cm-discharging-max = <2700000>;
+
+	/* the interval to feed charger watchdog */
+	cm-wdt-interval = <60>;
+
+	/* drop voltage in microVolts to allow shutdown */
+	cm-shutdown-voltage = <3100000>;
+
+	/* when 99% of the time is exceeded, it will be forced to 100% */
+	cm-tickle-time-out = <1500>;
+
+	/* how much time to allow capacity change */
+	cm-one-cap-time = <30>;
+
+	cm-thermal-zone = "board-thmzone";
+
+	/* when the safe charging voltage is exceeded, stop charging */
+	cm-charge-voltage-max = <6500000>;
+	/* drop voltage in microVolts to restart charging */
+	cm-charge-voltage-drop = <700000>;
+
+	monitored-battery-0 = <&bat>;
+	cm-keep-awake;
+
+	phys = <&hsphy>;
+};
+
+&i2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	fan54015_chg: charger@6a {
+		compatible = "fairchild,fan54015_chg";
+		reg = <0x6a>;
+		phys = <&hsphy>;
+		monitored-battery-0 = <&bat>;
+		extcon = <&extcon_gpio>;
+		vddvbus:otg-vbus {
+			regulator-name = "vddvbus";
+		};
+	};
+};
+
+&pmic_fgu {
+	monitored-battery-0 = <&bat>;
+	fgu-cap-remap-table = <1 2 3>, <2 3 2>, <98 99 2>, <99 100 3>;
+	sprd,calib-resistance-micro-ohms = <10000>;
+	sprd,comp-resistance-mohm = <20>;
+
+	fgu-capacity-track;
+	phys = <&hsphy>;
+
+	sprd,capacity-boot-calibration;
+	sprd,capacity-charge-cycle;
+};

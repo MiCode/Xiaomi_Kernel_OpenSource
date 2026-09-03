@@ -1,0 +1,10 @@
+config WCN_SLP
+	tristate "Sleep Support"
+	depends on SDIOHAL
+        default n
+	help
+	  Enable this module for Unisoc SC2355
+	  chip sdio interface bus Support.
+	  Please insmod this module before any other
+	  WCN subsystems. Thanks.
+

@@ -39,6 +39,3 @@ obj-$(CONFIG_BPF_PRELOAD) += preload/
 ifeq ($(CONFIG_FUSE_BPF),y)
 obj-$(CONFIG_BPF_SYSCALL) += bpf_fuse.o
 endif
-ifeq ($(CONFIG_DMA_SHARED_BUFFER),y)
-obj-$(CONFIG_BPF_SYSCALL) += dmabuf_iter.o
-endif

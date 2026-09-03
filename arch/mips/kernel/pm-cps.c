@@ -56,7 +56,10 @@ static DEFINE_PER_CPU_ALIGNED(u32*, ready_count);
 /* Indicates online CPUs coupled with the current CPU */
 static DEFINE_PER_CPU_ALIGNED(cpumask_t, online_coupled);
 
-/* Used to synchronize entry to deep idle states */
+/*
+ * Used to synchronize entry to deep idle states. Actually per-core rather
+ * than per-CPU.
+ */
 static DEFINE_PER_CPU_ALIGNED(atomic_t, pm_barrier);
 
 /* Saved CPU state across the CPS_PM_POWER_GATED state */
@@ -115,10 +118,9 @@ int cps_pm_enter_state(enum cps_pm_state state)
 	cps_nc_entry_fn entry;
 	struct core_boot_config *core_cfg;
 	struct vpe_boot_config *vpe_cfg;
-	atomic_t *barrier;
 
 	/* Check that there is an entry function for this state */
-	entry = per_cpu(nc_asm_enter, cpu)[state];
+	entry = per_cpu(nc_asm_enter, core)[state];
 	if (!entry)
 		return -EINVAL;
 
@@ -154,7 +156,7 @@ int cps_pm_enter_state(enum cps_pm_state state)
 	smp_mb__after_atomic();
 
 	/* Create a non-coherent mapping of the core ready_count */
-	core_ready_count = per_cpu(ready_count, cpu);
+	core_ready_count = per_cpu(ready_count, core);
 	nc_addr = kmap_noncoherent(virt_to_page(core_ready_count),
 				   (unsigned long)core_ready_count);
 	nc_addr += ((unsigned long)core_ready_count & ~PAGE_MASK);
@@ -162,8 +164,7 @@ int cps_pm_enter_state(enum cps_pm_state state)
 
 	/* Ensure ready_count is zero-initialised before the assembly runs */
 	WRITE_ONCE(*nc_core_ready_count, 0);
-	barrier = &per_cpu(pm_barrier, cpumask_first(&cpu_sibling_map[cpu]));
-	coupled_barrier(barrier, online);
+	coupled_barrier(&per_cpu(pm_barrier, core), online);
 
 	/* Run the generated entry code */
 	left = entry(online, nc_core_ready_count);
@@ -634,14 +635,12 @@ out_err:
 
 static int cps_pm_online_cpu(unsigned int cpu)
 {
-	unsigned int sibling, core;
-	void *entry_fn, *core_rc;
 	enum cps_pm_state state;
-
-	core = cpu_core(&cpu_data[cpu]);
+	unsigned core = cpu_core(&cpu_data[cpu]);
+	void *entry_fn, *core_rc;
 
 	for (state = CPS_PM_NC_WAIT; state < CPS_PM_STATE_COUNT; state++) {
-		if (per_cpu(nc_asm_enter, cpu)[state])
+		if (per_cpu(nc_asm_enter, core)[state])
 			continue;
 		if (!test_bit(state, state_support))
 			continue;
@@ -653,19 +652,16 @@ static int cps_pm_online_cpu(unsigned int cpu)
 			clear_bit(state, state_support);
 		}
 
-		for_each_cpu(sibling, &cpu_sibling_map[cpu])
-			per_cpu(nc_asm_enter, sibling)[state] = entry_fn;
+		per_cpu(nc_asm_enter, core)[state] = entry_fn;
 	}
 
-	if (!per_cpu(ready_count, cpu)) {
+	if (!per_cpu(ready_count, core)) {
 		core_rc = kmalloc(sizeof(u32), GFP_KERNEL);
 		if (!core_rc) {
 			pr_err("Failed allocate core %u ready_count\n", core);
 			return -ENOMEM;
 		}
-
-		for_each_cpu(sibling, &cpu_sibling_map[cpu])
-			per_cpu(ready_count, sibling) = core_rc;
+		per_cpu(ready_count, core) = core_rc;
 	}
 
 	return 0;

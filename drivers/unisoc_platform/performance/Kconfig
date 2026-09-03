@@ -1,0 +1,27 @@
+config SPRD_PTM
+	tristate "Spreadtrum Performance Trace Monitor Support"
+	default m
+	depends on SPRD_DEBUG
+	help
+	  Say M here to support ptm support.
+
+config SPRD_PTM_DIFF_R6P1
+	bool "Spreadtrum Performance Trace Monitor Support For R6P1"
+	default n
+	depends on SPRD_PTM
+	help
+	  Say Y here to support dpu0 ~ dpu9 overflow info and
+	  dcam0 ~ dcam9 overflow info;
+	  say N here to cancel support dpu0 ~ dpu9 overflow info and
+	  dcam0 ~ dcam9 overflow info.
+
+config SPRD_PTM_R6P2
+	bool "Spreadtrum Performance Trace Monitor Support For R6P2"
+	default n
+	depends on SPRD_PTM_DIFF_R6P1
+	help
+	  Say Y here to support ptm ip version for r6p2, some registers
+	  have changed, for example, remove bit15 and bit16 from the
+	  address 0x00 and hide it, do not want the software to modify
+	  the default values of these two bits as aback door.
+

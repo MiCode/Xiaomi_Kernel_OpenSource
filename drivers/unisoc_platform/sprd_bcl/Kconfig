@@ -1,0 +1,4 @@
+config SPRD_BCL
+	tristate "SPRD device battery current limit support"
+	help
+	  say Y here to support for battery current limit module

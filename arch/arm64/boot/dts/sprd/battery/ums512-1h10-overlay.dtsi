@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * ums512-1h10-overlay.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&bat {
+	compatible = "simple-battery";
+	status = "okay";
+	charge-full-design-microamp-hours = <3690000>;
+	charge-full-microamp-hours = <3690000>;
+	charge-term-current-microamp = <120000>;
+	constant-charge-voltage-max-microvolt = <4400000>;
+	factory-internal-resistance-micro-ohms = <130000>;
+	voltage-min-design-microvolt = <3450000>;
+	fullbatt-voltage = <4350000>;
+	fullbatt-current = <120000>;
+	first-fullbatt-current = <150000>;
+	fullbatt-track-end-vol = <4345000>;
+	fullbatt-track-end-cur = <130000>;
+	first-calib-voltage = <3630000>;
+	first-calib-capacity = <50>;
+
+	ocv-capacity-celsius = <20>;
+	ocv-capacity-table-0 = <4380000 100>, <4317000 95>, <4258000 90>,
+				<4200000 85>, <4145000 80>, <4092000 75>,
+				<4047000 70>, <3990000 65>, <3955000 60>,
+				<3900000 55>, <3861000 50>, <3834000 45>,
+				<3813000 40>, <3796000 35>, <3783000 30>,
+				<3770000 25>, <3752000 20>, <3730000 15>,
+				<3698000 10>, <3687000 5>, <3400000 0>;
+	voltage-temp-table = <1110270 800>, <999440 850>, <890430 900>,
+				<785590 950>, <687630 1000>, <598220 1050>,
+				<517680 1100>, <446100 1150>, <383390 1200>,
+				<328950 1250>, <281840 1300>, <241480 1350>,
+				<207030 1400>, <177580 1450>, <152490 1500>,
+				<131160 1550>, <113000 1600>, <97790 1650>;
+	capacity-temp-table = <45 100>, <25 100>, <10 98>, <0 93>, <(-10) 85>, <(-20) 64>;
+	resistance-temp-table = <45 77>, <25 100>, <10 546>, <0 769>, <(-10) 892>, <(-20) 923>;
+	temp-advance-fullcap-table = <50 100>, <25 100>, <10 100>, <0 100>,
+		<(-10) 100>, <(-20) 100>;
+
+	charge-sdp-current-microamp = <500000 500000>;
+	charge-dcp-current-microamp = <1150000 3000000>;
+	charge-cdp-current-microamp = <1150000 1150000>;
+	charge-unknown-current-microamp = <1050000 1050000>;
+
+	cap-calib-energy-density-ocv-table = <3350000 3800000>, <4150000 4350000>;
+	cap-track-energy-density-ocv-table = <3400000 3722000>;
+
+	dcp-jeita-temp-table = <1000 1030 0 4400000>, <1150 1180 700000 4400000>,
+		<1450 1420 1150000 4400000>, <1600 1570 700000 4100000>;
+	sdp-jeita-temp-table = <1000 1030 0 4400000>, <1150 1180 500000 4400000>,
+		<1450 1420 500000 4400000>, <1600 1570 500000 4100000>;
+	cdp-jeita-temp-table = <1000 1030 0 4400000>, <1150 1180 700000 4400000>,
+		<1450 1420 1150000 4400000>, <1600 1570 700000 4100000>;
+	unknown-jeita-temp-table = <1000 1030 0 4400000>, <1150 1180 700000 4400000>,
+		<1450 1420 1050000 4400000>, <1600 1570 700000 4100000>;
+};
+
+&cm {
+	compatible = "charger-manager";
+	status = "okay";
+	cm-name = "battery";
+	cm-poll-mode = <2>;
+	cm-poll-interval = <15000>;
+	cm-battery-stat = <2>;
+
+	cm-fullbatt-vchkdrop-ms = <30000>;
+	cm-fullbatt-vchkdrop-volt = <60000>;
+	cm-fullbatt-capacity = <100>;
+
+	cm-chargers = "fan54015_charger";
+	cm-fuel-gauge = "sc27xx-fgu";
+
+	/* in deci centigrade */
+	cm-battery-cold = <200>;
+	cm-battery-cold-in-minus;
+	cm-battery-hot = <800>;
+	cm-battery-temp-diff = <100>;
+
+	/* Allow charging for 6hr */
+	cm-charging-max = <21600000>;
+	/* recovery charging after stop charging 45min */
+	cm-discharging-max = <2700000>;
+
+	/* the interval to feed charger watchdog */
+	cm-wdt-interval = <60>;
+
+	/* drop voltage in microVolts to allow shutdown */
+	cm-shutdown-voltage = <3100000>;
+
+	/* when 99% of the time is exceeded, it will be forced to 100% */
+	cm-tickle-time-out = <1500>;
+
+	/* how much time to allow capacity change */
+	cm-one-cap-time = <30>;
+	cm-thermal-zone = "board-thmzone";
+	/* when the safe charging voltage is exceeded, stop charging */
+	cm-charge-voltage-max = <6500000>;
+	/* drop voltage in microVolts to restart charging */
+	cm-charge-voltage-drop = <700000>;
+
+	monitored-battery-0 = <&bat>;
+	cm-keep-awake;
+
+	phys = <&hsphy>;
+};
+
+&i2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	fan54015_chg: charger@6a {
+		compatible = "fairchild,fan54015_chg";
+		reg = <0x6a>;
+		phys = <&hsphy>;
+		monitored-battery-0 = <&bat>;
+		extcon = <&extcon_gpio>;
+		vddvbus:otg-vbus {
+			regulator-name = "vddvbus";
+		};
+	};
+};
+
+&pmic_fgu {
+	monitored-battery-0 = <&bat>;
+	fgu-cap-remap-table = <1 2 3>, <2 3 2>, <98 99 2>, <99 100 3>;
+	sprd,calib-resistance-micro-ohms = <10000>;
+	sprd,comp-resistance-mohm = <13>;
+
+	fgu-capacity-track;
+	phys = <&hsphy>;
+
+	sprd,capacity-boot-calibration;
+	sprd,capacity-charge-cycle;
+};

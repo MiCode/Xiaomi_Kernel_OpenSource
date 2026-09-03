@@ -113,3 +113,11 @@ obj-$(CONFIG_LOONGSON1_CPUFREQ)		+= loongson1-cpufreq.o
 obj-$(CONFIG_SH_CPU_FREQ)		+= sh-cpufreq.o
 obj-$(CONFIG_SPARC_US2E_CPUFREQ)	+= sparc-us2e-cpufreq.o
 obj-$(CONFIG_SPARC_US3_CPUFREQ)		+= sparc-us3-cpufreq.o
+
+##################################################################################
+# unisoc platform drivers
+obj-$(CONFIG_ARM_SPRD_CPUFREQ_V2) += sprd-cpufreq-v2.o
+sprd-cpufreq-v2-objs := sprd-cpufreq-v2-driver.o sprd-cpufreq-v2-debug.o
+
+obj-$(CONFIG_ARM_SPRD_SW_CPUFREQ) += sprd-swcpufreq.o
+sprd-swcpufreq-objs := sprd-cpufreqsw.o sprd-cpufreq-common.o

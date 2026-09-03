@@ -212,33 +212,12 @@ static int find_nr_power_limit(struct rapl_domain *rd)
 static int set_domain_enable(struct powercap_zone *power_zone, bool mode)
 {
 	struct rapl_domain *rd = power_zone_to_rapl_domain(power_zone);
-	u64 val;
-	int ret;
 
 	if (rd->state & DOMAIN_STATE_BIOS_LOCKED)
 		return -EACCES;
 
 	cpus_read_lock();
-	ret = rapl_write_data_raw(rd, PL1_ENABLE, mode);
-	if (ret) {
-		cpus_read_unlock();
-		return ret;
-	}
-
-	/* Check if the ENABLE bit was actually changed */
-	ret = rapl_read_data_raw(rd, PL1_ENABLE, true, &val);
-	if (ret) {
-		cpus_read_unlock();
-		return ret;
-	}
-
-	if (mode != val) {
-		pr_debug("%s cannot be %s\n", power_zone->name,
-			 mode ? "enabled" : "disabled");
-		cpus_read_unlock();
-		return 0;
-	}
-
+	rapl_write_data_raw(rd, PL1_ENABLE, mode);
 	if (rapl_defaults->set_floor_freq)
 		rapl_defaults->set_floor_freq(rd, mode);
 	cpus_read_unlock();

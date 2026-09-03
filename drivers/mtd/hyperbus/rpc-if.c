@@ -151,12 +151,11 @@ static int rpcif_hb_probe(struct platform_device *pdev)
 static int rpcif_hb_remove(struct platform_device *pdev)
 {
 	struct rpcif_hyperbus *hyperbus = platform_get_drvdata(pdev);
-
-	hyperbus_unregister_device(&hyperbus->hbdev);
+	int error = hyperbus_unregister_device(&hyperbus->hbdev);
 
 	rpcif_disable_rpm(&hyperbus->rpc);
 
-	return 0;
+	return error;
 }
 
 static struct platform_driver rpcif_platform_driver = {

@@ -508,7 +508,7 @@ int ksmbd_extract_shortname(struct ksmbd_conn *conn, const char *longname,
 
 	p = strrchr(longname, '.');
 	if (p == longname) { /*name starts with a dot*/
-		strscpy(extension, "___", sizeof(extension));
+		strscpy(extension, "___", strlen("___"));
 	} else {
 		if (p) {
 			p++;

@@ -1,0 +1,219 @@
+一． 介绍
+
+kernel_src/scripts/unisoc目录用于存放与kernel相关的sprd脚本，主要作用如下：
+
+-  对kernel代码/Patch实时进行静态扫描检查, 判断其是否符合内部规约、社区规约
+   以及其他技术性规约。可以被自动化CI环境调用，比如IKT或Aiaiai，实时对待合
+   入代码/Patch进行检查拦截。
+-  用于帮助开发者对本地代码/patch错误进行自动修复，以满足上述检查规约
+
+二． 脚本命名规范
+
+路径： {KERNEL_SRC}/scripts/unisoc/
+
+语言： python 或 shell
+
+命名： sprd_TYPE_description.sh|py
+
+说明：
+	TYPE 为脚本类型， 一般分功能类（func）和检查类（check）
+	description 描述脚本功能
+
+
+举例：
+	sprd_check_patch_tags.py
+		检查类脚本，检查patch tag是否正确
+	sprd_func_sync_gki_to_sprd.sh
+		功能类脚本，用于将gki增加的小版本change的config同步到sprd config中，
+		此脚本一般用在小版本升级中。
+
+三． 脚本编写原则
+
+- 所有脚本需要有usage函数对本脚本功能及使用有介绍
+
+  使用--help | -h 以及错误使用脚本时调用usage函数
+
+- 脚本需要支持对patch文件进行检测的功能
+
+  使用 --patch | -p xxx.patch  进行检测
+
+- 脚本修平patch功能
+
+  原则上检查脚本需要带有修复patch功能，
+  使用 --update | -u  参数方式来进行调用修复或提示如何修改。
+  不传参数则只进行检查不进行修改。
+  举例： sprd_check_xxx.sh --update
+  check_patch-tag:  -u 可以这样输出：
+   The patch tag is "scripts: sprd:" which should modify to "scripts: unisoc: "
+
+- 无依赖原则，可直接调用执行，
+
+  这里的无依赖是指不依赖android、bsp、ikt、aiaiai等编译环境。
+  可以单独进行执行， 如有编译工具指定需要，可使用变量传入方式进行执行。
+  如 ARCH=arm64 CC=clang ./scrpts/sprd/sprd_check_xxx.sh
+
+- 默认脚本可以在任何目录进行执行，脚本中如果有涉及到kernel源码中文件，需要传入{KERNEL_PATH}
+  调用脚本方式 KERNEL_PATH=kernel_path sprd_check_xxx.sh
+
+- 脚本应对每一笔未合入提交做检测，保证单笔patch检测通过，任何patch不与其他patch依赖耦合。
+
+  对于本地开发未合入的多笔patch， 可使用git format-patch 生成patch文件，然后通过-p 传入patch文件
+  进行检测， 对于aiaiai|IKT等可以通过gerrit获取commit， 直接对单个patch进行检测
+
+
+四.  脚本输出规范：
+
+输出log分为四类： info,warn,fail,pass
+其中info，pass类log需要重定向到stdout（默认） (如shell echo "XXXX" >&2)
+warn，fail类log需要重定向到stderr中
+所有输出log需要以特定格式进行输出：[description] xxxxxxxxxxxxxx
+举例：[defconfig_consistency] check pass|fail.
+
+五.  返回值：
+
+所有脚本以及脚本内的各个函数需要定义return value，
+
+返回值为 0，则表示执行成功。
+返回值非 0，则表示执行出错，
+
+通用错误使用下面的error值，
+其他错误可以输出-1或其他非占用值，同时将fail log输出到stderr中
+然后通过分析fail_log判断具体失败原因
+
+通用错误所代表的意义可以参照以下常见OS error code 对照表：
+
+	"OS error code  1:  Operation not permitted"
+	"OS error code  2:  No such file or directory"
+	"OS error code  3:  No such process"
+	"OS error code  4:  Interrupted system call"
+	"OS error code  5:  Input/output error"
+	"OS error code  6:  No such device or address"
+	"OS error code  7:  Argument list too long"
+	"OS error code  8:  Exec format error"
+	"OS error code  9:  Bad file descriptor"
+	"OS error code  10:  No child processes"
+	"OS error code  11:  Resource temporarily unavailable"
+	"OS error code  12:  Cannot allocate memory"
+	"OS error code  13:  Permission denied"
+	"OS error code  14:  Bad address"
+	"OS error code  15:  Block device required"
+	"OS error code  16:  Device or resource busy"
+	"OS error code  17:  File exists"
+	"OS error code  18:  Invalid cross-device link"
+	"OS error code  19:  No such device"
+	"OS error code  20:  Not a directory"
+	"OS error code  21:  Is a directory"
+	"OS error code  22:  Invalid argument"
+	"OS error code  23:  Too many open files in system"
+	"OS error code  24:  Too many open files"
+	"OS error code  25:  Inappropriate ioctl for device"
+	"OS error code  26:  Text file busy"
+	"OS error code  27:  File too large"
+	"OS error code  28:  No space left on device"
+	"OS error code  29:  Illegal seek"
+	"OS error code  30:  Read-only file system"
+	"OS error code  31:  Too many links"
+	"OS error code  32:  Broken pipe"
+	"OS error code  33:  Numerical argument out of domain"
+	"OS error code  34:  Numerical result out of range"
+	"OS error code  35:  Resource deadlock avoided"
+	"OS error code  36:  File name too long"
+	"OS error code  37:  No locks available"
+	"OS error code  38:  Function not implemented"
+	"OS error code  39:  Directory not empty"
+	"OS error code  40:  Too many levels of symbolic links"
+	"OS error code  42:  No message of desired type"
+	"OS error code  43:  Identifier removed"
+	"OS error code  44:  Channel number out of range"
+	"OS error code  45:  Level 2 not synchronized"
+	"OS error code  46:  Level 3 halted"
+	"OS error code  47:  Level 3 reset"
+	"OS error code  48:  Link number out of range"
+	"OS error code  49:  Protocol driver not attached"
+	"OS error code  50:  No CSI structure available"
+	"OS error code  51:  Level 2 halted"
+	"OS error code  52:  Invalid exchange"
+	"OS error code  53:  Invalid request descriptor"
+	"OS error code  54:  Exchange full"
+	"OS error code  55:  No anode"
+	"OS error code  56:  Invalid request code"
+	"OS error code  57:  Invalid slot"
+	"OS error code  59:  Bad font file format"
+	"OS error code  60:  Device not a stream"
+	"OS error code  61:  No data available"
+	"OS error code  62:  Timer expired"
+	"OS error code  63:  Out of streams resources"
+	"OS error code  64:  Machine is not on the network"
+	"OS error code  65:  Package not installed"
+	"OS error code  66:  Object is remote"
+	"OS error code  67:  Link has been severed"
+	"OS error code  68:  Advertise error"
+	"OS error code  69:  Srmount error"
+	"OS error code  70:  Communication error on send"
+	"OS error code  71:  Protocol error"
+	"OS error code  72:  Multihop attempted"
+	"OS error code  73:  RFS specific error"
+	"OS error code  74:  Bad message"
+	"OS error code  75:  Value too large for defined data type"
+	"OS error code  76:  Name not unique on network"
+	"OS error code  77:  File descriptor in bad state"
+	"OS error code  78:  Remote address changed"
+	"OS error code  79:  Can not access a needed shared library"
+	"OS error code  80:  Accessing a corrupted shared library"
+	"OS error code  81:  .lib section in a.out corrupted"
+	"OS error code  82:  Attempting to link in too many shared libraries"
+	"OS error code  83:  Cannot exec a shared library directly"
+	"OS error code  84:  Invalid or incomplete multibyte or wide character"
+	"OS error code  85:  Interrupted system call should be restarted"
+	"OS error code  86:  Streams pipe error"
+	"OS error code  87:  Too many users"
+	"OS error code  88:  Socket operation on non-socket"
+	"OS error code  89:  Destination address required"
+	"OS error code  90:  Message too long"
+	"OS error code  91:  Protocol wrong type for socket"
+	"OS error code  92:  Protocol not available"
+	"OS error code  93:  Protocol not supported"
+	"OS error code  94:  Socket type not supported"
+	"OS error code  95:  Operation not supported"
+	"OS error code  96:  Protocol family not supported"
+	"OS error code  97:  Address family not supported by protocol"
+	"OS error code  98:  Address already in use"
+	"OS error code  99:  Cannot assign requested address"
+	"OS error code 100:  Network is down"
+	"OS error code 101:  Network is unreachable"
+	"OS error code 102:  Network dropped connection on reset"
+	"OS error code 103:  Software caused connection abort"
+	"OS error code 104:  Connection reset by peer"
+	"OS error code 105:  No buffer space available"
+	"OS error code 106:  Transport endpoint is already connected"
+	"OS error code 107:  Transport endpoint is not connected"
+	"OS error code 108:  Cannot send after transport endpoint shutdown"
+	"OS error code 109:  Too many references: cannot splice"
+	"OS error code 110:  Connection timed out"
+	"OS error code 111:  Connection refused"
+	"OS error code 112:  Host is down"
+	"OS error code 113:  No route to host"
+	"OS error code 114:  Operation already in progress"
+	"OS error code 115:  Operation now in progress"
+	"OS error code 116:  Stale NFS file handle"
+	"OS error code 117:  Structure needs cleaning"
+	"OS error code 118:  Not a XENIX named type file"
+	"OS error code 119:  No XENIX semaphores available"
+	"OS error code 120:  Is a named type file"
+	"OS error code 121:  Remote I/O error"
+	"OS error code 122:  Disk quota exceeded"
+	"OS error code 123:  No medium found"
+	"OS error code 124:  Wrong medium type"
+	"OS error code 125:  Operation canceled"
+	"OS error code 126:  Required key not available"
+	"OS error code 127:  Key has expired"
+	"OS error code 128:  Key has been revoked"
+	"OS error code 129:  Key was rejected by service"
+	"OS error code 130:  Owner died"
+	"OS error code 131:  State not recoverable"
+
+六． 检查脚本：
+	1. sprd_check_patch_tag.py
+		用于检测kernel commit提交 tag是否符合要求
+
+

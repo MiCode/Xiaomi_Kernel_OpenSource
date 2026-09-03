@@ -532,19 +532,10 @@ static int s3c_camif_remove(struct platform_device *pdev)
 static int s3c_camif_runtime_resume(struct device *dev)
 {
 	struct camif_dev *camif = dev_get_drvdata(dev);
-	int ret;
 
-	ret = clk_enable(camif->clock[CLK_GATE]);
-	if (ret)
-		return ret;
-
+	clk_enable(camif->clock[CLK_GATE]);
 	/* null op on s3c244x */
-	ret = clk_enable(camif->clock[CLK_CAM]);
-	if (ret) {
-		clk_disable(camif->clock[CLK_GATE]);
-		return ret;
-	}
-
+	clk_enable(camif->clock[CLK_CAM]);
 	return 0;
 }
 

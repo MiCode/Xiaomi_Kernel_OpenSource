@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc serdes dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	serdes0: modem-dbg-log@520000 {
+			compatible = "sprd,dbg-log-qogirn6pro";
+			reg = <0x520000 0x4000>;
+			sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+			sprd,syscon-dsi-apb = <&anlg_phy_g4l_regs>;
+			sprd,ch-name = "TRAINING", "TPIU", "DBUS", "PHYCP";
+			sprd,ch-index = <15 1 0 2>;
+			sprd,dcfix;
+			clock-names =
+				"serdes0_eb",
+				"serdes1_eb",
+				"ana_eb",
+				"dsi_cfg_eb",
+				"cphy_cfg_en";
+			clocks =
+				<&aonapb_gate CLK_SERDES_CTRL0_EB>,
+				<&aonapb_gate CLK_SERDES_CTRL1_EB>,
+				<&aonapb_gate CLK_ANA_EB>,
+				<&aonapb_gate CLK_DSI_CFG_EB>,
+				<&aonapb_gate CLK_CPHY_CFG_EN>;
+			status = "disabled";
+	};
+
+	serdes1: modem-dbg-log@530000 {
+			compatible = "sprd,dbg-log-qogirn6pro";
+			reg = <0x530000 0x4000>;
+			sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+			sprd,syscon-dsi-apb = <&anlg_phy_g4_regs>;
+			sprd,ch-name = "TRAINING", "PHYCP";
+			sprd,ch-index = <15 0>;
+			sprd,dcfix;
+			clock-names =
+				"serdes0_eb",
+				"serdes1_eb",
+				"ana_eb",
+				"dsi_cfg_eb",
+				"cphy_cfg_en";
+			clocks =
+				<&aonapb_gate CLK_SERDES_CTRL0_EB>,
+				<&aonapb_gate CLK_SERDES_CTRL1_EB>,
+				<&aonapb_gate CLK_ANA_EB>,
+				<&aonapb_gate CLK_DSI_CFG_EB>,
+				<&aonapb_gate CLK_CPHY_CFG_EN>;
+			status = "disabled";
+	};
+};

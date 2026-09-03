@@ -37,16 +37,9 @@ static struct scpi_ops *scpi_ops;
 
 static unsigned int scpi_cpufreq_get_rate(unsigned int cpu)
 {
-	struct cpufreq_policy *policy;
-	struct scpi_data *priv;
-	unsigned long rate;
-
-	policy = cpufreq_cpu_get_raw(cpu);
-	if (unlikely(!policy))
-		return 0;
-
-	priv = policy->driver_data;
-	rate = clk_get_rate(priv->clk);
+	struct cpufreq_policy *policy = cpufreq_cpu_get_raw(cpu);
+	struct scpi_data *priv = policy->driver_data;
+	unsigned long rate = clk_get_rate(priv->clk);
 
 	return rate / 1000;
 }
@@ -54,9 +47,8 @@ static unsigned int scpi_cpufreq_get_rate(unsigned int cpu)
 static int
 scpi_cpufreq_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
-	unsigned long freq_khz = policy->freq_table[index].frequency;
+	u64 rate = policy->freq_table[index].frequency * 1000;
 	struct scpi_data *priv = policy->driver_data;
-	unsigned long rate = freq_khz * 1000;
 	int ret;
 
 	ret = clk_set_rate(priv->clk, rate);
@@ -64,7 +56,7 @@ scpi_cpufreq_set_target(struct cpufreq_policy *policy, unsigned int index)
 	if (ret)
 		return ret;
 
-	if (clk_get_rate(priv->clk) / 1000 != freq_khz)
+	if (clk_get_rate(priv->clk) != rate)
 		return -EIO;
 
 	return 0;

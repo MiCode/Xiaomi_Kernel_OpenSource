@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+
+$id: "http://devicetree.org/schemas/unisoc_platform/sprd,powerstat.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Unisoc sensor hub bindings
+
+description: Unisoc's some SoCs integrates sensor hub. This sensor hub driver collect and
+analyze data uploaded from sensors.
+
+Required properties:
+- compatible: consisted of platform name and common name.
+ - "sprd,sharkl3-sensorhub", "sprd,sensor-hub": for Sharkl3-compatible sensor hub
+ - "sprd,sharkl5-sensorhub", "sprd,sensor-hub": for Sharkl5-compatible sensor hub
+ - "sprd,sharkl5Pro-sensorhub", "sprd,sensor-hub": for Sharkl5pro-compatible sensor hub
+ - "sprd,roc1-sensorhub", "sprd,sensor-hub": for Roc1-compatible sensor hub
+ - "sprd,qogirl6-sensorhub", "sprd,sensor-hub": for qogirl6-compatible sensor hub
+ - "sprd,qogirn6pro-sensorhub", "sprd,sensor-hub": for qogirn6pro-compatible sensor hub
+
+- sipc-sensorhub-id: define sensorhub id value in sipc communication
+ - <6>: SIPC_ID_PM_SYS, sensorhub running on sp sys,
+ - <9>: SIPC_ID_CH, sensorhub running on ch sys,
+ if sipc-sensorhub-id not defined, sensorhub driver code will use 6 as default
+
+examples:
+sensorhub {
+ 		compatible = "sprd,sharkl5-sensorhub", "sprd,sensor-hub";
+ 		sipc-sensorhub-id = <6>;
+ 	};

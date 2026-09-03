@@ -952,7 +952,7 @@ static int wm0010_spi_probe(struct spi_device *spi)
 	if (ret) {
 		dev_err(wm0010->dev, "Failed to set IRQ %d as wake source: %d\n",
 			irq, ret);
-		goto free_irq;
+		return ret;
 	}
 
 	if (spi->max_speed_hz)
@@ -964,18 +964,9 @@ static int wm0010_spi_probe(struct spi_device *spi)
 				     &soc_component_dev_wm0010, wm0010_dai,
 				     ARRAY_SIZE(wm0010_dai));
 	if (ret < 0)
-		goto disable_irq_wake;
+		return ret;
 
 	return 0;
-
-disable_irq_wake:
-	irq_set_irq_wake(wm0010->irq, 0);
-
-free_irq:
-	if (wm0010->irq)
-		free_irq(wm0010->irq, wm0010);
-
-	return ret;
 }
 
 static int wm0010_spi_remove(struct spi_device *spi)

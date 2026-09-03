@@ -1761,27 +1761,15 @@ static void hclgevf_sync_vlan_filter(struct hclgevf_dev *hdev)
 	rtnl_unlock();
 }
 
-static int hclgevf_en_hw_strip_rxvtag_cmd(struct hclgevf_dev *hdev, bool enable)
+static int hclgevf_en_hw_strip_rxvtag(struct hnae3_handle *handle, bool enable)
 {
+	struct hclgevf_dev *hdev = hclgevf_ae_get_hdev(handle);
 	struct hclge_vf_to_pf_msg send_msg;
 
 	hclgevf_build_send_msg(&send_msg, HCLGE_MBX_SET_VLAN,
 			       HCLGE_MBX_VLAN_RX_OFF_CFG);
 	send_msg.data[0] = enable ? 1 : 0;
 	return hclgevf_send_mbx_msg(hdev, &send_msg, false, NULL, 0);
-}
-
-static int hclgevf_en_hw_strip_rxvtag(struct hnae3_handle *handle, bool enable)
-{
-	struct hclgevf_dev *hdev = hclgevf_ae_get_hdev(handle);
-	int ret;
-
-	ret = hclgevf_en_hw_strip_rxvtag_cmd(hdev, enable);
-	if (ret)
-		return ret;
-
-	hdev->rxvtag_strip_en = enable;
-	return 0;
 }
 
 static int hclgevf_reset_tqp(struct hnae3_handle *handle)
@@ -2696,13 +2684,12 @@ static int hclgevf_rss_init_hw(struct hclgevf_dev *hdev)
 	return hclgevf_set_rss_tc_mode(hdev, rss_cfg->rss_size);
 }
 
-static int hclgevf_init_vlan_config(struct hclgevf_dev *hdev,
-				    bool rxvtag_strip_en)
+static int hclgevf_init_vlan_config(struct hclgevf_dev *hdev)
 {
 	struct hnae3_handle *nic = &hdev->nic;
 	int ret;
 
-	ret = hclgevf_en_hw_strip_rxvtag(nic, rxvtag_strip_en);
+	ret = hclgevf_en_hw_strip_rxvtag(nic, true);
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
 			"failed to enable rx vlan offload, ret = %d\n", ret);
@@ -3372,7 +3359,7 @@ static int hclgevf_reset_hdev(struct hclgevf_dev *hdev)
 	if (ret)
 		return ret;
 
-	ret = hclgevf_init_vlan_config(hdev, hdev->rxvtag_strip_en);
+	ret = hclgevf_init_vlan_config(hdev);
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
 			"failed(%d) to initialize VLAN config\n", ret);
@@ -3485,7 +3472,7 @@ static int hclgevf_init_hdev(struct hclgevf_dev *hdev)
 		goto err_config;
 	}
 
-	ret = hclgevf_init_vlan_config(hdev, true);
+	ret = hclgevf_init_vlan_config(hdev);
 	if (ret) {
 		dev_err(&hdev->pdev->dev,
 			"failed(%d) to initialize VLAN config\n", ret);
@@ -3571,7 +3558,11 @@ static void hclgevf_uninit_ae_dev(struct hnae3_ae_dev *ae_dev)
 
 static u32 hclgevf_get_max_channels(struct hclgevf_dev *hdev)
 {
-	return min(hdev->rss_size_max, hdev->num_tqps);
+	struct hnae3_handle *nic = &hdev->nic;
+	struct hnae3_knic_private_info *kinfo = &nic->kinfo;
+
+	return min_t(u32, hdev->rss_size_max,
+		     hdev->num_tqps / kinfo->tc_info.num_tc);
 }
 
 /**
@@ -3956,10 +3947,8 @@ static int hclgevf_init(void)
 
 static void hclgevf_exit(void)
 {
-	hnae3_acquire_unload_lock();
 	hnae3_unregister_ae_algo(&ae_algovf);
 	destroy_workqueue(hclgevf_wq);
-	hnae3_release_unload_lock();
 }
 module_init(hclgevf_init);
 module_exit(hclgevf_exit);

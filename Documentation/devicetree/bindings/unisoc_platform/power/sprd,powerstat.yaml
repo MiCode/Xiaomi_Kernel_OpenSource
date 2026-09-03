@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+
+$id: "http://devicetree.org/schemas/unisoc_platform/sprd,powerstat.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Spreadtrum debugstat bindings
+
+description: subsystems information, which output log will help us to analyze the SoC system power exception.
+
+Required properties:
+- compatible: Should be sprd,debugstat
+
+examples:
+  - |
+    debug_stat: debugstat {
+      compatible = "sprd,debugstat";
+};

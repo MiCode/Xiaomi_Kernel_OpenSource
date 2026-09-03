@@ -261,7 +261,6 @@ struct stm32_fmc2_nfc {
 	struct sg_table dma_data_sg;
 	struct sg_table dma_ecc_sg;
 	u8 *ecc_buf;
-	dma_addr_t dma_ecc_addr;
 	int dma_ecc_len;
 
 	struct completion complete;
@@ -861,8 +860,8 @@ static int stm32_fmc2_nfc_xfer(struct nand_chip *chip, const u8 *buf,
 
 	ret = dma_map_sg(nfc->dev, nfc->dma_data_sg.sgl,
 			 eccsteps, dma_data_dir);
-	if (!ret)
-		return -EIO;
+	if (ret < 0)
+		return ret;
 
 	desc_data = dmaengine_prep_slave_sg(dma_ch, nfc->dma_data_sg.sgl,
 					    eccsteps, dma_transfer_dir,
@@ -884,11 +883,16 @@ static int stm32_fmc2_nfc_xfer(struct nand_chip *chip, const u8 *buf,
 
 	if (!write_data && !raw) {
 		/* Configure DMA ECC status */
+		p = nfc->ecc_buf;
 		for_each_sg(nfc->dma_ecc_sg.sgl, sg, eccsteps, s) {
-			sg_dma_address(sg) = nfc->dma_ecc_addr +
-					     s * nfc->dma_ecc_len;
-			sg_dma_len(sg) = nfc->dma_ecc_len;
+			sg_set_buf(sg, p, nfc->dma_ecc_len);
+			p += nfc->dma_ecc_len;
 		}
+
+		ret = dma_map_sg(nfc->dev, nfc->dma_ecc_sg.sgl,
+				 eccsteps, dma_data_dir);
+		if (ret < 0)
+			goto err_unmap_data;
 
 		desc_ecc = dmaengine_prep_slave_sg(nfc->dma_ecc_ch,
 						   nfc->dma_ecc_sg.sgl,
@@ -896,7 +900,7 @@ static int stm32_fmc2_nfc_xfer(struct nand_chip *chip, const u8 *buf,
 						   DMA_PREP_INTERRUPT);
 		if (!desc_ecc) {
 			ret = -ENOMEM;
-			goto err_unmap_data;
+			goto err_unmap_ecc;
 		}
 
 		reinit_completion(&nfc->dma_ecc_complete);
@@ -904,7 +908,7 @@ static int stm32_fmc2_nfc_xfer(struct nand_chip *chip, const u8 *buf,
 		desc_ecc->callback_param = &nfc->dma_ecc_complete;
 		ret = dma_submit_error(dmaengine_submit(desc_ecc));
 		if (ret)
-			goto err_unmap_data;
+			goto err_unmap_ecc;
 
 		dma_async_issue_pending(nfc->dma_ecc_ch);
 	}
@@ -924,7 +928,7 @@ static int stm32_fmc2_nfc_xfer(struct nand_chip *chip, const u8 *buf,
 		if (!write_data && !raw)
 			dmaengine_terminate_all(nfc->dma_ecc_ch);
 		ret = -ETIMEDOUT;
-		goto err_unmap_data;
+		goto err_unmap_ecc;
 	}
 
 	/* Wait DMA data transfer completion */
@@ -943,6 +947,11 @@ static int stm32_fmc2_nfc_xfer(struct nand_chip *chip, const u8 *buf,
 			ret = -ETIMEDOUT;
 		}
 	}
+
+err_unmap_ecc:
+	if (!write_data && !raw)
+		dma_unmap_sg(nfc->dev, nfc->dma_ecc_sg.sgl,
+			     eccsteps, dma_data_dir);
 
 err_unmap_data:
 	dma_unmap_sg(nfc->dev, nfc->dma_data_sg.sgl, eccsteps, dma_data_dir);
@@ -966,21 +975,9 @@ static int stm32_fmc2_nfc_seq_write(struct nand_chip *chip, const u8 *buf,
 
 	/* Write oob */
 	if (oob_required) {
-		unsigned int offset_in_page = mtd->writesize;
-		const void *buf = chip->oob_poi;
-		unsigned int len = mtd->oobsize;
-
-		if (!raw) {
-			struct mtd_oob_region oob_free;
-
-			mtd_ooblayout_free(mtd, 0, &oob_free);
-			offset_in_page += oob_free.offset;
-			buf += oob_free.offset;
-			len = oob_free.length;
-		}
-
-		ret = nand_change_write_column_op(chip, offset_in_page,
-						  buf, len, false);
+		ret = nand_change_write_column_op(chip, mtd->writesize,
+						  chip->oob_poi, mtd->oobsize,
+						  false);
 		if (ret)
 			return ret;
 	}
@@ -1581,8 +1578,7 @@ static int stm32_fmc2_nfc_dma_setup(struct stm32_fmc2_nfc *nfc)
 		return ret;
 
 	/* Allocate a buffer to store ECC status registers */
-	nfc->ecc_buf = dmam_alloc_coherent(nfc->dev, FMC2_MAX_ECC_BUF_LEN,
-					   &nfc->dma_ecc_addr, GFP_KERNEL);
+	nfc->ecc_buf = devm_kzalloc(nfc->dev, FMC2_MAX_ECC_BUF_LEN, GFP_KERNEL);
 	if (!nfc->ecc_buf)
 		return -ENOMEM;
 

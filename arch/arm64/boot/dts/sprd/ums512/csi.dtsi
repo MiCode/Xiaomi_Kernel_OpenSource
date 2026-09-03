@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc CSI dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&mm {
+	mipi_csi_phy0: mipi-csi-phy0 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <0>;
+		sprd,phyname = "4lane";
+		status = "disabled";
+	};
+
+	mipi_csi_phy1: mipi-csi-phy1 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <1>;
+		sprd,phyname = "2p2";
+		status = "disabled";
+	};
+
+	mipi_csi_phy1_m: mipi-csi-phy1-m {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <3>;
+		sprd,phyname = "2p2_m";
+		status = "disabled";
+	};
+
+	mipi_csi_phy1_s: mipi-csi-phy1-s {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <4>;
+		sprd,phyname = "2p2_s";
+		status = "disabled";
+	};
+
+	mipi_csi_phy2: mipi-csi-phy2 {
+		compatible = "sprd,mipi-csi-phy";
+		sprd,phyid = <2>;
+		sprd,phyname = "2lane";
+		status = "disabled";
+	};
+
+	csi0: csi0@62300000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x62300000 0 0x1000>;
+		interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "clk_mipi_csi_gate_eb",
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = <&mm_gate CLK_MM_MIPI_CSI0_EB>,
+			<&mm_gate CLK_MM_CSI0_EB>,
+			<&mm_clk CLK_MIPI_CSI0>;
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g10_controller =
+			<&anlg_phy_g10_regs>;
+		sprd,csi-id = <0>;
+		sprd,dcam-id = <0>;
+		sprd,ip-version = <0x200>;
+		status = "okay";
+	};
+
+	csi1: csi1@62400000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x62400000 0 0x1000>;
+		interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "clk_mipi_csi_gate_eb",
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = <&mm_gate CLK_MM_MIPI_CSI1_EB>,
+			<&mm_gate CLK_MM_CSI1_EB>,
+			<&mm_clk CLK_MIPI_CSI1>;
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g10_controller =
+			<&anlg_phy_g10_regs>;
+		sprd,csi-id = <1>;
+		sprd,dcam-id = <1>;
+		sprd,ip-version = <0x200>;
+		status = "okay";
+	};
+
+	csi2: csi2@62500000 {
+		compatible = "sprd,csi-controller";
+		reg = <0 0x62500000 0 0x1000>;
+		interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "clk_mipi_csi_gate_eb",
+			"clk_csi_eb",
+			"mipi_csi_src_eb";
+		clocks = <&mm_gate CLK_MM_MIPI_CSI2_EB>,
+			<&mm_gate CLK_MM_CSI2_EB>,
+			<&mm_clk CLK_MIPI_CSI2>;
+		sprd,aon-apb-syscon = <&aon_apb_regs>;
+		sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+		sprd,anlg_phy_g10_controller =
+			<&anlg_phy_g10_regs>;
+		sprd,csi-id = <2>;
+		sprd,dcam-id = <2>;
+		sprd,ip-version = <0x200>;
+		status = "okay";
+	};
+};

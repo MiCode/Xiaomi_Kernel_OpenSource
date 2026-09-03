@@ -1,0 +1,88 @@
+#
+# Unisoc WCN device (NEW )configuration
+#
+menu "Unisoc WCN Device Drivers"
+config UNISOC_WCN_BSP
+	tristate "UNISOC_WCN_BSP"
+	help
+	  This is support wcn chip for Unisoc.
+	  if you want to use 23xx series wcn chip of Unisoc.
+	  please say "y".
+config SC23XX
+	bool "SC23XX chip Support"
+	#depends on MMC
+	default n
+	help
+	  This is support wcn chip for Unisoc.
+	  if you want to use 23xx series wcn chip of Unisoc.
+	  please say "y".
+
+config WCN_INTEG
+	bool "WCN Integrated chip Support"
+	depends on SC23XX
+	default n
+	help
+	  This is support wcn chip for Unisoc.
+	  If you want to use WCN integrated chip of Unisoc.
+	  Please say "y".
+
+config SC2355
+	bool "SC2355 chip Support"
+	depends on SC23XX
+	default n
+	help
+	  This is support wcn chip for Unisoc.
+	  If you want to use sc2355 chip of Unisoc.
+	  Please say "y".
+
+config UMW2652
+	bool "UMW2652 chip Support"
+	depends on SC23XX
+	default n
+	help
+	  This is support wcn chip for Unisoc.
+	  If you want to use umw2652 chip of Unisoc.
+	  Please say "y".
+
+config UMW2653
+	bool "UMW2653 chip Support"
+	depends on SC23XX
+	default n
+	help
+	  This is support wcn chip for Unisoc.
+	  If you want to use umw2653 chip of Unisoc.
+	  Please say "y".
+
+config SC2342_I
+	bool "SC2342 integrated chip Support"
+	depends on WCN_INTEG
+	default n
+	help
+	  This is support wcn sc2342 integrated chip unique config for Unisoc.
+	  use it distinguish with other integrated chip.
+	  If you want to use sc2342 integrated chip of Unisoc.
+	  Please say "y".
+
+config UMW2631_I
+	bool "UMW2631 integrated chip Support"
+	depends on WCN_INTEG
+	default n
+	help
+	  This is support wcn umw2631 integrated chip unique config for unisoc.
+	  If you want to use umw2631 integrated chip of unisoc.
+	  Please say "y".
+
+
+# sprd's SDIO device driver based on SC2355...,etc
+source "drivers/unisoc_platform/sprdwcn/sdio/Kconfig"
+
+# sprd's wcn platform driver based on SC2355/SC2342...,etc
+source "drivers/unisoc_platform/sprdwcn/platform/Kconfig"
+
+# sprd's sleep device driver based on SC2355...,etc
+source "drivers/unisoc_platform/sprdwcn/sleep/Kconfig"
+
+# sprd's SIPC device driver based on WCN_INTEG...,etc
+source "drivers/unisoc_platform/sprdwcn/sipc/Kconfig"
+
+endmenu

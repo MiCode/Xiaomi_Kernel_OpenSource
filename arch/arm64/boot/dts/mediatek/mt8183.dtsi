@@ -1236,7 +1236,6 @@
 			clock-names = "engine", "digital", "hs";
 			phys = <&mipi_tx0>;
 			phy-names = "dphy";
-			status = "disabled";
 		};
 
 		mutex: mutex@14016000 {

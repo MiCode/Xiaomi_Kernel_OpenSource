@@ -98,6 +98,8 @@ source "drivers/staging/axis-fifo/Kconfig"
 
 source "drivers/staging/fieldbus/Kconfig"
 
+source "drivers/staging/miev/Kconfig"
+
 source "drivers/staging/qlge/Kconfig"
 
 source "drivers/staging/wfx/Kconfig"

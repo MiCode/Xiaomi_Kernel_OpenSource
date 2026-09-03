@@ -133,15 +133,12 @@ static int rds_ib_post_reg_frmr(struct rds_ib_mr *ibmr)
 
 	ret = ib_map_mr_sg_zbva(frmr->mr, ibmr->sg, ibmr->sg_dma_len,
 				&off, PAGE_SIZE);
-	if (unlikely(ret != ibmr->sg_dma_len)) {
-		ret = ret < 0 ? ret : -EINVAL;
-		goto out_inc;
-	}
+	if (unlikely(ret != ibmr->sg_dma_len))
+		return ret < 0 ? ret : -EINVAL;
 
-	if (cmpxchg(&frmr->fr_state, FRMR_IS_FREE, FRMR_IS_INUSE) != FRMR_IS_FREE) {
-		ret = -EBUSY;
-		goto out_inc;
-	}
+	if (cmpxchg(&frmr->fr_state,
+		    FRMR_IS_FREE, FRMR_IS_INUSE) != FRMR_IS_FREE)
+		return -EBUSY;
 
 	atomic_inc(&ibmr->ic->i_fastreg_inuse_count);
 
@@ -169,10 +166,11 @@ static int rds_ib_post_reg_frmr(struct rds_ib_mr *ibmr)
 		/* Failure here can be because of -ENOMEM as well */
 		rds_transition_frwr_state(ibmr, FRMR_IS_INUSE, FRMR_IS_STALE);
 
+		atomic_inc(&ibmr->ic->i_fastreg_wrs);
 		if (printk_ratelimit())
 			pr_warn("RDS/IB: %s returned error(%d)\n",
 				__func__, ret);
-		goto out_inc;
+		goto out;
 	}
 
 	/* Wait for the registration to complete in order to prevent an invalid
@@ -181,10 +179,8 @@ static int rds_ib_post_reg_frmr(struct rds_ib_mr *ibmr)
 	 */
 	wait_event(frmr->fr_reg_done, !frmr->fr_reg);
 
-	return ret;
+out:
 
-out_inc:
-	atomic_inc(&ibmr->ic->i_fastreg_wrs);
 	return ret;
 }
 

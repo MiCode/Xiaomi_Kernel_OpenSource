@@ -1,0 +1,71 @@
+menu "DEBUG_LOG modules"
+
+config SPRD_MODEM_DEBUG
+	tristate "Spreadtrum SoC Modem Debug Log Driver"
+	default n
+	help
+	  Spreadtrum modem debug log is a module that
+	  just for modem engineers to catch modem debug
+	  logs through MIPI D-PHY interface.
+
+config SPRD_MIPI_LOG_R0P0
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R0P0"
+	help
+	  Just for synopsys D-PHY that support whale2 and
+	  Say Y here to support MIPI LOG support.
+
+config SPRD_MIPI_LOG_R1P0
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R1P0"
+	help
+	  Just for sprd D-PHY that support sharkl2 and
+	  Say Y here to support R1P0 MIPI LOG interface.
+
+config SPRD_MIPI_LOG_R2P0
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R2P0"
+	help
+	  Just for sprd D-PHY that not support pll config and
+	  Say Y here to support R2P0 MIPI LOG support.
+
+config SPRD_MIPI_LOG_R3P0
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R3P0"
+	help
+	  Just for sprd D-PHY that support isharkl2 and
+	  Say Y here to support R3P0 MIPI LOG support.
+
+config SPRD_MIPI_LOG_R4P0
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R4P0"
+	help
+	  Just for sprd D-PHY that support sharklj1 and
+	  Say Y here to support R4P0 MIPI LOG support.
+
+config SPRD_MIPI_LOG_R4P2
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R4P2"
+	help
+	  Just for sprd D-PHY that support SerDes R4P2 and CSI_DSI TWPLL
+	  Say Y here to support R4P2 MIPI LOG support.
+
+config SPRD_MIPI_LOG_R5P0
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R5P0"
+	help
+	  Just for sprd D-PHY that support SerDes R5P0 and CSI_DSI TWPLL
+	  Say Y here to support R5P0 MIPI LOG support.
+
+config SPRD_MIPI_LOG_R5P1
+	tristate "Spreadtrum SoC Modem Debug Log Driver_R5P1"
+	help
+	  Just for sprd D-PHY that support SerDes R5P1 and CSI_DSI TWPLL
+	  Say Y here to support R5P1 MIPI LOG support.
+
+config SPRD_MIPI_LOG_QOGIRN6PRO
+	tristate "Spreadtrum SoC Modem Debug Log Driver_qogirn6pro"
+	help
+	  Just for sprd D-PHY that support SerDes qogirn6pro and CSI_DSI TWPLL
+	  Say Y here to support qogirn6pro MIPI LOG support.
+
+config SPRD_MIPI_SWITCH
+	tristate "Spreadtrum SoC Modem Debug Log MIPI_SWITCH"
+	help
+	  Just for sprd MIPI SWITCH
+	  Say Y here to support MIPI SWITCH.
+
+endmenu

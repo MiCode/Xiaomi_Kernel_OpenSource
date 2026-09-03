@@ -1,0 +1,5 @@
+config UNISOC_USERLOG
+	tristate "Enable UNISOC user log point feature"
+	default n
+	help
+	  This option enables UNISOC log feature for user log point.

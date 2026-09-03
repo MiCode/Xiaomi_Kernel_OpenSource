@@ -3946,8 +3946,7 @@ static void rtw8822c_dpk_cal_coef1(struct rtw_dev *rtwdev)
 	rtw_write32(rtwdev, REG_NCTL0, 0x00001148);
 	rtw_write32(rtwdev, REG_NCTL0, 0x00001149);
 
-	if (!check_hw_ready(rtwdev, 0x2d9c, MASKBYTE0, 0x55))
-		rtw_warn(rtwdev, "DPK stuck, performance may be suboptimal");
+	check_hw_ready(rtwdev, 0x2d9c, MASKBYTE0, 0x55);
 
 	rtw_write8(rtwdev, 0x1b10, 0x0);
 	rtw_write32_mask(rtwdev, REG_NCTL0, BIT_SUBPAGE, 0x0000000c);

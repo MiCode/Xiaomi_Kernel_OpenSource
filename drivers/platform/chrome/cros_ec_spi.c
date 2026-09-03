@@ -790,9 +790,7 @@ static int cros_ec_spi_remove(struct spi_device *spi)
 {
 	struct cros_ec_device *ec_dev = spi_get_drvdata(spi);
 
-	cros_ec_unregister(ec_dev);
-
-	return 0;
+	return cros_ec_unregister(ec_dev);
 }
 
 #ifdef CONFIG_PM_SLEEP

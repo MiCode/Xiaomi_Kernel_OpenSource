@@ -429,7 +429,9 @@ static const struct sysrq_key_op sysrq_thaw_op = {
 static void sysrq_handle_kill(int key)
 {
 	send_sig_all(SIGKILL);
+#if !IS_ENABLED(CONFIG_SPRD_DEBUG)
 	console_loglevel = CONSOLE_LOGLEVEL_DEBUG;
+#endif
 }
 static const struct sysrq_key_op sysrq_kill_op = {
 	.handler	= sysrq_handle_kill,

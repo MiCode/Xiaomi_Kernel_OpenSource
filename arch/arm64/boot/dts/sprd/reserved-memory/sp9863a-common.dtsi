@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * sp9863a-common.dtsi - Unisoc platform device
+ *
+ * Copyright 2023 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+#include "modem-4g-common.dtsi"
+
+&reserved_memory {
+    pmic_reserved: pmic-mem@80005000 {
+			reg = <0x0 0x80005000 0x0 0x00001000>;
+	};
+
+	wcn_reserved: wcn-mem@84000000 {
+		reg = <0x0 0x84000000 0x0 0x00300000>;
+	};
+
+	gnss_reserved: gnss-mem@84300000 {
+		reg = <0x0 0x84300000 0x0 0x0015b000>;
+	};
+
+/* Only used for iq, will be removed in normal mode by uboot */
+	iq-mem@90000000 {
+		compatible = "sprd,iq-mem";
+		reg = <0x0 0x84d80000 0x0 0x4000000>;
+	};
+
+	sp_ddr_reserved: sp-ddr-mem@89400000 {
+		reg = <0x0 0x89400000 0x0 0x00200000>;
+	};
+
+	cp-mem@89600000 {
+		reg = <0x0 0x89600000 0x0 0x03e80000>;
+	};
+
+	sipc-mem@8e000000 {
+		reg = <0x0 0x8e000000 0x0 0x00980000>;
+	};
+
+	tos-mem@b0040000 {
+		reg = <0x0 0xb0040000 0x0 0x01fc0000>;
+	};
+
+	sh-mem@b6000000 {
+		reg = <0x0 0xb2000000 0x0 0x00100000>;
+	};
+};

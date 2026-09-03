@@ -7,17 +7,14 @@
 
 #define pr_fmt(fmt) "bpf_jit: " fmt
 
-#include <linux/arm-smccc.h>
 #include <linux/bitfield.h>
 #include <linux/bpf.h>
-#include <linux/cpu.h>
 #include <linux/filter.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
 
 #include <asm/byteorder.h>
 #include <asm/cacheflush.h>
-#include <asm/cpufeature.h>
 #include <asm/debug-monitors.h>
 #include <asm/insn.h>
 #include <asm/set_memory.h>
@@ -330,51 +327,7 @@ static int emit_bpf_tail_call(struct jit_ctx *ctx)
 #undef jmp_offset
 }
 
-/* Clobbers BPF registers 1-4, aka x0-x3 */
-static void __maybe_unused build_bhb_mitigation(struct jit_ctx *ctx)
-{
-	const u8 r1 = bpf2a64[BPF_REG_1]; /* aka x0 */
-	u8 k = get_spectre_bhb_loop_value();
-
-	if (!IS_ENABLED(CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY) ||
-	    cpu_mitigations_off() || __nospectre_bhb ||
-	    arm64_get_spectre_v2_state() == SPECTRE_VULNERABLE)
-		return;
-
-	if (capable(CAP_SYS_ADMIN))
-		return;
-
-	if (supports_clearbhb(SCOPE_SYSTEM)) {
-		emit(aarch64_insn_gen_hint(AARCH64_INSN_HINT_CLEARBHB), ctx);
-		return;
-	}
-
-	if (k) {
-		emit_a64_mov_i64(r1, k, ctx);
-		emit(A64_B(1), ctx);
-		emit(A64_SUBS_I(true, r1, r1, 1), ctx);
-		emit(A64_B_(A64_COND_NE, -2), ctx);
-		emit(aarch64_insn_gen_dsb(AARCH64_INSN_MB_ISH), ctx);
-		emit(aarch64_insn_get_isb_value(), ctx);
-	}
-
-	if (is_spectre_bhb_fw_mitigated()) {
-		emit(A64_ORR_I(false, r1, AARCH64_INSN_REG_ZR,
-			       ARM_SMCCC_ARCH_WORKAROUND_3), ctx);
-		switch (arm_smccc_1_1_get_conduit()) {
-		case SMCCC_CONDUIT_HVC:
-			emit(aarch64_insn_get_hvc_value(), ctx);
-			break;
-		case SMCCC_CONDUIT_SMC:
-			emit(aarch64_insn_get_smc_value(), ctx);
-			break;
-		default:
-			pr_err_once("Firmware mitigation enabled with unknown conduit\n");
-		}
-	}
-}
-
-static void build_epilogue(struct jit_ctx *ctx, bool was_classic)
+static void build_epilogue(struct jit_ctx *ctx)
 {
 	const u8 r0 = bpf2a64[BPF_REG_0];
 	const u8 r6 = bpf2a64[BPF_REG_6];
@@ -393,13 +346,10 @@ static void build_epilogue(struct jit_ctx *ctx, bool was_classic)
 	emit(A64_POP(r8, r9, A64_SP), ctx);
 	emit(A64_POP(r6, r7, A64_SP), ctx);
 
-	if (was_classic)
-		build_bhb_mitigation(ctx);
-
 	/* Restore FP/LR registers */
 	emit(A64_POP(A64_FP, A64_LR, A64_SP), ctx);
 
-	/* Move the return value from bpf:r0 (aka x7) to x0 */
+	/* Set return value */
 	emit(A64_MOV(1, A64_R(0), r0), ctx);
 
 	emit(A64_RET(A64_LR), ctx);
@@ -1112,7 +1062,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 	}
 
 	ctx.epilogue_offset = ctx.idx;
-	build_epilogue(&ctx, was_classic);
+	build_epilogue(&ctx);
 
 	extable_size = prog->aux->num_exentries *
 		sizeof(struct exception_table_entry);
@@ -1144,7 +1094,7 @@ skip_init_ctx:
 		goto out_off;
 	}
 
-	build_epilogue(&ctx, was_classic);
+	build_epilogue(&ctx);
 
 	/* 3. Extra pass to validate JITed code. */
 	if (validate_code(&ctx)) {

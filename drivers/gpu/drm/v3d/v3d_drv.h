@@ -71,12 +71,6 @@ struct v3d_perfmon {
 	u64 values[];
 };
 
-enum v3d_irq {
-	V3D_CORE_IRQ,
-	V3D_HUB_IRQ,
-	V3D_MAX_IRQS,
-};
-
 struct v3d_dev {
 	struct drm_device drm;
 
@@ -85,8 +79,6 @@ struct v3d_dev {
 	 */
 	int ver;
 	bool single_irq_line;
-
-	int irq[V3D_MAX_IRQS];
 
 	void __iomem *hub_regs;
 	void __iomem *core_regs[3];

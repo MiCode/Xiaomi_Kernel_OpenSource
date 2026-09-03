@@ -126,12 +126,16 @@ int hyperbus_register_device(struct hyperbus_device *hbdev)
 }
 EXPORT_SYMBOL_GPL(hyperbus_register_device);
 
-void hyperbus_unregister_device(struct hyperbus_device *hbdev)
+int hyperbus_unregister_device(struct hyperbus_device *hbdev)
 {
+	int ret = 0;
+
 	if (hbdev && hbdev->mtd) {
-		WARN_ON(mtd_device_unregister(hbdev->mtd));
+		ret = mtd_device_unregister(hbdev->mtd);
 		map_destroy(hbdev->mtd);
 	}
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(hyperbus_unregister_device);
 

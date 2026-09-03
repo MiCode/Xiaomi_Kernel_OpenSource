@@ -32,9 +32,7 @@ void foo(void)
         DEFINE(CRED_EGID, offsetof(struct cred, egid));
         BLANK();
 
-	DEFINE(SP_OFF, offsetof(struct pt_regs, ps));
 	DEFINE(SIZEOF_PT_REGS, sizeof(struct pt_regs));
-	DEFINE(SWITCH_STACK_SIZE, sizeof(struct switch_stack));
 	DEFINE(PT_PTRACED, PT_PTRACED);
 	DEFINE(CLONE_VM, CLONE_VM);
 	DEFINE(CLONE_UNTRACED, CLONE_UNTRACED);

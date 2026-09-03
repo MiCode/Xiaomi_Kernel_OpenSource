@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# unisoc scheduler based on WALT
+#
+menu "Unisoc Scheduler Features"
+
+config UNISOC_SCHED
+	tristate "Support Unisoc Scheduler Features"
+	depends on SMP
+	help
+	  This is the base of unisoc specifec scheduler, including WALT, EAS, RT,
+	  cpufreq governor and so on...
+
+config SCHED_WALT
+	tristate "Support Window Assisted Load Tracking"
+	depends on UNISOC_SCHED
+	help
+	  This feature will allow the scheduler to get utilzation for tasks
+	  and runqueues based on window assisted load tracking. The util can be
+	  used to guide eas/load_balance/rt task placement as well as
+	  task frequency requirements for cpufreq governors.
+
+config UNISOC_SCHED_OPTIMIC_ON_A7
+	bool "Support scheduler optimization in arm-v7"
+	depends on ARM && UNISOC_SCHED
+	default n
+	help
+	  This feature will allow arm-v7 cpus use some scheduler
+	  optimization.
+	  If you want use unisoc schedutil on v7 chips,
+	  set it to be y.
+
+config UNISOC_GROUP_CTL
+	bool "Support Unisoc Group Control"
+	depends on CGROUP_SCHED && UNISOC_SCHED
+	help
+	  This feature introduce unisoc group control feature.
+	  In Android system, the tasks would be set to be into
+	  different groups such as top-app, foreground, background and so on.
+	  This feeature can set different scheduler policy for different groups.
+
+choice
+	prompt "select how to boost the cpu/task util"
+	default UNISOC_GROUP_NO_BOOST
+
+config UNISOC_GROUP_NO_BOOST
+	bool "no boost"
+	depends on UNISOC_SCHED
+	help
+	  We have different cpu/task util boost policies,
+	  such as stune and transform uclamp to stune.
+	  If you can not decide how to boost,
+	  choose this.
+
+config UNISOC_GROUP_BOOST
+	bool "Using group boost just like schedtune"
+	depends on UNISOC_GROUP_CTL
+	help
+	  This feature is porting from schedtune's boost params. It can boost
+	  the task and cpu when setting the val to be bigger than 0. Also It
+	  can deboost the task and cpu when setting the val to be smaller than 0.
+
+config UCLAMP_MIN_TO_BOOST
+	bool "Transform uclamp_min to schedtune.boost"
+	depends on UNISOC_SCHED
+	depends on UCLAMP_TASK
+	help
+	  This feature would transform the uclamp_min to stune.boost.
+	  Meantime, add sysctl to let users could disable the feature and using
+	  the original uclamp.
+
+endchoice
+
+config UNISOC_ROTATION_TASK
+	bool "Unisoc rotation task"
+	depends on SMP
+	depends on UNISOC_SCHED
+	default n
+	help
+	  This option enables task rotation feature. In ARM big.little cpu
+	  topology, benchmark app may start NR_CPUS big tasks to run,
+	  rotation task can improve system performance between big core
+	  and little core.
+
+config UNISOC_SCHED_VIP_TASK
+	bool "Unisoc Sched VIP TASK"
+	depends on UNISOC_SCHED
+	default n
+	help
+	This option enables vip-task feature. In android system, there are often
+	cfs tasks that need low lentency, but cfs scheduler often treats each task
+	fairly, in this case, if the low lentency tasks are frequently preempted
+	by other tasks. this case is what we can not stand. On the other hand, the
+	introduction of group-scheduler makes tasks between different process
+	groups more uncontrollable. To improve the task performance, Introduce
+	vip-task feature. user can set the low lentency task tobe vip task, the
+	vip task could get priority scheduling to improve performance.
+
+config UNISOC_SCHEDUTIL_GOV
+	tristate "Support Unisoc Schedutil Governor"
+	depends on CPU_FREQ && SMP
+	depends on UNISOC_SCHED
+	help
+	this cpufreq governor is based on the original kernel schedutil governor,
+	and add unisoc specific features like freq_margin and slak_timer.
+
+config UNISOC_HUNG_TASK_ENH
+	bool "Unisoc hung task enh"
+	depends on UNISOC_SCHED && DETECT_HUNG_TASK
+	help
+	  This feature uses whitelist/blacklist to enhance D state task detect.
+	  In addition, add the detection of iowait state task.
+	  If Y, check tasks according to whitelist/blacklist rule. Using whitelist
+	  mode will check tasks in the list, blacklist mode will check tasks out
+	  of the list.
+	  If N, check all tasks.
+
+config UNISOC_RT_TIMEOUT_DETECT_MS
+	int "Unisoc long running rt task detect"
+	range 0 2000
+	default 0
+	depends on UNISOC_SCHED
+	help
+	  This feature is used to detect long running rt task and print warn
+	  info.
+	  In userdebug version, this feature should be enabled by default,
+	  and the default timeout is 800.
+	  In user version, user decides whether to open it by sysctl.
+
+config UNISOC_SCHED_PAUSE_CPU
+	bool "Support pause cpu feature"
+	depends on UNISOC_SCHED
+	help
+	  Enable pause cpu feature.it would set the cpu as paused and migrate task
+	  from the run-queue of the paused cpu to other cpu,to give a chance to the
+	  paused cpu to reach quickly an idle state.
+	  If y thermal policy would use this feature to let cpu enter into an idle
+	  state to lower the temperature of SoC.
+
+config UNISOC_CPU_NETLINK
+	bool "Support cpu netlink feature"
+	depends on UNISOC_SCHED
+	default n
+	help
+	  Enable cpu netlink feature.
+	  When open this feature, scheduler would send some scheduler event to user
+	  Using genl ntlink with multicast. User can do some thing when received
+	  the message.
+	  If you do not use unisoc android framework, or you do not want to receive
+	  the messege, turn off it.
+
+config UNISOC_SCHED_DEBUG_ATOMIC
+	bool "Support unisoc scheduler debug"
+	depends on UNISOC_SCHED && SPRD_DEBUG
+	default n
+	help
+	  Enable unisoc scheduler_bug debug.
+	  When open this feature, scheduler would check scheduling in atomic,
+	  and then trigger panic.
+	  If you do not want to trigger panic,
+	  turn it off.
+
+config UNISOC_INPUT_BOOST
+	bool "Support input cpufreq boost"
+	depends on UNISOC_SCHED && CPU_FREQ
+	default n
+	help
+	  Support input boost feature.
+	  If enable this feature, the cpu minimum frequency would be fixed as the
+	  user setting when there are input signal from screen touch, and it would
+	  restore to the original value after a while.
+
+config UNISOC_WORKAROUND_L3_HANG
+	bool "workaround sharkl3 32b cpu hang"
+	depends on UNISOC_SCHED && ARM
+	default n
+	help
+	  Enable the l3 cpu hang workaround.
+	  Start a timer when boot, when time out, send ipi_rescheduler to other
+	  cpus to wake up the cpu.
+	  Do not open it except for sharkl3 32b.
+
+config UNISOC_WORKAROUND_VRUNTIME_BIG_GAP
+	bool "workaround cfs vruntime gap is too large"
+	depends on SCHED_WALT
+	default n
+	help
+	  Enable vruntime's gap too large workaround.
+	  Sometimes, the yield task's vruntime is too small, and the waking task's
+	  vruntime is too large, as a result, the task is not scheduled.
+	  Do not open it unless vruntime issue is confirmed.
+endmenu

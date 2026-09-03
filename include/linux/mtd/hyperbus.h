@@ -89,7 +89,9 @@ int hyperbus_register_device(struct hyperbus_device *hbdev);
 /**
  * hyperbus_unregister_device - deregister HyperBus slave memory device
  * @hbdev: hyperbus_device to be unregistered
+ *
+ * Return: 0 for success, others for failure.
  */
-void hyperbus_unregister_device(struct hyperbus_device *hbdev);
+int hyperbus_unregister_device(struct hyperbus_device *hbdev);
 
 #endif /* __LINUX_MTD_HYPERBUS_H__ */

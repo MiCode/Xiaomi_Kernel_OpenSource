@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc SC9863A SoC DTS file
+ *
+ * Copyright (C) 2019, Unisoc Inc.
+ */
+
+&mm {
+			jpg: jpeg-codec@62300000{
+				compatible = "sprd,sharkl3-jpg";
+				reg = <0 0x62300000 0 0x8000>;
+				interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+				reset-syscon = <&mm_vsp_ahb_regs  REG_MM_VSP_AHB_AHB_RST
+						MASK_MM_VSP_AHB_JPG_SOFT_RST>;
+				aon-apb-eb-syscon = <&aon_apb_regs
+						REG_AON_APB_APB_EB0
+						MASK_AON_APB_MM_EB>;
+				iommus = <&iommu_jpg>;
+				power-domains = <&vsp_pd>;
+				status = "disabled";
+
+				clock-names = "jpg_domain_eb",
+					"clk_aon_jpg_emc_eb",
+					"jpg_dev_eb",
+					"jpg_ckg_eb",
+					"clk_ahb_vsp",
+					"clk_ahb_vsp_parent",
+					"clk_emc_vsp",
+					"clk_emc_vsp_parent",
+					"clk_src_256m",
+					"clk_src_307m2",
+					"jpg_clk";
+
+				clocks = <&aonapb_gate CLK_MM_VSP_EB>,
+					<&aonapb_gate CLK_MM_VSP_EMC_EB>,
+					<&vspahb_gate CLK_VCKG_EB>,
+					<&vspahb_gate CLK_VJPG_EB>,
+					<&aon_clk CLK_MM_VAHB>,
+					<&pll CLK_TWPLL_153M6>,
+					<&aon_clk CLK_MM_VEMC>,
+					<&pll CLK_ISPPLL_468M>,
+					<&pll CLK_TWPLL_256M>,
+					<&pll CLK_TWPLL_307M2>,
+					<&aon_clk CLK_JPG>;
+			};
+
+			iommu_jpg: iommu@62300300 {
+				compatible = "unisoc,iommuexl3-jpg";
+				reg = <0x0 0x62300000 0x0 0x300>,
+				      <0x0 0x62300300 0x0 0x80>;
+				iova-base = <0x70000000>;
+				iova-size = <0x10000000>;
+				reg_name = "mmu_interrupt_reg","mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+};

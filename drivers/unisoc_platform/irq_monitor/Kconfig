@@ -1,0 +1,12 @@
+config	IRQ_MONITOR
+	tristate "Warn if interrupts occur too frequently"
+	help
+	  If selected, a warning log will be thrown out if any interrupt occurs
+	  too frequently.
+
+config	IRQ_CONSUMPTION_MONITOR
+	tristate "Warn if interrupts handlers occupy too much cpu time"
+        depends on IRQ_MONITOR
+	help
+	  If selected, a warning log will be thrown out if single irq or whole
+	  irq handlers occpupy too much cpu time.

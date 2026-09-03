@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * ums312-common.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+#include "modem-4g-common.dtsi"
+
+&reserved_memory {
+
+    pmic_reserved: pmic-mem@80005000 {
+			reg = <0x0 0x80005000 0x0 0x00001000>;
+	};
+	audio_reserved: audio-mem@87500000 {
+		reg = <0x0 0x87500000 0x0 0x00300000>;
+	};
+
+	sp_ddr_reserved: sp_ddr-mem@88000000 {
+		reg = <0x0 0x88000000 0x0 0x00200000>;
+	};
+
+	audiodsp_reserved: audiodsp-mem@88f00000 {
+		reg = <0x0 0x88f00000 0x0 0x00700000>;
+	};
+
+	/* The uboot_log_reserved node is added in uboot. base:0x9de8 0000, size:0x40000 */
+	uboot_log-mem {
+		reg = <0x0 0x9de80000 0x0 0x00040000>;
+	};
+
+	logo_reserved: logobuffer@9e000000 {
+		reg = <0x0 0x9e000000 0x0 0x00384000>;
+	};
+
+	tos_reserved: tos-mem@b0040000 {
+		reg = <0x0 0xb0040000 0x0 0x03fc0000>;
+	};
+
+	tos_shm_reserved: sh-mem@b6000000 {
+		reg = <0x0 0xb4000000 0x0 0x00100000>;
+	};
+};

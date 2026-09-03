@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc GPU DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+&mm {
+	gpu: gpu@23100000 {
+		compatible = "sprd,mali-natt";
+		reg = <0x0 0x23100000 0x0 0x100000>;
+
+		gpu-supply = <&vddgpu>;
+		system-coherency = <31>;
+
+		topdvfs-controller = <&topdvfs_controller>;
+
+		sprd,gpu-apb-syscon = <&gpu_apb_regs>;
+		sprd,gpu-dvfs-apb-syscon = <&gpu_dvfs_apb_regs>;
+
+		top_dvfs_cfg = <&top_dvfs_apb_regs
+			REG_TOP_DVFS_APB_SUBSYS_SW_DVFS_EN_CFG
+			MASK_TOP_DVFS_APB_GPU_SW_DVFS_EN>;
+		top-force-shutdown = <&pmu_apb_regs
+			REG_PMU_APB_PD_GPU_TOP_CFG_0
+			MASK_PMU_APB_PD_GPU_TOP_FORCE_SHUTDOWN>;
+		gpu_core0_state = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_4
+			MASK_PMU_APB_PD_GPU_C0_STATE>;
+		cur_st_st0 = <&gpu_apb_regs
+			REG_GPU_APB_GONDUL_PDC_CONTROL_STACK0
+			MASK_GPU_APB_CUR_ST_ST0>;
+		gpu_top_state = <&pmu_apb_regs
+			REG_PMU_APB_PWR_STATUS_DBG_4
+			MASK_PMU_APB_PD_GPU_TOP_STATE>;
+
+		interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "JOB",
+			"MMU",
+			"GPU";
+		nvmem-cells = <&gpu_bin>;
+		nvmem-cell-names = "gpu_bin";
+
+		operating-points = <
+			/* kHz    uV */
+			384000    700000
+			512000    750000
+			614400    750000
+			768000    800000
+			850000    800000
+			>;
+
+		sprd,dvfs-lists = <
+			/* kHz   uV      idx div */
+			384000  700000    4    1
+			512000  750000    5    1
+			614400  750000    6    1
+			768000  800000    7    1
+			850000  800000    8    1
+			>;
+
+		/*sprd,qos = <&gpu_qos>;*/
+		sprd,dvfs-default = <0>;
+		sprd,dvfs-scene-extreme = <3>;
+		sprd,dvfs-scene-high = <2>;
+		sprd,dvfs-scene-medium = <1>;
+		sprd,dvfs-scene-low = <0>;
+		sprd,dvfs-range-max = <4>;
+		sprd,dvfs-range-min = <0>;
+
+		#cooling-cells = <2>;
+		dynamic-power-coefficient = <77>;
+
+		clocks = <&aonapb_gate CLK_GPU_EB>,
+		<&gpu_clk CLK_GPU_CORE_EB>,
+		<&gpu_clk CLK_GPU_MEM_EB>,
+		<&gpu_clk CLK_GPU_SYS_EB>,
+		<&pll1 CLK_TWPLL_384M>,
+		<&pll1 CLK_TWPLL_512M>,
+		<&pll1 CLK_LPLL_614M4>,
+		<&pll1 CLK_TWPLL_768M>,
+		<&pll1 CLK_GPLL>;
+	};
+};

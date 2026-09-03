@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# unisoc memory managerment vendor hook
+#
+menu "Unisoc Memory Management Vendor Hook"
+
+source "drivers/unisoc_platform/mm/emem/Kconfig"
+source "drivers/unisoc_platform/mm/reclaim/Kconfig"
+source "drivers/unisoc_platform/mm/cma/Kconfig"
+
+endmenu

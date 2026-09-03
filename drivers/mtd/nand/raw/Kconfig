@@ -12,6 +12,35 @@ if MTD_RAW_NAND
 
 comment "Raw/parallel NAND flash controllers"
 
+config MTD_NAND_SPRD
+	default n
+	bool "Support for SPRD NAND PROBE"
+	help
+	  Enable the driver for NAND flash on platforms using an
+	  UNISOC NAND controller as a DT device.
+	  enabling this option will allow you to use these.
+	  This controller is found on UNISOC SoCs.
+
+config MTD_NAND_SPRD_DEVICE_INFO_FROM_H
+	tristate "Way for getting SPRD NAND PARAM"
+	depends on MTD_NAND_SPRD
+	default n
+	help
+	  When NAND flash on platforms using an UNISOC NAND controller
+	  as a DT device ,enabling this will allow you to get device info
+	  from header.
+	  It only work if MTD_NAND_SPRD and self are on.
+
+config MTD_NAND_SPRD_DEBUG
+	tristate "Support for SPRD NAND PROBE DEBUG"
+	depends on MTD_NAND_SPRD
+	default y
+	help
+	  When NAND flash on platforms using an UNISOC NAND controller
+	  as a DT device ,enabling this will allow you to debug if it can
+	  not work.
+	  It only work if MTD_NAND_SPRD and self are on.
+
 config MTD_NAND_DENALI
 	tristate
 

@@ -9,7 +9,6 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/devfreq.h>
-#include <linux/kstrtox.h>
 #include <linux/pm.h>
 #include <linux/mutex.h>
 #include <linux/module.h>
@@ -40,13 +39,10 @@ static ssize_t set_freq_store(struct device *dev, struct device_attribute *attr,
 	unsigned long wanted;
 	int err = 0;
 
-	err = kstrtoul(buf, 0, &wanted);
-	if (err)
-		return err;
-
 	mutex_lock(&devfreq->lock);
 	data = devfreq->data;
 
+	sscanf(buf, "%lu", &wanted);
 	data->user_frequency = wanted;
 	data->valid = true;
 	err = update_devfreq(devfreq);

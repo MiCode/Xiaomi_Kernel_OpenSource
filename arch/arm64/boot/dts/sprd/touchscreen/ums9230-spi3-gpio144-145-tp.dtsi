@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+* ums9230-spi3-gpio144-145-tp.dtsi - Unisoc platform device
+*
+* Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+*
+* Licensed under the Unisoc General Software License, version 1.0 (the
+* License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+* See the Unisoc General Software License, version 1.0 for more details.
+*
+* Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+*  (including but not limited to combining, linking) with any other file under
+* the GNU General Public License version 2 on platforms that use Unisoc Chips.
+*/
+
+&spi3 {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* Novatek device tree node */
+	touchpanel@0 {
+		compatible = "focaltech,fts","novatek,NVT-ts-spi";
+		reg = <0>; //Same as CS ID
+		status = "ok";
+		spi-max-frequency = <8000000>;	//4800000,9600000,15000000,19200000
+
+		/*-----------------focaltech for ft8725------------------------*/
+		focaltech,max-touch-number_for_8725 = <10>;
+
+		/*------------------focaltech_ft8756------------------*/
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords =  <0 0 1080 2400>;
+		//spi-max-frequency = <6000000>;
+		focaltech,reset-gpio = <&ap_gpio 145 GPIO_ACTIVE_HIGH>;
+		focaltech,irq-gpio = <&ap_gpio 144 GPIO_ACTIVE_HIGH>;
+
+		/*------------------novatek------------------*/
+		//novatek,pen-support;
+		//novatek,wgp-stylus;
+
+		novatek,reset-gpio = <&ap_gpio 145 GPIO_ACTIVE_HIGH>;
+		novatek,irq-gpio = <&ap_gpio 144 GPIO_ACTIVE_HIGH>;
+		/* 525 */
+		//novatek,swrst-n8-addr = <0x01F01A>;
+
+		/* 672A, 525B, 675, 526, 672C, 523 */
+		novatek,swrst-n8-addr = <0x03F0FE>;
+		novatek,spi-rd-fast-addr = <0x03F310>;
+
+		/* MP */
+		//novatek,mp-support-dt;
+
+		#include "nvt-touchscreen-novatek-nt36xxx-spi.dtsi"
+	};
+};

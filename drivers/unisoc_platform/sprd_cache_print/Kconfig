@@ -1,0 +1,4 @@
+config SPRD_CACHE_PRINT
+	tristate "SPRD print cache of crash context"
+	help
+	  SPRD print cache of crash context

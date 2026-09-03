@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc I2C dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&apapb {
+	i2c0: i2c@500000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x500000 0x1000>;
+		interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dma-names = "rx", "tx";
+		dmas = <&ap_dma 43 &ap_dma 44>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C0_SOFT_RST>;
+	};
+
+	i2c1: i2c@600000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x600000 0x1000>;
+		interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dma-names = "rx", "tx";
+		dmas = <&ap_dma 41 &ap_dma 42>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C1_SOFT_RST>;
+	};
+
+	i2c2: i2c@700000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x700000 0x1000>;
+		interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dma-names = "rx", "tx";
+		dmas = <&ap_dma 39 &ap_dma 40>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C2_SOFT_RST>;
+	};
+
+	i2c3: i2c@800000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x800000 0x1000>;
+		interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dma-names = "rx", "tx";
+		dmas = <&ap_dma 37 &ap_dma 38>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C3_SOFT_RST>;
+	};
+
+	i2c4: i2c@900000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x900000 0x1000>;
+		interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dma-names = "rx", "tx";
+		dmas = <&ap_dma 35 &ap_dma 36>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C4_SOFT_RST>;
+	};
+
+	i2c5: i2c@1500000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x1500000 0x1000>;
+		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C5_SOFT_RST>;
+	};
+
+	i2c6: i2c@1600000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+		reg = <0x1600000 0x1000>;
+		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&apapb_gate RESET_AP_APB_I2C6_SOFT_RST>;
+	};
+};
+
+&aon {
+	i2c7: i2c@40080000 {
+		compatible = "sprd,sc9863-i2c", "sprd,sharkl3-hw-i2c";
+		reg = <0x40080000 0x1000>;
+		interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <100000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names = "i2c_rst";
+		resets = <&aonapb_gate RESET_AON_APB_I2C_SOFT_RST>;
+	};
+};
+
+&i2c0 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C0_EB>,
+	<&ap_clk CLK_AP_I2C0>, <&ext_26m>;
+};
+
+&i2c1 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C1_EB>,
+	<&ap_clk CLK_AP_I2C1>, <&ext_26m>;
+};
+
+&i2c2 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C2_EB>,
+	<&ap_clk CLK_AP_I2C2>, <&ext_26m>;
+};
+
+&i2c3 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C3_EB>,
+	<&ap_clk CLK_AP_I2C3>, <&ext_26m>;
+};
+
+&i2c4 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C4_EB>,
+	<&ap_clk CLK_AP_I2C4>, <&ext_26m>;
+};
+
+&i2c5 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C5_EB>,
+	<&ap_clk CLK_AP_I2C5>, <&ext_26m>;
+};
+
+&i2c6 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&apapb_gate CLK_I2C6_EB>,
+	<&ap_clk CLK_AP_I2C6>, <&ext_26m>;
+};
+
+&i2c7 {
+	clock-names ="enable", "i2c", "source";
+	clocks = <&aonapb_gate CLK_HW_I2C_EB>,
+	<&aon_clk CLK_HW_I2C>, <&ext_26m>;
+};
+

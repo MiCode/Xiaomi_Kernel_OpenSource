@@ -133,7 +133,7 @@
 			clocks = <&clocks BCM2835_CLOCK_UART>,
 				 <&clocks BCM2835_CLOCK_VPU>;
 			clock-names = "uartclk", "apb_pclk";
-			arm,primecell-periphid = <0x00341011>;
+			arm,primecell-periphid = <0x00241011>;
 			status = "disabled";
 		};
 
@@ -144,7 +144,7 @@
 			clocks = <&clocks BCM2835_CLOCK_UART>,
 				 <&clocks BCM2835_CLOCK_VPU>;
 			clock-names = "uartclk", "apb_pclk";
-			arm,primecell-periphid = <0x00341011>;
+			arm,primecell-periphid = <0x00241011>;
 			status = "disabled";
 		};
 
@@ -155,7 +155,7 @@
 			clocks = <&clocks BCM2835_CLOCK_UART>,
 				 <&clocks BCM2835_CLOCK_VPU>;
 			clock-names = "uartclk", "apb_pclk";
-			arm,primecell-periphid = <0x00341011>;
+			arm,primecell-periphid = <0x00241011>;
 			status = "disabled";
 		};
 
@@ -166,7 +166,7 @@
 			clocks = <&clocks BCM2835_CLOCK_UART>,
 				 <&clocks BCM2835_CLOCK_VPU>;
 			clock-names = "uartclk", "apb_pclk";
-			arm,primecell-periphid = <0x00341011>;
+			arm,primecell-periphid = <0x00241011>;
 			status = "disabled";
 		};
 
@@ -450,6 +450,8 @@
 					  IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) |
 					  IRQ_TYPE_LEVEL_LOW)>;
+		/* This only applies to the ARMv7 stub */
+		arm,cpu-registers-not-fw-configured;
 	};
 
 	cpus: cpus {
@@ -1140,7 +1142,6 @@
 };
 
 &uart0 {
-	arm,primecell-periphid = <0x00341011>;
 	interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
 };
 

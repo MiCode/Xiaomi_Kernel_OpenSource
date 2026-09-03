@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * unisoc TRNG dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&apapb {
+	crypto_engine_rng: rng@e0000 {
+		compatible = "sprd,sprd-trng";
+		reg = <0xe0000 0x10000>;
+		clock-names = "ce-pub-eb", "ap-ce-clk",
+					  "source";
+		clocks = <&apapb_gate CLK_CE_PUB_EB>,
+			   <&ap_clk CLK_AP_CE>,
+			   <&g5l_pll CLK_TGPLL_256M>;
+	};
+};
+

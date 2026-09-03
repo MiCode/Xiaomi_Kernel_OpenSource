@@ -12,6 +12,16 @@ config TYPEC_DP_ALTMODE
 	  To compile this driver as a module, choose M here: the
 	  module will be called typec_displayport.
 
+config SPRD_TYPEC_DP_ALTMODE
+	tristate "DisplayPort Alternate Mode driver For Sprd"
+	help
+	  DisplayPort USB Type-C Alternate Mode allows DisplayPort
+	  displays and adapters to be attached to the USB Type-C
+	  connectors on the system.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called sprd_typec_displayport.
+
 config TYPEC_NVIDIA_ALTMODE
 	tristate "NVIDIA Alternate Mode driver"
 	depends on TYPEC_DP_ALTMODE

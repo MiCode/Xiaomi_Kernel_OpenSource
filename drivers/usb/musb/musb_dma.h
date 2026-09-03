@@ -86,6 +86,12 @@ struct musb_hw_ep;
 #define	is_cppi_enabled(musb)	0
 #endif
 
+#if IS_ENABLED(CONFIG_USB_SPRD_DMA)
+#define musb_dma_sprd(musb)	(musb->ops->quirks & MUSB_DMA_SPRD)
+#else
+#define musb_dma_sprd(musb)	0
+#endif
+
 /*
  * DMA channel status ... updated by the dma controller driver whenever that
  * status changes, and protected by the overall controller spinlock.

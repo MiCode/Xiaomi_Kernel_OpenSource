@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc dmc_mpu dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/soc/sprd,sharkl3-regs.h>
+#include <dt-bindings/soc/sprd,sharkl3-mask.h>
+#include <dt-bindings/debug/common.h>
+#include <dt-bindings/debug/dmc_mpu/sharkl3_dmc_mpu.h>
+
+&pub {
+	dmc_mpu: dmc-mpu@300e0000 {
+		compatible = "sprd,dmc-mpu";
+		reg = <0 0x300e0000 0 0x10000>;
+		interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+		syscon-names = "irq_clr", "irq_en";
+		mpu-irq-clr-syscon = <&pub_wrap_regs
+			REG_PUB_AHB_WRAP_PUB_DMC_MPU_INT
+			MASK_PUB_AHB_WRAP_DMC_MPU_VIO_INT_CLR>;
+		mpu-irq-en-syscon = <&pub_wrap_regs
+			REG_PUB_AHB_WRAP_PUB_DMC_MPU_INT
+			MASK_PUB_AHB_WRAP_DMC_MPU_VIO_INT_EN>;
+		sprd,channel-num = <8>;
+		sprd,mpu-num = <16>;
+		sprd,channel-names =
+			"MM", "GPU", "DPU","CPU",
+			"AP/PUBCP", "WTLCP", "AON/WCN/ETR",
+			"VSP", "SHARED0", "SHARED1",
+			"SHARED2","SHARED3", "SHARED4",
+			"SHARED5","SHARED6", "SHARED7";
+		sprd,ranges = <0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0x89600000 0 0x8e980000>, <0 0x89600000 0 0x8e980000>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>;
+		sprd,chn-config =
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_OUTSIDE MON_WRITE>,
+			<DISABLE MON_OUTSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>;
+		sprd,id-config =
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0xf8 0x7 >, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>;
+		sprd,port-map = <0>, <1>, <2>, <3>, <4>,
+			<5>, <6>, <7>, <0>, <0>,
+			<0>, <0>, <0>, <0>, <0>,
+			<0>;
+		sprd,ddr-offset = <0x80000000>;
+		sprd.panic;
+		status = "okay";
+	};
+};

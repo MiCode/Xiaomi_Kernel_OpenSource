@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * DTS file of efuse in Spreadtrum SC2730 PMIC.
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&sc2730_pmic {
+	efuse@300 {
+		compatible = "sprd,sc27xx-efuse", "sprd,sc2730-efuse";
+		reg = <0x300>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		hwlocks = <&hwlock 12>;
+		/* Data cells */
+		adc_bcal: calib@0 {
+			reg = <0x24 0x2>;
+		};
+
+		adc_scal: calib@1 {
+			reg = <0x26 0x2>;
+		};
+
+		pddelta_calib: calib@2 {
+			reg = <0x2 0x2>;
+		};
+
+		pdrc_calib: calib@6 {
+			reg = <0x6 0x2>;
+		};
+
+		pdref_calib: calib@1e {
+			reg = <0x1e 0x2>;
+		};
+
+		fgu_calib: calib@3 {
+			reg = <0x6 0x2>;
+		};
+
+		typec_cc1_cal: calib@d1 {
+			reg = <0x1a 0x2>;
+		};
+
+		typec_cc2_cal: calib@d2 {
+			reg = <0x1a 0x2>;
+		};
+
+		sfcp_calib: calib@1c {
+			reg = <0x1c 0x2>;
+		};
+
+		aud_pabst_vcal: calib@20 {
+			reg = <0x20 0x2>;
+		};
+
+		neg_cp_efuse: calib@22 {
+			reg = <0x22 0x2>;
+		};
+
+		headset_adc_fir: calib@14 {
+			reg = <0x28 0x2>;
+		};
+
+		headset_adc_sec: calib@16 {
+			reg = <0x2c 0x2>;
+		};
+
+		codec_product_info: calib@2e {
+			reg = <0x2e 0x2>;
+		};
+	};
+
+};

@@ -5,7 +5,7 @@
 
 /* this file is part of ehci-hcd.c */
 
-#ifdef CONFIG_DYNAMIC_DEBUG
+#if defined(CONFIG_DYNAMIC_DEBUG) && !defined(CONFIG_GKI_HACKS_TO_FIX)
 
 /*
  * check the values in the HCSPARAMS register

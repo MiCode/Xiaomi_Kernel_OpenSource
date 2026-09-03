@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UMS9620 SIPA-SYS dts file
+ *
+ * Copyright (C) 2020~2021, Unisoc Communications Inc.
+ */
+&aon {
+	pd_ipa_sys: sipa-sys {
+		compatible =
+		"sprd,qogirn6pro-ipa-sys-power-domain";
+
+		ipa-sys-autoshutdownen = <&pmu_apb_regs
+					  REG_PMU_APB_PD_IPA_CFG_0
+					  MASK_PMU_APB_PD_IPA_AUTO_SHUTDOWN_EN>;
+		ipa-sys-dslpen = <&pmu_apb_regs
+				  REG_PMU_APB_IPA_DSLP_ENA
+				  MASK_PMU_APB_IPA_DSLP_ENA>;
+		ipa-sys-state = <&pmu_apb_regs
+				 REG_PMU_APB_PWR_STATUS_DBG_22
+				 MASK_PMU_APB_PD_IPA_STATE>;
+		ipa-sys-forcelslp = <&pmu_apb_regs
+				     REG_PMU_APB_FORCE_LIGHT_SLEEP_CFG_0
+				     MASK_PMU_APB_IPA_FORCE_LIGHT_SLEEP>;
+		ipa-sys-lslpen = <&pmu_apb_regs
+				  REG_PMU_APB_LIGHT_SLEEP_ENABLE
+				  MASK_PMU_APB_IPA_LSLP_ENA>;
+		ipa-sys-smartlslpen = <&pmu_apb_regs
+				       REG_PMU_APB_SMART_LIGHT_SLEEP_ENABLE
+				       MASK_PMU_APB_IPA_SMART_LSLP_ENA>;
+		ipa-sys-accessen = <&aon_apb_regs
+				    REG_AON_APB_IPA_ACCESS_CFG
+				    MASK_AON_APB_AON_TO_IPA_ACCESS_EN>;
+		reg-size = <7>;
+		#power-domain-cells = <0>;
+
+		sprd,syscon-dispc1-glb = <&ipa_dispc_regs>;
+		sprd,syscon-glb-apb = <&ipa_glb_regs>;
+		sprd,syscon-apb = <&ipa_apb_regs>;
+
+		clocks = <&ipadispc_gate CLK_IPA_CKG_EB>,
+			<&ipa_clk CLK_IPA_AXI>,
+			<&g5l_pll CLK_V4NRPLL_409M6>,
+			<&ext_26m>;
+		clock-names = "clk_ipa_ckg_eb", "ipa_core",
+			"ipa_core_source", "ipa_core_default";
+	};
+};

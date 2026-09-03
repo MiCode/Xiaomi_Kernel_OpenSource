@@ -996,27 +996,6 @@ out_err:
 	nvmet_req_complete(&cmd->req, status);
 }
 
-static bool nvmet_rdma_recv_not_live(struct nvmet_rdma_queue *queue,
-		struct nvmet_rdma_rsp *rsp)
-{
-	unsigned long flags;
-	bool ret = true;
-
-	spin_lock_irqsave(&queue->state_lock, flags);
-	/*
-	 * recheck queue state is not live to prevent a race condition
-	 * with RDMA_CM_EVENT_ESTABLISHED handler.
-	 */
-	if (queue->state == NVMET_RDMA_Q_LIVE)
-		ret = false;
-	else if (queue->state == NVMET_RDMA_Q_CONNECTING)
-		list_add_tail(&rsp->wait_list, &queue->rsp_wait_list);
-	else
-		nvmet_rdma_put_rsp(rsp);
-	spin_unlock_irqrestore(&queue->state_lock, flags);
-	return ret;
-}
-
 static void nvmet_rdma_recv_done(struct ib_cq *cq, struct ib_wc *wc)
 {
 	struct nvmet_rdma_cmd *cmd =
@@ -1058,9 +1037,17 @@ static void nvmet_rdma_recv_done(struct ib_cq *cq, struct ib_wc *wc)
 	rsp->req.port = queue->port;
 	rsp->n_rdma = 0;
 
-	if (unlikely(queue->state != NVMET_RDMA_Q_LIVE) &&
-	    nvmet_rdma_recv_not_live(queue, rsp))
+	if (unlikely(queue->state != NVMET_RDMA_Q_LIVE)) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&queue->state_lock, flags);
+		if (queue->state == NVMET_RDMA_Q_CONNECTING)
+			list_add_tail(&rsp->wait_list, &queue->rsp_wait_list);
+		else
+			nvmet_rdma_put_rsp(rsp);
+		spin_unlock_irqrestore(&queue->state_lock, flags);
 		return;
+	}
 
 	nvmet_rdma_handle_command(queue, rsp);
 }

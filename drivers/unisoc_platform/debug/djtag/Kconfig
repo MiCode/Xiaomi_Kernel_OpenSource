@@ -1,0 +1,11 @@
+config SPRD_DJTAG_CORE
+	tristate "Spreadtrum DJTAG Core Support"
+	depends on SPRD_DEBUG
+	help
+	  Say Y here to support the djtag core.
+
+config SPRD_DJTAG
+	tristate "Spreadtrum DJTAG Support"
+	depends on SPRD_DEBUG
+	help
+	  Say Y here to support djtag For sharkle, sharkl3

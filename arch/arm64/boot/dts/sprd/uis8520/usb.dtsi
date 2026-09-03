@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc USB dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	hsphy: hsphy@300000 {
+		compatible = "sprd,qogirn6pro-phy";
+		reg = <0x300000 0x10000>;
+		sprd,syscon-enable = <&aon_apb_regs>;
+		sprd,syscon-anag0 = <&anlg_phy_g0l_regs>;
+		sprd,vdd-voltage = <3300000>;
+		#phy-cells = <0>;
+	};
+
+	usb: usb@a00000 {
+		compatible = "sprd,qogirn6pro-musb";
+		reg = <0xa00000 0x2000>;
+		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "mc";
+		clocks = <&aonapb_gate CLK_OTG_PHY_EB>;
+		clock-names = "core_clk";
+		usb-phy = <&hsphy>;
+		phy-names = "usb";
+		dr_mode = "host";
+		multipoint = "true";
+	};
+};
+
+&soc {
+	usb3: usb3@25100000 {
+		compatible = "sprd,qogirn6pro-dwc3";
+		reg = <0 0x25100000 0 0x100000>;
+		status = "disabled";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+/*		clocks = <&ipaapb_gate CLK_USB_EB>,
+			<&ipaapb_gate CLK_USB_REF_EB>,
+			<&ipaapb_gate CLK_USB_SUSPEND_EB>,
+			<&ipa_clk CLK_USB_REF>,
+			<&g5l_pll CLK_TGPLL_24M>,
+			<&ipadispc_gate CLK_IPA_DPU1_EB>,
+			<&ipadispc_gate CLK_IPA_DPTX_EB>,
+			<&ipadispc_gate CLK_IPA_TCA_EB>,
+			<&ipadispc_gate CLK_IPA_USB31PLL_EB>,
+			<&ext_32k>;
+*/
+		clock-names = "core_clk",
+		"ref_clk",
+		"susp_clk",
+		"ipa_usb_ref",
+		"ipa_usb_ref_source",
+		"ipa_dpu1_clk",
+		"ipa_dptx_clk",
+		"ipa_tca_clk",
+		"ipa_usb31pll_clk",
+		"ipa_usb_ref_default";
+		usb-phy = <&dummyphy>, <&ssphy>;
+		power-domains = <&pd_ipa_sys>;
+
+		dwc3@25100000 {
+			compatible = "snps,sprd-dwc3";
+			reg = <0 0x25100000 0 0x100000>;
+			interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "irq";
+			usb-phy = <&dummyphy>, <&ssphy>;
+			usb-pam = <&pamu3>;
+			phy_type = "utmi";
+			usb-role-switch;
+			linux,sysdev_is_parent;
+			snps,dis_u3_susphy_quirk;
+			snps,dis_u2_susphy_quirk;
+			snps,usb2-gadget-lpm-disable;
+		};
+	};
+
+	pamu3: pamu3@25210000 {
+		compatible = "sprd,qogirn6pro-pamu3";
+		clocks = <&ipaapb_gate CLK_PAM_USB_EB>;
+		clock-names = "pamu3_clk";
+		power-domains = <&pd_ipa_sys>;
+		reg = <0 0x25210000 0 0x10000>,
+			<0 0x25100000 0 0x100000>;
+		reg-names = "pamu3_glb_regs",
+			"dwc3_core_regs";
+		syscons = <&ipa_apb_regs
+			REG_IPA_APB_IPA_RST
+			MASK_IPA_APB_PAM_U3_SOFT_RST>;
+			syscon-names = "reset";
+	};
+
+	ssphy: ssphy@25310000 {
+		compatible = "sprd,qogirn6pro-ssphy";
+		reg = <0 0x25310000 0 0x10000>;
+		reg-names = "phy_glb_regs";
+		#phy-cells = <0>;
+		power-domains = <&pd_ipa_sys>;
+		sprd,syscon-aon-apb = <&aon_apb_regs>;
+		sprd,syscon-ana-g0l = <&anlg_phy_g0l_regs>;
+		sprd,syscon-ipa-apb = <&ipa_apb_regs>;
+		sprd,syscon-ipa-dispc1-glb-apb = <&ipa_dispc_regs>;
+		sprd,syscon-ipa-usb31-dp = <&ipa_usb31_dp_regs>;
+		sprd,syscon-ipa-usb31-dptx = <&ipa_usb31_dptx_regs>;
+		sprd,vdd-voltage = <3300000>;
+		status = "disabled";
+	};
+
+	dummyphy: dummyphy {
+		compatible = "sprd,usb-dummy-phy";
+		status = "okay";
+	};
+};

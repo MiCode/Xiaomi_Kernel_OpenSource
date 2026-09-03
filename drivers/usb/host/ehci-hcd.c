@@ -1340,7 +1340,7 @@ static int __init ehci_hcd_init(void)
 		 sizeof(struct ehci_qh), sizeof(struct ehci_qtd),
 		 sizeof(struct ehci_itd), sizeof(struct ehci_sitd));
 
-#ifdef CONFIG_DYNAMIC_DEBUG
+#if defined(CONFIG_DYNAMIC_DEBUG) && !defined(CONFIG_GKI_HACKS_TO_FIX)
 	ehci_debug_root = debugfs_create_dir("ehci", usb_debug_root);
 #endif
 
@@ -1361,7 +1361,7 @@ clean1:
 #endif
 	platform_unregister_drivers(platform_drivers, ARRAY_SIZE(platform_drivers));
 clean0:
-#ifdef CONFIG_DYNAMIC_DEBUG
+#if defined(CONFIG_DYNAMIC_DEBUG) && !defined(CONFIG_GKI_HACKS_TO_FIX)
 	debugfs_remove(ehci_debug_root);
 	ehci_debug_root = NULL;
 #endif
@@ -1376,7 +1376,7 @@ static void __exit ehci_hcd_cleanup(void)
 	ps3_ehci_driver_unregister(&ps3_ehci_driver);
 #endif
 	platform_unregister_drivers(platform_drivers, ARRAY_SIZE(platform_drivers));
-#ifdef CONFIG_DYNAMIC_DEBUG
+#if defined(CONFIG_DYNAMIC_DEBUG) && !defined(CONFIG_GKI_HACKS_TO_FIX)
 	debugfs_remove(ehci_debug_root);
 #endif
 	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);

@@ -77,6 +77,12 @@
 #define SFQ_EMPTY_SLOT		0xffff
 #define SFQ_DEFAULT_HASH_DIVISOR 1024
 
+/* We use 16 bits to store allot, and want to handle packets up to 64K
+ * Scale allot by 8 (1<<3) so that no overflow occurs.
+ */
+#define SFQ_ALLOT_SHIFT		3
+#define SFQ_ALLOT_SIZE(X)	DIV_ROUND_UP(X, 1 << SFQ_ALLOT_SHIFT)
+
 /* This type should contain at least SFQ_MAX_DEPTH + 1 + SFQ_MAX_FLOWS values */
 typedef u16 sfq_index;
 
@@ -98,7 +104,7 @@ struct sfq_slot {
 	sfq_index	next; /* next slot in sfq RR chain */
 	struct sfq_head dep; /* anchor in dep[] chains */
 	unsigned short	hash; /* hash value (index in ht[]) */
-	int		allot; /* credit for this slot */
+	short		allot; /* credit for this slot */
 
 	unsigned int    backlog;
 	struct red_vars vars;
@@ -114,6 +120,7 @@ struct sfq_sched_data {
 	siphash_key_t 	perturbation;
 	u8		cur_depth;	/* depth of longest slot */
 	u8		flags;
+	unsigned short  scaled_quantum; /* SFQ_ALLOT_SIZE(quantum) */
 	struct tcf_proto __rcu *filter_list;
 	struct tcf_block *block;
 	sfq_index	*ht;		/* Hash table ('divisor' slots) */
@@ -310,10 +317,7 @@ drop:
 		/* It is difficult to believe, but ALL THE SLOTS HAVE LENGTH 1. */
 		x = q->tail->next;
 		slot = &q->slots[x];
-		if (slot->next == x)
-			q->tail = NULL; /* no more active slots */
-		else
-			q->tail->next = slot->next;
+		q->tail->next = slot->next;
 		q->ht[slot->hash] = SFQ_EMPTY_SLOT;
 		goto drop;
 	}
@@ -452,7 +456,7 @@ enqueue:
 		 */
 		q->tail = slot;
 		/* We could use a bigger initial quantum for new flows */
-		slot->allot = q->quantum;
+		slot->allot = q->scaled_quantum;
 	}
 	if (++sch->q.qlen <= q->limit)
 		return NET_XMIT_SUCCESS;
@@ -489,7 +493,7 @@ next_slot:
 	slot = &q->slots[a];
 	if (slot->allot <= 0) {
 		q->tail = slot;
-		slot->allot += q->quantum;
+		slot->allot += q->scaled_quantum;
 		goto next_slot;
 	}
 	skb = slot_dequeue_head(slot);
@@ -508,7 +512,7 @@ next_slot:
 		}
 		q->tail->next = next_a;
 	} else {
-		slot->allot -= qdisc_pkt_len(skb);
+		slot->allot -= SFQ_ALLOT_SIZE(qdisc_pkt_len(skb));
 	}
 	return skb;
 }
@@ -591,7 +595,7 @@ drop:
 				q->tail->next = x;
 			}
 			q->tail = slot;
-			slot->allot = q->quantum;
+			slot->allot = q->scaled_quantum;
 		}
 	}
 	sch->q.qlen -= dropped;
@@ -604,7 +608,6 @@ static void sfq_perturbation(struct timer_list *t)
 	struct Qdisc *sch = q->sch;
 	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
 	siphash_key_t nkey;
-	int period;
 
 	get_random_bytes(&nkey, sizeof(nkey));
 	spin_lock(root_lock);
@@ -613,16 +616,11 @@ static void sfq_perturbation(struct timer_list *t)
 		sfq_rehash(sch);
 	spin_unlock(root_lock);
 
-	/* q->perturb_period can change under us from
-	 * sfq_change() and sfq_destroy().
-	 */
-	period = READ_ONCE(q->perturb_period);
-	if (period)
-		mod_timer(&q->perturb_timer, jiffies + period);
+	if (q->perturb_period)
+		mod_timer(&q->perturb_timer, jiffies + q->perturb_period);
 }
 
-static int sfq_change(struct Qdisc *sch, struct nlattr *opt,
-		      struct netlink_ext_ack *extack)
+static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct sfq_sched_data *q = qdisc_priv(sch);
 	struct tc_sfq_qopt *ctl = nla_data(opt);
@@ -631,15 +629,6 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt,
 	struct red_parms *p = NULL;
 	struct sk_buff *to_free = NULL;
 	struct sk_buff *tail = NULL;
-	unsigned int maxflows;
-	unsigned int quantum;
-	unsigned int divisor;
-	int perturb_period;
-	u8 headdrop;
-	u8 maxdepth;
-	int limit;
-	u8 flags;
-
 
 	if (opt->nla_len < nla_attr_size(sizeof(*ctl)))
 		return -EINVAL;
@@ -649,17 +638,13 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt,
 	    (!is_power_of_2(ctl->divisor) || ctl->divisor > 65536))
 		return -EINVAL;
 
-	if ((int)ctl->quantum < 0) {
-		NL_SET_ERR_MSG_MOD(extack, "invalid quantum");
-		return -EINVAL;
-	}
+	/* slot->allot is a short, make sure quantum is not too big. */
+	if (ctl->quantum) {
+		unsigned int scaled = SFQ_ALLOT_SIZE(ctl->quantum);
 
-	if (ctl->perturb_period < 0 ||
-	    ctl->perturb_period > INT_MAX / HZ) {
-		NL_SET_ERR_MSG_MOD(extack, "invalid perturb period");
-		return -EINVAL;
+		if (scaled <= 0 || scaled > SHRT_MAX)
+			return -EINVAL;
 	}
-	perturb_period = ctl->perturb_period * HZ;
 
 	if (ctl_v1 && !red_check_params(ctl_v1->qth_min, ctl_v1->qth_max,
 					ctl_v1->Wlog, ctl_v1->Scell_log, NULL))
@@ -669,62 +654,37 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt,
 		if (!p)
 			return -ENOMEM;
 	}
-
 	sch_tree_lock(sch);
-
-	limit = q->limit;
-	divisor = q->divisor;
-	headdrop = q->headdrop;
-	maxdepth = q->maxdepth;
-	maxflows = q->maxflows;
-	quantum = q->quantum;
-	flags = q->flags;
-
-	/* update and validate configuration */
-	if (ctl->quantum)
-		quantum = ctl->quantum;
+	if (ctl->quantum) {
+		q->quantum = ctl->quantum;
+		q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
+	}
+	q->perturb_period = ctl->perturb_period * HZ;
 	if (ctl->flows)
-		maxflows = min_t(u32, ctl->flows, SFQ_MAX_FLOWS);
+		q->maxflows = min_t(u32, ctl->flows, SFQ_MAX_FLOWS);
 	if (ctl->divisor) {
-		divisor = ctl->divisor;
-		maxflows = min_t(u32, maxflows, divisor);
+		q->divisor = ctl->divisor;
+		q->maxflows = min_t(u32, q->maxflows, q->divisor);
 	}
 	if (ctl_v1) {
 		if (ctl_v1->depth)
-			maxdepth = min_t(u32, ctl_v1->depth, SFQ_MAX_DEPTH);
+			q->maxdepth = min_t(u32, ctl_v1->depth, SFQ_MAX_DEPTH);
 		if (p) {
-			red_set_parms(p,
+			swap(q->red_parms, p);
+			red_set_parms(q->red_parms,
 				      ctl_v1->qth_min, ctl_v1->qth_max,
 				      ctl_v1->Wlog,
 				      ctl_v1->Plog, ctl_v1->Scell_log,
 				      NULL,
 				      ctl_v1->max_P);
 		}
-		flags = ctl_v1->flags;
-		headdrop = ctl_v1->headdrop;
+		q->flags = ctl_v1->flags;
+		q->headdrop = ctl_v1->headdrop;
 	}
 	if (ctl->limit) {
-		limit = min_t(u32, ctl->limit, maxdepth * maxflows);
-		maxflows = min_t(u32, maxflows, limit);
+		q->limit = min_t(u32, ctl->limit, q->maxdepth * q->maxflows);
+		q->maxflows = min_t(u32, q->maxflows, q->limit);
 	}
-	if (limit == 1) {
-		sch_tree_unlock(sch);
-		kfree(p);
-		NL_SET_ERR_MSG_MOD(extack, "invalid limit");
-		return -EINVAL;
-	}
-
-	/* commit configuration */
-	q->limit = limit;
-	q->divisor = divisor;
-	q->headdrop = headdrop;
-	q->maxdepth = maxdepth;
-	q->maxflows = maxflows;
-	WRITE_ONCE(q->perturb_period, perturb_period);
-	q->quantum = quantum;
-	q->flags = flags;
-	if (p)
-		swap(q->red_parms, p);
 
 	qlen = sch->q.qlen;
 	while (sch->q.qlen > q->limit) {
@@ -761,7 +721,7 @@ static void sfq_destroy(struct Qdisc *sch)
 	struct sfq_sched_data *q = qdisc_priv(sch);
 
 	tcf_block_put(q->block);
-	WRITE_ONCE(q->perturb_period, 0);
+	q->perturb_period = 0;
 	del_timer_sync(&q->perturb_timer);
 	sfq_free(q->ht);
 	sfq_free(q->slots);
@@ -794,11 +754,12 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt,
 	q->divisor = SFQ_DEFAULT_HASH_DIVISOR;
 	q->maxflows = SFQ_DEFAULT_FLOWS;
 	q->quantum = psched_mtu(qdisc_dev(sch));
+	q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
 	q->perturb_period = 0;
 	get_random_bytes(&q->perturbation, sizeof(q->perturbation));
 
 	if (opt) {
-		int err = sfq_change(sch, opt, extack);
+		int err = sfq_change(sch, opt);
 		if (err)
 			return err;
 	}
@@ -909,7 +870,7 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 	if (idx != SFQ_EMPTY_SLOT) {
 		const struct sfq_slot *slot = &q->slots[idx];
 
-		xstats.allot = slot->allot;
+		xstats.allot = slot->allot << SFQ_ALLOT_SHIFT;
 		qs.qlen = slot->qlen;
 		qs.backlog = slot->backlog;
 	}

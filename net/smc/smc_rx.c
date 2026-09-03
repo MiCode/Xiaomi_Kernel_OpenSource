@@ -175,23 +175,22 @@ static int smc_rx_splice(struct pipe_inode_info *pipe, char *src, size_t len,
 	return bytes;
 }
 
-static int smc_rx_data_available_and_no_splice_pend(struct smc_connection *conn, size_t peeked)
+static int smc_rx_data_available_and_no_splice_pend(struct smc_connection *conn)
 {
-	return smc_rx_data_available(conn, peeked) &&
+	return atomic_read(&conn->bytes_to_rcv) &&
 	       !atomic_read(&conn->splice_pending);
 }
 
 /* blocks rcvbuf consumer until >=len bytes available or timeout or interrupted
  *   @smc    smc socket
  *   @timeo  pointer to max seconds to wait, pointer to value 0 for no timeout
- *   @peeked  number of bytes already peeked
  *   @fcrit  add'l criterion to evaluate as function pointer
  * Returns:
  * 1 if at least 1 byte available in rcvbuf or if socket error/shutdown.
  * 0 otherwise (nothing in rcvbuf nor timeout, e.g. interrupted).
  */
-int smc_rx_wait(struct smc_sock *smc, long *timeo, size_t peeked,
-		int (*fcrit)(struct smc_connection *conn, size_t baseline))
+int smc_rx_wait(struct smc_sock *smc, long *timeo,
+		int (*fcrit)(struct smc_connection *conn))
 {
 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 	struct smc_connection *conn = &smc->conn;
@@ -200,7 +199,7 @@ int smc_rx_wait(struct smc_sock *smc, long *timeo, size_t peeked,
 	struct sock *sk = &smc->sk;
 	int rc;
 
-	if (fcrit(conn, peeked))
+	if (fcrit(conn))
 		return 1;
 	sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
 	add_wait_queue(sk_sleep(sk), &wait);
@@ -209,7 +208,7 @@ int smc_rx_wait(struct smc_sock *smc, long *timeo, size_t peeked,
 			   cflags->peer_conn_abort ||
 			   READ_ONCE(sk->sk_shutdown) & RCV_SHUTDOWN ||
 			   conn->killed ||
-			   fcrit(conn, peeked),
+			   fcrit(conn),
 			   &wait);
 	remove_wait_queue(sk_sleep(sk), &wait);
 	sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
@@ -260,11 +259,11 @@ static int smc_rx_recv_urg(struct smc_sock *smc, struct msghdr *msg, int len,
 	return -EAGAIN;
 }
 
-static bool smc_rx_recvmsg_data_available(struct smc_sock *smc, size_t peeked)
+static bool smc_rx_recvmsg_data_available(struct smc_sock *smc)
 {
 	struct smc_connection *conn = &smc->conn;
 
-	if (smc_rx_data_available(conn, peeked))
+	if (smc_rx_data_available(conn))
 		return true;
 	else if (conn->urg_state == SMC_URG_VALID)
 		/* we received a single urgent Byte - skip */
@@ -282,10 +281,10 @@ static bool smc_rx_recvmsg_data_available(struct smc_sock *smc, size_t peeked)
 int smc_rx_recvmsg(struct smc_sock *smc, struct msghdr *msg,
 		   struct pipe_inode_info *pipe, size_t len, int flags)
 {
-	size_t copylen, read_done = 0, read_remaining = len, peeked_bytes = 0;
+	size_t copylen, read_done = 0, read_remaining = len;
 	size_t chunk_len, chunk_off, chunk_len_sum;
 	struct smc_connection *conn = &smc->conn;
-	int (*func)(struct smc_connection *conn, size_t baseline);
+	int (*func)(struct smc_connection *conn);
 	union smc_host_cursor cons;
 	int readable, chunk;
 	char *rcvbuf_base;
@@ -322,14 +321,14 @@ int smc_rx_recvmsg(struct smc_sock *smc, struct msghdr *msg,
 		if (conn->killed)
 			break;
 
-		if (smc_rx_recvmsg_data_available(smc, peeked_bytes))
+		if (smc_rx_recvmsg_data_available(smc))
 			goto copy;
 
 		if (sk->sk_shutdown & RCV_SHUTDOWN) {
 			/* smc_cdc_msg_recv_action() could have run after
 			 * above smc_rx_recvmsg_data_available()
 			 */
-			if (smc_rx_recvmsg_data_available(smc, peeked_bytes))
+			if (smc_rx_recvmsg_data_available(smc))
 				goto copy;
 			break;
 		}
@@ -363,28 +362,26 @@ int smc_rx_recvmsg(struct smc_sock *smc, struct msghdr *msg,
 			}
 		}
 
-		if (!smc_rx_data_available(conn, peeked_bytes)) {
-			smc_rx_wait(smc, &timeo, peeked_bytes, smc_rx_data_available);
+		if (!smc_rx_data_available(conn)) {
+			smc_rx_wait(smc, &timeo, smc_rx_data_available);
 			continue;
 		}
 
 copy:
 		/* initialize variables for 1st iteration of subsequent loop */
 		/* could be just 1 byte, even after waiting on data above */
-		readable = smc_rx_data_available(conn, peeked_bytes);
+		readable = atomic_read(&conn->bytes_to_rcv);
 		splbytes = atomic_read(&conn->splice_pending);
 		if (!readable || (msg && splbytes)) {
 			if (splbytes)
 				func = smc_rx_data_available_and_no_splice_pend;
 			else
 				func = smc_rx_data_available;
-			smc_rx_wait(smc, &timeo, peeked_bytes, func);
+			smc_rx_wait(smc, &timeo, func);
 			continue;
 		}
 
 		smc_curs_copy(&cons, &conn->local_tx_ctrl.cons, conn);
-		if ((flags & MSG_PEEK) && peeked_bytes)
-			smc_curs_add(conn->rmb_desc->len, &cons, peeked_bytes);
 		/* subsequent splice() calls pick up where previous left */
 		if (splbytes)
 			smc_curs_add(conn->rmb_desc->len, &cons, splbytes);
@@ -421,8 +418,6 @@ copy:
 			}
 			read_remaining -= chunk_len;
 			read_done += chunk_len;
-			if (flags & MSG_PEEK)
-				peeked_bytes += chunk_len;
 
 			if (chunk_len_sum == copylen)
 				break; /* either on 1st or 2nd iteration */

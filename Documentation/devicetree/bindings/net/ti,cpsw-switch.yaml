@@ -88,7 +88,8 @@ properties:
         type: object
         description: CPSW external ports
 
-        $ref: ethernet-controller.yaml#
+        allOf:
+          - $ref: ethernet-controller.yaml#
 
         properties:
           reg:

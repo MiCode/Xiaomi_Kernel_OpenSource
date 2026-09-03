@@ -183,14 +183,6 @@
 						 * VERW clears CPU Register
 						 * File.
 						 */
-#define ARCH_CAP_ITS_NO			BIT_ULL(62) /*
-						     * Not susceptible to
-						     * Indirect Target Selection.
-						     * This bit is not set by
-						     * HW, but is synthesized by
-						     * VMMs for guests to know
-						     * their affected status.
-						     */
 
 #define MSR_IA32_FLUSH_CMD		0x0000010b
 #define L1D_FLUSH			BIT(0)	/*
@@ -345,8 +337,7 @@
 #define MSR_IA32_PASID_VALID		BIT_ULL(31)
 
 /* DEBUGCTLMSR bits (others vary by model): */
-#define DEBUGCTLMSR_LBR_BIT		0	     /* last branch recording */
-#define DEBUGCTLMSR_LBR			(1UL <<  DEBUGCTLMSR_LBR_BIT)
+#define DEBUGCTLMSR_LBR			(1UL <<  0) /* last branch recording */
 #define DEBUGCTLMSR_BTF_SHIFT		1
 #define DEBUGCTLMSR_BTF			(1UL <<  1) /* single-step on branches */
 #define DEBUGCTLMSR_BUS_LOCK_DETECT	(1UL <<  2)

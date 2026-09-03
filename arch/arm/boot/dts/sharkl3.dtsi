@@ -1,0 +1,1562 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc Sharkl3 platform DTS file
+ *
+ * Copyright (C) 2019, Unisoc Inc.
+ */
+
+#include <dt-bindings/soc/sprd,sharkl3-regs.h>
+#include <dt-bindings/soc/sprd,sharkl3-mask.h>
+#include <dt-bindings/clock/sprd,sc9863a-clk.h>
+#include <dt-bindings/reset/sprd,sc9863a-reset.h>
+#include <dt-bindings/debug/busmonitor/busmonitor.h>
+#include <dt-bindings/debug/dmc_mpu/sharkl3_dmc_mpu.h>
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c7 = &i2c7;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &adi_bus;
+		pmic_pwroff = &pmic_pwroff;
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		modem_dbg_log: modem-dbg-log@1000c000 {
+			compatible = "sprd,dbg-log-sharkl3";
+			reg = <0x1000c000 0x4000>;
+			sprd,syscon-aon-apb = <&aon_apb_regs>;
+			sprd,syscon-dsi-apb = <&anlg_phy_g1_regs>;
+			sprd,syscon-pll-apb = <&anlg_phy_g2_regs>;
+			sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+			sprd,ch-name = "TRAINING", "WTL", "MDAR", "TPIU", "DBUS", "WCN";
+			sprd,ch-index = <15 1 0 2 3 4>;
+			sprd,dcfix;
+			sprd,mm;
+			status = "disabled";
+		};
+
+		ap_ahb_regs: syscon@20e00000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x20e00000 0x4000>;
+		};
+
+		pub_apb_regs: syscon@300e0000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x300e0000 0x10000>;
+		};
+
+		pub_wrap_regs: syscon@300f0000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x300f0000 0x3000>;
+		};
+
+		pmu_apb_regs: syscon@402b0000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x402b0000 0x4000>;
+		};
+
+		disp_pd: power-domain@402b0058 {
+			compatible = "sprd,sharkl3-disp-domain";
+			reg = <0x402b0058 0x20>;
+			disp-power = <&pmu_apb_regs REG_PMU_APB_PD_DISP_CFG
+				MASK_PMU_APB_PD_DISP_FORCE_SHUTDOWN>;
+			#power-domain-cells = <0>;
+		};
+
+		aon_apb_regs: syscon@402e0000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x402e0000 0x4000>;
+		};
+
+		anlg_phy_g1_regs: syscon@40350000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40350000 0x3000>;
+		};
+
+		anlg_phy_g2_regs: syscon@40353000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40353000 0x3000>;
+		};
+
+		anlg_phy_g4_regs: syscon@40359000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40359000 0x3000>;
+		};
+
+		anlg_phy_g5_regs: syscon@4035c000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x4035c000 0x3000>;
+		};
+
+		anlg_phy_g7_regs: syscon@40363000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40363000 0x3000>;
+		};
+
+		anlg_wrap_wcn_regs: syscon@40366000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40366000 0x3000>;
+		};
+
+		wcn_regs: syscon@403a0000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x403a0000 0x10000>;
+		};
+
+		ap_intc0_regs: syscon@40500000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40500000 0x10000>;
+		};
+
+		ap_intc1_regs: syscon@40510000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40510000 0x10000>;
+		};
+
+		ap_intc2_regs: syscon@40520000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40520000 0x10000>;
+		};
+
+		ap_intc3_regs: syscon@40530000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40530000 0x10000>;
+		};
+
+		ap_intc4_regs: syscon@40540000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40540000 0x10000>;
+		};
+
+		mm_ahb_regs: syscon@60800000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x60800000 0x3000>;
+		};
+
+		mm_vsp_ahb_regs: syscon@62000000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x62000000 0x3000>;
+		};
+
+		ap_apb_regs: syscon@71300000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x71300000 0x4000>;
+		};
+
+		ap_intc5_regs: syscon@40550000 {
+			compatible = "sprd,sc9863a-glbregs", "syscon";
+			reg = <0x40550000 0x10000>;
+		};
+
+		vsp_pd: vsp-power-domain {
+			compatible = "sprd,vsp-pd";
+			pmu-vsp-force-shutdown-syscon = <&pmu_apb_regs
+				REG_PMU_APB_PD_MM_VSP_CFG
+				MASK_PMU_APB_PD_MM_VSP_FORCE_SHUTDOWN>;
+			pmu-vsp-auto-shutdown-syscon = <&pmu_apb_regs
+				REG_PMU_APB_PD_MM_VSP_CFG
+				MASK_PMU_APB_PD_MM_VSP_AUTO_SHUTDOWN_EN>;
+			pmu-pwr-status-syscon = <&pmu_apb_regs
+				REG_PMU_APB_PWR_STATUS5_DBG
+				MASK_PMU_APB_PD_MM_VSP_STATE>;
+			vsp-domain-eb-syscon = <&aon_apb_regs
+				REG_AON_APB_APB_EB1
+				MASK_AON_APB_MM_VSP_EB>;
+			#power-domain-cells = <0>;
+			status = "disabled";
+		};
+
+		apb@70000000 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x70000000 0x10000000>;
+
+			uart0: serial@0 {
+				compatible = "sprd,sc9863a-uart",
+					     "sprd,sc9836-uart";
+				reg = <0x0 0x100>;
+				interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
+				source-base = <0x21500044>;
+				clock-names = "enable", "uart", "source";
+				clocks = <&apapb_gate CLK_UART0_EB>,
+					<&ap_clk CLK_AP_UART0>, <&ext_26m>;
+				status = "disabled";
+			};
+
+			uart1: serial@100000 {
+				compatible = "sprd,sc9863a-uart",
+					     "sprd,sc9836-uart";
+				reg = <0x100000 0x100>;
+				interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+				source-base = <0x21500048>;
+				clock-names = "enable", "uart", "source";
+				clocks = <&apapb_gate CLK_UART1_EB>,
+					<&ap_clk CLK_AP_UART1>, <&ext_26m>;
+				status = "disabled";
+			};
+
+			uart2: serial@200000 {
+				compatible = "sprd,sc9863a-uart",
+					     "sprd,sc9836-uart";
+				reg = <0x200000 0x100>;
+				interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+				source-base = <0x2150004c>;
+				clock-names = "enable", "uart", "source";
+				clocks = <&apapb_gate CLK_UART2_EB>,
+					<&ap_clk CLK_AP_UART2>, <&ext_26m>;
+				status = "disabled";
+			};
+
+			uart3: serial@300000 {
+				compatible = "sprd,sc9863a-uart",
+					     "sprd,sc9836-uart";
+				reg = <0x300000 0x100>;
+				interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+				source-base = <0x21500050>;
+				clock-names = "enable", "uart", "source";
+				clocks = <&apapb_gate CLK_UART3_EB>,
+					<&ap_clk CLK_AP_UART3>, <&ext_26m>;
+				status = "disabled";
+			};
+
+			uart4: serial@400000 {
+				compatible = "sprd,sc9863a-uart",
+					     "sprd,sc9836-uart";
+				reg = <0x400000 0x100>;
+				interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+				source-base = <0x21500054>;
+				clock-names = "enable", "uart", "source";
+				clocks = <&apapb_gate CLK_UART4_EB>,
+					<&ap_clk CLK_AP_UART4>, <&ext_26m>;
+				status = "disabled";
+			};
+
+			i2c0: i2c@500000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x500000 0x1000>;
+				interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable", "i2c", "source";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dma-names = "rx", "tx";
+				dmas = <&ap_dma 43 &ap_dma 44>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C0_SOFT_RST>;
+			};
+
+			i2c1: i2c@600000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x600000 0x1000>;
+				interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable", "i2c", "source";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dma-names = "rx", "tx";
+				dmas = <&ap_dma 41 &ap_dma 42>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C1_SOFT_RST>;
+			};
+
+			i2c2: i2c@700000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x700000 0x1000>;
+				interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable", "i2c", "source";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dma-names = "rx", "tx";
+				dmas = <&ap_dma 39 &ap_dma 40>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C2_SOFT_RST>;
+			};
+
+			i2c3: i2c@800000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x800000 0x1000>;
+				interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable", "i2c", "source";
+				clock-frequency = <400000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dma-names = "rx", "tx";
+				dmas = <&ap_dma 37 &ap_dma 38>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C3_SOFT_RST>;
+			};
+
+			i2c4: i2c@900000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x900000 0x1000>;
+				interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable","i2c", "source";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dma-names = "rx", "tx";
+				dmas = <&ap_dma 35 &ap_dma 36>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C4_SOFT_RST>;
+			};
+
+			spi0: spi@a00000 {
+				compatible = "sprd,sc9863-spi", "sprd,sc9860-spi";
+				reg = <0xa00000 0x1000>;
+				interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi1: spi@b00000 {
+				compatible = "sprd,sc9863-spi", "sprd,sc9860-spi";
+				reg = <0xb00000 0x1000>;
+				interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi2: spi@c00000 {
+				compatible = "sprd,sc9863-spi", "sprd,sc9860-spi";
+				reg = <0xc00000 0x1000>;
+				interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			i2s0: i2s@d00000 {
+				compatible = "unisoc,i2s";
+				reg = <0xd00000 0x100000>;
+				sprd,dai_name = "i2s_bt_sco0";
+				sprd,hw_port = <0>;
+				sprd,syscon-ap-apb = <&ap_apb_regs>;
+				#sound-dai-cells = <1>;
+				status = "disable";
+				clock-names ="clk_iis0", "clk_twpll_128m", "clk_twpll_153m6";
+				clocks = <&ap_clk CLK_AP_IIS0>,
+					 <&pll CLK_TWPLL_128M>,
+					 <&pll CLK_TWPLL_153M6>;
+			};
+
+			spi3: spi@1400000 {
+				compatible = "sprd,sc9863-spi", "sprd,sc9860-spi";
+				reg = <0x1400000 0x1000>;
+				interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			i2c5: i2c@1500000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x1500000 0x1000>;
+				interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable","i2c", "source";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C5_SOFT_RST>;
+			};
+
+			i2c6: i2c@1600000 {
+				compatible = "sprd,sc9863-i2c", "sprd,sc9860-i2c";
+				reg = <0x1600000 0x1000>;
+				interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable","i2c", "source";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+				reset-names = "i2c_rst";
+				resets = <&apapb_gate RESET_AP_APB_I2C6_SOFT_RST>;
+			};
+		};
+
+		ap-ahb {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			ap_dma: dma-controller@20100000 {
+				compatible = "sprd,sharkl3-dma", "sprd,sc9860-dma";
+				reg = <0x20100000 0x4000>;
+				interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+				#dma-cells = <1>;
+				#dma-channels = <28>;
+				clock-names = "enable";
+				clocks = <&apahb_gate CLK_DMA_EB>;
+			};
+		};
+
+		aon {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			aon_systimer: timer@40230000 {
+				compatible = "sprd,syst-timer";
+				reg = <0x40230000 0x10>;
+			};
+
+			aon_sysfrt: timer@40040000 {
+				compatible = "sprd,sysfrt-timer";
+				reg = <0x40040000 0x10>;
+			};
+
+			timer@40050000 {
+				compatible = "sprd,sharkl3-timer",
+						"sprd,sc9860-timer";
+				reg = <0x40050000 0x14>;
+				interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&ext_32k>;
+			};
+
+			timer@40050020 {
+				compatible = "sprd,sharkl3-suspend-timer",
+						"sprd,sc9860-suspend-timer";
+				reg = <0x40050020 0x14>;
+				clocks = <&ext_32k>;
+			};
+
+			hwlock: hwspinlock@40060000 {
+				compatible = "sprd,hwspinlock-r3p0";
+				reg = <0x40060000 0x10000>;
+				#hwlock-cells = <1>;
+				clock-names = "enable";
+				clocks = <&aonapb_gate CLK_SPLK_EB>;
+			};
+
+			i2c7: i2c@40080000 {
+				compatible = "sprd,sharkl3-hw-i2c";
+				reg = <0x40080000 0x1000>;
+				interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "enable","i2c", "source",
+					"clk_hw_i2c";
+				clock-frequency = <100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			mailbox: mailbox@400a0000 {
+				compatible = "unisoc,mailbox";
+				reg = <0x400a0000 0x8000>,
+				      <0x400a8000 0x8000>;
+				reg-names = "inbox", "outbox";
+				sprd,mailbox_clk = <&aon_apb_regs 0x4 0x200000>;
+				interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "inbox", "outbox", "oob-outbox";
+				#mbox-cells = <2>;
+			};
+
+			sprd_audio_codec_dig: audio-codec@40000000 {
+				compatible = "unisoc,sharkl3-audio-codec";
+				reg = <0x40000000 0x2000>;
+
+				interrupts = <GIC_SPI 20 IRQ_TYPE_NONE>;
+				sprd,syscon-aon-apb = <&aon_apb_regs>;
+				sprd,anlg-phy-g-syscon = <&anlg_phy_g7_regs>;
+			};
+
+			vbc: vbc@40020000 {
+				compatible = "unisoc,vbc-r1p0v3";
+				#sound-dai-cells = <1>;
+				reg = <0x40020000 0x10000>;
+				sprd,clk-stable = <0x402d0060 0x4>;
+				sprd,syscon-aon-apb = <&aon_apb_regs>;
+				sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+				sprd,dynamic-eq-support = <0>;
+				 /* da01, ad01, ad23 */
+				sprd,vbc-iis-lr-invert = <0 1 1>;
+				/*0: aon dma, 1: ap dma
+				 * da01, da23, ad01, ad23
+				 */
+				sprd,vbc-use-dma-type = <0 0 0 0>;
+				sprd,vbc-use-ad01-only = <1>;
+				sprd,iis_bt_fm_loop = <3 4>;
+				pinctrl-names =
+				/* interface 0 */
+				"vbc_iis1_0", "ap_iis0_0", "ap_iis1_0", "tgdsp_iis0_0",
+				"tgdsp_iis1_0", "pubcp_iis0_0",
+				/* interface 3 */
+				"vbc_iis1_3", "ap_iis0_3", "tgdsp_iis0_3",
+				"tgdsp_iis1_3", "pubcp_iis0_3","wcn_iis0_3",
+				/* interface 4 */
+				"vbc_iis1_4", "ap_iis0_4", "tgdsp_iis0_4",
+				"tgdsp_iis1_4", "pubcp_iis0_4", "wcn_iis0_4",
+				/* interface loop */
+				"iis_bt_fm_loop_3_4_enable",
+				"iis_bt_fm_loop_3_4_disable";
+				/* infterface 0 */
+				pinctrl-0 = <&vbc_iis1_0>;
+				pinctrl-1 = <&ap_iis0_0>;
+				pinctrl-2 = <&ap_iis1_0>;
+				pinctrl-3 = <&tgdsp_iis0_0>;
+				pinctrl-4 = <&tgdsp_iis1_0>;
+				pinctrl-5 = <&pubcp_iis0_0>;
+				/* infterface 3 */
+				pinctrl-6 = <&vbc_iis1_3>;
+				pinctrl-7 = <&ap_iis0_3>;
+				pinctrl-8 = <&tgdsp_iis0_3>;
+				pinctrl-9 = <&tgdsp_iis1_3>;
+				pinctrl-10 = <&pubcp_iis0_3>;
+				pinctrl-11 = <&wcn_iis0_3>;
+				/* infterface 4 */
+				pinctrl-12 = <&vbc_iis1_4>;
+				pinctrl-13 = <&ap_iis0_4>;
+				pinctrl-14 = <&tgdsp_iis0_4>;
+				pinctrl-15 = <&tgdsp_iis1_4>;
+				pinctrl-16 = <&pubcp_iis0_4>;
+				pinctrl-17 = <&wcn_iis0_4>;
+				/* interface loop */
+				pinctrl-18 = <&iis_loop_3_4_enable>;
+				pinctrl-19 = <&iis_loop_3_4_disable>;
+			};
+
+			aon_dma: dma-controller@40100000 {
+				compatible = "sprd,sharkl3-dma", "sprd,sc9860-dma";
+				reg = <0x40100000 0x4000>;
+				#dma-cells = <1>;
+				#dma-channels = <9>;
+				clock-names = "enable";
+				clocks = <&aonapb_gate CLK_AON_DMA_EB>;
+			};
+
+			eic_debounce: gpio@40210000 {
+				compatible = "sprd,sharkl3-eic-debounce", "sprd,sc9860-eic-debounce";
+				reg = <0x40210000 0x80>,
+				      <0x40370000 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			eic_latch: gpio@40210080 {
+				compatible = "sprd,sharkl3-eic-latch", "sprd,sc9860-eic-latch";
+				reg = <0x40210080 0x20>,
+				      <0x40370080 0x20>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			eic_async: gpio@402100a0 {
+				compatible = "sprd,sharkl3-eic-async", "sprd,sc9860-eic-async";
+				reg = <0x402100a0 0x20>,
+				      <0x403700a0 0x20>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			eic_sync: gpio@402100c0 {
+				compatible = "sprd,sharkl3-eic-sync", "sprd,sc9860-eic-sync";
+				reg = <0x402100c0 0x20>,
+				      <0x403700c0 0x20>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			ap_efuse: efuse@40240000 {
+				compatible = "sprd,sharkl3-efuse";
+				reg = <0x40240000 0x10000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				clock-names = "enable";
+				hwlocks = <&hwlock 8>;
+				clocks = <&aonapb_gate CLK_EFUSE_EB>;
+
+				uid_start: uid-start@ec{
+					reg = <0xec 0x4>;
+				};
+
+				uid_end: uid-end@e8{
+					reg = <0xe8 0x4>;
+				};
+
+				gpu_bin: gpu-bin@b {
+					reg = <0xb 0x4>;
+					bits = <0 4>;
+				};
+
+				wcn_alpha: wcn-alpha@14 {
+					reg = <0x14 0x4>;
+				};
+
+				wcn_beta: wcn-beta@18 {
+					reg = <0x18 0x4>;
+				};
+
+				wcn_gamma: wcn-gamma@1c {
+					reg = <0x1c 0x4>;
+				};
+
+				wcn_delta: wcn-delta@20 {
+					reg = <0x20 0x4>;
+				};
+
+				gthm_delta: gthm-delta@21{
+					reg = <0x21 0x4>;
+					bits = <1 7>;
+				};
+
+				cthm_sign: cthm-sign@22{
+					reg = <0x22 0x4>;
+					bits = <0 1>;
+				};
+
+				cthm_ratio: cthm-ratio@22{
+					reg = <0x22 0x4>;
+					bits = <1 7>;
+				};
+
+				cthm_delta: cthm-delta@23{
+					reg = <0x23 0x4>;
+					bits = <0 7>;
+				};
+			};
+
+			pwms: pwm@40260000 {
+				compatible = "sprd,s9863a-pwm", "sprd,ums512-pwm";
+				reg = <0x40260000 0x10000>;
+				clock-names = "pwm0", "enable0",
+					"pwm1", "enable1",
+					"pwm2", "enable2";
+				clocks = <&aon_clk CLK_PWM0>, <&aonapb_gate CLK_PWM0_EB>,
+					<&aon_clk CLK_PWM1>, <&aonapb_gate CLK_PWM1_EB>,
+					<&aon_clk CLK_PWM2>, <&aonapb_gate CLK_PWM2_EB>;
+				assigned-clocks = <&aon_clk CLK_PWM0>,
+					<&aon_clk CLK_PWM1>,
+					<&aon_clk CLK_PWM2>;
+				assigned-clock-parents = <&ext_26m>,
+					<&ext_26m>,
+					<&ext_26m>;
+				counter-bits = "10bit",
+					"10bit",
+					"10bit";
+				#pwm-cells = <2>;
+			};
+
+			gpu_thm: gpu-thm@402f0000 {
+				compatible = "sprd,sharkl3-thermal";
+				reg = <0x402f0000 0x10000>;
+				clock-names = "enable";
+				clocks = <&aonapb_gate CLK_THM_EB>;
+				#thermal-sensor-cells = <1>;
+				vdd_cnt = <1>;
+				vdd0-supply = <&avdd18_slp>;
+				sprd,algor_ver = <2>;
+				nvmem-cells = <&gthm_delta>;
+				nvmem-cell-names = "thm_delta_cal";
+			};
+
+			cpu_thm: cpu-thm@40390000 {
+				compatible = "sprd,sharkl3-thermal";
+				reg = <0x40390000 0x10000>;
+				clock-names = "enable";
+				clocks = <&aonapb_gate CLK_THM_EB>;
+				#thermal-sensor-cells = <1>;
+				sprd,algor_ver = <1>;
+				vdd_cnt = <1>;
+				vdd0-supply = <&avdd18_slp>;
+				nvmem-cells = <&cthm_sign>, <&cthm_ratio>, <&cthm_delta>;
+				nvmem-cell-names = "thm_sign_cal", "thm_ratio_cal", "thm_delta_cal";
+			};
+
+			pin_controller: pinctrl@402a0000 {
+				compatible = "sprd,sharkl3-pinctrl";
+				reg = <0x402a0000 0x10000>;
+
+				vbc_iis1_0: iismtx-inf0-8 {
+					pins = "SHARKL3_IIS_INF0_SYS_SEL";
+					sprd,control = <0x8>;
+				};
+				ap_iis0_0: iismtx-inf0-0 {
+					pins = "SHARKL3_IIS_INF0_SYS_SEL";
+					sprd,control = <0x0>;
+				};
+				ap_iis1_0: iismtx-inf0-1 {
+					pins = "SHARKL3_IIS_INF0_SYS_SEL";
+					sprd,control = <0x1>;
+				};
+				tgdsp_iis0_0: iismtx-inf0-4 {
+					pins = "SHARKL3_IIS_INF0_SYS_SEL";
+					sprd,control = <0x4>;
+				};
+				tgdsp_iis1_0: iismtx-inf0-5 {
+					pins = "SHARKL3_IIS_INF0_SYS_SEL";
+					sprd,control = <0x5>;
+				};
+				pubcp_iis0_0: iismtx-inf0-3 {
+					pins = "SHARKL3_IIS_INF0_SYS_SEL";
+					sprd,control = <0x3>;
+				};
+				vbc_iis1_3: iismtx-inf3-8 {
+					pins = "SHARKL3_IIS_INF3_SYS_SEL";
+					sprd,control = <0x8>;
+				};
+				ap_iis0_3: iismtx-inf3-0 {
+					pins = "SHARKL3_IIS_INF3_SYS_SEL";
+					sprd,control = <0x0>;
+				};
+				tgdsp_iis0_3: iismtx-inf3-4 {
+					pins = "SHARKL3_IIS_INF3_SYS_SEL";
+					sprd,control = <0x4>;
+				};
+				tgdsp_iis1_3: iismtx-inf3-5 {
+					pins = "SHARKL3_IIS_INF3_SYS_SEL";
+					sprd,control = <0x5>;
+				};
+				pubcp_iis0_3: iismtx-inf3-3 {
+					pins = "SHARKL3_IIS_INF3_SYS_SEL";
+					sprd,control = <0x3>;
+				};
+				wcn_iis0_3: iismtx-inf3-11 {
+					pins = "SHARKL3_IIS_INF3_SYS_SEL";
+					sprd,control = <0xb>;
+				};
+				vbc_iis1_4: iismtx-inf4-8 {
+					pins = "SHARKL3_IIS_INF4_SYS_SEL";
+					sprd,control = <0x8>;
+				};
+				ap_iis0_4: iismtx-inf4-0 {
+					pins = "SHARKL3_IIS_INF4_SYS_SEL";
+					sprd,control = <0x0>;
+				};
+				tgdsp_iis0_4: iismtx-inf4-4 {
+					pins = "SHARKL3_IIS_INF4_SYS_SEL";
+					sprd,control = <0x4>;
+				};
+				tgdsp_iis1_4: iismtx-inf4-5 {
+					pins = "SHARKL3_IIS_INF4_SYS_SEL";
+					sprd,control = <0x5>;
+				};
+				pubcp_iis0_4: iismtx-inf4-3 {
+					pins = "SHARKL3_IIS_INF4_SYS_SEL";
+					sprd,control = <0x3>;
+				};
+				wcn_iis0_4: iismtx-inf4-11 {
+					pins = "SHARKL3_IIS_INF4_SYS_SEL";
+					sprd,control = <0xb>;
+				};
+				iis_loop_3_4_enable: iismtx-inf3-inf4-loop-1 {
+					pins = "SHARKL3_IIS_INF4_INF3_LOOP";
+					sprd,control = <0x1>;
+				};
+				iis_loop_3_4_disable: iismtx-inf3-inf4-loop-0 {
+					pins = "SHARKL3_IIS_INF4_INF3_LOOP";
+					sprd,control = <0x0>;
+				};
+			};
+
+			ap_gpio: gpio@402c0000 {
+				compatible = "sprd,sharkl3-gpio-plus";
+				reg = <0x402c0000 0x1000>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			sprd_hardware_cpufreq: hardware-dvfs-platform {
+				compatible = "sprd,cpufreq-v2";
+			};
+
+			watchdog@40310000 {
+				compatible = "sprd,wdt-r2p0-fiq-sharkl3";
+				reg = <0x40310000 0x1000>;
+				interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
+				timeout-sec = <30>;
+				clock-names = "enable", "rtc_enable";
+				clocks = <&aonapb_gate CLK_CA53_WDG_EB>,
+					<&aonapb_gate CLK_CA53_WDG_RTC_EB>;
+			};
+
+			djtag: djtag@40340000 {
+				compatible = "sprd,djtag";
+				reg = <0x40340000 0x1000>;
+				syscon-names = "soft_rst";
+				syscon = <&aon_apb_regs REG_AON_APB_APB_RST2
+					MASK_AON_APB_DJTAG_SOFT_RST>;
+				clock-names = "enable", "tck";
+				clocks = <&aonapb_gate CLK_DJTAG_EB>,
+					<&aonapb_gate CLK_DISP_EMC_EB>;
+				hwlocks = <&hwlock 10>;
+				hwlock-names = "djtag";
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				aon-busmonitor@3{
+					compatible  = "sprd,busmonitor";
+					interrupts = <GIC_SPI 92
+						IRQ_TYPE_LEVEL_HIGH>;
+					reg = <0x3>;
+					sprd,bm-num = <7>;
+					sprd,bm-name =
+						"AP", "WTLCP", "PUBCP", "SP",
+						"DMA", "EAXI", "WCN";
+					sprd,bm-type =
+						<AXI>, <AXI>, <AXI>, <AXI>,
+						<AXI>, <AXI>, <AXI>;
+					sprd,bm-dap = <0>, <2>, <1>, <3>,
+						<4>, <5>, <9>;
+					sprd,bm-config =
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>;
+					sprd,bm-id =
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>;
+					sprd,bm-ranges =
+						<0 0>, <0 0>, <0 0>,
+						<0 0>, <0 0>, <0 0>,
+						<0 0>;
+				};
+
+				apcpu-busmonitor@7{
+					compatible  = "sprd,sharkl3-busmonitor";
+					interrupts = <GIC_SPI 87
+						IRQ_TYPE_LEVEL_HIGH>;
+					reg = <0x7>;
+					sprd,bm-num = <2>;
+					sprd,bm-name = "ACE", "AP";
+					sprd,bm-type = <AXI>, <AXI>;
+					sprd,bm-dap = <1>, <2>;
+					sprd,bm-config =
+						<DISABLE MON_WRITE MON_INSIDE>,
+						<DISABLE MON_WRITE MON_INSIDE>;
+					sprd,bm-id =
+						<DISABLE 0 AXIID>,
+						<DISABLE 0 AXIID>;
+					sprd,bm-ranges = <0 0>, <0 0>;
+				};
+			};
+
+			adi_bus: spi@41800000 {
+				compatible = "sprd,sc9863-adi";
+				reg = <0x41800000 0x200000>;
+				#address-cell = <1>;
+				#size-cell = <0>;
+			};
+
+			socid: socid@402e00e0{
+				compatible = "sprd,soc-id";
+				chip-id = <&aon_apb_regs REG_AON_APB_AON_CHIP_ID0
+					MASK_AON_APB_AON_CHIP_ID0>;
+				plat-id = <&aon_apb_regs REG_AON_APB_AON_PLAT_ID0
+					MASK_AON_APB_AON_PLAT_ID0>;
+				implement-id = <&aon_apb_regs REG_AON_APB_AON_IMPL_ID
+					MASK_AON_APB_AON_IMPL_ID>;
+				manufacture-id = <&aon_apb_regs  REG_AON_APB_AON_MFT_ID
+					MASK_AON_APB_AON_MFT_ID>;
+				version-id = <&aon_apb_regs REG_AON_APB_AON_VER_ID
+					MASK_AON_APB_AON_VER_ID>;
+			};
+
+		};
+
+		mm {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			gpu: gpu@60000000 {
+				compatible = "sprd,rogue";
+				reg = <0x60000000 0x100000>;
+				top_force_shutdown = <&pmu_apb_regs
+					REG_PMU_APB_PD_GPU_TOP_CFG
+					MASK_PMU_APB_PD_GPU_TOP_FORCE_SHUTDOWN>;
+				core_force_shutdown = <&pmu_apb_regs
+					REG_PMU_APB_PD_GPU_CORE_CFG
+					MASK_PMU_APB_PD_GPU_CORE_FORCE_SHUTDOWN>;
+				gpu_top_state = <&pmu_apb_regs
+					REG_PMU_APB_PWR_STATUS0_DBG
+					MASK_PMU_APB_PD_GPU_TOP_STATE>;
+				gpu_core_state = <&pmu_apb_regs
+					REG_PMU_APB_PWR_STATUS5_DBG
+					MASK_PMU_APB_PD_GPU_CORE_STATE>;
+				clk_gpu_eb = <&aon_apb_regs
+					REG_AON_CLK_TOP_CFG
+					MASK_AON_CLK_GPU_EB>;
+				core_auto_shutdown = <&pmu_apb_regs
+					REG_PMU_APB_PD_GPU_CORE_CFG
+					MASK_PMU_APB_PD_GPU_CORE_AUTO_SHUTDOWN_EN>;
+				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+
+				nvmem-cells = <&gpu_bin>;
+				nvmem-cell-names = "gpu_bin";
+
+				operating-points = <
+					/* kHz    uV */
+					256000    0
+					384000    0
+					550000    0
+					600000    0
+					>;
+
+				sprd,dvfs-lists = <
+					/* kHz  uV  idx div */
+					256000  0    5   1
+					384000  0    7   1
+					550000  0    9   1
+					600000  0    9   1
+					>;
+
+				sprd,dvfs-default = <0>;
+				sprd,dvfs-scene-extreme = <2>;
+				sprd,dvfs-scene-high = <1>;
+				sprd,dvfs-scene-medium = <1>;
+				sprd,dvfs-scene-low = <0>;
+				sprd,dvfs-range-max = <2>;
+				sprd,dvfs-range-min = <0>;
+			};
+
+			mm_domain: campower-domain {
+				compatible = "sprd,sharkl3-camsys-domain";
+				shutdown-en = <&pmu_apb_regs
+					REG_PMU_APB_PD_MM_TOP_CFG
+					MASK_PMU_APB_PD_MM_TOP_AUTO_SHUTDOWN_EN>;
+				force-shutdown = <&pmu_apb_regs
+					REG_PMU_APB_PD_MM_TOP_CFG
+					MASK_PMU_APB_PD_MM_TOP_FORCE_SHUTDOWN>;
+				pwr-status0 = <&pmu_apb_regs
+					REG_PMU_APB_PWR_STATUS0_DBG
+					0xf8000000>;
+				bus-status0 = <&pmu_apb_regs
+					REG_PMU_APB_BUS_STATUS0
+					0x80000>;
+				aon-apb-mm-eb = <&aon_apb_regs
+					REG_AON_APB_APB_EB0
+					MASK_AON_APB_MM_EB>;
+				init-dis-bits = <&aon_apb_regs
+					REG_AON_APB_AON_CLK_TOP_CFG
+					(MASK_AON_APB_CLK_MM_EMC_EB |
+					MASK_AON_APB_CLK_MM_AHB_EB |
+					MASK_AON_APB_CLK_SENSOR2_EB |
+					MASK_AON_APB_CLK_DCAM_IF_EB |
+					MASK_AON_APB_CLK_ISP_EB |
+					MASK_AON_APB_CLK_JPG_EB |
+					MASK_AON_APB_CLK_CPP_EB |
+					MASK_AON_APB_CLK_SENSOR0_EB |
+					MASK_AON_APB_CLK_SENSOR1_EB |
+					MASK_AON_APB_CLK_MM_VSP_EMC_EB |
+					MASK_AON_APB_CLK_MM_VSP_AHB_EB |
+					MASK_AON_APB_CLK_VSP_EB)>;
+				sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+				sprd,anlg_phy_g1_controller = <&anlg_phy_g1_regs>;
+				#power-domain-cells = <0>;
+				status = "disabled";
+			};
+
+			mipi_csi_phy0: mipi-csi-phy0 {
+				compatible = "sprd,mipi-csi-phy";
+				sprd,phyid = <0>;
+				sprd,phyname = "2p2";
+				status = "disabled";
+			};
+
+			mipi_csi_phy1: mipi-csi-phy1 {
+				compatible = "sprd,mipi-csi-phy";
+				sprd,phyid = <1>;
+				sprd,phyname = "4lane";
+				status = "disabled";
+			};
+
+			mipi_csi_phy2: mipi-csi-phy2 {
+				compatible = "sprd,mipi-csi-phy";
+				sprd,phyid = <2>;
+				sprd,phyname = "2lane";
+				status = "disabled";
+			};
+
+			mipi_csi_phy0_m: mipi-csi-phy0-s {
+				compatible = "sprd,mipi-csi-phy";
+				sprd,phyid = <3>;
+				sprd,phyname = "2p2_m";
+				status = "disabled";
+			};
+
+			mipi_csi_phy0_s: mipi-csi-phy0-m {
+				compatible = "sprd,mipi-csi-phy";
+				sprd,phyid = <4>;
+				sprd,phyname = "2p2_s";
+				status = "disabled";
+			};
+
+			mipi_csi_phy0_s1: mipi-csi-phy0-m1 {
+				compatible = "sprd,mipi-csi-phy";
+				sprd,phyid = <4>;
+				sprd,phyname = "2p2_s";
+				status = "disabled";
+			};
+
+			csi0: csi@60c00000 {
+				compatible = "sprd,csi-controller";
+				reg = <0x60c00000 0x1000>;
+				interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+				sprd,aon-apb-syscon = <&aon_apb_regs>;
+				sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+				sprd,anlg_phy_g1_controller = <&anlg_phy_g1_regs>;
+				sprd,csi-id = <0>;
+				sprd,dcam-id = <0>;
+				sprd,ip-version = <0x200>;
+				status = "disabled";
+			};
+
+			csi1: csi@60d00000 {
+				compatible = "sprd,csi-controller";
+				reg = <0x60d00000 0x1000>;
+				interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+				sprd,aon-apb-syscon = <&aon_apb_regs>;
+				sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+				sprd,anlg_phy_g1_controller = <&anlg_phy_g1_regs>;
+				sprd,csi-id = <1>;
+				sprd,dcam-id = <1>;
+				sprd,ip-version = <0x200>;
+				status = "disabled";
+			};
+
+			csi2: csi@60e00000 {
+				compatible = "sprd,csi-controller";
+				reg = <0x60e00000 0x1000>;
+				interrupts = <GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
+				sprd,aon-apb-syscon = <&aon_apb_regs>;
+				sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+				sprd,anlg_phy_g1_controller = <&anlg_phy_g1_regs>;
+				sprd,csi-id = <2>;
+				sprd,dcam-id = <2>;
+				sprd,ip-version = <0x200>;
+				status = "disabled";
+			};
+
+			isp: isp@60b00000 {
+				compatible = "sprd,isp";
+				reg = <0x60b00000 0x100000>;
+				interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
+				interrupts_name = "ch0", "ch1";
+				reset = <&mm_ahb_regs
+						REG_MM_AHB_AHB_RST
+						MASK_MM_AHB_ISP_LOG_SOFT_RST>;
+				sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+				sprd,isp-count = <1>;
+				iommus = <&iommu_isp>;
+				status = "disabled";
+			};
+
+			iommu_isp: iommu@60bffc00 {
+				compatible = "unisoc,iommuexl3-isp";
+				/* sharkl3 isp need pagetalbe size */
+				reg = <0x60b00000 0xffc00>,
+					<0x60bffc00 0x400>;
+				iova-base = <0x50000000>;
+				iova-size = <0x20000000>;
+				reg_name = "mmu_interrupt_reg","mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+
+			dcam: dcam@60a00000 {
+				compatible = "sprd,sharkl3-cam";
+				reg = <0x60a00000 0x1000>,
+					<0x60a01000 0x1000>,
+					<0x60a02000 0x1000>,
+					<0x60a03000 0x1000>;
+				reg_name = "dcam0_reg","dcam1_reg",
+					"dcam2_reg","axi_ctrl_reg";
+				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "dcam0", "dcam1",
+					"dcam2";
+				dcam_all_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+					MASK_MM_AHB_DCAM_ALL_SOFT_RST>;
+				dcam0_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+					MASK_MM_AHB_DCAM0_SOFT_RST>;
+				dcam1_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+					MASK_MM_AHB_DCAM1_SOFT_RST>;
+				dcam2_reset = <&mm_ahb_regs REG_MM_AHB_AHB_RST
+					MASK_MM_AHB_DCAM2_SOFT_RST>;
+				sprd,cam-ahb-syscon = <&mm_ahb_regs>;
+				sprd,isp = <&isp>;
+				sprd,dcam-count = <3>;
+				sprd,project-id = <0>;
+				iommus = <&iommu_dcam>;
+				power-domains = <&mm_domain>;
+				status = "disabled";
+			};
+
+			iommu_dcam: iommu@60a0c000 {
+				compatible = "unisoc,iommuexl3-dcam";
+				reg = <0x60a00000 0xc000>,
+					  <0x60a0c000 0x60>;
+				iova-base = <0x40000000>;
+				iova-size = <0x20000000>;
+				reg_name = "mmu_interrupt_reg", "mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+
+			cpp: cpp@62400000 {
+				compatible = "sprd,cpp";
+				reg = <0x62400000 0x1000>;
+				interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
+				cpp_rst = <&mm_vsp_ahb_regs REG_MM_VSP_AHB_AHB_RST
+					(MASK_MM_VSP_AHB_CPP_SOFT_RST |
+					MASK_MM_VSP_AHB_CPP_PATH0_SOFT_RST |
+					MASK_MM_VSP_AHB_CPP_PATH1_SOFT_RST |
+					MASK_MM_VSP_AHB_CPP_DMA_SOFT_RST)>;
+				path0_rst = <&mm_vsp_ahb_regs REG_MM_VSP_AHB_AHB_RST MASK_MM_VSP_AHB_CPP_PATH0_SOFT_RST>;
+				path1_rst = <&mm_vsp_ahb_regs REG_MM_VSP_AHB_AHB_RST MASK_MM_VSP_AHB_CPP_PATH1_SOFT_RST>;
+				dma_rst = <&mm_vsp_ahb_regs REG_MM_VSP_AHB_AHB_RST MASK_MM_VSP_AHB_CPP_DMA_SOFT_RST>;
+				iommus = <&iommu_cpp>;
+				power-domains = <&vsp_pd>;
+				status = "disabled";
+			};
+
+			iommu_cpp: iommu@62400200 {
+				compatible = "unisoc,iommuexl3-cpp";
+				reg = <0x62400000 0x200>,
+					  <0x62400200 0x60>;
+				iova-base = <0x60000000>;
+				iova-size = <0x8000000>;
+				reg_name = "mmu_interrupt_reg","mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+
+			dpu: dpu@63000000 {
+				compatible = "sprd,sharkl3-dpu";
+				reg = <0x63000000 0x1000>;
+				interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+				iommus = <&iommu_dispc>;
+				power-domains = <&disp_pd>;
+
+				reset-syscon = <&aon_apb_regs REG_AON_APB_APB_RST1
+						MASK_AON_APB_DISP_SOFT_RST>;
+
+				dpu_port: port {
+					dpu_out: endpoint {
+						remote-endpoint = <&dsi_in>;
+					};
+				};
+			};
+
+			gsp_core0: gsp@63000000 {
+				compatible = "sprd,gsp-core";
+				reg = <0x63000000 0x2000>;
+				core-id = <0>;
+				kcfg-num = <16>;
+				interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+				iommus = <&iommu_dispc>;
+			};
+
+			iommu_dispc: iommu@63000000 {
+				compatible = "unisoc,iommuexl3-dispc";
+				reg = <0x63000000 0x800>,
+				      <0x63000800 0x80>;
+				iova-base = <0x30000000>;
+				iova-size = <0x10000000>;
+				reg_name = "mmu_interrupt_reg","mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+
+			vsp: video-codec@62200000{
+				compatible = "sprd,sharkl3-vsp";
+				reg = <0x62200000 0xc000>;
+				interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+				sprd,video_ip_version = <16>;
+				reset-syscon = <&mm_vsp_ahb_regs  REG_MM_VSP_AHB_AHB_RST
+					(MASK_MM_VSP_AHB_VSP_SOFT_RST |
+					MASK_MM_VSP_AHB_VSP_GLB_SOFT_RST)>;
+				vsp-domain-eb-syscon = <&aon_apb_regs
+					REG_AON_APB_APB_EB1
+					MASK_AON_APB_MM_VSP_EB>;
+				iommus = <&iommu_vsp>;
+				power-domains = <&vsp_pd>;
+				status = "disabled";
+			};
+
+			iommu_vsp: iommu@62200000 {
+				compatible = "unisoc,iommuexl3-vsp";
+				reg = <0x62200000 0x80>,
+				      <0x62200000 0x80>;
+				iova-base = <0x20000000>;
+				iova-size = <0x10000000>;
+				reg_name = "mmu_interrupt_reg","mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+
+			dsi: dsi@63100000 {
+				compatible = "sprd,sharkl3-dsi-host";
+				reg = <0x63100000 0x1000>;
+				interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+
+				reset-syscon = <&aon_apb_regs REG_AON_APB_JVL_DUMMY 0x04>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						dsi_out: endpoint {
+							remote-endpoint = <&dphy_in>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+						dsi_in: endpoint {
+							remote-endpoint = <&dpu_out>;
+						};
+					};
+				};
+			};
+
+			jpg: jpeg-codec@62300000{
+				compatible = "sprd,sharkl3-jpg";
+				reg = <0x62300000 0x8000>;
+				interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+				reset-syscon = <&mm_vsp_ahb_regs  REG_MM_VSP_AHB_AHB_RST
+						MASK_MM_VSP_AHB_JPG_SOFT_RST>;
+				aon-apb-eb-syscon = <&aon_apb_regs
+						REG_AON_APB_APB_EB0
+						MASK_AON_APB_MM_EB>;
+				iommus = <&iommu_jpg>;
+				power-domains = <&vsp_pd>;
+				status = "disabled";
+			};
+
+			iommu_jpg: iommu@62300300 {
+				compatible = "unisoc,iommuexl3-jpg";
+				reg = <0x62300000 0x300>,
+				      <0x62300300 0x80>;
+				iova-base = <0x70000000>;
+				iova-size = <0x10000000>;
+				reg_name = "mmu_interrupt_reg","mmu_reg";
+				status = "disabled";
+				#iommu-cells = <0>;
+			};
+
+			dphy: dphy {
+				compatible = "sprd,sharkl3-dsi-phy";
+				reg = <0x63100000 0x1000>;
+				status = "disabled";
+
+				enable-syscon = <&aon_apb_regs REG_AON_APB_APB_EB2
+						(MASK_AON_APB_DPHY_REF_EB |
+						MASK_AON_APB_DPHY_CFG_EB)>;
+				power-small-syscon = <&aon_apb_regs REG_AON_APB_PWR_CTRL
+						MASK_AON_APB_MIPI_DSI_PS_PD_S>;
+				power-large-syscon = <&aon_apb_regs REG_AON_APB_PWR_CTRL
+						MASK_AON_APB_MIPI_DSI_PS_PD_L>;
+				power-iso-syscon = <&aon_apb_regs REG_AON_APB_PWR_CTRL
+						MASK_AON_APB_MIPI_DSI_ISO_SW_EN>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						dphy_out: endpoint {
+							remote-endpoint = <&panel_in>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+						dphy_in: endpoint {
+							remote-endpoint = <&dsi_out>;
+						};
+					};
+				};
+			};
+		};
+
+		pub {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			ptm_trace: ptm@30010000 {
+				compatible = "sprd,sharkl3-ptm";
+				reg = <0x30010000 0x10000>,
+					<0x10001000 0x1000>,
+					<0x10003000 0x1000>,
+					<0x10004000 0x1000>,
+					<0x10008000 0x1000>,
+					<0x10005000 0x1000>;
+				interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "clk_cs", "cs_src";
+				clocks = <&aon_clk CLK_CSSYS>, <&pll CLK_TWPLL_153M6>;
+				sprd,funnel-port = <2>;
+				sprd,ddr-chn = <8>;
+				sprd,chn-name = "MM", "GPU", "DPU",
+					"CPU", "AP/PUBCP", "WTLCP",
+					"WCN/AON/ETR", "VSP";
+			};
+
+			dmc_mpu: dmc-mpu@300e0000 {
+				compatible = "sprd,dmc-mpu";
+				reg = <0x300e0000 0x10000>;
+				interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+				syscon-names = "irq_clr", "irq_en";
+				mpu-irq-clr-syscon = <&pub_wrap_regs
+					REG_PUB_AHB_WRAP_PUB_DMC_MPU_INT
+					MASK_PUB_AHB_WRAP_DMC_MPU_VIO_INT_CLR>;
+				mpu-irq-en-syscon = <&pub_wrap_regs
+					REG_PUB_AHB_WRAP_PUB_DMC_MPU_INT
+					MASK_PUB_AHB_WRAP_DMC_MPU_VIO_INT_EN>;
+				sprd,channel-num = <8>;
+				sprd,mpu-num = <16>;
+				sprd,channel-names =
+					"MM", "GPU", "DPU","CPU",
+					"AP/PUBCP", "WTLCP", "AON/WCN/ETR",
+					"VSP", "SHARED0", "SHARED1",
+					"SHARED2","SHARED3", "SHARED4",
+					"SHARED5","SHARED6", "SHARED7";
+				sprd,ranges = <0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+					<0 0 0 0>, <0 0x89600000 0 0x8e980000>, <0 0x89600000 0 0x8e980000>,
+					<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+					<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+					<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+					<0 0 0 0>;
+				sprd,chn-config =
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_OUTSIDE MON_WRITE>,
+					<DISABLE MON_OUTSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>,
+					<DISABLE MON_INSIDE MON_WRITE>;
+				sprd,id-config =
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+					<MPUID 0xc8 0x7>, <MPUID 0 0xffff>,
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+					<MPUID 0 0xffff>, <MPUID 0 0xffff>;
+				sprd,port-map = <0>, <1>, <2>, <3>, <4>,
+						<5>, <6>, <7>, <0>, <0>,
+						<0>, <0>, <0>, <0>, <0>,
+						<0>;
+				sprd,ddr-offset = <0x80000000>;
+				sprd,panic;
+				status = "okay";
+			};
+
+			dmc_controller: dmc-controller@300001a8 {
+				compatible = "sprd,pub-dmc-original";
+				reg = <0x300001a8 0x100>,
+					<0x30000000 0x12c>;
+			};
+		};
+	};
+
+	sipc: sipc-virt {
+		compatible = "unisoc,sipc-virt-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	ext_26m: ext-26m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <26000000>;
+		clock-output-names = "ext-26m";
+	};
+
+	ext_32k: ext-32k {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "ext-32k";
+	};
+
+	ext_4m: ext-4m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <4000000>;
+		clock-output-names = "ext-4m";
+	};
+
+	rco_100m: rco-100m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "rco-100m";
+	};
+
+	sprd_pcm: sprd-pcm-audio {
+		compatible = "unisoc,sharkl3-pcm-platform";
+		#sound-dai-cells = <0>;
+		/* non-i2s playbacks use aon dma */
+		/* reference dma node dma-channels proporty
+		 * do not conflict with others
+		 * ap_dma (29-32 for security)
+		 */
+		dmas = <&aon_dma 7 &aon_dma 8
+			&aon_dma 9 &aon_dma 10
+			&aon_dma 0 &aon_dma 0
+			&aon_dma 0 &aon_dma 0
+			&aon_dma 3 &aon_dma 4>;
+		dma-names = "da01-l", "da01-r", "da23-l", "da23-r",
+				"normal-2stage-p", "normal-2stage-c",
+				"deep-2stage-p", "ad23-2stage-c",
+				"ad01-l", "ad01-r";
+		/* bit map for dma-2stage-usecase
+		 * bit[0] == 1, normal playback
+		 * bit[1] ==1, deepbuf playback
+		 * bit[2] ==1, caputre
+		 * other bit to do
+		 */
+		sprd,dma-2stage-usecase = <2>;
+		sprd,node-count-2stage-level-1 = <1>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		/* 0: no interrupt, 1: from arm, 2:from ap
+		 * note:if use arm ap should not register dma interrupt,
+		 * and you should register intterupt in arm code.
+		 */
+		sprd,dma-2stage-level-1-int-source = <1>;
+	};
+
+	vaudio: vaudio {
+		compatible = "unisoc,vaudio";
+		#sound-dai-cells = <1>;
+		clock-names = "tuned_26m";
+		clocks = <&rpll CLK_AUDIO_GATE>;
+	};
+
+	sprd_pcm_iis: sprd-pcm-iis {
+		compatible = "unisoc,sharkl3-pcm-platform";
+		#sound-dai-cells = <0>;
+		dmas = <&ap_dma 4 &ap_dma 3>;
+		dma-names = "iis0_tx", "iis0_rx";
+		sprd,dma-2stage-usecase = <2>;
+		sprd,node-count-2stage-level-1 = <1>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		sprd,dma-2stage-level-1-int-source = <1>;
+	};
+
+	saudio_lte{
+		compatible = "unisoc,saudio";
+		sprd,saudio-dst-id = <5>;               /* SIPC_ID_LTE */
+		sprd,ctrl_channel = <10>;               /* SMSG_CH_VBC */
+		sprd,playback_channel = <11 131 132>; /* SMSG_CH_PLAYBACK */
+		sprd,capture_channel = <12>;    /* SMSG_CH_CAPTURE */
+		sprd,monitor_channel = <13>;    /*SMSG_CH_MONITOR_AUDIO */
+		sprd,device = <3>;
+		sprd,saudio-names = "saudiolte";
+	};
+
+	saudio_voip{
+		compatible = "unisoc,saudio";
+		sprd,saudio-dst-id = <5>;               /* SIPC_ID_LTE */
+		sprd,ctrl_channel = <14>;               /* SMSG_CH_CTRL_VOIP */
+		sprd,playback_channel = <15 151>;/* SMSG_CH_PLAYBACK_VOIP */
+		sprd,capture_channel = <16>;    /* SMSG_CH_CAPTURE_VOIP */
+		sprd,monitor_channel = <17>;    /*SMSG_CH_MONITOR_VOIP */
+		sprd,device = <2>;
+		sprd,saudio-names = "saudiovoip";
+	};
+
+	audio-mem-mgr {
+		compatible = "unisoc,sharkl3-audio-mem";
+		sprd,iram_phy_addr = <0x00002000 0xb000>;
+		/* note:mmap address must paga_size align */
+		sprd,iram_normal = <0x00002000 0x0>;
+		sprd,iram_deepbuf = <0x00002000 0xa000>;
+		sprd,iram_4arm7 = <0x0000c000 0x1000>;
+	};
+
+	apipe-pcm {
+		compatible = "unisoc,apipe";
+	};
+
+	apipe-cmd-in {
+		compatible = "unisoc,apipe";
+	};
+
+	apipe-cmd-out {
+		compatible = "unisoc,apipe";
+	};
+};
+

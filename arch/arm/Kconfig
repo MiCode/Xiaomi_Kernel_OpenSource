@@ -709,6 +709,8 @@ source "arch/arm/mach-vt8500/Kconfig"
 
 source "arch/arm/mach-zynq/Kconfig"
 
+source "arch/arm/mach-sprd/Kconfig"
+
 # ARMv7-M architecture
 config ARCH_LPC18XX
 	bool "NXP LPC18xx/LPC43xx"

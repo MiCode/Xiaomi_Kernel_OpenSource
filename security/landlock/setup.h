@@ -11,10 +11,7 @@
 
 #include <linux/lsm_hooks.h>
 
-extern const int landlock_abi_version;
-
 extern bool landlock_initialized;
-extern int landlock_errata;
 
 extern struct lsm_blob_sizes landlock_blob_sizes;
 

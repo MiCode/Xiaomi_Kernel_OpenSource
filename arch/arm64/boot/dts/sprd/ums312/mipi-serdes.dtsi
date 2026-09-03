@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc serdes dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+
+&aon {
+	modem_dbg_log: modem-dbg-log@324f0000 {
+				compatible = "sprd,dbg-log-sharkl5";
+				reg = <0 0x324f0000 0 0x4000>;
+				sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+				sprd,syscon-mm-ahb = <&mm_ahb_regs>;
+				sprd,syscon-dsi-apb = <&anlg_phy_g10_regs>;
+				sprd,ch-name = "TRAINING", "WTL", "MDAR", "TPIU", "DBUS", "WCN";
+				sprd,ch-index = <15 1 0 2 3 4>;
+				sprd,dcfix;
+				sprd,mm;
+				clock-names =
+					"serdes_eb",
+					"mm_eb",
+					"ana_eb",
+					"dphy_cfg_eb",
+					"dphy_ref_eb",
+					"dsi_csi_test_eb",
+					"cphy_cfg_eb";
+				clocks =
+					<&aonapb_gate CLK_SERDES_EB>,
+					<&aonapb_gate CLK_MM_EB>,
+					<&aonapb_gate CLK_ANA_EB>,
+					<&aonapb_gate CLK_SDPHY_CFG_EB>,
+					<&aonapb_gate CLK_SDPHY_REF_EB>,
+					<&aonapb_gate CLK_DSI_CSI_TEST_EB>,
+					<&aonapb_gate CLK_CPHY_CFG_EN>;
+				status = "disabled";
+	};
+};

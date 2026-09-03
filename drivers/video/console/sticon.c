@@ -272,7 +272,7 @@ static int sticon_font_set(struct vc_data *vc, struct console_font *font,
 	return sticon_set_font(vc, font);
 }
 
-static void sticon_init(struct vc_data *c, bool init)
+static void sticon_init(struct vc_data *c, int init)
 {
     struct sti_struct *sti = sticon_sti;
     int vc_cols, vc_rows;
@@ -299,19 +299,19 @@ static void sticon_deinit(struct vc_data *c)
 	sticon_set_def_font(i, NULL);
 }
 
-static void sticon_clear(struct vc_data *conp, unsigned int sy, unsigned int sx,
-			 unsigned int width)
+static void sticon_clear(struct vc_data *conp, int sy, int sx, int height,
+			 int width)
 {
-    if (!width)
+    if (!height || !width)
 	return;
 
-    sti_clear(sticon_sti, sy, sx, 1, width,
+    sti_clear(sticon_sti, sy, sx, height, width,
 	      conp->vc_video_erase_char, font_data[conp->vc_num]);
 }
 
-static bool sticon_switch(struct vc_data *conp)
+static int sticon_switch(struct vc_data *conp)
 {
-    return true;	/* needs refreshing */
+    return 1;	/* needs refreshing */
 }
 
 static int sticon_blank(struct vc_data *c, int blank, int mode_switch)

@@ -430,7 +430,7 @@ static struct mlx5_ib_mr *implicit_get_child_mr(struct mlx5_ib_mr *imr,
 	mr->umem = &odp->umem;
 	mr->ibmr.lkey = mr->mmkey.key;
 	mr->ibmr.rkey = mr->mmkey.key;
-	mr->ibmr.iova = idx * MLX5_IMR_MTT_SIZE;
+	mr->mmkey.iova = idx * MLX5_IMR_MTT_SIZE;
 	mr->parent = imr;
 	odp->private = mr;
 
@@ -500,7 +500,7 @@ struct mlx5_ib_mr *mlx5_ib_alloc_implicit_mr(struct mlx5_ib_pd *pd,
 	}
 
 	imr->ibmr.pd = &pd->ibpd;
-	imr->ibmr.iova = 0;
+	imr->mmkey.iova = 0;
 	imr->umem = &umem_odp->umem;
 	imr->ibmr.lkey = imr->mmkey.key;
 	imr->ibmr.rkey = imr->mmkey.key;
@@ -732,31 +732,24 @@ static int pagefault_dmabuf_mr(struct mlx5_ib_mr *mr, size_t bcnt,
  *  >0: Number of pages mapped
  */
 static int pagefault_mr(struct mlx5_ib_mr *mr, u64 io_virt, size_t bcnt,
-			u32 *bytes_mapped, u32 flags, bool permissive_fault)
+			u32 *bytes_mapped, u32 flags)
 {
 	struct ib_umem_odp *odp = to_ib_umem_odp(mr->umem);
 
-	if (unlikely(io_virt < mr->ibmr.iova) && !permissive_fault)
+	if (unlikely(io_virt < mr->mmkey.iova))
 		return -EFAULT;
 
 	if (mr->umem->is_dmabuf)
 		return pagefault_dmabuf_mr(mr, bcnt, bytes_mapped, flags);
 
 	if (!odp->is_implicit_odp) {
-		u64 offset = io_virt < mr->ibmr.iova ? 0 : io_virt - mr->ibmr.iova;
 		u64 user_va;
 
-		if (check_add_overflow(offset, (u64)odp->umem.address,
-				       &user_va))
+		if (check_add_overflow(io_virt - mr->mmkey.iova,
+				       (u64)odp->umem.address, &user_va))
 			return -EFAULT;
-
-		if (permissive_fault) {
-			if (user_va < ib_umem_start(odp))
-				user_va = ib_umem_start(odp);
-			if ((user_va + bcnt) > ib_umem_end(odp))
-				bcnt = ib_umem_end(odp) - user_va;
-		} else if (unlikely(user_va >= ib_umem_end(odp) ||
-				    ib_umem_end(odp) - user_va < bcnt))
+		if (unlikely(user_va >= ib_umem_end(odp) ||
+			     ib_umem_end(odp) - user_va < bcnt))
 			return -EFAULT;
 		return pagefault_real_mr(mr, odp, user_va, bcnt, bytes_mapped,
 					 flags);
@@ -821,7 +814,8 @@ static int get_indirect_num_descs(struct mlx5_core_mkey *mmkey)
 /*
  * Handle a single data segment in a page-fault WQE or RDMA region.
  *
- * Returns zero on success. The caller may continue to the next data segment.
+ * Returns number of OS pages retrieved on success. The caller may continue to
+ * the next data segment.
  * Can return the following error codes:
  * -EAGAIN to designate a temporary error. The caller will abort handling the
  *  page fault and resolve it.
@@ -834,7 +828,7 @@ static int pagefault_single_data_segment(struct mlx5_ib_dev *dev,
 					 u32 *bytes_committed,
 					 u32 *bytes_mapped)
 {
-	int ret, i, outlen, cur_outlen = 0, depth = 0, pages_in_range;
+	int npages = 0, ret, i, outlen, cur_outlen = 0, depth = 0;
 	struct pf_frame *head = NULL, *frame;
 	struct mlx5_core_mkey *mmkey;
 	struct mlx5_ib_mr *mr;
@@ -878,20 +872,13 @@ next_mr:
 	case MLX5_MKEY_MR:
 		mr = container_of(mmkey, struct mlx5_ib_mr, mmkey);
 
-		pages_in_range = (ALIGN(io_virt + bcnt, PAGE_SIZE) -
-				  (io_virt & PAGE_MASK)) >>
-				 PAGE_SHIFT;
-		ret = pagefault_mr(mr, io_virt, bcnt, bytes_mapped, 0, false);
+		ret = pagefault_mr(mr, io_virt, bcnt, bytes_mapped, 0);
 		if (ret < 0)
 			goto end;
 
 		mlx5_update_odp_stats(mr, faults, ret);
 
-		if (ret < pages_in_range) {
-			ret = -EFAULT;
-			goto end;
-		}
-
+		npages += ret;
 		ret = 0;
 		break;
 
@@ -984,7 +971,7 @@ end:
 	kfree(out);
 
 	*bytes_committed = 0;
-	return ret;
+	return ret ? ret : npages;
 }
 
 /*
@@ -1003,7 +990,8 @@ end:
  *                   the committed bytes).
  * @receive_queue: receive WQE end of sg list
  *
- * Returns zero for success or a negative error code.
+ * Returns the number of pages loaded if positive, zero for an empty WQE, or a
+ * negative error code.
  */
 static int pagefault_data_segments(struct mlx5_ib_dev *dev,
 				   struct mlx5_pagefault *pfault,
@@ -1011,7 +999,7 @@ static int pagefault_data_segments(struct mlx5_ib_dev *dev,
 				   void *wqe_end, u32 *bytes_mapped,
 				   u32 *total_wqe_bytes, bool receive_queue)
 {
-	int ret = 0;
+	int ret = 0, npages = 0;
 	u64 io_virt;
 	u32 key;
 	u32 byte_count;
@@ -1067,9 +1055,10 @@ static int pagefault_data_segments(struct mlx5_ib_dev *dev,
 						    bytes_mapped);
 		if (ret < 0)
 			break;
+		npages += ret;
 	}
 
-	return ret;
+	return ret < 0 ? ret : npages;
 }
 
 /*
@@ -1305,6 +1294,12 @@ resolve_page_fault:
 	free_page((unsigned long)wqe_start);
 }
 
+static int pages_in_range(u64 address, u32 length)
+{
+	return (ALIGN(address + length, PAGE_SIZE) -
+		(address & PAGE_MASK)) >> PAGE_SHIFT;
+}
+
 static void mlx5_ib_mr_rdma_pfault_handler(struct mlx5_ib_dev *dev,
 					   struct mlx5_pagefault *pfault)
 {
@@ -1343,7 +1338,7 @@ static void mlx5_ib_mr_rdma_pfault_handler(struct mlx5_ib_dev *dev,
 	if (ret == -EAGAIN) {
 		/* We're racing with an invalidation, don't prefetch */
 		prefetch_activated = 0;
-	} else if (ret < 0) {
+	} else if (ret < 0 || pages_in_range(address, length) > ret) {
 		mlx5_ib_page_fault_resume(dev, pfault, 1);
 		if (ret != -ENOENT)
 			mlx5_ib_dbg(dev, "PAGE FAULT error %d. QP 0x%x, type: 0x%x\n",
@@ -1748,7 +1743,7 @@ static void mlx5_ib_prefetch_mr_work(struct work_struct *w)
 	for (i = 0; i < work->num_sge; ++i) {
 		ret = pagefault_mr(work->frags[i].mr, work->frags[i].io_virt,
 				   work->frags[i].length, &bytes_mapped,
-				   work->pf_flags, false);
+				   work->pf_flags);
 		if (ret <= 0)
 			continue;
 		mlx5_update_odp_stats(work->frags[i].mr, prefetch, ret);
@@ -1797,7 +1792,7 @@ static int mlx5_ib_prefetch_sg_list(struct ib_pd *pd,
 		if (!mr)
 			return -ENOENT;
 		ret = pagefault_mr(mr, sg_list[i].addr, sg_list[i].length,
-				   &bytes_mapped, pf_flags, false);
+				   &bytes_mapped, pf_flags);
 		if (ret < 0) {
 			mlx5r_deref_odp_mkey(&mr->mmkey);
 			return ret;

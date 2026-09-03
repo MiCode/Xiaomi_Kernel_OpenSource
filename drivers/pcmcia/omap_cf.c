@@ -331,13 +331,7 @@ static int __exit omap_cf_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/*
- * omap_cf_remove() lives in .exit.text. For drivers registered via
- * platform_driver_probe() this is ok because they cannot get unbound at
- * runtime. So mark the driver struct with __refdata to prevent modpost
- * triggering a section mismatch warning.
- */
-static struct platform_driver omap_cf_driver __refdata = {
+static struct platform_driver omap_cf_driver = {
 	.driver = {
 		.name	= driver_name,
 	},

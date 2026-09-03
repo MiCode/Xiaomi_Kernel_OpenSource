@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+
+$id: "http://devicetree.org/schemas/soc/sprd/sprd,seth.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Unisoc seth bindings
+
+description: This is only for virtual network interface controller that dealing with tcpip data transferring.
+
+Required properties:
+  compatible:
+    - "sprd,seth": for network interface controller
+    - "sprd,name": for name of nic
+    - "sprd,dst": for id of destination
+    - "sprd,channel": for id of channel
+    - "sprd,blknum": for number of blocks
+    - "sprd,poolsize": for the pool size of sipc

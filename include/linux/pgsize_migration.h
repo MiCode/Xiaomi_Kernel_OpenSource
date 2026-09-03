@@ -16,12 +16,6 @@
 #include <linux/pgsize_migration_inline.h>
 #include <linux/seq_file.h>
 #include <linux/mm.h>
-#include <linux/printk.h>
-#include <linux/sched.h>
-
-#define pgmigration_err(fmt, ...) \
-	pr_err("page size migration: [%i (%s)] %s:%d: " fmt, \
-		task_pid_nr(current), current->comm, __func__, __LINE__, ## __VA_ARGS__)
 
 #if PAGE_SIZE == SZ_4K && defined(CONFIG_64BIT)
 extern void vma_set_pad_pages(struct vm_area_struct *vma,
@@ -32,7 +26,12 @@ extern unsigned long vma_pad_pages(struct vm_area_struct *vma);
 extern void madvise_vma_pad_pages(struct vm_area_struct *vma,
 				  unsigned long start, unsigned long end);
 
+extern struct vm_area_struct *get_pad_vma(struct vm_area_struct *vma);
+
+extern struct vm_area_struct *get_data_vma(struct vm_area_struct *vma);
+
 extern void show_map_pad_vma(struct vm_area_struct *vma,
+			     struct vm_area_struct *pad,
 			     struct seq_file *m, void *func, bool smaps);
 
 extern void split_pad_vma(struct vm_area_struct *vma, struct vm_area_struct *new,
@@ -58,7 +57,18 @@ static inline void madvise_vma_pad_pages(struct vm_area_struct *vma,
 {
 }
 
+static inline struct vm_area_struct *get_pad_vma(struct vm_area_struct *vma)
+{
+	return NULL;
+}
+
+static inline struct vm_area_struct *get_data_vma(struct vm_area_struct *vma)
+{
+	return vma;
+}
+
 static inline void show_map_pad_vma(struct vm_area_struct *vma,
+				    struct vm_area_struct *pad,
 				    struct seq_file *m, void *func, bool smaps)
 {
 }

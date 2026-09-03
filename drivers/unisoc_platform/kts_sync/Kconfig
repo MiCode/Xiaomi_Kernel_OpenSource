@@ -1,0 +1,6 @@
+config TIMESTAMP_SYNC
+	tristate "Print the boot time when system resumes"
+	depends on PRINTK_CALLER
+	help
+	  Selecting this options to print the boot time when system resumes. It
+	  also creates the '/proc/kts_sync' node, which provides the boot time.

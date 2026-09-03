@@ -1,0 +1,28 @@
+/*
+ * UNISOC UMP9620 PMIC audio codec analog part
+ *
+ * Copyright (C) 2020, UNISOC Communications Inc.
+ *
+ * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+*/
+
+&ump9620_pmic {
+	sprd_audio_codec_ana: audio-codec@1000 {
+		compatible = "unisoc,ump9620-audio-codec",
+			"sprd,sc27xx-audio-codec";
+		#sound-dai-cells = <1>;
+		reg = <0x1000>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		sprd,syscon-aon-apb = <&aon_apb_regs>;/* 0x64900000 */
+		clk26m_sinout_pmic_en = <&aon_apb_regs REG_AON_APB_MIPI_CSI_POWER_CTRL
+			MASK_AON_APB_R2G_ANALOG_BB_TOP_SINDRV_ENA_CAL>;
+		sprd,syscon-agcp-apb = <&audcp_apb_regs>;/* 0x56390000 */
+		sprd,syscon-audaon-clk = <&aud_aon_clk_regs>;/* 0x56394000, 400 ~ 43ff */
+		sprd,syscon-dvfs-apb = <&audcp_dvfs_apb_rf_regs>;/* 0x56250000 */
+		nvmem-cells = <&neg_cp_efuse>,
+			<&fgu_calib>;
+		nvmem-cell-names = "neg_cp_efuse",
+				"fgu_4p2_efuse";
+		status = "disabled";
+	};
+};

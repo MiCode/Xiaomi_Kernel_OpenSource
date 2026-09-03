@@ -1,0 +1,274 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc audio dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/soc/sprd,sharkl3-regs.h>
+#include <dt-bindings/soc/sprd,sharkl3-mask.h>
+
+/ {
+	sprd_pcm: sprd-pcm-audio {
+		compatible = "unisoc,sharkl3-pcm-platform";
+		#sound-dai-cells = <0>;
+		/* non-i2s playbacks use aon dma */
+		/* reference dma node dma-channels proporty
+		 * do not conflict with others
+		 * ap_dma (29-32 for security)
+		 */
+		dmas = <&aon_dma 7 &aon_dma 8
+			&aon_dma 9 &aon_dma 10
+			&aon_dma 0 &aon_dma 0
+			&aon_dma 0 &aon_dma 0
+			&aon_dma 3 &aon_dma 4>;
+		dma-names = "da01-l", "da01-r", "da23-l", "da23-r",
+				"normal-2stage-p", "normal-2stage-c",
+				"deep-2stage-p", "ad23-2stage-c",
+				"ad01-l", "ad01-r";
+		/* bit map for dma-2stage-usecase
+		 * bit[0] == 1, normal playback
+		 * bit[1] ==1, deepbuf playback
+		 * bit[2] ==1, caputre
+		 * other bit to do
+		 */
+		sprd,dma-2stage-usecase = <2>;
+		sprd,node-count-2stage-level-1 = <1>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		/* 0: no interrupt, 1: from arm, 2:from ap
+		 * note:if use arm ap should not register dma interrupt,
+		 * and you should register intterupt in arm code.
+		 */
+		sprd,dma-2stage-level-1-int-source = <1>;
+	};
+
+	vaudio: vaudio {
+		compatible = "unisoc,vaudio";
+		#sound-dai-cells = <1>;
+		clock-names = "tuned_26m";
+		clocks = <&rpll CLK_AUDIO_GATE>;
+	};
+
+	sprd_pcm_iis: sprd-pcm-iis {
+		compatible = "unisoc,sharkl3-pcm-platform";
+		#sound-dai-cells = <0>;
+		dmas = <&ap_dma 4 &ap_dma 3>;
+		dma-names = "iis0_tx", "iis0_rx";
+		sprd,dma-2stage-usecase = <2>;
+		sprd,node-count-2stage-level-1 = <1>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		sprd,dma-2stage-level-1-int-source = <1>;
+	};
+
+	saudio_lte{
+		compatible = "unisoc,saudio";
+		sprd,saudio-dst-id = <5>;               /* SIPC_ID_LTE */
+		sprd,ctrl_channel = <10>;               /* SMSG_CH_VBC */
+		sprd,playback_channel = <11 131 132>; /* SMSG_CH_PLAYBACK */
+		sprd,capture_channel = <12>;    /* SMSG_CH_CAPTURE */
+		sprd,monitor_channel = <13>;    /*SMSG_CH_MONITOR_AUDIO */
+		sprd,device = <3>;
+		sprd,saudio-names = "saudiolte";
+	};
+
+	saudio_voip{
+		compatible = "unisoc,saudio";
+		sprd,saudio-dst-id = <5>;               /* SIPC_ID_LTE */
+		sprd,ctrl_channel = <14>;               /* SMSG_CH_CTRL_VOIP */
+		sprd,playback_channel = <15 151>;/* SMSG_CH_PLAYBACK_VOIP */
+		sprd,capture_channel = <16>;    /* SMSG_CH_CAPTURE_VOIP */
+		sprd,monitor_channel = <17>;    /*SMSG_CH_MONITOR_VOIP */
+		sprd,device = <2>;
+		sprd,saudio-names = "saudiovoip";
+	};
+
+	audio-mem-mgr {
+		compatible = "unisoc,sharkl3-audio-mem";
+		sprd,iram_phy_addr = <0x00002000 0xb000>;
+		/* note:mmap address must paga_size align */
+		sprd,iram_normal = <0x00002000 0x0>;
+		sprd,iram_deepbuf = <0x00002000 0xa000>;
+		sprd,iram_4arm7 = <0x0000c000 0x1000>;
+	};
+
+	apipe-pcm {
+		compatible = "unisoc,apipe";
+	};
+
+	apipe-cmd-in {
+		compatible = "unisoc,apipe";
+	};
+
+	apipe-cmd-out {
+		compatible = "unisoc,apipe";
+	};
+};
+
+
+&aon {
+	vbc: vbc@40020000 {
+		compatible = "unisoc,vbc-r1p0v3";
+		#sound-dai-cells = <1>;
+		reg = <0 0x40020000 0 0x10000>;
+		sprd,clk-stable = <0x402d0060 0x4>;
+		sprd,syscon-aon-apb = <&aon_apb_regs>;
+		sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+		sprd,dynamic-eq-support = <0>;
+		/* da01, ad01, ad23 */
+		sprd,vbc-iis-lr-invert = <0 1 1>;
+		/* 0: aon dma, 1: ap dma
+		 * da01, da23, ad01, ad23
+		 */
+		sprd,vbc-use-dma-type = <0 0 0 0>;
+		sprd,vbc-use-ad01-only = <1>;
+		sprd,iis_bt_fm_loop = <3 4>;
+		pinctrl-names =
+		/* interface 0 */
+		"vbc_iis1_0", "ap_iis0_0", "ap_iis1_0", "tgdsp_iis0_0",
+		"tgdsp_iis1_0", "pubcp_iis0_0",
+		/* interface 3 */
+		"vbc_iis1_3", "ap_iis0_3", "tgdsp_iis0_3",
+		"tgdsp_iis1_3", "pubcp_iis0_3","wcn_iis0_3",
+		/* interface 4 */
+		"vbc_iis1_4", "ap_iis0_4", "tgdsp_iis0_4",
+		"tgdsp_iis1_4", "pubcp_iis0_4", "wcn_iis0_4",
+		/* interface loop */
+		"iis_bt_fm_loop_3_4_enable",
+		"iis_bt_fm_loop_3_4_disable";
+		/* infterface 0 */
+		pinctrl-0 = <&vbc_iis1_0>;
+		pinctrl-1 = <&ap_iis0_0>;
+		pinctrl-2 = <&ap_iis1_0>;
+		pinctrl-3 = <&tgdsp_iis0_0>;
+		pinctrl-4 = <&tgdsp_iis1_0>;
+		pinctrl-5 = <&pubcp_iis0_0>;
+		/* infterface 3 */
+		pinctrl-6 = <&vbc_iis1_3>;
+		pinctrl-7 = <&ap_iis0_3>;
+		pinctrl-8 = <&tgdsp_iis0_3>;
+		pinctrl-9 = <&tgdsp_iis1_3>;
+		pinctrl-10 = <&pubcp_iis0_3>;
+		pinctrl-11 = <&wcn_iis0_3>;
+		/* infterface 4 */
+		pinctrl-12 = <&vbc_iis1_4>;
+		pinctrl-13 = <&ap_iis0_4>;
+		pinctrl-14 = <&tgdsp_iis0_4>;
+		pinctrl-15 = <&tgdsp_iis1_4>;
+		pinctrl-16 = <&pubcp_iis0_4>;
+		pinctrl-17 = <&wcn_iis0_4>;
+		/* interface loop */
+		pinctrl-18 = <&iis_loop_3_4_enable>;
+		pinctrl-19 = <&iis_loop_3_4_disable>;
+	};
+
+	sprd_audio_codec_dig: audio-codec@40000000 {
+		compatible = "unisoc,sharkl3-audio-codec";
+		reg = <0 0x40000000 0 0x2000>;
+
+		interrupts = <GIC_SPI 20 IRQ_TYPE_NONE>;
+		sprd,syscon-aon-apb = <&aon_apb_regs>;
+		sprd,anlg-phy-g-syscon = <&anlg_phy_g7_regs>;
+	};
+};
+
+&pin_controller {
+	vbc_iis1_0: iismtx-inf0-8 {
+		pins = "SHARKL3_IIS_INF0_SYS_SEL";
+		sprd,control = <0x8>;
+	};
+
+	ap_iis0_0: iismtx-inf0-0 {
+		pins = "SHARKL3_IIS_INF0_SYS_SEL";
+		sprd,control = <0x0>;
+	};
+
+	ap_iis1_0: iismtx-inf0-1 {
+		pins = "SHARKL3_IIS_INF0_SYS_SEL";
+		sprd,control = <0x1>;
+	};
+
+	tgdsp_iis0_0: iismtx-inf0-4 {
+		pins = "SHARKL3_IIS_INF0_SYS_SEL";
+		sprd,control = <0x4>;
+	};
+
+	tgdsp_iis1_0: iismtx-inf0-5 {
+		pins = "SHARKL3_IIS_INF0_SYS_SEL";
+		sprd,control = <0x5>;
+	};
+
+	pubcp_iis0_0: iismtx-inf0-3 {
+		pins = "SHARKL3_IIS_INF0_SYS_SEL";
+		sprd,control = <0x3>;
+	};
+
+	vbc_iis1_3: iismtx-inf3-8 {
+		pins = "SHARKL3_IIS_INF3_SYS_SEL";
+		sprd,control = <0x8>;
+	};
+
+	ap_iis0_3: iismtx-inf3-0 {
+		pins = "SHARKL3_IIS_INF3_SYS_SEL";
+		sprd,control = <0x0>;
+	};
+
+	tgdsp_iis0_3: iismtx-inf3-4 {
+		pins = "SHARKL3_IIS_INF3_SYS_SEL";
+		sprd,control = <0x4>;
+	};
+
+	tgdsp_iis1_3: iismtx-inf3-5 {
+		pins = "SHARKL3_IIS_INF3_SYS_SEL";
+		sprd,control = <0x5>;
+	};
+
+	pubcp_iis0_3: iismtx-inf3-3 {
+		pins = "SHARKL3_IIS_INF3_SYS_SEL";
+		sprd,control = <0x3>;
+	};
+
+	wcn_iis0_3: iismtx-inf3-11 {
+		pins = "SHARKL3_IIS_INF3_SYS_SEL";
+		sprd,control = <0xb>;
+	};
+
+	vbc_iis1_4: iismtx-inf4-8 {
+		pins = "SHARKL3_IIS_INF4_SYS_SEL";
+		sprd,control = <0x8>;
+	};
+
+	ap_iis0_4: iismtx-inf4-0 {
+		pins = "SHARKL3_IIS_INF4_SYS_SEL";
+		sprd,control = <0x0>;
+	};
+
+	tgdsp_iis0_4: iismtx-inf4-4 {
+		pins = "SHARKL3_IIS_INF4_SYS_SEL";
+		sprd,control = <0x4>;
+	};
+
+	tgdsp_iis1_4: iismtx-inf4-5 {
+		pins = "SHARKL3_IIS_INF4_SYS_SEL";
+		sprd,control = <0x5>;
+	};
+
+	pubcp_iis0_4: iismtx-inf4-3 {
+		pins = "SHARKL3_IIS_INF4_SYS_SEL";
+		sprd,control = <0x3>;
+	};
+
+	wcn_iis0_4: iismtx-inf4-11 {
+		pins = "SHARKL3_IIS_INF4_SYS_SEL";
+		sprd,control = <0xb>;
+	};
+
+	iis_loop_3_4_enable: iismtx-inf3-inf4-loop-1 {
+		pins = "SHARKL3_IIS_INF4_INF3_LOOP";
+		sprd,control = <0x1>;
+	};
+
+	iis_loop_3_4_disable: iismtx-inf3-inf4-loop-0 {
+		pins = "SHARKL3_IIS_INF4_INF3_LOOP";
+		sprd,control = <0x0>;
+	};
+};

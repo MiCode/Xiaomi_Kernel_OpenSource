@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+/ {
+	pnp_debug: sprd-pnp {
+		compatible = "sprd,pnp";
+	};
+
+};

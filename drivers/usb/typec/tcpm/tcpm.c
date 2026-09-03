@@ -1043,7 +1043,7 @@ static int tcpm_set_attached_state(struct tcpm_port *port, bool attached)
 				     port->data_role);
 }
 
-static int tcpm_set_roles(struct tcpm_port *port, bool attached, int state,
+static int tcpm_set_roles(struct tcpm_port *port, bool attached,
 			  enum typec_role role, enum typec_data_role data)
 {
 	enum typec_orientation orientation;
@@ -1080,7 +1080,7 @@ static int tcpm_set_roles(struct tcpm_port *port, bool attached, int state,
 		}
 	}
 
-	ret = tcpm_mux_set(port, state, usb_role, orientation);
+	ret = tcpm_mux_set(port, TYPEC_STATE_USB, usb_role, orientation);
 	if (ret < 0)
 		return ret;
 
@@ -3638,6 +3638,16 @@ static int tcpm_src_attach(struct tcpm_port *port)
 
 	tcpm_enable_auto_vbus_discharge(port, true);
 
+	ret = tcpm_set_roles(port, true, TYPEC_SOURCE, tcpm_data_role_for_source(port));
+	if (ret < 0)
+		return ret;
+
+	if (port->pd_supported) {
+		ret = port->tcpc->set_pd_rx(port->tcpc, true);
+		if (ret < 0)
+			goto out_disable_mux;
+	}
+
 	/*
 	 * USB Type-C specification, version 1.2,
 	 * chapter 4.5.2.2.8.1 (Attached.SRC Requirements)
@@ -3647,23 +3657,12 @@ static int tcpm_src_attach(struct tcpm_port *port)
 	    (polarity == TYPEC_POLARITY_CC2 && port->cc1 == TYPEC_CC_RA)) {
 		ret = tcpm_set_vconn(port, true);
 		if (ret < 0)
-			return ret;
+			goto out_disable_pd;
 	}
 
 	ret = tcpm_set_vbus(port, true);
 	if (ret < 0)
 		goto out_disable_vconn;
-
-	ret = tcpm_set_roles(port, true, TYPEC_STATE_USB, TYPEC_SOURCE,
-			     tcpm_data_role_for_source(port));
-	if (ret < 0)
-		goto out_disable_vbus;
-
-	if (port->pd_supported) {
-		ret = port->tcpc->set_pd_rx(port->tcpc, true);
-		if (ret < 0)
-			goto out_disable_mux;
-	}
 
 	port->pd_capable = false;
 
@@ -3675,14 +3674,14 @@ static int tcpm_src_attach(struct tcpm_port *port)
 
 	return 0;
 
+out_disable_vconn:
+	tcpm_set_vconn(port, false);
+out_disable_pd:
+	if (port->pd_supported)
+		port->tcpc->set_pd_rx(port->tcpc, false);
 out_disable_mux:
 	tcpm_mux_set(port, TYPEC_STATE_SAFE, USB_ROLE_NONE,
 		     TYPEC_ORIENTATION_NONE);
-out_disable_vbus:
-	tcpm_set_vbus(port, false);
-out_disable_vconn:
-	tcpm_set_vconn(port, false);
-
 	return ret;
 }
 
@@ -3790,8 +3789,7 @@ static int tcpm_snk_attach(struct tcpm_port *port)
 
 	tcpm_enable_auto_vbus_discharge(port, true);
 
-	ret = tcpm_set_roles(port, true, TYPEC_STATE_USB,
-			     TYPEC_SINK, tcpm_data_role_for_sink(port));
+	ret = tcpm_set_roles(port, true, TYPEC_SINK, tcpm_data_role_for_sink(port));
 	if (ret < 0)
 		return ret;
 
@@ -3814,24 +3812,12 @@ static void tcpm_snk_detach(struct tcpm_port *port)
 static int tcpm_acc_attach(struct tcpm_port *port)
 {
 	int ret;
-	enum typec_role role;
-	enum typec_data_role data;
-	int state = TYPEC_STATE_USB;
 
 	if (port->attached)
 		return 0;
 
-	role = tcpm_port_is_sink(port) ? TYPEC_SINK : TYPEC_SOURCE;
-	data = tcpm_port_is_sink(port) ? tcpm_data_role_for_sink(port)
-				       : tcpm_data_role_for_source(port);
-
-	if (tcpm_port_is_audio(port))
-		state = TYPEC_MODE_AUDIO;
-
-	if (tcpm_port_is_debug(port))
-		state = TYPEC_MODE_DEBUG;
-
-	ret = tcpm_set_roles(port, true, state, role, data);
+	ret = tcpm_set_roles(port, true, TYPEC_SOURCE,
+			     tcpm_data_role_for_source(port));
 	if (ret < 0)
 		return ret;
 
@@ -4088,7 +4074,7 @@ static void run_state_machine(struct tcpm_port *port)
 			port->caps_count = 0;
 			port->pd_capable = true;
 			tcpm_set_state_cond(port, SRC_SEND_CAPABILITIES_TIMEOUT,
-					    PD_T_SENDER_RESPONSE);
+					    PD_T_SEND_SOURCE_CAP);
 		}
 		break;
 	case SRC_SEND_CAPABILITIES_TIMEOUT:
@@ -4537,7 +4523,7 @@ static void run_state_machine(struct tcpm_port *port)
 		 */
 		tcpm_set_vconn(port, false);
 		tcpm_set_vbus(port, false);
-		tcpm_set_roles(port, port->self_powered, TYPEC_STATE_USB, TYPEC_SOURCE,
+		tcpm_set_roles(port, port->self_powered, TYPEC_SOURCE,
 			       tcpm_data_role_for_source(port));
 		/*
 		 * If tcpc fails to notify vbus off, TCPM will wait for PD_T_SAFE_0V +
@@ -4569,7 +4555,7 @@ static void run_state_machine(struct tcpm_port *port)
 		tcpm_set_vconn(port, false);
 		if (port->pd_capable)
 			tcpm_set_charge(port, false);
-		tcpm_set_roles(port, port->self_powered, TYPEC_STATE_USB, TYPEC_SINK,
+		tcpm_set_roles(port, port->self_powered, TYPEC_SINK,
 			       tcpm_data_role_for_sink(port));
 		/*
 		 * VBUS may or may not toggle, depending on the adapter.
@@ -4668,10 +4654,10 @@ static void run_state_machine(struct tcpm_port *port)
 	case DR_SWAP_CHANGE_DR:
 		tcpm_unregister_altmodes(port);
 		if (port->data_role == TYPEC_HOST)
-			tcpm_set_roles(port, true, TYPEC_STATE_USB, port->pwr_role,
+			tcpm_set_roles(port, true, port->pwr_role,
 				       TYPEC_DEVICE);
 		else
-			tcpm_set_roles(port, true, TYPEC_STATE_USB, port->pwr_role,
+			tcpm_set_roles(port, true, port->pwr_role,
 				       TYPEC_HOST);
 		tcpm_ams_finish(port);
 		tcpm_set_state(port, ready_state(port), 0);
@@ -5113,7 +5099,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 	case SNK_TRY_WAIT_DEBOUNCE:
 		if (!tcpm_port_is_sink(port)) {
 			port->max_wait = 0;
-			tcpm_set_state(port, SRC_TRYWAIT, PD_T_PD_DEBOUNCE);
+			tcpm_set_state(port, SRC_TRYWAIT, 0);
 		}
 		break;
 	case SRC_TRY_WAIT:

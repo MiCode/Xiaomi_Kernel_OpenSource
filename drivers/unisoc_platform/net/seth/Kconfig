@@ -1,0 +1,12 @@
+config UNISOC_SIPC_SETH
+	tristate "UNISOC SETH Ethernet driver"
+	default n
+	depends on UNISOC_SIPC
+	depends on UNISOC_SIPC_ZERO_COPY_SIPX
+	help
+	  SETH driver implementation for the Unisoc platform.
+	  This driver supports the Unisoc Ethernet based on
+	  share memory.
+
+	  Say M here if you want to build a module.
+

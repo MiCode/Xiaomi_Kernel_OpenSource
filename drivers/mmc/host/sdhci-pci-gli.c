@@ -860,7 +860,7 @@ static void sdhci_gl9763e_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
-static void gl9763e_hw_setting(struct sdhci_pci_slot *slot)
+static void gli_set_gl9763e(struct sdhci_pci_slot *slot)
 {
 	struct pci_dev *pdev = slot->chip->pdev;
 	u32 value;
@@ -918,7 +918,7 @@ static int gli_probe_slot_gl9763e(struct sdhci_pci_slot *slot)
 	gli_pcie_enable_msi(slot);
 	host->mmc_host_ops.hs400_enhanced_strobe =
 					gl9763e_hs400_enhanced_strobe;
-	gl9763e_hw_setting(slot);
+	gli_set_gl9763e(slot);
 	sdhci_enable_v4_mode(host);
 
 	return 0;

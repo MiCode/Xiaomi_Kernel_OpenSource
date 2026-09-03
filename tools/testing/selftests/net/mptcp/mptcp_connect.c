@@ -188,7 +188,7 @@ static void set_mark(int fd, uint32_t mark)
 static int sock_listen_mptcp(const char * const listenaddr,
 			     const char * const port)
 {
-	int sock = -1;
+	int sock;
 	struct addrinfo hints = {
 		.ai_protocol = IPPROTO_TCP,
 		.ai_socktype = SOCK_STREAM,
@@ -451,18 +451,6 @@ static void set_nonblock(int fd)
 	fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-static void shut_wr(int fd)
-{
-	/* Close our write side, ev. give some time
-	 * for address notification and/or checking
-	 * the current status
-	 */
-	if (cfg_wait)
-		usleep(cfg_wait);
-
-	shutdown(fd, SHUT_WR);
-}
-
 static int copyfd_io_poll(int infd, int peerfd, int outfd, bool *in_closed_after_out)
 {
 	struct pollfd fds = {
@@ -540,7 +528,14 @@ static int copyfd_io_poll(int infd, int peerfd, int outfd, bool *in_closed_after
 					/* ... and peer also closed already */
 					break;
 
-				shut_wr(peerfd);
+				/* ... but we still receive.
+				 * Close our write side, ev. give some time
+				 * for address notification and/or checking
+				 * the current status
+				 */
+				if (cfg_wait)
+					usleep(cfg_wait);
+				shutdown(peerfd, SHUT_WR);
 			} else {
 				if (errno == EINTR)
 					continue;
@@ -671,7 +666,7 @@ static int copyfd_io_mmap(int infd, int peerfd, int outfd,
 		if (err)
 			return err;
 
-		shut_wr(peerfd);
+		shutdown(peerfd, SHUT_WR);
 
 		err = do_recvfile(peerfd, outfd);
 		*in_closed_after_out = true;
@@ -695,9 +690,6 @@ static int copyfd_io_sendfile(int infd, int peerfd, int outfd,
 		err = do_sendfile(infd, peerfd, size);
 		if (err)
 			return err;
-
-		shut_wr(peerfd);
-
 		err = do_recvfile(peerfd, outfd);
 		*in_closed_after_out = true;
 	}

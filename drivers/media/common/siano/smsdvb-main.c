@@ -1243,8 +1243,6 @@ static int __init smsdvb_module_init(void)
 	smsdvb_debugfs_register();
 
 	rc = smscore_register_hotplug(smsdvb_hotplug);
-	if (rc)
-		smsdvb_debugfs_unregister();
 
 	pr_debug("\n");
 

@@ -22,3 +22,10 @@ config DMABUF_HEAPS_CMA
 	  Choose this option to enable dma-buf CMA heap. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config UNISOC_EMEM_DMA_BUF
+	tristate "UNISOC DMA-BUF debug messages"
+	depends on ARM || ARM64
+	depends on ARCH_SPRD && SPRD_DEBUG
+	help
+	   Choose this option can output more memory information in UNISOC DMA-BUF.

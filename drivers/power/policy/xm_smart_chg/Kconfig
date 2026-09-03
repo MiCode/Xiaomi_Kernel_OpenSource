@@ -1,0 +1,19 @@
+config XM_SMART_CHG
+	tristate "support xiaomi smart charge features"
+	default n
+	help
+	  Say yes here to enable xm smart chg driver.
+	  This driver contains charging control flow and
+	  maintains charging status.
+	  Say no if not xm smart chg driver.
+
+config XM_DFX_CHARGER
+	tristate "dfs Charger"
+	depends on REGULATOR
+	select EXTCON
+	help
+	  Say Y to enable dfs charger support, which allows multiple
+	  chargers attached to a battery and multiple batteries attached to a
+	  system. The dfs also can monitor charging status in
+	  runtime and in suspend-to-RAM by waking up the system periodically
+	  with help of suspend_again support.

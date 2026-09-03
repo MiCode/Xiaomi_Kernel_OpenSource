@@ -88,15 +88,13 @@ static int ila_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 			goto drop;
 		}
 
-		/* cache only if we don't create a dst reference loop */
-		if (ilwt->connected && orig_dst->lwtstate != dst->lwtstate) {
+		if (ilwt->connected) {
 			local_bh_disable();
 			dst_cache_set_ip6(&ilwt->dst_cache, dst, &fl6.saddr);
 			local_bh_enable();
 		}
 	}
 
-	skb_dst_drop(skb);
 	skb_dst_set(skb, dst);
 	return dst_output(net, sk, skb);
 

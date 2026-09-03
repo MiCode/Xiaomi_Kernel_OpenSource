@@ -218,10 +218,6 @@ amd_get_format_info(const struct drm_mode_fb_cmd2 *cmd);
 
 static void handle_hpd_irq_helper(struct amdgpu_dm_connector *aconnector);
 
-static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
-					 int bl_idx,
-					 u32 user_brightness);
-
 static bool
 is_timing_unchanged_for_freesync(struct drm_crtc_state *old_crtc_state,
 				 struct drm_crtc_state *new_crtc_state);
@@ -2590,16 +2586,16 @@ static void dm_gpureset_commit_state(struct dc_state *dc_state,
 	for (k = 0; k < dc_state->stream_count; k++) {
 		bundle->stream_update.stream = dc_state->streams[k];
 
-		for (m = 0; m < dc_state->stream_status[k].plane_count; m++) {
+		for (m = 0; m < dc_state->stream_status->plane_count; m++) {
 			bundle->surface_updates[m].surface =
-				dc_state->stream_status[k].plane_states[m];
+				dc_state->stream_status->plane_states[m];
 			bundle->surface_updates[m].surface->force_full_update =
 				true;
 		}
 
 		update_planes_and_stream_adapter(dm->dc,
 					 UPDATE_TYPE_FULL,
-					 dc_state->stream_status[k].plane_count,
+					 dc_state->stream_status->plane_count,
 					 dc_state->streams[k],
 					 &bundle->stream_update,
 					 bundle->surface_updates);
@@ -2701,12 +2697,6 @@ static int dm_resume(void *handle)
 		amdgpu_dm_irq_resume_late(adev);
 
 		mutex_unlock(&dm->dc_lock);
-
-		/* set the backlight after a reset */
-		for (i = 0; i < dm->num_of_edps; i++) {
-			if (dm->backlight_dev[i])
-				amdgpu_dm_backlight_set_level(dm, i, dm->brightness[i]);
-		}
 
 		return 0;
 	}
@@ -4316,16 +4306,16 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
 	}
 #endif
 
-	if (link_cnt > (MAX_PIPES * 2)) {
-		DRM_ERROR(
-			"KMS: Cannot support more than %d display indexes\n",
-				MAX_PIPES * 2);
-		goto fail;
-	}
-
 	/* loops over all connectors on the board */
 	for (i = 0; i < link_cnt; i++) {
 		struct dc_link *link = NULL;
+
+		if (i > AMDGPU_DM_MAX_DISPLAY_INDEX) {
+			DRM_ERROR(
+				"KMS: Cannot support more than %d display indexes\n",
+					AMDGPU_DM_MAX_DISPLAY_INDEX);
+			continue;
+		}
 
 		aconnector = kzalloc(sizeof(*aconnector), GFP_KERNEL);
 		if (!aconnector)
@@ -7104,9 +7094,6 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
 	struct drm_crtc *crtc = new_con_state->crtc;
 	struct drm_crtc_state *new_crtc_state;
 	int ret;
-
-	if (WARN_ON(unlikely(!old_con_state || !new_con_state)))
-		return -EINVAL;
 
 	trace_amdgpu_dm_connector_atomic_check(new_con_state);
 
@@ -10047,20 +10034,16 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 	 */
 	conn_state = drm_atomic_get_connector_state(state, connector);
 
-	/* Check for error in getting connector state */
-	if (IS_ERR(conn_state)) {
-		ret = PTR_ERR(conn_state);
+	ret = PTR_ERR_OR_ZERO(conn_state);
+	if (ret)
 		goto out;
-	}
 
 	/* Attach crtc to drm_atomic_state*/
 	crtc_state = drm_atomic_get_crtc_state(state, &disconnected_acrtc->base);
 
-	/* Check for error in getting crtc state */
-	if (IS_ERR(crtc_state)) {
-		ret = PTR_ERR(crtc_state);
+	ret = PTR_ERR_OR_ZERO(crtc_state);
+	if (ret)
 		goto out;
-	}
 
 	/* force a restore */
 	crtc_state->mode_changed = true;
@@ -10068,11 +10051,9 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 	/* Attach plane to drm_atomic_state */
 	plane_state = drm_atomic_get_plane_state(state, plane);
 
-	/* Check for error in getting plane state */
-	if (IS_ERR(plane_state)) {
-		ret = PTR_ERR(plane_state);
+	ret = PTR_ERR_OR_ZERO(plane_state);
+	if (ret)
 		goto out;
-	}
 
 	/* Call commit internally with the state we just constructed */
 	ret = drm_atomic_commit(state);

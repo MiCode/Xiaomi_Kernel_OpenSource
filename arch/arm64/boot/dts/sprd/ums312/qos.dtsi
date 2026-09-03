@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc QOS dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+
+/ { qos {
+	#address-cells=<1>;
+	#size-cells=<0>;
+
+	gpu_qos: qos@0 {
+		reg = <0>;
+		arqos = [06];
+		awqos = [06];
+		arqos-threshold = [0f];
+		awqos-threshold = [0f];
+	};
+	dpu_qos: qos@1 {
+		reg = <1>;
+		awqos-high	= [0a];
+		awqos-low	= [0a];
+		arqos-high	= [0d];
+		arqos-low	= [0c];
+		arqos-threshold = [0c];
+		awqos-threshold = [0f];
+	};
+	vsp_qos: qos@2 {
+		reg = <2>;
+		awqos		= [01];
+		arqos-high	= [07];
+		arqos-low	= [01];
+	};
+	mm {
+		#address-cells=<1>;
+		#size-cells=<0>;
+		dcam_qos: qos@0 {
+			reg = <0>;
+			arqos		= [0a];
+			awqos-high	= [0d];
+			awqos-low	= [0c];
+		};
+		isp_qos: qos@1 {
+			reg = <1>;
+			awqos-high	= [07];
+			awqos-low	= [06];
+			arqos-high	= [07];
+			arqos-low	= [06];
+		};
+		cpp_qos: qos@2 {
+			reg = <2>;
+			awrqos		= [01];
+		};
+		fd_qos: qos@3 {
+			reg = <3>;
+			arqos		= [01];
+			awqos		= [01];
+		};
+		jpg_qos: qos@4 {
+			reg = <4>;
+			arqos-high	= [07];
+			arqos-low	= [01];
+			awqos		= [01];
+		};
+		mm_qos_threshold: qos@5 {
+			reg = <5>;
+			arqos-threshold	 = [06];
+			awqos-threshold	 = [06];
+		};
+	};
+	ap {
+		#address-cells=<1>;
+		#size-cells=<0>;
+		ap_qos0: qos0@0 {
+			reg = <0>;
+			arqos-ce  = [05];
+			awqos-ce  = [05];
+			arqos-dma = [05];
+			awqos-dma = [05];
+		};
+		ap_qos1: qos@1{
+			reg = <1>;
+			arqos-sdio0 = [05];
+			awqos-sdio0 = [05];
+			arqos-sdio1 = [05];
+			awqos-sdio1 = [05];
+			arqos-sdio2 = [05];
+			awqos-sdio2 = [05];
+			arqos-emmc  = [05];
+			awqos-emmc  = [05];
+		};
+		ap_qos_threshold: qos@2 {
+			reg = <2>;
+			arqos-threshold-main = [05];
+			awqos-threshold-main = [05];
+			arqos-threshold-disp = [06];
+			awqos-threshold-disp = [06];
+		};
+	};
+}; };
+
+
+

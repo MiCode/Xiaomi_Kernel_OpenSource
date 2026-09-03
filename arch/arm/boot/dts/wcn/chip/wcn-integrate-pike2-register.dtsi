@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			cpwcn_btwf {
+				wcn-dump {
+					btwf-dump {
+						/* base    size    offset    domain */
+						sprd,bt = <0x60740000 0xA400 0 (BT | CP)>;
+						sprd,bt-cmd = <0x60700000 0x400 0 (BT | CP)>;
+						sprd,fm = <0x400B0000 0x850 0 (FM | CP)>;
+						sprd,wifi = <0x70000000 0x10000 0 (WIFI | CP)>;
+						sprd,manu-clk-ctrl = <0xD0020800 0xC 0 (BSP | CP)>;
+						sprd,com-ahb-ctrl = <0xD0010000 0xB4 0 (BSP | CP)>;
+						sprd,btwf-watchdog = <0x40040000 0x24 0 (BTWF | CP)>;
+						sprd,btwf-timer2 = <0x40030040 0x20 0 (BTWF | CP)>;
+						sprd,btwf-timer1 = <0x40030020 0x20 0 (BTWF | CP)>;
+						sprd,btwf-timer0 = <0x40030000 0x20 0 (BTWF | CP)>;
+						sprd,btwf-system-timer = <0x40020000 0x10 0 (BTWF | CP)>;
+						sprd,btwf-intc = <0x40010000 0x38 0 (BTWF | CP)>;
+						sprd,btwf-ahb-ctrl = <0x60300000 0x400 0 (BTWF | CP)>;
+						sprd,btwf-ctrl = <0x40060000 0x300 0 (BTWF | CP)>;
+
+						sprd,aon-apb-wcn-sys-cfg2 = <0x402E057C 4 0 0>;
+						sprd,pmu-wifi-wrap-dslp-ena = <0x402B0248 4 0 0>;
+						sprd,pmu-wcn-sys-dslp-ena = <0x402B0244 4 0 0>;
+						sprd,pmu-pd-wifi-wrap-cfg = <0x402B0104 4 0 0>;
+						sprd,pmu-pd-wcn-sys-cfg = <0x402B0100 4 0 0>;
+						sprd,pmu-sleep-status = <0x402B00D4 4 0 0>;
+						sprd,pmu-slp-ctrl = <0x402B00CC 4 0 0>;
+
+						sprd,gnss-iram = <0x18004000 0x4000 0 CP>;
+						sprd,btwf-iram = <0x10000000 0x8000 0 CP>;
+						sprd,btwf-share-mem = <0 0x300000 0x84000000 0>;
+					};
+				};
+			};
+		};
+	};
+};
+
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			cpwcn_gnss {
+				wcn-dump {
+					gnss-dump {
+						/* Ordered according to GNSS dump parse script */
+						sprd,wcn-cp-clk-core-addr = <0xD0020000 0x100 0 CP>;
+						sprd,com-sys-ctrl-addr = <0xD0020800 0x10 0 CP>;
+						sprd,gnss-ahb-ctrl-addr = <0xC0300000 0x400 0 CP>;
+						sprd,gnss-apb-ctrl-addr = <0xA0060000 0x400 0 CP>;
+
+						sprd,pmu-apb-pd-wcn-gnss-cfg = <0x402B0000 4 0x58 0>;
+						sprd,pmu-apb-pd-wcn-wifi-cfg = <0x402B0000 4 0x54 0>;
+						sprd,pmu-apb-pd-wcn-top-cfg = <0x402B0000 4 0x50 0>;
+						sprd,aon-clk-core = <0x402D0200 4 0xD8 0>;
+						sprd,aon-apb-wcn-config0 = <0x402E0000 4 0xD8 0>;
+						sprd,pmu-apb-wcn-sys-cfg-status = <0x402B0000 4 0x338 0>;
+						sprd,pmu-apb-sleep-status = <0x402B0000 4 0xD4 0>;
+						sprd,pmu-apb-sleep-ctrl = <0x402B0000 4 0xCC 0>;
+
+						sprd,gnss-iram = <0x18000000 0x8000 0 CP>;
+						sprd,gnss-share-mem = <0 0x15A800 0x84300000 0>;
+					};
+				};
+			};
+		};
+	};
+};
+

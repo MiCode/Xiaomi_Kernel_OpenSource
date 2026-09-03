@@ -1,0 +1,113 @@
+/*
+ * R61350 Truly LCD config dtsi file for spreadtrum
+ *
+ * Copyright (C) 2021, Spreadtrum Communications Inc.
+ *
+ * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+ */
+
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				lcd_r61350_truly_mipi_hd: lcd_r61350_truly_mipi_hd {
+
+					sprd,dsi-work-mode = <1>; /* video burst mode*/
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+
+					sprd,phy-bit-clock = <500000>;	/* kbps */
+					sprd,phy-escape-clock = <20000>;/* kHz */
+
+					sprd,width-mm = <68>;
+					sprd,height-mm = <121>;
+
+					sprd,esd-check-enable = <1>;
+					sprd,esd-check-mode = <1>;
+					sprd,esd-check-period = <1000>;
+					/* sprd,esd-check-register = <0x0A>; */
+					/* sprd,esd-check-value = <0x9C>; */
+
+					sprd,reset-on-sequence = <1 5>, <0 5>, <1 20>;
+					sprd,reset-off-sequence = <1 5>;
+
+					sprd,use-dcs-write;
+					sprd,initial-command = [
+						//Host I/F Setting
+						15 00 00 02 B0 00
+						15 00 00 02 CC 04
+						15 00 00 02 E3 01
+						//DSI control
+						39 00 00 03 B6 61 2C
+						//display setting
+						39 00 00 07 C0 23 B2 22 10 C2 7F
+						//display h-timing setting
+						39 00 00 17 C1 0B 6F 01 80 00 00 00 00 7F 03 08 08 08 08 08 08 08 08 08 08 08 08
+						//stop recovery setting
+						15 00 00 02 C3 75
+						//display V-timing setting
+						39 00 00 1D C5 06 06 40 43 00 00 03 01 80 07 00 00 00 00 00 00 00 0A 00 00 00 00 00 00 00 11 11 0E
+						//panel drive setting
+						39 00 00 03 C6 01 02
+						//GOUT pin assignment
+						39 00 00 3B C8 09 13 11 00 00 26 24 22 20 00 00 00 00 00 00 01 00 00 00 00 00 00 0A 13 11 00 00 27 25 23 21 00 00 00 00 00 00 02 00 00 00 00 00 00 89 00 00 00 01 00 00 00 02 00 00 00 03 00
+						//Gamma setting
+						39 00 00 27 CA 1B 29 32 41 4C 56 6C 7D 8B 97 4A 56 63 76 7F 8C 9B A8 BF 1B 29 32 41 4C 56 6C 7D 8B 97 4A 56 63 76 7F 8C 9B A8 BF
+						//power setting for VCI1/2/3, DC2/3
+						39 00 00 07 D0 01 4B 41 00 35 99
+						//power setting for VCL,VCLLVL
+						15 00 00 02 D1 03
+						//power setting for external booster
+						39 00 00 03 D2 8E 0B
+						//register write control
+						15 00 00 02 E5 02
+						//VOCMDC setting
+						39 00 00 03 D4 00 A0
+						//VPLVL/VNLVL setting
+						39 00 00 03 D5 24 24
+						//TE ON
+						15 00 00 02 35 00
+						//CABC SETTING
+						15 00 00 02 51 FF
+						15 00 00 02 53 2C
+						15 00 00 02 55 00
+						//pause
+						05 78 00 01 11
+						05 32 00 01 29
+						];
+
+					sprd,sleep-in-command = [
+						15 32 00 01 28
+						15 96 00 01 10
+						29 00 00 02 B0 00
+						29 14 00 02 B1 01
+						];
+
+					sprd,sleep-out-command = [
+						15 78 00 01 11
+						15 32 00 01 29
+						15 01 00 02 B0 00
+						15 01 00 02 B1 01
+						];
+
+					display-timings {
+						native-mode = <&r61350_truly_timing0>;
+
+						r61350_truly_timing0: timing0 {
+							clock-frequency = <64000000>;
+							hactive = <720>;
+							vactive = <1280>;
+							hback-porch = <31>;
+							hfront-porch = <31>;
+							vback-porch = <32>;
+							vfront-porch = <16>;
+							hsync-len = <20>;
+							vsync-len = <2>;
+						};
+					};
+				};
+			};
+		};
+	};
+};

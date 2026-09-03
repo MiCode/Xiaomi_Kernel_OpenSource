@@ -38,7 +38,7 @@ static bool match_service_id(const struct tb_service_id *id,
 			return false;
 	}
 
-	if (id->match_flags & TBSVC_MATCH_PROTOCOL_REVISION) {
+	if (id->match_flags & TBSVC_MATCH_PROTOCOL_VERSION) {
 		if (id->protocol_revision != svc->prtcrevs)
 			return false;
 	}

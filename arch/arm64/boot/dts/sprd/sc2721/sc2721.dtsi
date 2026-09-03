@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc SC2721 PMIC DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+&adi_bus {
+	sc2721_pmic: pmic@0 {
+		compatible = "sprd,sc2721";
+		reg = <0>;
+		spi-max-frequency = <26000000>;
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pmic_wdt: watchdog@40 {
+			compatible = "sprd,sc2721-wdt", "sprd,sc27xx-wdt";
+			reg = <0x40>;
+		};
+
+		led-controller@180 {
+			compatible = "sprd,sc2731-bltc", "sprd,sc2721-bltc";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x180>;
+
+			led@0 {
+				label = "red";
+				reg = <0x0>;
+			};
+
+			led@1 {
+				label = "green";
+				reg = <0x1>;
+			};
+
+			led@2 {
+				label = "blue";
+				reg = <0x2>;
+			};
+		};
+
+		rtc@200 {
+			compatible = "sprd,sc2731-rtc", "sprd,sc2721-rtc";
+			reg = <0x200>;
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <1>;
+		};
+
+		pmic_eic: gpio-controller@280 {
+			compatible = "sprd,sc2731-eic", "sprd,sc2721-eic";
+			reg = <0x280>;
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		pmic_flash: flash@2a8 {
+			compatible = "sprd,sc2731-flash", "sprd,sc2721-flash";
+			reg = <0x2a8>;
+			status = "disabled";
+		};
+
+		pmic_typec: typec@380 {
+			compatible = "sprd,sc2721-typec";
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <10>;
+			reg = <0x380>;
+			sprd,mode = <2>;
+			nvmem-cells = <&typec_cc1_cal>, <&typec_cc2_cal>;
+			nvmem-cell-names = "typec_cc1_cal", "typec_cc2_cal";
+		};
+
+		pmic_dump {
+			compatible = "sprd,pmic-dump";
+			sprd,pmic-dump-mem = <&pmic_reserved>;
+		};
+
+		pmic_adc: adc@400 {
+			compatible = "sprd,sc27xx-adc", "sprd,sc2721-adc";
+			reg = <0x400>;
+			interrupt-parent = <&sc2721_pmic>;
+			vref-supply = <&vdd28>;
+			interrupts = <0>;
+			#io-channel-cells = <1>;
+			hwlocks = <&hwlock 4>;
+			nvmem-cells = <&adc_bcal>, <&adc_scal>;
+			nvmem-cell-names = "big_scale_calib", "small_scale_calib";
+		};
+
+		pmic_fgu: fgu@a00 {
+			compatible = "sprd,sc27xx-fgu", "sprd,sc2721-fgu", "sprd,sprd-fgu";
+			reg = <0xa00>;
+			bat-detect-gpio = <&pmic_eic 9 GPIO_ACTIVE_HIGH>;
+			nvmem-cell-names = "fgu_calib";
+			nvmem-cells = <&fgu_calib>;
+			io-channels = <&pmic_adc 0>, <&pmic_adc 14>;
+			io-channel-names = "bat-temp", "charge-vol";
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <3>;
+		};
+
+		syscon@c00 {
+			compatible = "sprd,sc2731-syscon", "sprd,sc27xx-syscon";
+			reg = <0xc00>, <0xecc>, <0xec0>;
+		};
+
+		pmic_smpl: smpl@c00 {
+			compatible = "sprd,sc27xx-smpl", "sprd,sc2721-smpl";
+			reg = <0xc00>;
+			sprd,smpl-timer-threshold = <250>;
+		};
+
+		pmic_pwroff: poweroff@c20 {
+			compatible = "sprd,sc27xx-poweroff", "sprd,sc2721-poweroff";
+			reg = <0xc20>;
+		};
+
+		vibrator@eb4 {
+			compatible = "sprd,sc2731-vibrator", "sprd,sc2721-vibrator";
+			reg = <0xeb4>;
+		};
+
+		bc1p2@ec8 {
+			compatible = "sprd,sc27xx-bc1p2", "sprd,sc2721-bc1p2";
+		};
+
+		hw-reset@eec {
+			compatible = "sprd,sc27xx-7sreset", "sprd,sc2721-7sreset";
+			reg = <0xf1c>, <0xeec>;
+		};
+	};
+};
+
+#include "audio-codec.dtsi"
+#include "efuse.dtsi"
+#include "regulator.dtsi"

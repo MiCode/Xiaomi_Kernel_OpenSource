@@ -373,13 +373,8 @@ static int xgbe_map_rx_buffer(struct xgbe_prv_data *pdata,
 	}
 
 	/* Set up the header page info */
-	if (pdata->netdev->features & NETIF_F_RXCSUM) {
-		xgbe_set_buffer_data(&rdata->rx.hdr, &ring->rx_hdr_pa,
-				     XGBE_SKB_ALLOC_SIZE);
-	} else {
-		xgbe_set_buffer_data(&rdata->rx.hdr, &ring->rx_hdr_pa,
-				     pdata->rx_buf_size);
-	}
+	xgbe_set_buffer_data(&rdata->rx.hdr, &ring->rx_hdr_pa,
+			     XGBE_SKB_ALLOC_SIZE);
 
 	/* Set up the buffer page info */
 	xgbe_set_buffer_data(&rdata->rx.buf, &ring->rx_buf_pa,

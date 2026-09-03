@@ -21,9 +21,6 @@
 #include <linux/can/length.h>
 #include <linux/can/netlink.h>
 #include <linux/can/skb.h>
-#ifndef __GENKSYMS__
-#include <linux/ethtool.h>
-#endif
 #include <linux/netdevice.h>
 
 /*
@@ -99,10 +96,6 @@ struct can_priv {
 #endif
 };
 
-static inline bool can_tdc_is_enabled(const struct can_priv *priv)
-{
-	return !!(priv->ctrlmode & CAN_CTRLMODE_TDC_MASK);
-}
 
 /* helper to define static CAN controller features at device creation time */
 static inline void can_set_static_ctrlmode(struct net_device *dev,
@@ -135,9 +128,6 @@ struct can_priv *safe_candev_priv(struct net_device *dev);
 int open_candev(struct net_device *dev);
 void close_candev(struct net_device *dev);
 int can_change_mtu(struct net_device *dev, int new_mtu);
-int can_eth_ioctl_hwts(struct net_device *netdev, struct ifreq *ifr, int cmd);
-int can_ethtool_op_get_ts_info_hwts(struct net_device *dev,
-				    struct ethtool_ts_info *info);
 
 int register_candev(struct net_device *dev);
 void unregister_candev(struct net_device *dev);

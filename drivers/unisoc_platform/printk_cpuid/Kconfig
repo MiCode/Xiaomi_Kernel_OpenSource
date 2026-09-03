@@ -1,0 +1,6 @@
+config PRINTK_CPUID
+	tristate "Show both processor id and thread id in kernel logs"
+	depends on PRINTK_CALLER
+	help
+	  Selecting this options causes printk to show both processor id and
+	  thread id.

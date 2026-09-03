@@ -25,7 +25,7 @@
  * difficult to estimate the time it takes for the system to process the command
  * before it is actually passed to the PPM.
  */
-#define UCSI_TIMEOUT_MS		10000
+#define UCSI_TIMEOUT_MS		5000
 
 /*
  * UCSI_SWAP_TIMEOUT_MS - Timeout for role swap requests
@@ -794,7 +794,6 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 
 	if (con->status.change & UCSI_CONSTAT_CONNECT_CHANGE) {
 		typec_set_pwr_role(con->port, role);
-		ucsi_port_psy_changed(con);
 
 		switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
@@ -1362,40 +1361,6 @@ void ucsi_set_drvdata(struct ucsi *ucsi, void *data)
 	ucsi->driver_data = data;
 }
 EXPORT_SYMBOL_GPL(ucsi_set_drvdata);
-
-/**
- * ucsi_con_mutex_lock - Acquire the connector mutex
- * @con: The connector interface to lock
- *
- * Returns true on success, false if the connector is disconnected
- */
-bool ucsi_con_mutex_lock(struct ucsi_connector *con)
-{
-	bool mutex_locked = false;
-	bool connected = true;
-
-	while (connected && !mutex_locked) {
-		mutex_locked = mutex_trylock(&con->lock) != 0;
-		connected = con->status.flags & UCSI_CONSTAT_CONNECTED;
-		if (connected && !mutex_locked)
-			msleep(20);
-	}
-
-	connected = connected && con->partner;
-	if (!connected && mutex_locked)
-		mutex_unlock(&con->lock);
-
-	return connected;
-}
-
-/**
- * ucsi_con_mutex_unlock - Release the connector mutex
- * @con: The connector interface to unlock
- */
-void ucsi_con_mutex_unlock(struct ucsi_connector *con)
-{
-	mutex_unlock(&con->lock);
-}
 
 /**
  * ucsi_create - Allocate UCSI instance

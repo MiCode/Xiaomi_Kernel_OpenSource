@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc busmonitor dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/debug/busmonitor/busmonitor.h>
+#include <dt-bindings/soc/sprd,sharkl3-regs.h>
+#include <dt-bindings/soc/sprd,sharkl3-mask.h>
+
+&aon {
+	djtag: djtag@40340000 {
+		compatible = "sprd,djtag";
+		reg = <0 0x40340000 0 0x1000>;
+		syscon-names = "soft_rst";
+		syscon = <&aon_apb_regs REG_AON_APB_APB_RST2
+			MASK_AON_APB_DJTAG_SOFT_RST>;
+		clock-names = "enable";
+		clocks = <&aonapb_gate CLK_DJTAG_EB>;
+		hwlocks = <&hwlock 10>;
+		hwlock-names = "djtag";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		aon-busmonitor@3{
+			compatible  = "sprd,busmonitor";
+			interrupts = <GIC_SPI 92
+				IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x3>;
+			sprd,bm-num = <7>;
+			sprd,bm-name =
+				"AP", "WTLCP", "PUBCP", "SP",
+				"DMA", "EAXI", "WCN";
+			sprd,bm-type =
+				<AXI>, <AXI>, <AXI>, <AXI>,
+				<AXI>, <AXI>, <AXI>;
+			sprd,bm-dap = <0>, <2>, <1>, <3>,
+				<4>, <5>, <9>;
+			sprd,bm-config =
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>;
+			sprd,bm-id =
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>;
+			sprd,bm-ranges =
+				<0 0>, <0 0>, <0 0>,
+				<0 0>, <0 0>, <0 0>,
+				<0 0>;
+		};
+
+		apcpu-busmonitor@7{
+			compatible  = "sprd,busmonitor";
+			interrupts = <GIC_SPI 87
+				IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x7>;
+			sprd,bm-num = <2>;
+			sprd,bm-name = "ACE", "AP";
+			sprd,bm-type = <AXI>, <AXI>;
+			sprd,bm-dap = <1>, <2>;
+			sprd,bm-config =
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>;
+			sprd,bm-id =
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>;
+			sprd,bm-ranges = <0 0>, <0 0>;
+		};
+	};
+};

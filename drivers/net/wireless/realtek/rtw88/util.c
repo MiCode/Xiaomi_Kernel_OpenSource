@@ -101,8 +101,7 @@ void rtw_desc_to_mcsrate(u16 rate, u8 *mcs, u8 *nss)
 		*nss = 4;
 		*mcs = rate - DESC_RATEVHT4SS_MCS0;
 	} else if (rate >= DESC_RATEMCS0 &&
-		   rate <= DESC_RATEMCS31) {
-		*nss = 0;
+		   rate <= DESC_RATEMCS15) {
 		*mcs = rate - DESC_RATEMCS0;
 	}
 }

@@ -172,11 +172,7 @@ check_attr_tree_state_again:
 		return PTR_ERR(attr_file);
 	}
 
-	if (i_size_read(attr_file) != 0) {
-		err = -EIO;
-		pr_err("detected inconsistent attributes file, running fsck.hfsplus is recommended.\n");
-		goto end_attr_file_creation;
-	}
+	BUG_ON(i_size_read(attr_file) != 0);
 
 	hip = HFSPLUS_I(attr_file);
 

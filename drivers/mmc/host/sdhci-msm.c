@@ -132,17 +132,8 @@
 /* Timeout value to avoid infinite waiting for pwr_irq */
 #define MSM_PWR_IRQ_TIMEOUT_MS 5000
 
-/* Max load for eMMC Vdd supply */
-#define MMC_VMMC_MAX_LOAD_UA	570000
-
 /* Max load for eMMC Vdd-io supply */
 #define MMC_VQMMC_MAX_LOAD_UA	325000
-
-/* Max load for SD Vdd supply */
-#define SD_VMMC_MAX_LOAD_UA	800000
-
-/* Max load for SD Vdd-io supply */
-#define SD_VQMMC_MAX_LOAD_UA	22000
 
 #define msm_host_readl(msm_host, host, offset) \
 	msm_host->var_ops->msm_readl_relaxed(host, offset)
@@ -1408,47 +1399,10 @@ static int sdhci_msm_set_pincfg(struct sdhci_msm_host *msm_host, bool level)
 	return ret;
 }
 
-static void msm_config_vmmc_regulator(struct mmc_host *mmc, bool hpm)
-{
-	int load;
-
-	if (!hpm)
-		load = 0;
-	else if (!mmc->card)
-		load = max(MMC_VMMC_MAX_LOAD_UA, SD_VMMC_MAX_LOAD_UA);
-	else if (mmc_card_mmc(mmc->card))
-		load = MMC_VMMC_MAX_LOAD_UA;
-	else if (mmc_card_sd(mmc->card))
-		load = SD_VMMC_MAX_LOAD_UA;
-	else
-		return;
-
-	regulator_set_load(mmc->supply.vmmc, load);
-}
-
-static void msm_config_vqmmc_regulator(struct mmc_host *mmc, bool hpm)
-{
-	int load;
-
-	if (!hpm)
-		load = 0;
-	else if (!mmc->card)
-		load = max(MMC_VQMMC_MAX_LOAD_UA, SD_VQMMC_MAX_LOAD_UA);
-	else if (mmc_card_sd(mmc->card))
-		load = SD_VQMMC_MAX_LOAD_UA;
-	else
-		return;
-
-	regulator_set_load(mmc->supply.vqmmc, load);
-}
-
-static int sdhci_msm_set_vmmc(struct sdhci_msm_host *msm_host,
-			      struct mmc_host *mmc, bool hpm)
+static int sdhci_msm_set_vmmc(struct mmc_host *mmc)
 {
 	if (IS_ERR(mmc->supply.vmmc))
 		return 0;
-
-	msm_config_vmmc_regulator(mmc, hpm);
 
 	return mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, mmc->ios.vdd);
 }
@@ -1461,8 +1415,6 @@ static int msm_toggle_vqmmc(struct sdhci_msm_host *msm_host,
 
 	if (msm_host->vqmmc_enabled == level)
 		return 0;
-
-	msm_config_vqmmc_regulator(mmc, level);
 
 	if (level) {
 		/* Set the IO voltage regulator to default voltage level */
@@ -1560,7 +1512,6 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	struct mmc_host *mmc = host->mmc;
 	bool done = false;
 	u32 val = SWITCHABLE_SIGNALING_VOLTAGE;
 	const struct sdhci_msm_offset *msm_offset =
@@ -1618,12 +1569,6 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 				 "%s: pwr_irq for req: (%d) timed out\n",
 				 mmc_hostname(host->mmc), req_type);
 	}
-
-	if ((req_type & REQ_BUS_ON) && mmc->card && !mmc->ops->get_cd(mmc)) {
-		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-		host->pwr = 0;
-	}
-
 	pr_debug("%s: %s: request %d done\n", mmc_hostname(host->mmc),
 			__func__, req_type);
 }
@@ -1682,13 +1627,6 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		udelay(10);
 	}
 
-	if ((irq_status & CORE_PWRCTL_BUS_ON) && mmc->card &&
-	    !mmc->ops->get_cd(mmc)) {
-		msm_host_writel(msm_host, CORE_PWRCTL_BUS_FAIL, host,
-				msm_offset->core_pwrctl_ctl);
-		return;
-	}
-
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
 		pwr_state = REQ_BUS_ON;
@@ -1700,8 +1638,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 
 	if (pwr_state) {
-		ret = sdhci_msm_set_vmmc(msm_host, mmc,
-					 pwr_state & REQ_BUS_ON);
+		ret = sdhci_msm_set_vmmc(mmc);
 		if (!ret)
 			ret = sdhci_msm_set_vqmmc(msm_host, mmc,
 					pwr_state & REQ_BUS_ON);

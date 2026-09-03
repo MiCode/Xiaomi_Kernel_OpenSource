@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum Pike2 SP7731e DTS file
+ *
+ * Copyright (C) 2019-2020, Spreadtrum Communications Inc.
+ *
+ * This file is licensed under a dual GPLv2 or X11 license.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include "sc7731e.dtsi"
+#include "sc7731e-wcn.dtsi"
+#include "sc2720.dtsi"
+#include "sprd-sound.dtsi"
+#include "sp7731e-mach.dtsi"
+
+/*
+ * Tips:
+ *	1. <SoC>.dts store NOTHING unless properties "model","compatible" and "sprd,sc-id",
+ *		which are used for matching board id;
+ *	2. Puts nodes belong to chip family in <chip_family>.dtsi, like sharkl3.dtsi;
+ *	3. Puts nodes belong to SoC in <SoC>.dtsi, like sc9863a.dtsi;
+ *	4. Puts nodes belong to vendor solid configurations in <SoC-mach>.dtsi,
+ *		like sp9863a-mach.dtsi.
+ */
+
+/ {
+	model = "Spreadtrum Pike2 SC7731e SoC";
+
+	compatible = "sprd,sc7731e";
+
+	sprd,sc-id = "sp7731e 1000 1000";
+};
+

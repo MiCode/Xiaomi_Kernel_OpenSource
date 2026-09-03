@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc sensorhub dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+ / {
+	sensorhub {
+		compatible = "sprd,sharkl5Pro-sensorhub", "sprd,sensor-hub";
+	};
+};

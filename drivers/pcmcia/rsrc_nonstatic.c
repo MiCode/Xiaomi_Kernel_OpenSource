@@ -375,9 +375,7 @@ static int do_validate_mem(struct pcmcia_socket *s,
 
 	if (validate && !s->fake_cis) {
 		/* move it to the validated data set */
-		ret = add_interval(&s_data->mem_db_valid, base, size);
-		if (ret)
-			return ret;
+		add_interval(&s_data->mem_db_valid, base, size);
 		sub_interval(&s_data->mem_db, base, size);
 	}
 

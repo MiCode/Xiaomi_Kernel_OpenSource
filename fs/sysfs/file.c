@@ -135,6 +135,10 @@ static ssize_t sysfs_kf_write(struct kernfs_open_file *of, char *buf,
 
 	if (!count)
 		return 0;
+#if defined(CONFIG_SPRD_DEBUG)
+	if (strstr(buf, "Modem Assert"))
+		pr_info("FS_DEBUG: in %s\n", __func__);
+#endif
 
 	return ops->store(kobj, of->kn->priv, buf, count);
 }

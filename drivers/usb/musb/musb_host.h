@@ -40,6 +40,9 @@ struct musb_qh {
 	unsigned		iso_idx;	/* in urb->iso_frame_desc[] */
 	struct sg_mapping_iter sg_miter;	/* for highmem in PIO mode */
 	bool			use_sg;		/* to track urb using sglist */
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+	bool			linkfifo;	/* for use linkfifo */
+#endif
 };
 
 /* map from control or bulk queue head to the first qh on that ring */
@@ -121,4 +124,17 @@ static inline struct urb *next_urb(struct musb_qh *qh)
 	return list_entry(queue->next, struct urb, urb_list);
 }
 
+#if IS_ENABLED(CONFIG_USB_SPRD_LINKFIFO)
+static inline struct urb *last_urb(struct musb_qh *qh)
+{
+	struct list_head	*queue;
+
+	if (!qh)
+		return NULL;
+	queue = &qh->hep->urb_list;
+	if (list_empty(queue))
+		return NULL;
+	return list_entry(queue->prev, struct urb, urb_list);
+}
+#endif
 #endif				/* _MUSB_HOST_H */

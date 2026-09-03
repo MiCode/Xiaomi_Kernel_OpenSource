@@ -1,0 +1,132 @@
+KERNEL_DIR=${KERNEL_DIR}"/.."
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.arm
+
+BUILD_SYSTEM_DLKM=0
+DEFCONFIG=pike2_defconfig
+
+FRAGMENT_CONFIG=${KERNEL_DIR}/arch/arm/configs/sprd_pike2_debug.fragment
+SP7731E_BASE_CONFIG="
+${ROOT_DIR}/${KERNEL_DIR}/arch/arm/configs/sprd_defconfig
+${KERNEL_DIR}/arch/arm/configs/sprd_pike2.fragment
+${ROOT_DIR}/${FRAGMENT_CONFIG}
+"
+
+if [[ ${BSP_PRODUCT_NAME} == *Skynet* ]]; then
+  SP7731E_BASE_CONFIG+="${ROOT_DIR}/${KERNEL_DIR}/arch/arm/configs/unisoc_Skynet.fragment"
+fi
+
+PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/arm/configs/${DEFCONFIG} \
+${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${SP7731E_BASE_CONFIG}"
+POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/arm/configs/${DEFCONFIG}"
+
+if [[ $BSP_SPECIFIED_KO_CONFIG == "true" && $BSP_UD_PREBUILTS_FLAG == "true" ]]; then
+	EXT_MODULES="$BSP_EXT_MODULES"
+elif [[ $BSP_DTSONLY_CONFIG == "true" ]]; then
+	SKIP_EXT_MODULES=1
+else
+EXT_MODULES="
+../modules/kernel5.15/sample
+../modules/kernel5.15/input/misc/lis2dh
+../modules/kernel5.15/input/misc/ltr_558als
+../modules/kernel5.15/display/gsp
+../modules/kernel5.15/display/dispc
+../modules/kernel5.15/dmabufheap
+../modules/common/camera/power
+../modules/kernel5.15/microarray/
+../modules/kernel5.15/touchscreen/adaptive-ts
+../modules/kernel5.15/video/sprd-vpu
+../modules/kernel5.15/video/sprd-jpg
+../modules/common/camera/flash/flash_drv
+../modules/common/camera/flash/sc2720s
+../modules/common/camera/flash/wd3124da
+../modules/common/camera/flash/aw3641
+../modules/common/camera/sensor
+../modules/common/camera/core
+../modules/common/camera/cpp
+../modules/kernel5.15/audio/sprd_audio/audiomem
+../modules/kernel5.15/audio/sprd_audio/audio_pipe
+../modules/kernel5.15/audio/sprd_audio/saudio
+../modules/kernel5.15/audio/sprd/machine/sprd_card
+../modules/kernel5.15/audio/sprd/dai/vaudio
+../modules/kernel5.15/audio/sprd/dai/vbc/r1p0v3
+../modules/kernel5.15/audio/sprd/codec/dummy-codec
+../modules/kernel5.15/audio/sprd/codec/sprd/sc2721/codec
+../modules/kernel5.15/audio/sprd/codec/sprd/sc2721/power
+../modules/kernel5.15/audio/sprd/codec/sprd/sc2721/power_dev
+../modules/kernel5.15/audio/sprd/dai/i2s
+../modules/kernel5.15/audio/sprd/platform/dmaengine_2stage_pcm
+../modules/kernel5.15/audio/sprd/machine/i2s_card
+../modules/kernel5.15/gpu/midgard
+../modules/kernel5.15/wcn/bsp/unisoc_wcn_bsp
+../modules/kernel5.15/wcn/gnss/unisoc_gnss/gnss_common_ctl
+../modules/kernel5.15/wcn/gnss/unisoc_gnss/gnss_dbg
+../modules/kernel5.15/wcn/gnss/unisoc_gnss/gnss_pmnotify_ctl
+../modules/kernel5.15/wcn/fm/driver
+../modules/kernel5.15/wcn/bluetooth/driver
+../modules/kernel5.15/wcn/wlan/wlan_combo
+
+"
+fi
+
+# modules build failed
+# ../modules/kernel5.15/gpu/midgard
+
+# modules in modules.cfg but not found in k515
+# focaltech_ats.ko
+# transsion.ko
+# mxc4005.ko
+# sprd_wlan_combo.ko
+# sprd_fm.ko
+# sprdbt_tty.ko
+# sprd-ion.ko
+
+#camera module version config
+export BSP_BOARD_CAMERA_MODULE_ISP_VERSION="dcam_r6p0_isp_r6p91"
+export BSP_BOARD_CAMERA_MODULE_CPP_VERSION="lite_r3p0"
+export BSP_BOARD_CAMERA_MODULE_CSI_VERSION="r2p0"
+export BSP_BOARD_CAMERA_MODULE_VSP_ADAPT_VERSION="pike2"
+#camera module dvfs config
+
+#wcn bt driver config
+#export BSP_BOARD_UNISOC_WCN_SOCKET="sipc"
+
+#wcn module version config
+#export BSP_BOARD_WLAN_DEVICE="sc2332"
+
+
+DTC_FLAGS+="-@"
+
+if ([[ $BSP_SPECIFIED_KO_CONFIG == "true" ]] || [[ $BSP_KOONLY_CONFIG == "true" ]]) && ([[ $BSP_UD_PREBUILTS_FLAG == "true" ]]); then
+	MAKE_GOALS="$BSP_MAKE_GOALS"
+	BUILD_GKI_ARTIFACTS=""
+elif [[ $BSP_DTSONLY_CONFIG == "true" ]]; then
+	MAKE_GOALS="$BSP_MAKE_GOALS"
+	IN_KERNEL_MODULES=""
+	SKIP_CP_KERNEL_HDR=1
+	BUILD_GKI_ARTIFACTS=""
+else
+	MAKE_GOALS="${MAKE_GOALS} dtbs"
+fi
+
+MAKE_GOALS="
+dtbs
+Image
+modules
+"
+
+FILES="${FILES}
+arch/arm/boot/Image
+vmlinux
+System.map
+arch/arm/boot/dts/sp7731e-base.dtb
+arch/arm/boot/dts/sp7731e-1h10-overlay.dtbo
+"
+
+#KO STRIP
+export DO_NOT_STRIP_MODULES=0
+
+MODULES_ORDER=""
+TRIM_NONLISTED_KMI=""
+KMI_SYMBOL_LIST_STRICT_MODE=""
+

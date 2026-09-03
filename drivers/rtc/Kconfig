@@ -1245,7 +1245,7 @@ config RTC_DRV_WM8350
 
 config RTC_DRV_SC27XX
 	tristate "Spreadtrum SC27xx RTC"
-	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+	depends on MFD_SC27XX_PMIC || MFD_UMP96XX_PMIC || COMPILE_TEST
 	help
 	  If you say Y here you will get support for the RTC subsystem
 	  of the Spreadtrum SC27xx series PMICs. The SC27xx series PMICs

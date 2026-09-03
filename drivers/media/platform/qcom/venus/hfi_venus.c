@@ -187,9 +187,6 @@ static int venus_write_queue(struct venus_hfi_device *hdev,
 	/* ensure rd/wr indices's are read from memory */
 	rmb();
 
-	if (qsize > IFACEQ_QUEUE_SIZE / 4)
-		return -EINVAL;
-
 	if (wr_idx >= rd_idx)
 		empty_space = qsize - (wr_idx - rd_idx);
 	else
@@ -239,7 +236,6 @@ static int venus_write_queue(struct venus_hfi_device *hdev,
 static int venus_read_queue(struct venus_hfi_device *hdev,
 			    struct iface_queue *queue, void *pkt, u32 *tx_req)
 {
-	struct hfi_pkt_hdr *pkt_hdr = NULL;
 	struct hfi_queue_header *qhdr;
 	u32 dwords, new_rd_idx;
 	u32 rd_idx, wr_idx, type, qsize;
@@ -258,9 +254,6 @@ static int venus_read_queue(struct venus_hfi_device *hdev,
 	rd_idx = qhdr->read_idx;
 	wr_idx = qhdr->write_idx;
 	qsize = qhdr->q_size;
-
-	if (qsize > IFACEQ_QUEUE_SIZE / 4)
-		return -EINVAL;
 
 	/* make sure data is valid before using it */
 	rmb();
@@ -305,9 +298,6 @@ static int venus_read_queue(struct venus_hfi_device *hdev,
 			memcpy(pkt, rd_ptr, len);
 			memcpy(pkt + len, queue->qmem.kva, new_rd_idx << 2);
 		}
-		pkt_hdr = (struct hfi_pkt_hdr *)(pkt);
-		if ((pkt_hdr->size >> 2) != dwords)
-			return -EINVAL;
 	} else {
 		/* bad packet received, dropping */
 		new_rd_idx = qhdr->write_idx;
@@ -1033,26 +1023,18 @@ static void venus_sfr_print(struct venus_hfi_device *hdev)
 {
 	struct device *dev = hdev->core->dev;
 	struct hfi_sfr *sfr = hdev->sfr.kva;
-	u32 size;
 	void *p;
 
 	if (!sfr)
 		return;
 
-	size = sfr->buf_size;
-	if (!size)
-		return;
-
-	if (size > ALIGNED_SFR_SIZE)
-		size = ALIGNED_SFR_SIZE;
-
-	p = memchr(sfr->data, '\0', size);
+	p = memchr(sfr->data, '\0', sfr->buf_size);
 	/*
 	 * SFR isn't guaranteed to be NULL terminated since SYS_ERROR indicates
 	 * that Venus is in the process of crashing.
 	 */
 	if (!p)
-		sfr->data[size - 1] = '\0';
+		sfr->data[sfr->buf_size - 1] = '\0';
 
 	dev_err_ratelimited(dev, "SFR message from FW: %s\n", sfr->data);
 }
@@ -1679,7 +1661,6 @@ void venus_hfi_destroy(struct venus_core *core)
 	venus_interface_queues_release(hdev);
 	mutex_destroy(&hdev->lock);
 	kfree(hdev);
-	disable_irq(core->irq);
 	core->ops = NULL;
 }
 

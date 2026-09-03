@@ -1,0 +1,520 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc Qogirn6pro platform DTS file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ */
+
+#include <dt-bindings/clock/sprd,ums9620-clk.h>
+#include <dt-bindings/reset/sprd,ums9620-reset.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/mfd/sprd,ump9620-regs.h>
+#include <dt-bindings/mfd/sprd,ump9620-mask.h>
+/ {
+	soc-module = "UMS9620";
+	soc-manufacturer = "Spreadtrum";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+				core4 {
+					cpu = <&CPU4>;
+				};
+				core5 {
+					cpu = <&CPU5>;
+				};
+				core6 {
+					cpu = <&CPU6>;
+				};
+				core7 {
+					cpu = <&CPU7>;
+				};
+			};
+		};
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55","arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			cpu-idle-states = <&LIT_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <417>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <155>;
+			sugov_slack_timer;
+		};
+		CPU1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55","arm,armv8";
+			reg = <0x0 0x100>;
+			enable-method = "psci";
+			cpu-idle-states = <&LIT_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <417>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <155>;
+		};
+		CPU2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55","arm,armv8";
+			reg = <0x0 0x200>;
+			enable-method = "psci";
+			cpu-idle-states = <&LIT_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <417>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <155>;
+		};
+		CPU3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55","arm,armv8";
+			reg = <0x0 0x300>;
+			enable-method = "psci";
+			cpu-idle-states = <&LIT_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <417>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <155>;
+		};
+		CPU4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76","arm,armv8";
+			reg = <0x0 0x400>;
+			enable-method = "psci";
+			cpu-idle-states = <&MID_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <1022>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <721>;
+		};
+		CPU5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76","arm,armv8";
+			reg = <0x0 0x500>;
+			enable-method = "psci";
+			#cooling-cells = <2>;
+			cpu-idle-states = <&MID_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <1022>;
+			dynamic-power-coefficient = <721>;
+		};
+		CPU6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76","arm,armv8";
+			reg = <0x0 0x600>;
+			enable-method = "psci";
+			cpu-idle-states = <&MID_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <1022>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <721>;
+		};
+		CPU7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76","arm,armv8";
+			reg = <0x0 0x700>;
+			enable-method = "psci";
+			cpu-idle-states = <&BIG_CORE_PD &CLUSTER_PD &APSYS_PD_XTL_ON>;
+			capacity-dmips-mhz = <1024>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <896>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
+	idle-states {
+		entry-method = "arm,psci";
+		LIT_CORE_PD: core-sleep-lit {
+			compatible = "arm,idle-state";
+			entry-latency-us = <1000>;
+			exit-latency-us = <500>;
+			min-residency-us = <2500>;
+			local-timer-stop;
+			arm,psci-suspend-param = <0x00010000>;
+		};
+		MID_CORE_PD: core-sleep-mid {
+			compatible = "arm,idle-state";
+			entry-latency-us = <4000>;
+			exit-latency-us = <4000>;
+			min-residency-us = <10000>;
+			local-timer-stop;
+			arm,psci-suspend-param = <0x00010000>;
+		};
+		BIG_CORE_PD: core-sleep-big {
+			compatible = "arm,idle-state";
+			entry-latency-us = <4000>;
+			exit-latency-us = <4000>;
+			min-residency-us = <10000>;
+			local-timer-stop;
+			arm,psci-suspend-param = <0x00010000>;
+		};
+		CLUSTER_PD: cluster-pd {
+			compatible = "arm,idle-state";
+			entry-latency-us = <10000>;
+			exit-latency-us = <10000>;
+			min-residency-us = <25000>;
+			local-timer-stop;
+			arm,psci-suspend-param = <0x01010000>;
+		};
+		APSYS_PD_XTL_ON: apsys-pd-xtl-on {
+			compatible = "arm,idle-state";
+			entry-latency-us = <5000>;
+			exit-latency-us = <5000>;
+			min-residency-us = <10000>;
+			local-timer-stop;
+			arm,psci-suspend-param = <0x02010000>;
+		};
+	};
+
+	gic: interrupt-controller@12000000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		redistributor-stride = <0x0 0x20000>;	/* 128KB stride */
+		#redistributor-regions = <1>;
+		interrupt-controller;
+		reg = <0x0 0x12000000 0 0x20000>,	/* GICD */
+			<0x0 0x12040000 0 0x100000>;	/* GICR */
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH>, /* Physical Secure PPI */
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH>, /* Physical Non-Secure PPI */
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>, /* Virtual PPI */
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH>; /* Hipervisor PPI */
+		arm,no-tick-in-suspend;
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	gsp0: sprd-gsp0@31100000 {
+		compatible = "sprd,gsp-r9p0-qogirn6pro";
+		reg = <0 0x30130000 0 0x300>;
+		name = "sprd-gsp0";
+		core-cnt = <1>;
+		io-cnt = <7>;
+		cores = <&gsp0_core0>;
+
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+	};
+
+	gsp1: sprd-gsp1@31200000 {
+		compatible = "sprd,gsp-lite-r4p0-qogirn6pro";
+		name = "sprd-gsp1";
+		core-cnt = <1>;
+		io-cnt = <7>;
+		cores = <&gsp1_core0>;
+
+		#power-domain-cells = <0>;
+		power-domains = <&vpu_pd_top>;
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		apapb: ap-apb {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0 0x20200000 0x100000>;
+
+
+		};
+
+		apahb: ap-ahb {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0 0x20000000 0x22d0040>;
+		};
+
+		apagcp: agcp{
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+		};
+
+		pub: pub {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			dmc_controller: dmc-controller@60050000 {
+				compatible = "sprd,pub-dmc";
+				reg = <0x0 0x65014c00 0x0 0x100>, /* proc_res */
+					<0x0 0x60050000 0x0 0x8010>,/* mon_res */
+					<0x0 0x60000000 0x0 0x670>, /* dmc_res */
+					<0x0 0x60001000 0x0 0x740>, /* phy0_res */
+					<0x0 0x60002000 0x0 0x740>; /* phy1_res */
+			};
+		};
+
+		mm: mm {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+		};
+
+		aon: aon {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0 0x64000000 0x1016000>;
+
+			adi_bus: spi@400000 {
+				compatible = "sprd,ums9620-adi";
+				reg = <0x400000 0x100000>;
+			};
+
+			hwlock: hwspinlock@a10000 {
+				compatible = "sprd,hwspinlock-r3p0";
+				reg = <0xa10000 0x10000>;
+				#hwlock-cells = <1>;
+				clock-names = "enable";
+				clocks = <&aonapb_gate CLK_SPLK_EB>;
+			};
+
+			mailbox: mailbox@600000 {
+				compatible = "unisoc,mailbox";
+				reg = <0x600000 0x10000>,
+				      <0x610000 0x10000>,
+				      <0x620000 0x20000>;
+				reg-names = "inbox", "outbox", "common";
+				sprd,mailbox_clk = <&aon_apb_regs 0x4 0x4>;
+				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "inbox", "outbox", "oob-outbox";
+				#mbox-cells = <2>;
+			};
+
+			pwms: pwm@30000 {
+				compatible = "sprd,ums9620-pwm";
+				reg = <0x30000 0x10000>;
+				clock-names = "pwm0", "enable0",
+						"pwm1", "enable1",
+						"pwm2", "enable2",
+						"pwm3", "enable3";
+				clocks = <&aonapb_clk CLK_PWM0>, <&aonapb_gate CLK_PWM0_EB>,
+					 <&aonapb_clk CLK_PWM1>, <&aonapb_gate CLK_PWM1_EB>,
+					 <&aonapb_clk CLK_PWM2>, <&aonapb_gate CLK_PWM2_EB>,
+					 <&aonapb_clk CLK_PWM3>, <&aonapb_gate CLK_PWM3_EB>;
+				assigned-clocks = <&aonapb_clk CLK_PWM0>,
+						  <&aonapb_clk CLK_PWM1>,
+						  <&aonapb_clk CLK_PWM2>,
+						  <&aonapb_clk CLK_PWM3>;
+				assigned-clock-parents = <&ext_26m>,
+							 <&ext_32k>,
+							 <&ext_26m>,
+							 <&ext_26m>;
+				counter-bits = "10bit",
+						"10bit",
+						"10bit",
+						"10bit";
+				#pwm-cells = <2>;
+			};
+
+		};
+
+		dpuvsp: dpuvsp {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+		};
+
+		ipaapb: ipa-apb {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+		};
+
+		apsys_dvfs: apsys-dvfs@30114000 {
+			compatible = "sprd,hwdvfs-dpuvsp-qogirn6pro";
+			reg = <0x0 0x30114000 0x0 0x4000>;
+			sprd,dpuvpu-dvfs-up-window = <0x40>;
+			sprd,dpuvpu-dvfs-down-window = <0x80>;
+			sprd,aon_apb_regs_syscon = <&aon_apb_regs>;
+		};
+
+		ai_axi: ai-axi {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+		};
+
+	};
+
+	sipc: sipc-virt {
+		compatible = "unisoc,sipc-virt-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	dpu_dvfs: dpu-dvfs {
+		compatible = "sprd,hwdvfs-dpu-qogirn6pro";
+		sprd,hw-dfs-en = <4>;
+		sprd,work-index-def = <6>;
+		sprd,idle-index-def = <1>;
+		sprd,freq-upd-delay-en = <0>;
+		sprd,freq-upd-hdsk-en = <1>;
+
+		operating-points = <
+			/* kHz    uV */
+			256000    650000
+			307200    650000
+			384000    700000
+			409600    700000
+			512000    750000
+			614400    750000
+		>;
+	};
+
+	gsp_dvfs: gsp-dvfs {
+		compatible = "sprd,hwdvfs-gsp-qogirn6pro";
+		sprd,hw-dfs-en = <0>;
+		sprd,work-index-def = <3>;
+		sprd,idle-index-def = <1>;
+		sprd,freq-upd-delay-en = <0>;
+		sprd,freq-upd-hdsk-en = <1>;
+
+		operating-points = <
+		/* kHz    uV */
+		256000    600000
+		307200    650000
+		384000    700000
+		512000    750000
+		>;
+	};
+
+	vpudec_dvfs: vpudec-dvfs {
+		compatible = "sprd,hwdvfs-vsp-qogirn6pro";
+		sprd,dvfs-work-freq = <668250000>;
+		sprd,dvfs-idle-freq = <256000000>;
+		sprd,dvfs-enable-flag = <1>;
+		sprd,freq-upd-delay-en = <0>;
+		sprd,freq-upd-hdsk-en = <1>;
+
+		operating-points = <
+			/* kHz    uV */
+			256000    600000
+			307200    600000
+			384000    650000
+			512000    700000
+			668250    750000
+			>;
+	};
+
+	vpuenc_dvfs: vpuenc-dvfs {
+		compatible = "sprd,hwdvfs-vpuenc-qogirn6pro";
+		sprd,dvfs-work-freq = <512000000>;
+		sprd,dvfs-idle-freq = <256000000>;
+		sprd,dvfs-enable-flag = <1>;
+		sprd,freq-upd-delay-en = <0>;
+		sprd,freq-upd-hdsk-en = <1>;
+
+		operating-points = <
+			/* kHz    uV */
+			256000    600000
+			307200    650000
+			384000    700000
+			512000    750000
+			>;
+	};
+
+	freq_limit: freq-limit {
+		compatible = "sprd,freq-limit";
+		sprd,device-sign = <0x3>;
+		sprd,devfreq-cells = <&gpu>, <&npu_img>;
+	};
+
+	sprd_bcl: sprd_bcl {
+		compatible = "sprd,bcl";
+		bcl-soc-thres = <4>, <3>;
+	};
+};
+
+/* Include other IP modules ALPHABETICALLY */
+#include "apb_prot.dtsi"
+#include "apcpu-dvfs.dtsi"
+#include "bm.dtsi"
+#include "cam.dtsi"
+#include "coresight.dtsi"
+#include "csi.dtsi"
+#include "ddr-dfs.dtsi"
+#include "dispc.dtsi"
+#include "dma.dtsi"
+#include "dmc-mpu.dtsi"
+#include "efuse.dtsi"
+#include "glbreg.dtsi"
+#include "gpio.dtsi"
+#include "gpu-natt.dtsi"
+#include "i2c.dtsi"
+#include "i2s.dtsi"
+#include "jpg.dtsi"
+#include "mipi-serdes.dtsi"
+#include "modem.dtsi"
+#include "npu.dtsi"
+#include "pin-controller.dtsi"
+#include "audio.dtsi"
+#include "power.dtsi"
+#include "ptm.dtsi"
+#include "pnp.dtsi"
+#include "rtm.dtsi"
+#include "sensorhub.dtsi"
+#include "spi.dtsi"
+#include "thermal.dtsi"
+#include "timer.dtsi"
+#include "uart.dtsi"
+#include "trng.dtsi"
+#include "ufs.dtsi"
+#include "sdio.dtsi"
+#include "socid.dtsi"
+#include "usb.dtsi"
+#include "pcie.dtsi"
+#include "vpu.dtsi"
+#include "vdsp.dtsi"
+#include "wdt.dtsi"
+#include "sipa-sys.dtsi"
+#include "sipa.dtsi"
+#include "sfp.dtsi"
+#include "usbpinmux.dtsi"

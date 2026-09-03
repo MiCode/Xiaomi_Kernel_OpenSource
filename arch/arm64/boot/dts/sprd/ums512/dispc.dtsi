@@ -1,0 +1,175 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * dispc.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&mm {
+		dpu: dpu@20300000 {
+			compatible = "sprd,sharkl5pro-dpu";
+			reg = <0x0 0x20300000 0x0 0x1000>,
+			      <0x0 0x20301000 0x0 0x1000>;
+			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+
+			reset-names = "dpu_rst";
+			resets = <&apahb_gate RESET_AP_AHB_DISPC_SOFT_RST>;
+			status = "disabled";
+			iommus = <&iommu_dispc>;
+			dpu_port: port {
+				dpu_out: endpoint {
+					remote-endpoint = <&dsi_in>;
+				};
+			};
+		};
+
+		iommu_dispc: iommu@20300000 {
+			compatible = "unisoc,iommuvaul5p-dispc";
+			reg = <0x0 0x20300000 0x0 0x800>,
+					<0x0 0x20300800 0x0 0x80>;
+			iova-base = <0x30000000>;
+			iova-size = <0x10000000>;
+			reg_name = "mmu_interrupt_reg","mmu_reg";
+			status = "okay";
+			#iommu-cells = <0>;
+		};
+
+		gsp_core0: gsp@20301000 {
+			compatible = "sprd,gsp-core";
+			reg = <0 0x20301000 0 0x1000>;
+			core-id = <0>;
+			kcfg-num = <16>;
+			real-time = <1>;
+			interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
+			iommus = <&iommu_dispc>;
+
+			clock-names = "clk_dpu_core_src",
+					"clk_dpu_core",
+					"clk_ap_ahb_disp_eb";
+
+			clocks = <&pll2 CLK_TWPLL_384M>,
+					<&ap_clk CLK_DISPC0>,
+					<&apahb_gate CLK_DISPC_EB>;
+			};
+
+		dsi: dsi@20400000 {
+			compatible = "sprd,sharkl5pro-dsi-host";
+			reg = <0x0 0x20400000 0x0 0x1000>;
+			reset-names = "dsi_rst";
+			resets = <&apahb_gate RESET_AP_AHB_DSI_SOFT_RST>;
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					dsi_out: endpoint {
+						remote-endpoint = <&dphy_in>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dsi_in: endpoint {
+						remote-endpoint = <&dpu_out>;
+					};
+				};
+			};
+		};
+
+		dphy: dphy {
+			compatible = "sprd,sharkl5pro-dsi-phy";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0 0x20400000 0x0 0x1000>;
+			enable-syscon = <&ap_ahb_regs 0x0040 (0x2 | 0x1)>;
+			power-syscon = <&ap_ahb_regs 0x035c 0x8>;
+			status = "disabled";
+
+			/* output port */
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					dphy_out: endpoint {
+						remote-endpoint = <&panel_in>;
+					};
+				};
+
+				/* input port*/
+				port@1 {
+					reg = <1>;
+					dphy_in: endpoint {
+						remote-endpoint = <&dsi_out>;
+					};
+				};
+			};
+		};
+};
+
+/ {
+	gsp: sprd-gsp {
+		compatible = "sprd,gsp-r8p0-sharkl5pro";
+		name = "sprd-gsp";
+		core-cnt = <1>;
+		io-cnt = <7>;
+		cores = <&gsp_core0>;
+	};
+
+	display-subsystem {
+		compatible = "sprd,display-subsystem";
+		ports = <&dpu_port>;
+		gsp = <&gsp>;
+	};
+};
+
+
+&dpu {
+	sprd,qos = <&dpu_qos>;
+	clock-names = "clk_src_96m",
+			"clk_src_128m",
+			"clk_src_153m6",
+			"clk_src_192m",
+			"clk_src_256m",
+			"clk_src_307m2",
+			"clk_src_384m",
+			"clk_dpu_core",
+			"clk_dpu_dpi",
+			"clk_ap_ahb_disp_eb";
+
+	clocks = <&pll2 CLK_TWPLL_96M>,
+		<&pll2 CLK_TWPLL_128M>,
+		<&pll2 CLK_TWPLL_153M6>,
+		<&pll2 CLK_TWPLL_192M>,
+		<&pll2 CLK_TWPLL_256M>,
+		<&pll2 CLK_TWPLL_307M2>,
+		<&pll2 CLK_TWPLL_384M>,
+		<&ap_clk CLK_DISPC0>,
+		<&ap_clk CLK_DISPC0_DPI>,
+		<&apahb_gate CLK_DISPC_EB>;
+};
+
+&dsi {
+	clock-names = "clk_ap_ahb_dsi_eb";
+	clocks = <&apahb_gate CLK_DSI_EB>;
+};

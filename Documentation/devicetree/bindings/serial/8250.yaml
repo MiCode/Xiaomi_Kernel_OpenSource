@@ -44,7 +44,7 @@ allOf:
                   - ns16550
                   - ns16550a
     then:
-      oneOf:
+      anyOf:
         - required: [ clock-frequency ]
         - required: [ clocks ]
 

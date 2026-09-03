@@ -183,7 +183,8 @@ static bool nvme_validate_passthru_nsid(struct nvme_ctrl *ctrl,
 {
 	if (ns && nsid != ns->head->ns_id) {
 		dev_err(ctrl->device,
-			"%s: nsid (%u) in cmd does not match nsid (%u) of namespace\n",
+			"%s: nsid (%u) in cmd does not match nsid (%u)"
+			"of namespace\n",
 			current->comm, nsid, ns->head->ns_id);
 		return false;
 	}

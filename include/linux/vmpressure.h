@@ -29,6 +29,11 @@ struct vmpressure {
 
 struct mem_cgroup;
 
+#ifdef CONFIG_PROCESS_RECLAIM
+extern int vmpressure_notifier_register(struct notifier_block *nb);
+extern int vmpressure_notifier_unregister(struct notifier_block *nb);
+#endif
+
 #ifdef CONFIG_MEMCG
 extern void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 		       unsigned long scanned, unsigned long reclaimed);

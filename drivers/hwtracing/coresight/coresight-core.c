@@ -161,8 +161,7 @@ static int coresight_find_link_outport(struct coresight_device *csdev,
 
 static inline u32 coresight_read_claim_tags(struct coresight_device *csdev)
 {
-	return FIELD_GET(CORESIGHT_CLAIM_MASK,
-			 csdev_access_relaxed_read32(&csdev->access, CORESIGHT_CLAIMCLR));
+	return csdev_access_relaxed_read32(&csdev->access, CORESIGHT_CLAIMCLR);
 }
 
 static inline bool coresight_is_claimed_self_hosted(struct coresight_device *csdev)

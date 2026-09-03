@@ -63,6 +63,18 @@ unsigned long __stack_chk_guard __ro_after_init;
 EXPORT_SYMBOL(__stack_chk_guard);
 #endif
 
+#ifdef CONFIG_SHOW_UREGS_WITH_PHYSICAL
+#define USER_END		  0x7fffffffffUL
+#define USER_POINTER_TAG		  0xB4UL
+#define USER_POINTER_TAG_SHIFT		    56
+#define USER_POINTER_TAG_ADDRESS_MASK   ((UL(1) << USER_POINTER_TAG_SHIFT) - 1)
+
+#define sprd_uvirt_addr_valid(uaddr) ((uaddr >> PAGE_SHIFT) > 0 && \
+		((uaddr <= USER_END) || \
+		 (((uaddr >> USER_POINTER_TAG_SHIFT) == USER_POINTER_TAG) && \
+		  ((uaddr & USER_POINTER_TAG_ADDRESS_MASK) <= USER_END))))
+#endif
+
 /*
  * Function pointers to optional machine specific functions
  */
@@ -248,6 +260,109 @@ void show_regs(struct pt_regs *regs)
 	dump_backtrace(regs, NULL, KERN_DEFAULT);
 }
 EXPORT_SYMBOL_GPL(show_regs);
+
+#ifdef CONFIG_SHOW_UREGS_WITH_PHYSICAL
+static u64 vtop_for_uregs_show(u64 reg_addr)
+{
+	pgd_t *pgd;
+	p4d_t *p4d;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+
+	u64 phys_addr = 0;
+	u64 virt_addr;
+	u64 page_addr;
+	u64 page_offset;
+
+	if (!sprd_uvirt_addr_valid(reg_addr)) {
+		return 0 ;
+	}
+
+	virt_addr = reg_addr & USER_POINTER_TAG_ADDRESS_MASK;
+
+	if (!find_vma(current->mm, virt_addr)) {
+		return 0 ;
+	}
+
+	pgd = pgd_offset(current->mm, virt_addr);
+	if (pgd_none(*pgd)) {
+		return 0 ;
+	}
+
+	p4d = p4d_offset(pgd, virt_addr);
+	if (p4d_none(*p4d)) {
+		return 0 ;
+	}
+
+	pud = pud_offset(p4d, virt_addr);
+	if (pud_none(*pud)) {
+		return 0 ;
+	}
+
+	pmd = pmd_offset(pud, virt_addr);
+	if (pmd_none(*pmd)) {
+		return 0 ;
+	}
+
+	if (pmd_val(*pmd) && !(pmd_val(*pmd) & (_AT(pmdval_t, 1) << 1))) {
+		page_addr = page_to_phys(pmd_page(*pmd));
+		page_offset = virt_addr & ~PAGE_MASK;
+		phys_addr = (0x7fffffffffUL) & (page_addr | page_offset);
+		return phys_addr;
+	}
+
+	pte = pte_offset_kernel(pmd, virt_addr);
+	if (pte_none(*pte) && !pte_val(*pte)) {
+		return 0 ;
+	}
+
+	page_addr = pte_val(*pte) & PAGE_MASK;
+	page_offset = virt_addr & ~PAGE_MASK;
+	phys_addr = (0x7fffffffffUL) & (page_addr | page_offset);
+
+	return phys_addr;
+}
+
+static void __show_uregs_with_physical(struct pt_regs *regs)
+{
+	int i, top_reg;
+	u64 lr, sp;
+
+	if (compat_user_mode(regs)) {
+		lr = regs->compat_lr;
+		sp = regs->compat_sp;
+		top_reg = 12;
+	} else {
+		lr = regs->regs[30];
+		sp = regs->sp;
+		top_reg = 29;
+	}
+
+	pr_warn("Before coredump,show user regs with physical address \n");
+	show_regs_print_info(KERN_DEFAULT);
+
+	pr_warn("pc : %016llx phys_addr :  %016llx  \n",
+		  regs->pc, vtop_for_uregs_show(regs->pc));
+	pr_warn("lr : %016llx phys_addr :  %016llx  \n",
+		  lr, vtop_for_uregs_show(lr));
+	pr_warn("sp : %016llx phys_addr :  %016llx  \n",
+	  sp, vtop_for_uregs_show(sp));
+
+	i = top_reg;
+
+	while (i >= 0) {
+		pr_warn("x%-2d: %016llx phys_addr :  %016llx  \n",
+		  i, regs->regs[i], vtop_for_uregs_show(regs->regs[i]));
+		i--;
+	}
+}
+
+void show_uregs_with_physical(struct pt_regs *regs)
+{
+	__show_uregs_with_physical(regs);
+}
+#endif
 
 static void tls_thread_flush(void)
 {
@@ -531,11 +646,13 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
 	return last;
 }
 
-unsigned long __get_wchan(struct task_struct *p)
+unsigned long get_wchan(struct task_struct *p)
 {
 	struct stackframe frame;
 	unsigned long stack_page, ret = 0;
 	int count = 0;
+	if (!p || p == current || task_is_running(p))
+		return 0;
 
 	stack_page = (unsigned long)try_get_task_stack(p);
 	if (!stack_page)

@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc SC2730 PMIC dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+
+&adi_bus {
+	sc2730_pmic: pmic@0 {
+		compatible = "sprd,sc2730";
+		reg = <0>;
+		spi-max-frequency = <26000000>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pmic_led: led-controller@180 {
+			compatible = "sprd,sc2730-bltc";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x180>;
+
+			led@0 {
+				label = "red";
+				reg = <0x0>;
+			};
+
+			led@1 {
+				label = "green";
+				reg = <0x1>;
+			};
+
+			led@2 {
+				label = "blue";
+				reg = <0x2>;
+			};
+		};
+
+		pmic_wdt: watchdog@40 {
+			compatible = "sprd,sc2730-wdt", "sprd,sc27xx-wdt";
+			reg = <0x40>;
+		};
+
+		rtc@200 {
+			compatible = "sprd,sc2731-rtc", "sprd,sc2730-rtc";
+			reg = <0x200>;
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <1>;
+		};
+
+		pmic_eic: gpio@280 {
+			compatible = "sprd,sc2731-eic", "sprd,sc2730-eic";
+			reg = <0x280>;
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		pmic_typec: typec@380 {
+			compatible = "sprd,sc2730-typec", "sprd,sc27xx-typec";
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <8>;
+			reg = <0x380>;
+			sprd,mode = <2>;
+			nvmem-cells = <&typec_cc1_cal>, <&typec_cc2_cal>;
+			nvmem-cell-names = "typec_cc1_cal", "typec_cc2_cal";
+			status = "okay";
+		};
+
+		pmic_fchg: fchg@400 {
+			compatible = "sprd,sc2730-fast-charger";
+			reg = <0x400>;
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
+			nvmem-cell-names = "fchg_cur_calib";
+			nvmem-cells = <&sfcp_calib>;
+			status = "disabled";
+		};
+
+		pmic_adc: adc@504 {
+			compatible = "sprd,sc27xx-adc", "sprd,sc2730-adc";
+			reg = <0x504>;
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+			#io-channel-cells = <1>;
+			hwlocks = <&hwlock 4>;
+			nvmem-cells = <&adc_bcal>, <&adc_scal>;
+			nvmem-cell-names = "big_scale_calib", "small_scale_calib";
+		};
+
+		pmic_fgu: fgu@c00 {
+			compatible = "sprd,sc27xx-fgu", "sprd,sc2730-fgu", "sprd,sprd-fgu";
+			reg = <0xc00>;
+			bat-detect-gpio = <&pmic_eic 3 GPIO_ACTIVE_HIGH>;
+			nvmem-cell-names = "fgu_calib";
+			nvmem-cells = <&fgu_calib>;
+			io-channels = <&pmic_adc 0>, <&pmic_adc 14>;
+			io-channel-names = "bat-temp", "charge-vol";
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <3>;
+		};
+
+		pmic_pd: pd@e00 {
+			compatible = "sprd,sc27xx-pd", "sprd,sc2730-pd";
+			reg = <0xe00>, <0x380>;
+			interrupt-parent = <&sc2730_pmic>;
+			interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+			extcon = <&pmic_typec>, <&extcon_gpio>;
+			nvmem-cells = <&pdrc_calib>, <&pddelta_calib>, <&pdref_calib>;
+			nvmem-cell-names = "pdrc_calib", "pddelta_calib", "pdref_calib";
+			status = "disabled";
+		};
+
+		pmic_dump {
+			compatible = "sprd,pmic-dump";
+			sprd,pmic-dump-mem = <&pmic_reserved>;
+		};
+
+		syscon@1800 {
+			compatible = "sprd,sc2731-syscon", "sprd,sc27xx-syscon";
+			reg = <0x1800>, <0x1ba0>, <0x1b98>;
+		};
+
+		pmic_smpl: smpl@1800 {
+			compatible = "sprd,sc27xx-smpl", "sprd,sc2730-smpl";
+			reg = <0x1800>;
+			sprd,smpl-timer-threshold = <250>;
+		};
+
+		pmic_pwroff: poweroff@1820 {
+			compatible = "sprd,sc27xx-poweroff", "sprd,sc2730-poweroff";
+			reg = <0x1820>;
+		};
+
+		pmic_tsensor: tsensor@1b34 {
+			compatible = "sprd,sc27xx-tsensor", "sprd,sc2730-tsensor";
+			#thermal-sensor-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x1b34>;
+
+			osc_tsensor: osc-tsensor@0 {
+				reg = <0>;
+			};
+
+			tout_tsensor: tout-tsensor@1 {
+				reg = <1>;
+			};
+		};
+
+		hw-reset@1bc0 {
+			compatible = "sprd,sc27xx-7sreset", "sprd,sc2730-7sreset";
+			reg = <0x1bf8>, <0x1bc0>;
+		};
+
+		vibrator@1b90 {
+			compatible = "sprd,sc2730-vibrator";
+			reg = <0x1b90>;
+		};
+
+		bc1p2@1b9c {
+			compatible = "sprd,sc27xx-bc1p2", "sprd,sc2730-bc1p2";
+			vbus_ok_bybass;
+		};
+		
+		refout@1AEC {
+		compatible =  "sprd,sc27xx-refout";
+		regsw = <0x1AEC>;
+		refnum = <5>;
+		};
+	};
+};
+
+#include "audio-codec.dtsi"
+#include "efuse.dtsi"
+#include "regulator.dtsi"

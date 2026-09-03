@@ -788,4 +788,14 @@ config KEYBOARD_MTK_PMIC
 	  To compile this driver as a module, choose M here: the
 	  module will be called pmic-keys.
 
+config KEYBOARD_SPRD
+	tristate "Spreadtrum keyboard support"
+	depends on ARCH_SPRD || COMPILE_TEST
+	select INPUT_MATRIXKMAP
+	help
+	  Keypad controller is used to interface a SoC with a matrix-keypad device,
+	  The keypad controller supports multiple row and column lines.
+	  Say Y if you want to use the SPRD keyboard.
+	  Say M if you want to use the SPRD keyboard on SoC as module.
+
 endif

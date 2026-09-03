@@ -903,16 +903,14 @@ brcmf_usb_dl_writeimage(struct brcmf_usbdev_info *devinfo, u8 *fw, int fwlen)
 	}
 
 	/* 1) Prepare USB boot loader for runtime image */
-	err = brcmf_usb_dl_cmd(devinfo, DL_START, &state, sizeof(state));
-	if (err)
-		goto fail;
+	brcmf_usb_dl_cmd(devinfo, DL_START, &state, sizeof(state));
 
 	rdlstate = le32_to_cpu(state.state);
 	rdlbytes = le32_to_cpu(state.bytes);
 
 	/* 2) Check we are in the Waiting state */
 	if (rdlstate != DL_WAITING) {
-		brcmf_err("Invalid DL state: %u\n", rdlstate);
+		brcmf_err("Failed to DL_START\n");
 		err = -EINVAL;
 		goto fail;
 	}

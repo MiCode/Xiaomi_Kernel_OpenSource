@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc UART dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&apapb {
+	uart0: serial@0 {
+		compatible = "sprd,ums9620-uart",
+		             "sprd,sc9836-uart";
+		reg = <0 0x100>;
+		interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>;
+		source-base = <0x2001004c>;
+		clock-names = "enable", "uart", "source";
+		clocks = <&apapb_gate CLK_UART0_EB>,
+			<&ap_clk CLK_AP_UART0>, <&ext_26m>;
+		status = "disabled";
+	};
+
+	uart1: serial@10000 {
+	        compatible = "sprd,ums9620-uart",
+	                     "sprd,sc9836-uart";
+	        reg = <0x10000 0x100>;
+	        interrupts = <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
+	        source-base = <0x20010058>;
+		clock-names = "enable", "uart", "source";
+		clocks = <&apapb_gate CLK_UART1_EB>,
+			<&ap_clk CLK_AP_UART1>, <&ext_26m>;
+	        status = "disabled";
+	};
+
+	uart2: serial@20000 {
+	        compatible = "sprd,ums9620-uart",
+	                     "sprd,sc9836-uart";
+	        reg = <0x20000 0x100>;
+	        interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
+	        source-base = <0x20010064>;
+		clock-names = "enable", "uart", "source";
+		clocks = <&apapb_gate CLK_UART2_EB>,
+			<&ap_clk CLK_AP_UART2>, <&ext_26m>;
+	        status = "disabled";
+	};
+
+	uart3: serial@30000 {
+	        compatible = "sprd,ums9620-uart",
+	                     "sprd,sc9836-uart";
+	        reg = <0x30000 0x100>;
+	        interrupts = <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>;
+	        source-base = <0x20010070>;
+		clock-names = "enable", "uart", "source";
+		clocks = <&apapb_gate CLK_UART3_EB>,
+			<&ap_clk CLK_AP_UART3>, <&ext_26m>;
+	        status = "disabled";
+	};
+
+};

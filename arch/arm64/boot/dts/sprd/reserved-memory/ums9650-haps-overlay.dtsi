@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc nt36672e Truly LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+&reserved_memory {
+	widevine_reserved: widevine@e3800000 {
+		reg = <0x0 0xe3800000 0x0 0x0c800000>;
+	};
+
+	fd_reserved: faceid-mem@ff9f0000 {
+		reg = <0x0 0xff9f0000 0x0 0x00500000>;
+	};
+};
+

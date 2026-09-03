@@ -1174,7 +1174,7 @@ err:
 }
 
 static int tegra_powergate_of_get_resets(struct tegra_powergate *pg,
-					 struct device_node *np)
+					 struct device_node *np, bool off)
 {
 	struct device *dev = pg->pmc->dev;
 	int err;
@@ -1189,6 +1189,22 @@ static int tegra_powergate_of_get_resets(struct tegra_powergate *pg,
 	err = reset_control_acquire(pg->reset);
 	if (err < 0) {
 		pr_err("failed to acquire resets: %d\n", err);
+		goto out;
+	}
+
+	if (off) {
+		err = reset_control_assert(pg->reset);
+	} else {
+		err = reset_control_deassert(pg->reset);
+		if (err < 0)
+			goto out;
+
+		reset_control_release(pg->reset);
+	}
+
+out:
+	if (err) {
+		reset_control_release(pg->reset);
 		reset_control_put(pg->reset);
 	}
 
@@ -1233,43 +1249,20 @@ static int tegra_powergate_add(struct tegra_pmc *pmc, struct device_node *np)
 		goto set_available;
 	}
 
-	err = tegra_powergate_of_get_resets(pg, np);
+	err = tegra_powergate_of_get_resets(pg, np, off);
 	if (err < 0) {
 		dev_err(dev, "failed to get resets for %pOFn: %d\n", np, err);
 		goto remove_clks;
 	}
 
-	/*
-	 * If the power-domain is off, then ensure the resets are asserted.
-	 * If the power-domain is on, then power down to ensure that when is
-	 * it turned on the power-domain, clocks and resets are all in the
-	 * expected state.
-	 */
-	if (off) {
-		err = reset_control_assert(pg->reset);
-		if (err) {
-			pr_err("failed to assert resets: %d\n", err);
-			goto remove_resets;
-		}
-	} else {
-		err = tegra_powergate_power_down(pg);
-		if (err) {
-			dev_err(dev, "failed to turn off PM domain %s: %d\n",
-				pg->genpd.name, err);
-			goto remove_resets;
-		}
-	}
-
-	/*
-	 * If PM_GENERIC_DOMAINS is not enabled, power-on
-	 * the domain and skip the genpd registration.
-	 */
 	if (!IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS)) {
-		WARN_ON(tegra_powergate_power_up(pg, true));
+		if (off)
+			WARN_ON(tegra_powergate_power_up(pg, true));
+
 		goto remove_resets;
 	}
 
-	err = pm_genpd_init(&pg->genpd, NULL, true);
+	err = pm_genpd_init(&pg->genpd, NULL, off);
 	if (err < 0) {
 		dev_err(dev, "failed to initialise PM domain %pOFn: %d\n", np,
 		       err);

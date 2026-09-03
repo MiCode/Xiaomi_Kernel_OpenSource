@@ -1,0 +1,26 @@
+config ARCH_SPRD
+	bool "Spreadtrum SoC Familes"
+	select CPU_V7
+	select HAVE_SMP
+	select ARM_GIC
+	select HAVE_SCHED_CLOCK
+	select LOCAL_TIMERS if SMP
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select USE_OF
+	select CLKSRC_MMIO
+	select CLKSRC_OF
+	select COMMON_CLK
+	select SPRD_TIMER
+	select ARCH_HAS_CPUFREQ
+	select ARM_HAS_SG_CHAIN
+	select HAVE_FUTEX_CMPXCHG if MMU && FUTEX
+	select REGMAP
+	select MFD_SYSCON
+	select CLKSRC_SPRD
+	select PINCTRL
+	help
+	  Support Spreadtrum's arm based systems.
+

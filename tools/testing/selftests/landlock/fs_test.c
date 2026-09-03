@@ -1767,7 +1767,8 @@ static void test_execute(struct __test_metadata *const _metadata, const int err,
 	ASSERT_EQ(1, WIFEXITED(status));
 	ASSERT_EQ(err ? 2 : 0, WEXITSTATUS(status))
 	{
-		TH_LOG("Unexpected return code for \"%s\"", path);
+		TH_LOG("Unexpected return code for \"%s\": %s", path,
+		       strerror(errno));
 	};
 }
 

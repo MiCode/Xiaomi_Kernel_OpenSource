@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+&reserved_memory {
+	/*Increase support for protected_heap*/
+	protected_reserved: protected-mem@80003000 {
+		reg = <0x0 0x80003000 0x0 0x00002000>;
+	};
+
+	fd_reserved: faceid-mem@ffa70000 {
+		reg = <0x0 0xffa70000 0x0 0x00500000>;
+	};
+};

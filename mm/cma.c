@@ -45,6 +45,9 @@
 
 struct cma cma_areas[MAX_CMA_AREAS];
 unsigned cma_area_count;
+#ifdef CONFIG_SPRD_CMA_DEBUG
+struct sprd_cma_debug sprd_cma;
+#endif
 static DEFINE_MUTEX(cma_mutex);
 
 phys_addr_t cma_get_base(const struct cma *cma)
@@ -130,6 +133,10 @@ static void __init cma_activate_area(struct cma *cma)
 
 	spin_lock_init(&cma->lock);
 
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	mutex_init(&sprd_cma.lock);
+#endif
+
 #ifdef CONFIG_CMA_DEBUGFS
 	INIT_HLIST_HEAD(&cma->mem_head);
 	spin_lock_init(&cma->mem_head_lock);
@@ -205,6 +212,9 @@ int __init cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 
 	cma->base_pfn = PFN_DOWN(base);
 	cma->count = size >> PAGE_SHIFT;
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	cma->free_count = size >> PAGE_SHIFT;
+#endif
 	cma->order_per_bit = order_per_bit;
 	*res_cma = cma;
 	cma_area_count++;
@@ -409,6 +419,102 @@ static void cma_debug_show_areas(struct cma *cma)
 static inline void cma_debug_show_areas(struct cma *cma) { }
 #endif
 
+#ifdef CONFIG_SPRD_CMA_DEBUG
+int sysctl_sprd_cma_debug;
+void save_sprd_debug_info(unsigned long addr, int cnt, unsigned long us)
+{
+	unsigned long index;
+	int i;
+
+	index = (addr >> 8) & (MAX_SPRD_CMA_DEBUG_NUM - 1);
+
+	mutex_lock(&sprd_cma.lock);
+	for (i = index; i < MAX_SPRD_CMA_DEBUG_NUM; i++) {
+		if (!sprd_cma.sprd_cma_info[i].caller_addr) {
+			sprd_cma.sprd_cma_info[i].caller_addr = addr;
+			sprd_cma.sprd_cma_info[i].alloc_pages = cnt;
+			sprd_cma.sprd_cma_info[i].alloc_cnt++;
+			sprd_cma.sprd_cma_info[i].cost_us = us;
+			sprd_cma.sum_cnt++;
+			mutex_unlock(&sprd_cma.lock);
+			return;
+		} else if (addr == sprd_cma.sprd_cma_info[i].caller_addr) {
+			sprd_cma.sprd_cma_info[i].alloc_pages += cnt;
+			sprd_cma.sprd_cma_info[i].alloc_cnt++;
+			sprd_cma.sprd_cma_info[i].cost_us += us;
+			mutex_unlock(&sprd_cma.lock);
+			return;
+		}
+	}
+
+	for (i = 0; i < index; i++) {
+		if (!sprd_cma.sprd_cma_info[i].caller_addr) {
+			sprd_cma.sprd_cma_info[i].caller_addr = addr;
+			sprd_cma.sprd_cma_info[i].alloc_pages = cnt;
+			sprd_cma.sprd_cma_info[i].alloc_cnt++;
+			sprd_cma.sprd_cma_info[i].cost_us = us;
+			sprd_cma.sum_cnt++;
+			mutex_unlock(&sprd_cma.lock);
+			return;
+		} else if (addr == sprd_cma.sprd_cma_info[i].caller_addr) {
+			sprd_cma.sprd_cma_info[i].alloc_pages += cnt;
+			sprd_cma.sprd_cma_info[i].alloc_cnt++;
+			sprd_cma.sprd_cma_info[i].cost_us += us;
+			mutex_unlock(&sprd_cma.lock);
+			return;
+		}
+	}
+	mutex_unlock(&sprd_cma.lock);
+}
+
+void show_sprd_cma_status(void)
+{
+	int i;
+
+	pr_info("sprd cma status:\n");
+	for (i = 0; i < MAX_CMA_AREAS; i++) {
+		if (cma_areas[i].count)
+			pr_info("cma name: %s, count: %ld, free count: %ld\n",
+						cma_areas[i].name, cma_areas[i].count,
+						cma_areas[i].free_count);
+	}
+
+	pr_info("sprd cma debug info:\n");
+	mutex_lock(&sprd_cma.lock);
+	pr_info("save sprd cma debug info cnt: %d\n", sprd_cma.sum_cnt);
+	for (i = 0; i < MAX_SPRD_CMA_DEBUG_NUM; i++) {
+		if (sprd_cma.sprd_cma_info[i].caller_addr) {
+			if (sprd_cma.sprd_cma_info[i].cost_us)
+				pr_info("caller: %ps, alloc pages: %d, alloc cnt: %d, alloc cost time: %ldus\n",
+						(void *)sprd_cma.sprd_cma_info[i].caller_addr,
+						sprd_cma.sprd_cma_info[i].alloc_pages,
+						sprd_cma.sprd_cma_info[i].alloc_cnt,
+						sprd_cma.sprd_cma_info[i].cost_us);
+			else
+				pr_info("caller: %ps, free pages: %d, free cnt: %d, free cost time: %ldus\n",
+						(void *)sprd_cma.sprd_cma_info[i].caller_addr,
+						sprd_cma.sprd_cma_info[i].alloc_pages,
+						sprd_cma.sprd_cma_info[i].alloc_cnt,
+						sprd_cma.sprd_cma_info[i].cost_us);
+		}
+	}
+	mutex_unlock(&sprd_cma.lock);
+}
+
+int sysctl_sprd_cma_debug_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *length, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec_minmax(table, write, buffer, length, ppos);
+	if (ret || !write)
+		return -1;
+
+	show_sprd_cma_status();
+	return 0;
+}
+#endif
+
 /**
  * cma_alloc() - allocate pages from contiguous area
  * @cma:   Contiguous memory region for which the allocation is performed.
@@ -431,6 +537,10 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 	int ret = -ENOMEM;
 	int num_attempts = 0;
 	int max_retries = 5;
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	struct timespec64 cma_alloc_start, cma_alloc_end, cma_alloc_cost;
+	unsigned long cma_alloc_time;
+#endif
 	bool bypass = false;
 
 	trace_android_vh_cma_alloc_bypass(cma, count, align, no_warn,
@@ -446,6 +556,10 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 
 	if (!count)
 		goto out;
+
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	ktime_get_real_ts64(&cma_alloc_start);
+#endif
 
 	trace_cma_alloc_start(cma->name, count, align);
 
@@ -504,6 +618,11 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 		mutex_unlock(&cma_mutex);
 		if (ret == 0) {
 			page = pfn_to_page(pfn);
+#ifdef CONFIG_SPRD_CMA_DEBUG
+			spin_lock_irq(&cma->lock);
+			cma->free_count -= count;
+			spin_unlock_irq(&cma->lock);
+#endif
 			break;
 		}
 
@@ -537,6 +656,23 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 				   __func__, cma->name, count, ret);
 		cma_debug_show_areas(cma);
 	}
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	else if (ret) {
+		pr_err("%pS: alloc failed, cma: %s, free cnt: %ld, alloc cnt: %ld, ret: %d\n",
+					(void *)_RET_IP_, cma->name, cma->free_count, count, ret);
+	}
+
+	ktime_get_real_ts64(&cma_alloc_end);
+	cma_alloc_cost = timespec64_sub(cma_alloc_end, cma_alloc_start);
+	cma_alloc_time = timespec64_to_ns(&cma_alloc_cost);
+	save_sprd_debug_info(_RET_IP_, count, cma_alloc_time >> 10);
+	if (cma_alloc_time > 500000000L) {
+		pr_err("cma alloc time exceeds 500ms ,time = %ldus\n",
+						cma_alloc_time >> 10);
+		dump_stack();
+		show_sprd_cma_status();
+	}
+#endif
 
 	pr_debug("%s(): returned %p\n", __func__, page);
 out:
@@ -582,6 +718,12 @@ bool cma_release(struct cma *cma, const struct page *pages,
 
 	free_contig_range(pfn, count);
 	cma_clear_bitmap(cma, pfn, count);
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	spin_lock_irq(&cma->lock);
+	cma->free_count += count;
+	spin_unlock_irq(&cma->lock);
+	save_sprd_debug_info(_RET_IP_, count, 0);
+#endif
 	trace_cma_release(cma->name, pfn, pages, count);
 
 	return true;

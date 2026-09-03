@@ -31,9 +31,8 @@ static u32 scale(u32 source_val,
 {
 	u64 target_val;
 
-	if (WARN_ON(source_min >= source_max) ||
-	    WARN_ON(target_min > target_max))
-		return target_min;
+	WARN_ON(source_min > source_max);
+	WARN_ON(target_min > target_max);
 
 	/* defensive */
 	source_val = clamp(source_val, source_min, source_max);

@@ -77,9 +77,6 @@ SYM_FUNC_START(__svm_vcpu_run)
 	/* "POP" @vmcb to RAX. */
 	pop %_ASM_AX
 
-	/* Clobbers EFLAGS.ZF */
-	VM_CLEAR_CPU_BUFFERS
-
 	/* Enter guest mode */
 	sti
 
@@ -192,9 +189,6 @@ SYM_FUNC_START(__svm_sev_es_vcpu_run)
 
 	/* Move @vmcb to RAX. */
 	mov %_ASM_ARG1, %_ASM_AX
-
-	/* Clobbers EFLAGS.ZF */
-	VM_CLEAR_CPU_BUFFERS
 
 	/* Enter guest mode */
 	sti

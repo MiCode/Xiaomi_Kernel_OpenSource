@@ -265,7 +265,7 @@ show_shost_supported_mode(struct device *dev, struct device_attribute *attr,
 	return show_shost_mode(supported_mode, buf);
 }
 
-static DEVICE_ATTR(supported_mode, S_IRUGO, show_shost_supported_mode, NULL);
+static DEVICE_ATTR(supported_mode, S_IRUGO | S_IWUSR, show_shost_supported_mode, NULL);
 
 static ssize_t
 show_shost_active_mode(struct device *dev,
@@ -279,7 +279,7 @@ show_shost_active_mode(struct device *dev,
 		return show_shost_mode(shost->active_mode, buf);
 }
 
-static DEVICE_ATTR(active_mode, S_IRUGO, show_shost_active_mode, NULL);
+static DEVICE_ATTR(active_mode, S_IRUGO | S_IWUSR, show_shost_active_mode, NULL);
 
 static int check_reset_type(const char *str)
 {
@@ -755,6 +755,7 @@ store_rescan_field (struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(rescan, S_IWUSR, NULL, store_rescan_field);
 
+#ifndef CONFIG_SPRD_DEBUG
 static ssize_t
 sdev_store_delete(struct device *dev, struct device_attribute *attr,
 		  const char *buf, size_t count)
@@ -789,6 +790,7 @@ sdev_store_delete(struct device *dev, struct device_attribute *attr,
 	return count;
 };
 static DEVICE_ATTR(delete, S_IWUSR, NULL, sdev_store_delete);
+#endif
 
 static ssize_t
 store_state_field(struct device *dev, struct device_attribute *attr,
@@ -1279,7 +1281,9 @@ static struct attribute *scsi_sdev_attrs[] = {
 	&dev_attr_model.attr,
 	&dev_attr_rev.attr,
 	&dev_attr_rescan.attr,
+#ifndef CONFIG_SPRD_DEBUG
 	&dev_attr_delete.attr,
+#endif
 	&dev_attr_state.attr,
 	&dev_attr_timeout.attr,
 	&dev_attr_eh_timeout.attr,

@@ -857,19 +857,6 @@ more_data:
 		delta = msg->sg.size;
 		psock->eval = sk_psock_msg_verdict(sk, psock, msg);
 		delta -= msg->sg.size;
-
-		if ((s32)delta > 0) {
-			/* It indicates that we executed bpf_msg_pop_data(),
-			 * causing the plaintext data size to decrease.
-			 * Therefore the encrypted data size also needs to
-			 * correspondingly decrease. We only need to subtract
-			 * delta to calculate the new ciphertext length since
-			 * ktls does not support block encryption.
-			 */
-			struct sk_msg *enc = &ctx->open_rec->msg_encrypted;
-
-			sk_msg_trim(sk, enc, enc->sg.size - delta);
-		}
 	}
 	if (msg->cork_bytes && msg->cork_bytes > msg->sg.size &&
 	    !enospc && !full_record) {
@@ -904,13 +891,6 @@ more_data:
 		err = tcp_bpf_sendmsg_redir(sk_redir, &msg_redir, send, flags);
 		lock_sock(sk);
 		if (err < 0) {
-			/* Regardless of whether the data represented by
-			 * msg_redir is sent successfully, we have already
-			 * uncharged it via sk_msg_return_zero(). The
-			 * msg->sg.size represents the remaining unprocessed
-			 * data, which needs to be uncharged here.
-			 */
-			sk_mem_uncharge(sk, msg->sg.size);
 			*copied -= sk_msg_free_nocharge(sk, &msg_redir);
 			msg->sg.size = 0;
 		}

@@ -120,7 +120,7 @@ config X86
 	select ARCH_WANT_DEFAULT_BPF_JIT	if X86_64
 	select ARCH_WANTS_DYNAMIC_TASK_STRUCT
 	select ARCH_WANTS_NO_INSTR
-	select ARCH_WANT_HUGE_PMD_SHARE		if X86_64
+	select ARCH_WANT_HUGE_PMD_SHARE
 	select ARCH_WANT_LD_ORPHAN_WARN
 	select ARCH_WANTS_THP_SWAP		if X86_64
 	select ARCH_HAS_PARANOID_L1D_FLUSH
@@ -196,7 +196,7 @@ config X86
 	select HAVE_DYNAMIC_FTRACE_WITH_DIRECT_CALLS
 	select HAVE_EBPF_JIT
 	select HAVE_EFFICIENT_UNALIGNED_ACCESS
-	select HAVE_EISA			if X86_32
+	select HAVE_EISA
 	select HAVE_EXIT_THREAD
 	select HAVE_FAST_GUP
 	select HAVE_FENTRY			if X86_64 || DYNAMIC_FTRACE
@@ -2451,8 +2451,7 @@ config CPU_IBPB_ENTRY
 	depends on CPU_SUP_AMD && X86_64
 	default y
 	help
-	  Compile the kernel with support for the retbleed=ibpb and
-	  spec_rstack_overflow={ibpb,ibpb-vmexit} mitigations.
+	  Compile the kernel with support for the retbleed=ibpb mitigation.
 
 config CPU_IBRS_ENTRY
 	bool "Enable IBRS on kernel entry"
@@ -2519,35 +2518,6 @@ config MITIGATION_SPECTRE_BHI
 	  indirect branches.
 	  See <file:Documentation/admin-guide/hw-vuln/spectre.rst>
 
-config MITIGATION_ITS
-	bool "Enable Indirect Target Selection mitigation"
-	depends on CPU_SUP_INTEL && X86_64
-	depends on RETPOLINE && RETHUNK
-	default y
-	help
-	  Enable Indirect Target Selection (ITS) mitigation. ITS is a bug in
-	  BPU on some Intel CPUs that may allow Spectre V2 style attacks. If
-	  disabled, mitigation cannot be enabled via cmdline.
-	  See <file:Documentation/admin-guide/hw-vuln/indirect-target-selection.rst>
-
-config MITIGATION_TSA
-	bool "Mitigate Transient Scheduler Attacks"
-	depends on CPU_SUP_AMD
-	default y
-	help
-	  Enable mitigation for Transient Scheduler Attacks. TSA is a hardware
-	  security vulnerability on AMD CPUs which can lead to forwarding of
-	  invalid info to subsequent instructions and thus can affect their
-	  timing and thereby cause a leakage.
-
-config MITIGATION_VMSCAPE
-	bool "Mitigate VMSCAPE"
-	depends on KVM
-	default y
-	help
-	  Enable mitigation for VMSCAPE attacks. VMSCAPE is a hardware security
-	  vulnerability on Intel and AMD CPUs that may allow a guest to do
-	  Spectre v2 style attacks on userspace hypervisor.
 endif
 
 config ARCH_HAS_ADD_PAGES

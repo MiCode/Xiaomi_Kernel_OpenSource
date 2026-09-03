@@ -1045,6 +1045,9 @@ static void create_page_chain(struct size_class *class, struct zspage *zspage,
 				SetPageHugeObject(page);
 		} else {
 			prev_page->freelist = page;
+#ifdef CONFIG_SPRD_PAGE_OWNER
+			SetPagePrivate(page);
+#endif
 		}
 		prev_page = page;
 	}
@@ -1063,9 +1066,6 @@ static struct zspage *alloc_zspage(struct zs_pool *pool,
 
 	if (!zspage)
 		return NULL;
-
-	if (!IS_ENABLED(CONFIG_COMPACTION))
-		gfp &= ~__GFP_MOVABLE;
 
 	zspage->magic = ZSPAGE_MAGIC;
 	migrate_lock_init(zspage);

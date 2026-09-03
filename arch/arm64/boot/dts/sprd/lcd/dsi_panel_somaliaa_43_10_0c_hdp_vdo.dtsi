@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc td4169b Truly LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			lcds {
+				dsi_panel_somaliaa_43_10_0c_hdp_vdo: dsi_panel_somaliaa_43_10_0c_hdp_vdo {
+					sprd,dsi-work-mode = <1>; /* video burst mode*/
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+
+					sprd,phy-bit-clock = <1122000>; /* kbps */
+					sprd,phy-escape-clock = <20000>;/* kHz */
+					sprd,vrr-enable;  /*120hz 90hz 60hz*/
+					sprd,dpi-clk-div = <6>;
+					sprd,video-lp-cmd-enable = <1>;
+					sprd,hporch-lp-disable = <1>;
+					sprd,power-gpio-delay = <20>;/* ms */
+
+					sprd,lcm-index = <3>;/* panel Batch */
+					sprd,width-um = <71928>;
+					sprd,height-um = <159840>;
+					sprd,width-mm = <72>;
+					sprd,height-mm = <160>;
+					sprd,esd-check-enable = <1>;
+					sprd,esd-check-mode = <2>;
+					sprd,esd-check-period = <3000>;
+					// Unset params
+					// sprd,esd-check-num = <1>;
+					// sprd,esd-check-register = <0x0A>;
+					// sprd,esd-check-value = <0x9C>;
+
+					mi,bkl-normal-matrix = <8 2047 4095>;
+					mi,bkl-remap-matrix = <11 3270 4095>;
+
+					sprd,reset-on-sequence = <1 6>, <0 11>, <1 6>;
+					sprd,reset-off-sequence = <0 5>;
+					/*
+					* Use 4 bits number for descripting video lp mode, and it can be combined used.
+					* BIT(0): allow vactive enter lp;
+					* BIT(1): allow vfp enter lp;
+					* BIT(2): allow vbp enter lp;
+					* BIT(3): allow vsa enter lp;
+					* For example:
+					* If we need vfp & vbp enter lp, we can calculate this value as a result of BIT(1) | BIT(2)
+					* And we get the result of 3 and set this value to lcd dt property sprd,video-lp-en-mode.
+					* If we need all stage can enter lp, we can calculate this value as a result of BIT(0) | BIT(1) | BIT(2) | BIT(3).
+					* And we get the result of 15 and set this value to lcd dt property sprd,video-lp-en-mode.
+					*/
+					sprd,video-lp-en-mode = <11>;
+					sprd,initial-command = [
+						23 00 00 02 B0 00
+						23 00 00 02 D6 00
+						39 00 00 07 B8 02 A2 35 00 22 13
+						39 00 00 07 B9 02 80 4A 08 3F 69
+						39 00 00 07 BA 02 A2 35 00 22 13
+						39 00 00 04 F0 BE 00 06
+						39 00 00 04 F0 BE 02 80
+						39 00 00 04 F0 C0 02 44
+
+						39 00 00 04 F0 C2 0F 86
+						39 00 00 04 F0 C2 10 8A
+
+						39 00 00 04 F0 C3 04 69
+						39 00 00 04 F0 C3 06 32
+
+						39 00 00 04 F0 D7 07 44
+						39 00 00 04 F0 D7 0B 44
+
+						39 00 00 04 F0 EB 00 0A
+						39 00 00 04 F0 EB 01 00
+						39 00 00 04 F0 EB 02 A0
+
+						39 00 00 04 F0 ED 08 69
+						39 00 00 04 F0 ED 0A 32
+
+						23 00 00 02 B0 03
+						39 00 00 03 51 00 00
+						23 00 00 02 53 24
+						23 00 00 02 55 03
+
+						13 50 00 01 11
+						13 0A 00 01 29
+					];
+
+					sprd,sleep-in-command = [
+						13 14 00 01 28
+						13 78 00 01 10
+					];
+
+					sprd,sleep-out-command = [
+						13 50 00 01 11
+						13 0A 00 01 29
+					];
+
+					sprd,tp-proximity-command = [
+						13 0A 00 01 28
+						23 00 00 02 B0 00
+						39 00 00 04 F0 D1 00 4A
+						39 00 00 04 F0 D1 01 56
+						39 00 00 04 F0 D1 02 03
+						39 00 00 04 F0 D1 03 33
+						39 00 00 04 F0 D1 04 33
+						39 00 00 04 F0 D1 05 14
+						39 00 00 04 F0 D1 06 07
+						39 00 00 04 F0 D1 07 BB
+						39 00 00 04 F0 D1 08 55
+						39 00 00 04 F0 D1 09 45
+						39 00 00 04 F0 D1 0A 55
+						39 00 00 04 F0 D1 0B 45
+						39 00 00 04 F0 D1 0C 00
+						39 00 00 04 F0 D1 0D 3B
+						39 00 00 04 F0 D1 0E 07
+						39 00 00 04 F0 D1 0F 07
+						39 00 00 04 F0 D1 10 3B
+						39 00 00 04 F0 D1 11 30
+						39 00 00 04 F0 D1 12 06
+						39 00 00 04 F0 D1 13 72
+						39 00 00 04 F0 D1 14 30
+						39 00 00 04 F0 D1 15 10
+						39 00 00 04 F0 D1 16 00
+						39 00 00 04 F0 D1 17 97
+						23 00 00 02 B2 04
+					];
+
+					sprd,cabc-off-mode = [
+						23 00 00 02 55 03
+					];
+
+					sprd,cabc-ui-mode = [
+						23 00 00 02 55 13
+					];
+
+					sprd,cabc-mov-mode = [
+						23 00 00 02 55 23
+					];
+
+					sprd,cabc-still-mode = [
+						23 00 00 02 55 33
+					];
+
+					sprd,esd-cmd-page = [
+						23 00 00 02 B0 04
+					];
+
+					sprd,main-cmd-page = [
+						23 00 00 02 B0 03
+					];
+
+					sprd,cabc-bl-ctrl-on = [
+						39 00 00 03 5E 00 0B
+					];
+
+					sprd,cabc-bl-ctrl-off = [
+						39 00 00 03 5E 00 00
+					];
+
+					display-timings {
+						native-mode = <&td4160b_truly_timing0>;
+
+						td4160b_truly_timing0: timing0 { //60hz
+							clock-frequency = <187000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <56>;
+							hfront-porch = <56>;
+							vback-porch = <64>;
+							vfront-porch = <2059>;
+							hsync-len = <4>;
+							vsync-len = <4>;
+						};
+
+						td4160b_truly_timing1: timing1 {  //90hz
+							clock-frequency = <187000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <56>;
+							hfront-porch = <56>;
+							vback-porch = <64>;
+							vfront-porch = <817>;
+							hsync-len = <4>;
+							vsync-len = <4>;
+						};
+
+						td4160b_truly_timing2: timing2 {  //120hz
+							clock-frequency = <187000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <56>;
+							hfront-porch = <56>;
+							vback-porch = <64>;
+							vfront-porch = <196>;
+							hsync-len = <4>;
+							vsync-len = <4>;
+						};
+					};
+					oled-backlight {
+						default-brightness-level = <1000>;
+						sprd,max-level = <4095>;
+						brightness-levels = [
+							39 00 00 03 51 03 E8
+						];
+					};
+				};
+			};
+		};
+	};
+};

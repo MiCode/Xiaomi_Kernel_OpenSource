@@ -34,7 +34,6 @@ _aarch64_additional_kmi_symbol_lists = [
     "android/abi_gki_aarch64_oplus",
     "android/abi_gki_aarch64_pasa",
     "android/abi_gki_aarch64_pixel",
-    "android/abi_gki_aarch64_pointmobile",
     "android/abi_gki_aarch64_qcom",
     "android/abi_gki_aarch64_rtktv",
     "android/abi_gki_aarch64_sony",
@@ -206,6 +205,7 @@ define_db845c(
         "drivers/spi/spi-qcom-qspi.ko",
         "drivers/spi/spi-qup.ko",
         "drivers/spmi/spmi-pmic-arb.ko",
+        "drivers/staging/binder_prio/binder_prio.ko",
         "drivers/thermal/qcom/lmh.ko",
         "drivers/thermal/qcom/qcom-spmi-adc-tm5.ko",
         "drivers/thermal/qcom/qcom-spmi-temp-alarm.ko",
@@ -218,6 +218,7 @@ define_db845c(
         "drivers/usb/typec/qcom-pmic-typec.ko",
         "drivers/watchdog/pm8916_wdt.ko",
         "drivers/watchdog/qcom-wdt.ko",
+	"drivers/staging/miev/miev.ko",
         # TODO(b/233404531): Remove zsmalloc.ko when db845c is a mixed build
         "mm/zsmalloc.ko",
         "net/mac80211/mac80211.ko",

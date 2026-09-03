@@ -1,0 +1,22 @@
+/*SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+ *
+ * UNISOC UMP9620 PMIC regulator dts file
+ *
+ * Copyright (C) 2020, UNISOC Communications Inc.
+ */
+&ump9620_pmic {
+	pmic_adc: adc@504 {
+		compatible = "sprd,ump9620-adc", "sprd,sc27xx-adc";
+		reg = <0x504>;
+		interrupt-parent = <&ump9620_pmic>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		sprd_adc_pm_reg = <&aon_apb_regs REG_AON_APB_MIPI_CSI_POWER_CTRL
+			MASK_AON_APB_R2G_ANALOG_BB_TOP_SINDRV_ENA_ADC>;
+		#io-channel-cells = <1>;
+		hwlocks = <&hwlock 4>;
+		nvmem-cells = <&adc_bcal1>, <&adc_bcal2>, <&adc_scal1>,<&adc_scal2>,
+			<&vbat_det_cal1>, <&vbat_det_cal2>;
+		nvmem-cell-names = "big_scale_calib1", "big_scale_calib2", "small_scale_calib1",
+			"small_scale_calib2", "vbat_det_cal1", "vbat_det_cal2";
+	};
+};

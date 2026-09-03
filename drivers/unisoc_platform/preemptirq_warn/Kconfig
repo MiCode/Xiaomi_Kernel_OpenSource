@@ -1,0 +1,14 @@
+config IRQSOFF_WARN
+	tristate "Interrupts-off Latency Warning"
+	depends on IRQSOFF_TRACER
+	help
+	  This option measures the time spent in irqs-off critical sections,
+	  and print some information if the time exceeds the set threshold.
+
+config PREEMPT_WARN
+	tristate "Preemption-off Latency Warning"
+	depends on PREEMPT_TRACER
+	help
+	  This option measures the time spent in preemption-off critical
+	  sections, and print some information if the time exceeds the set
+	  threshold.

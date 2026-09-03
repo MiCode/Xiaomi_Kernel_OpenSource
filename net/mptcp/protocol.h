@@ -139,24 +139,22 @@ struct mptcp_options_received {
 	u32	subflow_seq;
 	u16	data_len;
 	__sum16	csum;
-	struct_group(status,
-		u16 suboptions;
-		u16 use_map:1,
-		    dsn64:1,
-		    data_fin:1,
-		    use_ack:1,
-		    ack64:1,
-		    mpc_map:1,
-		    reset_reason:4,
-		    reset_transient:1,
-		    echo:1,
-		    backup:1,
-		    deny_join_id0:1,
-		    __unused:2;
-	);
-	u8	join_id;
+	u16	suboptions;
 	u32	token;
 	u32	nonce;
+	u16	use_map:1,
+		dsn64:1,
+		data_fin:1,
+		use_ack:1,
+		ack64:1,
+		mpc_map:1,
+		reset_reason:4,
+		reset_transient:1,
+		echo:1,
+		backup:1,
+		deny_join_id0:1,
+		__unused:2;
+	u8	join_id;
 	u64	thmac;
 	u8	hmac[MPTCPOPT_HMAC_LEN];
 	struct mptcp_addr_info addr;
@@ -599,19 +597,16 @@ void mptcp_info2sockaddr(const struct mptcp_addr_info *info,
 			 struct sockaddr_storage *addr,
 			 unsigned short family);
 
-static inline bool __tcp_can_send(const struct sock *ssk)
-{
-	/* only send if our side has not closed yet */
-	return ((1 << inet_sk_state_load(ssk)) & (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT));
-}
-
 static inline bool __mptcp_subflow_active(struct mptcp_subflow_context *subflow)
 {
+	struct sock *ssk = mptcp_subflow_tcp_sock(subflow);
+
 	/* can't send if JOIN hasn't completed yet (i.e. is usable for mptcp) */
 	if (subflow->request_join && !subflow->fully_established)
 		return false;
 
-	return __tcp_can_send(mptcp_subflow_tcp_sock(subflow));
+	/* only send if our side has not closed yet */
+	return ((1 << ssk->sk_state) & (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT));
 }
 
 void mptcp_subflow_set_active(struct mptcp_subflow_context *subflow);
@@ -875,8 +870,6 @@ static inline void __mptcp_do_fallback(struct mptcp_sock *msk)
 		pr_debug("TCP fallback already done (msk=%p)\n", msk);
 		return;
 	}
-	if (WARN_ON_ONCE(!READ_ONCE(msk->allow_infinite_fallback)))
-		return;
 	set_bit(MPTCP_FALLBACK_DONE, &msk->flags);
 }
 

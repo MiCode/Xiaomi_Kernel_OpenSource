@@ -51,7 +51,7 @@ static int text_area_cpu_up(unsigned int cpu)
 {
 	struct vm_struct *area;
 
-	area = get_vm_area(PAGE_SIZE, 0);
+	area = get_vm_area(PAGE_SIZE, VM_ALLOC);
 	if (!area) {
 		WARN_ONCE(1, "Failed to create text area for cpu %d\n",
 			cpu);

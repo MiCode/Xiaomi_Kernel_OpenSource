@@ -3317,7 +3317,7 @@ static int niu_rbr_add_page(struct niu *np, struct rx_ring_info *rp,
 
 	addr = np->ops->map_page(np->device, page, 0,
 				 PAGE_SIZE, DMA_FROM_DEVICE);
-	if (np->ops->mapping_error(np->device, addr)) {
+	if (!addr) {
 		__free_page(page);
 		return -ENOMEM;
 	}
@@ -6654,8 +6654,6 @@ static netdev_tx_t niu_start_xmit(struct sk_buff *skb,
 	len = skb_headlen(skb);
 	mapping = np->ops->map_single(np->device, skb->data,
 				      len, DMA_TO_DEVICE);
-	if (np->ops->mapping_error(np->device, mapping))
-		goto out_drop;
 
 	prod = rp->prod;
 
@@ -6697,8 +6695,6 @@ static netdev_tx_t niu_start_xmit(struct sk_buff *skb,
 		mapping = np->ops->map_page(np->device, skb_frag_page(frag),
 					    skb_frag_off(frag), len,
 					    DMA_TO_DEVICE);
-		if (np->ops->mapping_error(np->device, mapping))
-			goto out_unmap;
 
 		rp->tx_buffs[prod].skb = NULL;
 		rp->tx_buffs[prod].mapping = mapping;
@@ -6722,19 +6718,6 @@ static netdev_tx_t niu_start_xmit(struct sk_buff *skb,
 
 out:
 	return NETDEV_TX_OK;
-
-out_unmap:
-	while (i--) {
-		const skb_frag_t *frag;
-
-		prod = PREVIOUS_TX(rp, prod);
-		frag = &skb_shinfo(skb)->frags[i];
-		np->ops->unmap_page(np->device, rp->tx_buffs[prod].mapping,
-				    skb_frag_size(frag), DMA_TO_DEVICE);
-	}
-
-	np->ops->unmap_single(np->device, rp->tx_buffs[rp->prod].mapping,
-			      skb_headlen(skb), DMA_TO_DEVICE);
 
 out_drop:
 	rp->tx_errors++;
@@ -9629,11 +9612,6 @@ static void niu_pci_unmap_single(struct device *dev, u64 dma_address,
 	dma_unmap_single(dev, dma_address, size, direction);
 }
 
-static int niu_pci_mapping_error(struct device *dev, u64 addr)
-{
-	return dma_mapping_error(dev, addr);
-}
-
 static const struct niu_ops niu_pci_ops = {
 	.alloc_coherent	= niu_pci_alloc_coherent,
 	.free_coherent	= niu_pci_free_coherent,
@@ -9641,7 +9619,6 @@ static const struct niu_ops niu_pci_ops = {
 	.unmap_page	= niu_pci_unmap_page,
 	.map_single	= niu_pci_map_single,
 	.unmap_single	= niu_pci_unmap_single,
-	.mapping_error	= niu_pci_mapping_error,
 };
 
 static void niu_driver_version(void)
@@ -10008,11 +9985,6 @@ static void niu_phys_unmap_single(struct device *dev, u64 dma_address,
 	/* Nothing to do.  */
 }
 
-static int niu_phys_mapping_error(struct device *dev, u64 dma_address)
-{
-	return false;
-}
-
 static const struct niu_ops niu_phys_ops = {
 	.alloc_coherent	= niu_phys_alloc_coherent,
 	.free_coherent	= niu_phys_free_coherent,
@@ -10020,7 +9992,6 @@ static const struct niu_ops niu_phys_ops = {
 	.unmap_page	= niu_phys_unmap_page,
 	.map_single	= niu_phys_map_single,
 	.unmap_single	= niu_phys_unmap_single,
-	.mapping_error	= niu_phys_mapping_error,
 };
 
 static int niu_of_probe(struct platform_device *op)

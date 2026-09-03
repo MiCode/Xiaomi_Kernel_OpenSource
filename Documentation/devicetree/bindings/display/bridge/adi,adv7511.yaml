@@ -76,8 +76,9 @@ properties:
 
   adi,input-depth:
     description: Number of bits per color component at the input.
-    $ref: /schemas/types.yaml#/definitions/uint32
-    enum: [ 8, 10, 12 ]
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [ 8, 10, 12 ]
 
   adi,input-colorspace:
     description: Input color space.

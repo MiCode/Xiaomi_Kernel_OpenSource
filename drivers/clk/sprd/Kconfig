@@ -9,6 +9,16 @@ if SPRD_COMMON_CLK
 
 # SoC Drivers
 
+config SPRD_UDX710_CLK
+	tristate "Support for the Unisoc UDX710 clocks"
+	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
+	default ARM64 && ARCH_SPRD
+	help
+	  Support for the global clock controller on udx710 devices.
+          different config parameter define different way to load devices.
+	  Say Y if you want to use peripheral devices on udx710 SoC.
+	  Say M if you want to use peripheral devices on udx710 SoC as module.
+
 config SPRD_SC9860_CLK
 	tristate "Support for the Spreadtrum SC9860 clocks"
 	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
@@ -16,9 +26,78 @@ config SPRD_SC9860_CLK
 
 config SPRD_SC9863A_CLK
 	tristate "Support for the Spreadtrum SC9863A clocks"
-	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
-	default ARM64 && ARCH_SPRD
 	help
 	  Support for the global clock controller on sc9863a devices.
 	  Say Y if you want to use peripheral devices on sc9863a SoC.
+
+config SPRD_UMS312_CLK
+	tristate "Support for the Unisoc UMS312 clocks"
+	help
+	  Support for the global clock controller on ums312 devices.
+	  different config parameter define different way to load devices.
+	  Say Y if you want to use peripheral devices on ums312 SoC.
+	  Say M if you want to use peripheral devices on ums312 SoC as module.
+
+config SPRD_UMS512_CLK
+	tristate "Support for the Unisoc UMS512 clocks"
+	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
+	default ARM64 && ARCH_SPRD
+	help
+	  Support for the global clock controller on ums512 devices.
+	  Say Y if you want to use peripheral devices on ums512 SoC.
+
+config SPRD_UMS9230_CLK
+	tristate "Support for the Unisoc UMS9230 clocks"
+	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
+	default ARM64 && ARCH_SPRD
+	help
+	  Support for the global clock controller on ums9230 devices.
+	  different config parameter define different way to load devices.
+	  Say Y if you want to use peripheral devices on ums9230 SoC.
+	  Say M if you want to use peripheral devices on ums9230 SoC as module.
+
+config SPRD_UMS9620_CLK
+	tristate "Support for the Unisoc UMS9620 clocks"
+	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
+	default ARM64 && ARCH_SPRD
+	help
+	  Support for the global clock controller on ums9620 devices.
+	  Say Y if you want to use peripheral devices on ums9620 SoC.
+
+config SPRD_SC7731E_CLK
+	tristate "Support for the Unisoc SC7731E clocks"
+	depends on (ARM && ARCH_SPRD) || COMPILE_TEST
+	help
+	  Support for the global clock controller on sc7731e devices.
+	  different config parameter define different way to load devices.
+	  Say Y if you want to use peripheral devices on sc7731e SoC.
+	  Say M if you want to use peripheral devices on ums9230 SoC as module.
+
+config SPRD_SC9832E_CLK
+	tristate "Support for the Unisoc SC9832E clocks"
+	depends on (ARM && ARCH_SPRD) || COMPILE_TEST
+	help
+	  Support for the global clock controller on sc7731e devices.
+	  different config parameter define different way to load devices.
+	  Say Y if you want to use peripheral devices on sc7731e SoC.
+	  Say M if you want to use peripheral devices on ums9230 SoC as module.
+
+config SPRD_UMS9621_CLK
+	tristate "Support for the Unisoc UMS9621 clocks"
+	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
+	default ARM64 && ARCH_SPRD
+	help
+	  Support for the global clock controller on ums9621 devices.
+	  Say Y if you want to use peripheral devices on ums9621 SoC.
+
+config SPRD_UIS8520_CLK
+	tristate "Support for the Unisoc UIS8520 clocks"
+	depends on (ARM64 && ARCH_SPRD) || COMPILE_TEST
+	default ARM64 && ARCH_SPRD
+	help
+	  Support for the global clock controller on uis8520 devices.
+	  different config parameter define different way to load devices.
+	  Say Y if you want to use peripheral devices on uis8520 SoC.
+	  Say M if you want to use peripheral devices on uis8520 SoC as module.
+
 endif

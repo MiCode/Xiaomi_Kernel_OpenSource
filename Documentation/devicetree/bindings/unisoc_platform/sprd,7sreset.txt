@@ -1,0 +1,20 @@
+Spreadtrum 7sreset bindings
+
+This IP block in the unisoc SoC that only deals with hardware reboot-force.
+
+Required properties:
+- compatible:
+  -"sprd,sc2720-7sreset" for SC2720 7sreset
+  -"sprd,sc2721-7sreset" for SC2721 7sreset
+  -"sprd,sc2730-7sreset" for SC2730 7sreset
+  -"sprd,sc2731-7sreset" for SC2731 7sreset
+  -"sprd,ump9620-7sreset" for UMP9620 poweroff
+
+- reg: Specifies the physical address of the SWRST_CTL0 and POR_7S_CTL register.
+
+Example:
+hw-reset@1bc0 {
+	compatible = "sprd,sc2730-7sreset";
+	reg = <0x1bf8>, <0x1bc0>;
+};
+

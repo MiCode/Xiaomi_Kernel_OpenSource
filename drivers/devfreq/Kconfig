@@ -41,6 +41,13 @@ config DEVFREQ_GOV_SIMPLE_ONDEMAND
 	  values that imply the usage rate. A device may provide tuned
 	  values to the governor with data field at devfreq_add_device().
 
+config SPRD_HW_DEVICE_DVFS_CP
+	tristate "Unisoc CP dvfs driver"
+	depends on SPRD_SIPC || UNISOC_SIPC
+	help
+	  This driver supports dvfs interfaces for MODEM subsystem.
+	  It set MODEM DVFS controller register to adjust frequency and voltage.
+
 config DEVFREQ_GOV_PERFORMANCE
 	tristate "Performance"
 	help
@@ -74,7 +81,46 @@ config DEVFREQ_GOV_PASSIVE
 	  through sysfs entries. The passive governor recommends that
 	  devfreq device uses the OPP table to get the frequency/voltage.
 
+config DEVFREQ_GOV_SPRD_VOTE
+	tristate "Sprd vote set from userspace"
+	depends on DEVFREQ_SPRD_DDR_DVFS
+	help
+	  Sprd govanor can selected by Sprd_ddr_dvfs driver.
+	  Userspace write sysfs nodes of this  governor to set freq&vol
+	  Then the govnor send request to driver.
+
 comment "DEVFREQ Drivers"
+
+config DEVFREQ_SPRD_DDR_DVFS
+	tristate "Sprd ddr dvfs"
+	help
+	  Sets frequency as user specidied or scenarios.
+	  This driver used on sprd ddrcv1 and after versions, can select
+	  governors.
+	  This driver send SIPC request to DFS core to change freq.
+
+choice
+	prompt "SPRD DVFS vote of each asic design"
+	depends on DEVFREQ_SPRD_DDR_DVFS && UNISOC_SIPC
+	help
+	  Vote registers on pub has several different design
+
+config DEVFREQ_SPRD_DDR_DVFS_SP
+	tristate "Sprd ddr dvfs control SP driver"
+	help
+          dvfs registers control by sp.
+
+endchoice
+
+config SPRD_DDR_DVFS_GLP
+	bool "GLP global config for ddr dvfs"
+	depends on DEVFREQ_SPRD_DDR_DVFS
+	default n
+	help
+          GLP global config for ddr dvfs.
+          This configuration is only used for
+          SPRD GLP branch.
+          It should be turned off when using other branches.
 
 config ARM_EXYNOS_BUS_DEVFREQ
 	tristate "ARM Exynos Generic Memory Bus DEVFREQ Driver"
@@ -131,6 +177,29 @@ config ARM_RK3399_DMC_DEVFREQ
 	  This adds the DEVFREQ driver for the RK3399 DMC(Dynamic Memory Controller).
 	  It sets the frequency for the memory controller and reads the usage counts
 	  from hardware.
+
+config DVFS_APSYS_SPRD
+	tristate "Sprd DVFS APSYS DEVFREQ Driver"
+	depends on SPRD_SOCID
+	default n
+	help
+	  This function is to support the apsys dvfs function.
+
+config DRM_SPRD_GSP_DVFS
+	bool "SPRD DRM GSP dvfs driver"
+	depends on DVFS_APSYS_SPRD
+	help
+	  This function is to support the dvfs function.
+
+config DVFS_APSYS_VDSP
+	bool "SPRD APSYS VDSP dvfs driver"
+	depends on DVFS_APSYS_SPRD
+	help
+	  This function is to support the vdsp dvfs function.
+	  Vdsp dvfs is for change vdsp frequency&voltage.
+	  In sharkL5Pro vdsp power is from ap system.
+	  Others qogirN6pro vdsp power is from mm system.
+	  So this config is use on different hardware.
 
 source "drivers/devfreq/event/Kconfig"
 

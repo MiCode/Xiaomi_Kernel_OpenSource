@@ -365,7 +365,7 @@ static void __f2fs_init_extent_tree(struct inode *inode, struct page *ipage)
 	struct f2fs_extent *i_ext = ipage ? &F2FS_INODE(ipage)->i_ext : NULL;
 	struct extent_tree *et;
 	struct extent_node *en;
-	struct extent_info ei = {0};
+	struct extent_info ei;
 
 	if (!f2fs_may_extent_tree(inode)) {
 		/* drop largest extent */

@@ -2358,7 +2358,11 @@ static int prctl_set_vma(unsigned long opt, unsigned long addr,
 static int prctl_set_vma(unsigned long opt, unsigned long start,
 			 unsigned long size, unsigned long arg)
 {
+#ifdef CONFIG_ARM64
 	return -EINVAL;
+#else
+	return 0;
+#endif
 }
 #endif /* CONFIG_ANON_VMA_NAME */
 

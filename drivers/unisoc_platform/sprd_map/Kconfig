@@ -1,0 +1,7 @@
+config UNISOC_MAPUSER
+	tristate "UNISOC MapUser Module"
+	depends on ARM || ARM64
+	depends on ARCH_SPRD
+	help
+	  Choose this option can support unisoc mapuser driver used in faceid.
+

@@ -178,8 +178,8 @@ static int rockchip_pcie_phy_init(struct rockchip_pcie *rockchip)
 
 static void rockchip_pcie_phy_deinit(struct rockchip_pcie *rockchip)
 {
-	phy_power_off(rockchip->phy);
 	phy_exit(rockchip->phy);
+	phy_power_off(rockchip->phy);
 }
 
 static int rockchip_pcie_reset_control_release(struct rockchip_pcie *rockchip)

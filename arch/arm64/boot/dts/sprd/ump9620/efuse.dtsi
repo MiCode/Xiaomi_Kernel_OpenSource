@@ -1,0 +1,97 @@
+/*
+  * UNISOC UMP9620 PMIC efuse dts file
+  *
+  * Copyright (C) 2020, UNISOC Communications Inc.
+  *
+  * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+  */
+&ump9620_pmic {
+	ump9620_efuse: efuse@c00 {
+		compatible = "sprd,ump9620-efuse", "sprd,sc27xx-efuse";
+		reg = <0xc00>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		hwlocks = <&hwlock 12>;
+		/* Data cells */
+		fgu_calib: calib@4 {
+			reg = <0x4c 0x2>;
+		};
+
+		typec_cc1_cal: calib@8 {
+			reg = <0x48 0x2>;
+		};
+
+		typec_cc2_cal: calib@a {
+			reg = <0x4a 0x2>;
+		};
+
+		sfcp_calib: calib@0a {
+			reg = <0x0a 0x2>;
+		};
+
+		pdrc_calib: calib@2c {
+			reg = <0x2c 0x2>;
+		};
+
+		headset_adc_sec: calib@2e {
+			reg = <0x2e 0x2>;
+		};
+
+		neg_cp_efuse: calib@32 {
+			reg = <0x32 0x2>;
+		};
+
+		adc_bcal1: calib@38 {
+			reg = <0x38 0x2>;
+		};
+
+		adc_bcal2: calib@3a {
+			reg = <0x3a 0x2>;
+		};
+
+		headset_adc_fir_1: calib@3c {
+			reg = <0x3c 0x2>;
+		};
+
+		headset_adc_fir_2: calib@3e {
+			reg = <0x3e 0x2>;
+		};
+
+		adc_scal2: calib@40 {
+			reg = <0x40 0x2>;
+		};
+
+		adc_scal1: calib@42 {
+			reg = <0x42 0x2>;
+		};
+
+		vbat_det_cal2: calib@44 {
+			reg = <0x44 0x2>;
+		};
+
+		vbat_det_cal1: calib@46 {
+			reg = <0x46 0x2>;
+		};
+
+		pddelta_calib: calib@48 {
+			reg = <0x48 0x2>;
+		};
+
+		headset_adc_fir: calib@4a {
+			reg = <0x4a 0x2>;
+		};
+
+		typec_cc_mark: calib@4c {
+			reg = <0x4c 0x2>;
+			bits = <1 1>;
+		};
+
+		pdref_calib: calib@34 {
+			reg = <0x34 0x2>;
+		};
+
+		aud_pabst_vcal: calib@30 {
+			reg = <0x30 0x2>;
+		};
+	};
+};

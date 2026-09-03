@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc APCPU DVFS dts file
+ *
+ * Copyright (C) 2022, Unisoc Communications Inc.
+ *
+ */
+
+&CPU0 {
+	sprd,freq-domain = <&cpufreq_clus0 0>;
+};
+
+&CPU1 {
+	sprd,freq-domain = <&cpufreq_clus0 0>;
+};
+
+&CPU2 {
+	sprd,freq-domain = <&cpufreq_clus0 0>;
+};
+
+&CPU3 {
+	sprd,freq-domain = <&cpufreq_clus0 0>;
+};
+
+&CPU4 {
+	sprd,freq-domain = <&cpufreq_clus1 1>;
+};
+
+&CPU5 {
+	sprd,freq-domain = <&cpufreq_clus1 1>;
+};
+
+&CPU6 {
+	sprd,freq-domain = <&cpufreq_clus1 1>;
+};
+
+&CPU7 {
+	sprd,freq-domain = <&cpufreq_clus1 1>;
+};
+
+/ {
+	apcpu_dvfs: apcpu-dvfs {
+		compatible = "sprd,cpufreq-v2";
+
+		cpufreq_clus0: cpufreq_clus0{
+				sprd,cpufreq-boost;
+				sprd,dcdc-id = <4 136>;
+				sprd,pmic-type = <2>;
+				sprd,temp-threshold = <10 65>;
+				sprd,transition-delay = <500>;
+				sprd,thmzone-names = "cpu-thmzone";
+
+				#freq-domain-cells = <1>;
+		};
+
+		cpufreq_clus1: cpufreq_clus1 {
+				sprd,cpufreq-boost;
+				sprd,pmic-type = <0>;
+				sprd,temp-threshold = <10 65>;
+				sprd,transition-delay = <500>;
+				sprd,thmzone-names = "cpu-thmzone";
+
+				#freq-domain-cells = <1>;
+		};
+	};
+};

@@ -840,9 +840,7 @@ void pcie_enable_interrupt(struct controller *ctrl)
 {
 	u16 mask;
 
-	mask = PCI_EXP_SLTCTL_DLLSCE;
-	if (!pciehp_poll_mode)
-		mask |= PCI_EXP_SLTCTL_HPIE;
+	mask = PCI_EXP_SLTCTL_HPIE | PCI_EXP_SLTCTL_DLLSCE;
 	pcie_write_cmd(ctrl, mask, mask);
 }
 

@@ -48,7 +48,7 @@ static int xensyms_next_sym(struct xensyms *xs)
 			return -ENOMEM;
 
 		set_xen_guest_handle(symdata->name, xs->name);
-		symdata->symnum = symnum; /* Rewind */
+		symdata->symnum--; /* Rewind */
 
 		ret = HYPERVISOR_platform_op(&xs->op);
 		if (ret < 0)
@@ -78,7 +78,7 @@ static void *xensyms_next(struct seq_file *m, void *p, loff_t *pos)
 {
 	struct xensyms *xs = (struct xensyms *)m->private;
 
-	*pos = xs->op.u.symdata.symnum;
+	xs->op.u.symdata.symnum = ++(*pos);
 
 	if (xensyms_next_sym(xs))
 		return NULL;

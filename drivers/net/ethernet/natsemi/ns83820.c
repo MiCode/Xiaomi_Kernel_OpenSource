@@ -820,7 +820,7 @@ static void rx_irq(struct net_device *ndev)
 	struct ns83820 *dev = PRIV(ndev);
 	struct rx_info *info = &dev->rx_info;
 	unsigned next_rx;
-	int len;
+	int rx_rc, len;
 	u32 cmdsts;
 	__le32 *desc;
 	unsigned long flags;
@@ -881,10 +881,8 @@ static void rx_irq(struct net_device *ndev)
 		if (likely(CMDSTS_OK & cmdsts)) {
 #endif
 			skb_put(skb, len);
-			if (unlikely(!skb)) {
-				ndev->stats.rx_dropped++;
+			if (unlikely(!skb))
 				goto netdev_mangle_me_harder_failed;
-			}
 			if (cmdsts & CMDSTS_DEST_MULTI)
 				ndev->stats.multicast++;
 			ndev->stats.rx_packets++;
@@ -903,12 +901,15 @@ static void rx_irq(struct net_device *ndev)
 				__vlan_hwaccel_put_tag(skb, htons(ETH_P_IPV6), tag);
 			}
 #endif
-			netif_rx(skb);
+			rx_rc = netif_rx(skb);
+			if (NET_RX_DROP == rx_rc) {
+netdev_mangle_me_harder_failed:
+				ndev->stats.rx_dropped++;
+			}
 		} else {
 			dev_kfree_skb_irq(skb);
 		}
 
-netdev_mangle_me_harder_failed:
 		nr++;
 		next_rx = info->next_rx;
 		desc = info->descs + (DESC_SIZE * next_rx);

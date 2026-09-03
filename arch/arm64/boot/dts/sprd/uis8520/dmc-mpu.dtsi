@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc dmc_mpu dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/debug/common.h>
+
+&pub {
+	dmc_mpu: dmc-mpu@60030000 {
+		compatible = "sprd,dmc-mpu";
+		reg = <0 0x60030000 0 0x10000>;
+		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
+		mpu-irq-clr-syscon = <&pub_apb_regs 0x32f0 0x200>;
+		mpu-irq-en-syscon = <&pub_apb_regs 0x32f0 0x100>;
+		sprd,channel-num = <10>;
+		sprd,mpu-num = <16>;
+		sprd,channel-names =
+			"CPU", "GPU", "DPU/DCAM","ISP/VSP/GSP",
+			"AP/ISE/AON/IPA/PCIE", "PHYCP/PSCPACC", "PSCPU",
+			"AI", "PHYCPU", "AUD",
+			"SHARED2", "SHARED3", "SHARED4",
+			"SHARED5", "SHARED6", "SHARED7";
+		sprd,ranges = <0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>, <0 0 0 0>, <0 0 0 0>,
+			<0 0 0 0>;
+		sprd,chn-config =
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>,
+			<DISABLE MON_INSIDE MON_WRITE>;
+		sprd,id-config =
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>,
+			<MPUID 0 0xffff>, <MPUID 0 0xffff>;
+		sprd,port-map = <0>, <1>, <2>, <3>, <4>,
+			<5>, <6>, <7>, <6>, <6>,
+			<0>, <0>, <0>, <0>, <0>,
+			<0>;
+		sprd,ddr-offset = <0x80000000>;
+		status = "okay";
+	};
+};

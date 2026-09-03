@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc UIS8520 ETHERNET dts file
+ *
+ * Copyright (C) 2023~2024, Unisoc Communications Inc.
+ */
+
+&xgmacapb {
+	stmmac_axi_setup: stmmac-axi-config {
+		snps,wr_osr_lmt = <0xf>;
+		snps,rd_osr_lmt = <0xf>;
+		snps,blen = <256 128 64 32 0 0 0>;
+	};
+
+	mtl_rx_setup: rx-queues-config {
+		snps,rx-queues-to-use = <16>;
+		snps,rx-sched-sp;
+		queue0 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x0>;
+			snps,priority = <0x0>;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x1>;
+			snps,priority = <0x1>;
+		};
+
+		queue2 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x2>;
+			snps,priority = <0x2>;
+		};
+
+		queue3 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x3>;
+			snps,priority = <0x3>;
+		};
+
+		queue4 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x4>;
+			snps,priority = <0x4>;
+		};
+
+		queue5 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x5>;
+			snps,priority = <0x5>;
+		};
+
+		queue6 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x6>;
+			snps,priority = <0x6>;
+		};
+
+		queue7 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x7>;
+			snps,priority = <0x7>;
+		};
+
+		queue8 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x8>;
+			snps,priority = <0x0>;
+		};
+
+		queue9 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x9>;
+			snps,priority = <0x0>;
+		};
+
+		queue10 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0xa>;
+			snps,priority = <0x0>;
+		};
+
+		queue11 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0xb>;
+			snps,priority = <0x0>;
+		};
+
+		queue12 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0xc>;
+			snps,priority = <0x0>;
+		};
+
+		queue13 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0xd>;
+			snps,priority = <0x0>;
+		};
+
+		queue14 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0xe>;
+			snps,priority = <0x0>;
+		};
+
+		queue15 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0xf>;
+			snps,priority = <0x0>;
+		};
+	};
+
+	mtl_tx_setup: tx-queues-config {
+		snps,tx-queues-to-use = <16>;
+		snps,tx-sched-wrr;
+		queue0 {
+			snps,weight = <0x10>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue1 {
+			snps,weight = <0x11>;
+			snps,dcb-algorithm;
+			snps,priority = <0x1>;
+		};
+
+		queue2 {
+			snps,weight = <0x12>;
+			snps,dcb-algorithm;
+			snps,priority = <0x2>;
+		};
+
+		queue3 {
+			snps,weight = <0x13>;
+			snps,dcb-algorithm;
+			snps,priority = <0x4>;
+		};
+
+		queue4 {
+			snps,weight = <0x14>;
+			snps,dcb-algorithm;
+			snps,priority = <0x5>;
+		};
+
+		queue5 {
+			snps,weight = <0x15>;
+			snps,dcb-algorithm;
+			snps,priority = <0x6>;
+		};
+
+		queue6 {
+			snps,weight = <0x16>;
+			snps,dcb-algorithm;
+			snps,priority = <0x7>;
+		};
+
+		queue7 {
+			snps,weight = <0x17>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue8 {
+			snps,weight = <0x18>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue9 {
+			snps,weight = <0x19>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue10 {
+			snps,weight = <0x1a>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue11 {
+			snps,weight = <0x1b>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue12 {
+			snps,weight = <0x1c>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue13 {
+			snps,weight = <0x1d>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+		queue14 {
+			snps,weight = <0x1e>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+
+		queue15 {
+			snps,weight = <0x1f>;
+			snps,dcb-algorithm;
+			snps,priority = <0x0>;
+		};
+	};
+
+	ethernet@28200000 {
+		compatible = "snps,dwmac-3.10a", "snps,dwxgmac";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		reg = <0 0x28200000 0 0x10000>;
+		interrupt-controller;
+		interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 236 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>,
+			     //<GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "rx_irq3", "rx_irq2",
+				  "rx_irq1", "rx_irq0",
+				  "tx_irq3", "tx_irq2",
+				  "tx_irq1", "tx_irq0",
+				  "eth_wake_irq", "eth_lpi",
+				  "macirq";
+		#clock-cells = <1>;
+		max-frame-size = <3800>;
+		phy-mode = "rgmii";
+		phy-handle = <&phy>;
+		snps,phy-addr = <1>;
+		//snps,reset-gpio = <&ap_gpio 131 GPIO_ACTIVE_LOW>;
+		//snps,reset-active-low;
+		//snps,reset-delays-us = <0 20000 10000>;
+		snps,multicast-filter-bins = <256>;
+		snps,perfect-filter-entries = <128>;
+		rx-fifo-depth = <65536>;
+		tx-fifo-depth = <65536>;
+		//clocks = <&eth_clk CLK_XGE_APB>;
+		//clock-names = "stmmaceth";
+		snps,axi-config = <&stmmac_axi_setup>;
+		snps,mtl-rx-config = <&mtl_rx_setup>;
+		snps,mtl-tx-config = <&mtl_tx_setup>;
+		status = "okay";
+
+		mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,dwmac-mdio";
+			phy: phy@1 {
+				compatible = "ethernet-phy-ieee802.3-c22", "ethernet-phy-id001c.c916";
+				reg = <1>;
+			};
+		};
+	};
+};
+

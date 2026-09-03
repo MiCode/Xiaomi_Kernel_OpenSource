@@ -320,6 +320,10 @@ static struct request *blk_mq_rq_ctx_init(struct blk_mq_alloc_data *data,
 	else
 		rq->start_time_ns = 0;
 	rq->io_start_time_ns = 0;
+#ifdef CONFIG_SPRD_DEBUG
+	rq->softirq_raise_time_ns = 0;
+	rq->softirq_entry_time_ns = 0;
+#endif
 	rq->stats_sectors = 0;
 	rq->nr_phys_segments = 0;
 #if defined(CONFIG_BLK_DEV_INTEGRITY)
@@ -585,9 +589,15 @@ static void blk_complete_reqs(struct llist_head *list)
 {
 	struct llist_node *entry = llist_reverse_order(llist_del_all(list));
 	struct request *rq, *next;
-
+#ifdef CONFIG_SPRD_DEBUG
+	llist_for_each_entry_safe(rq, next, entry, ipi_list) {
+		rq->softirq_entry_time_ns = ktime_get_ns();
+		rq->q->mq_ops->complete(rq);
+	}
+#else
 	llist_for_each_entry_safe(rq, next, entry, ipi_list)
 		rq->q->mq_ops->complete(rq);
+#endif
 }
 
 static __latent_entropy void blk_done_softirq(struct softirq_action *h)
@@ -639,6 +649,9 @@ static void blk_mq_complete_send_ipi(struct request *rq)
 
 	cpu = rq->mq_ctx->cpu;
 	list = &per_cpu(blk_cpu_done, cpu);
+#ifdef CONFIG_SPRD_DEBUG
+	rq->softirq_raise_time_ns = ktime_get_ns();
+#endif
 	if (llist_add(&rq->ipi_list, list)) {
 		INIT_CSD(&rq->csd, __blk_mq_complete_request_remote, rq);
 		smp_call_function_single_async(cpu, &rq->csd);
@@ -651,6 +664,9 @@ static void blk_mq_raise_softirq(struct request *rq)
 
 	preempt_disable();
 	list = this_cpu_ptr(&blk_cpu_done);
+#ifdef CONFIG_SPRD_DEBUG
+	rq->softirq_raise_time_ns = ktime_get_ns();
+#endif
 	if (llist_add(&rq->ipi_list, list))
 		raise_softirq(BLOCK_SOFTIRQ);
 	preempt_enable();
@@ -911,8 +927,18 @@ static bool blk_mq_req_expired(struct request *rq, unsigned long *next)
 		return false;
 
 	deadline = READ_ONCE(rq->deadline);
+#ifdef CONFIG_SPRD_DEBUG
+	if (unlikely(deadline == 0))
+		return false;
+	if (time_after_eq(jiffies, deadline)) {
+		pr_err("%s: jiffies: %lu, ns: %lu, deadline: %lu, rq: %0x", __func__,
+			jiffies, ktime_get_ns(), deadline, (unsigned long)rq);
+		return true;
+	}
+#else
 	if (time_after_eq(jiffies, deadline))
 		return true;
+#endif
 
 	if (*next == 0)
 		*next = deadline;

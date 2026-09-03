@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config SPRD_PIKE2_SLEEP
+        bool "Spreadtrum light sleep driver for pike2 processors"
+        depends on ARM_SPRD_CPUIDLE
+
+        help
+        Select this to enable light sleep function for pike2 soc.
+
+source "drivers/soc/sprd/domain/Kconfig"
+

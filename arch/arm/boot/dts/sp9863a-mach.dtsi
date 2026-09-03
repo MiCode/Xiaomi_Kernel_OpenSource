@@ -1,0 +1,408 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc SP9863A board common DTS file
+ *
+ * Copyright (C) 2019, Unisoc Inc.
+ *
+ */
+
+#include "lcd/lcd_dummy_mipi.dtsi"
+#include <dt-bindings/thermal/thermal.h>
+
+/ {
+	aliases {
+		cooling-device0 = &cluster0_cooling;
+		cooling-device1 = &cluster1_cooling;
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,init_boot,vendor_boot,dtbo,l_modem,pm_sys,l_ldsp,l_gdsp";
+			};
+		};
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		sysdump_reserved: sysdumpinfo-mem@80001000 {
+			reg = <0x80001000 0x00001000>;
+		};
+
+		pdbg_reserved: pdbg-mem@0x80002000 {
+			reg = <0x80002000 0x00001000>;
+		};
+
+		wcn_reserved: wcn-mem@84000000 {
+			reg = <0x84000000 0x00300000>;
+		};
+
+		gnss_reserved: gnss-mem@84300000 {
+			reg = <0x84300000 0x0015b000>;
+		};
+
+		/* Only used for iq, will be removed in normal mode by uboot */
+		iq_reserved: iq-mem@84d80000 {
+			compatible = "sprd,iq-mem";
+			reg = <0x84d80000 0x04000000>;
+		};
+
+		sp_ddr_reserved: sp-ddr-mem@89400000 {
+			reg = <0x89400000 0x00200000>;
+		};
+
+		cp_reserved: cp-modem@89600000 {
+			reg = <0x89600000 0x03e80000>;
+		};
+
+		smem_reserved: sipc-mem@8e000000 {
+			reg = <0x8e000000 0x00980000>;
+		};
+
+		/* The uboot_log_reserved node is added in uboot. base:0x9de8 0000, size:0x80000 */
+		uboot_log_reserved: uboot_log-mem@9de80000 {
+			reg = <0x9de80000 0x00080000>;
+		};
+
+		/* Only for userdebug, will be removed in user mode by uboot */
+		uboot_reserved: sysdump-uboot@9f000000 {
+			reg = <0x9f000000 0x01000000>;
+		};
+
+		/* must be 1M aligned */
+		sml_reserved: sml-mem@b0000000 {
+			reg = <0xb0000000 0x00020000>;
+		};
+
+		tos_reserved: tos-mem@b0020000{
+			reg = <0xb0020000 0x01fe0000>;
+		};
+
+		tos_shm_reserved: sh-mem@b2000000{
+			reg = <0xb2000000 0x00100000>;
+		};
+
+		cma_reserved: cma_share@b80000000 {
+			compatible = "shared-dma-pool";
+			reg = <0xb8000000 0x02000000>;
+			reusable;
+			linux,cma-default;
+		};
+
+		warm_boot_reserved: warm-boot@0xbff70000 {
+			reg = <0xbff70000 0x10000>; /* 64K */
+		};
+
+		pstore_reserved: ramoops@bff80000 {
+			compatible = "ramoops";
+			reg = <0xbff80000 0x00040000>;
+			record-size = <0x8000>;
+			console-size = <0x8000>;
+			pmsg-size = <0x8000>;
+		};
+	};
+
+	sprd-iq {
+		compatible = "sprd,iq";
+		sprd,region = <&iq_reserved>;
+		sprd,mapping-offs = <0x0>;
+	};
+
+	resume_on_reboot {
+		compatible = "sprd,memdisk";
+
+		warm_boot {
+			memory-region = <&warm_boot_reserved>;
+			label = "warmboot";
+		};
+	};
+
+	display-subsystem {
+		compatible = "sprd,display-subsystem";
+		ports = <&dpu_port>;
+		gsp = <&gsp>;
+	};
+
+	ddr_dfs: scene-frequency {
+		compatible = "sprd,ddr-dvfs";
+		freq-num = <8>;
+	};
+
+	dmabuf: dmabuf {
+		compatible = "sprd,dmabuf";
+	};
+
+	sprd-map-user {
+		compatible = "unisoc,map-user";
+	};
+
+	sprd-sensorhub {
+		compatible = "sprd,sharkl3-sensorhub", "sprd,sensor-hub";
+	};
+
+	thm_zone: thermal-zones {
+		gpu_thmzone: gpu-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&gpu_thm  0>;
+		};
+
+		cpu_thmzone: cpu-thmzone {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			sustainable-power = <3600>;
+			thermal-sensors = <&cpu_thm  0>;
+			trips {
+				cpu_threshold: trip-point@0 {
+					temperature = <70000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				cpu_target: trip-point@1 {
+					temperature = <85000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				cpu_crit: bia_crit {
+					temperature = <110000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cpu_target>;
+					contribution = <1024>;
+					cooling-device =
+					<&CPU0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&CPU1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&CPU2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&CPU3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&cpu_target>;
+					contribution = <768>;
+					cooling-device =
+					<&CPU4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&CPU5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&CPU6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&CPU7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&cpu_target>;
+					contribution = <1024>;
+					cooling-device =
+					<&cluster0_cooling THERMAL_NO_LIMIT \
+					THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&cpu_target>;
+					contribution = <1024>;
+					cooling-device =
+					<&cluster1_cooling THERMAL_NO_LIMIT \
+					THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		bd_thmzone: board-thmzone {
+			status = "disabled";
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+		};
+
+		chg_thmzone: chg-thmzone {
+			status = "disabled";
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+		};
+
+		pa_thmzone: pa-thmzone {
+			status = "disabled";
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+		};
+
+		skin_thmzone: skin-thmzone {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+		};
+	};
+
+	cooling-devices {
+		cluster0_cooling: cluster0-cooling {
+			compatible = "sprd,cluster-cooling";
+			thermal-cluster-cpumask = <0x0f>;
+			#cooling-cells = <2>; /* min followed by max */
+			sprd,efuse-block7 = <7>;
+			sprd,efuse-block15 = <15>;
+			/* core_leak =                             */
+			/*(LIT_LEAK[4:0]+1) x 2mA x 0.85V x 18.69% */
+			sprd,leak-core = <2 85 1869>;
+			/* cluster_leak =                           */
+			/* (LIT_LEAK[4:0]+1) x 2mA x 0.85V x 25.24% */
+			sprd,leak-cluster = <2 85 2524>;
+			/*core Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,core-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  29      (-2100)      100000    (-580000)>;
+			/*core Vscale = eV^3 + fV^2 + gV + h */
+			sprd,core-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  201     (-169)      83      (-16)>;
+			/*cluster Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,cluster-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  29      (-2100)      100000    (-580000)>;
+			/*cluster Vscale = eV^3 + fV^2 + gV + h */
+			sprd,cluster-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  201     (-169)      83      (-16)>;
+			sprd,efuse-switch = <0>;
+			sprd,hotplug-period = <10>;
+			sprd,min-cpufreq = <768000>;
+			sprd,min-cpunum = <4>;
+			sprd,max-temp = <90000>;
+			sprd,core-base = <2400>;
+			sprd,cluster-base = <3970>;
+			sprd,dynamic-core =
+			/*Pdynperghz*10    Freq     Vbase  */
+			< 1007           1000     1000>;
+			sprd,dynamic-cluster =
+			/*Pdynperghz*10    Freq     Vbase  */
+			< 747           1000     1000>;
+		};
+		cluster1_cooling: cluster1-cooling {
+			compatible = "sprd,cluster-cooling";
+			thermal-cluster-cpumask = <0xf0>;
+			#cooling-cells = <2>; /* min followed by max */
+			sprd,efuse-block7 = <7>;
+			sprd,efuse-block15 = <15>;
+			/* core_leak =                             */
+			/*(LIT_LEAK[4:0]+1) x 2mA x 0.85V x 18.69% */
+			sprd,leak-core = <8 85 1984>;
+			/* cluster_leak =                           */
+			/* (LIT_LEAK[4:0]+1) x 2mA x 0.85V x 25.24% */
+			sprd,leak-cluster = <8 85 2064>;
+			/*core Tscale = aT^3 + bT^2 + cT +d  */
+			sprd,core-temp-scale =
+			/* a*10^7   b*10^7	c*10^7	   d*10^7*/
+			<  29      (-2100)      100000    (-580000)>;
+			/* core  Vscale = eV^3 + fV^2 + gV + h */
+			sprd,core-voltage-scale =
+			/* e*10^2  f*10^2     g*10^2  h*10^2*/
+			<  201     (-169)      83      (-16)>;
+			/*cluster Tscale = aT^3 + bT^2 + cT +di   */
+			sprd,cluster-temp-scale =
+			/* a*10^7   b*10^7      c*10^7     d*10^7 */
+			<  29      (-2100)      100000    (-580000)>;
+			/*cluster Vscale = eV^3 + fV^2 + gV + h */
+			sprd,cluster-voltage-scale =
+			/* e*10^2   f*10^2     g*10^2  h*10^2*/
+			<  201     (-169)      83      (-16)>;
+			sprd,efuse-switch = <0>;
+			sprd,hotplug-period = <10>;
+			sprd,min-cpufreq = <768000>;
+			sprd,min-cpunum = <0>;
+			sprd,max-temp = <85000>;
+			sprd,core-base = <4190>;
+			sprd,cluster-base = <3970>;
+			sprd,dynamic-core =
+			/* Pdynperghz*10    Freq     Vbase */
+			<  1536          1000     1000>;
+			sprd,dynamic-cluster =
+			/* Pdynperghz*10    Freq     Vbase */
+			<  747            1000     1000>;
+		};
+	};
+
+	trusty {
+		compatible = "sprd,trusty-smc-v1";
+
+		irq {
+			compatible = "sprd,trusty-irq-v1";
+			interrupt-templates = <&gic IRQ_TYPE_NONE>,
+					      <&gic 1 GIC_PPI IRQ_TYPE_LEVEL_LOW>,
+					      <&gic 1 GIC_SPI IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-ranges = < 0  15 0>,
+					   <16  31 1>,
+					   <32 223 2>;
+		};
+
+		virtio {
+			compatible = "sprd,trusty-virtio-v1";
+		};
+
+		log {
+			compatible = "sprd,trusty-log-v1";
+		};
+
+		sprd-tshm {
+			compatible = "sprd,tshm";
+			memory-region = <&tos_shm_reserved>;
+		};
+
+		tui {
+			compatible = "sprd,trusty-tui-v1";
+		};
+	};
+
+	autotest:autotest{
+		compatible = "sprd,autotest";
+		sprd,pinctrl = <&pin_controller>;
+	};
+};
+
+&adi_bus {
+	sprd,hw-channels = <33 0x8c20>, <35 0x8cc4>, <36 0x8cd0>,
+		<19 0x8c44>, <20 0x8c44>, <21 0x8c44>, <22 0x8c44>;
+};
+
+&sdio0 {
+	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0xd1 0xd1 0xd1>;
+	sprd,phy-delay-sd-uhs-sdr50 = <0x7f 0xff 0xff 0xff>;
+	sprd,phy-delay-sd-highspeed = <0x7f 0x23 0x22 0x22>;
+	vmmc-supply = <&vddsdcore>;
+	vqmmc-supply = <&vddsdio>;
+	voltage-ranges = <3000 3000>;
+	bus-width = <4>;
+	sd-uhs-sdr104;
+	sd-uhs-sdr50;
+	sprd,name = "sdio_sd";
+	no-sdio;
+	no-mmc;
+	status = "okay";
+};
+
+&sdio3 {
+	sprd,phy-delay-mmc-hs400es = <0x55 0x7f 0x38 0x38>;
+	sprd,phy-delay-mmc-hs400 = <0x55 0xd3 0x35 0x35>;
+	sprd,phy-delay-mmc-hs200 = <0x7f 0xcd 0xcd 0xcd>;
+	sprd,phy-delay-mmc-ddr52 = <0x32 0x23 0x18 0x18>;
+	sprd,phy-delay-mmc-highspeed = <0x00 0x38 0x00 0x00>;
+	vmmc-supply = <&vddemmccore>;
+	voltage-ranges = <3000 3000>;
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-hw-reset;
+	mmc-hs400-enhanced-strobe;
+	mmc-hs400-1_8v;
+	mmc-hs200-1_8v;
+	mmc-ddr-1_8v;
+	sprd,name = "sdio_emmc";
+	no-sdio;
+	no-sd;
+	status = "okay";
+	supports-swcq;
+};
+
+&modem_dbg_log {
+	status = "okay";
+	clock-names = "serdes_eb", "src0", "src1", "src2";
+	clocks = <&aonapb_gate CLK_SERDES_EB>, <&pll CLK_TWPLL>, <&pll CLK_ISPPLL>, <&pll CLK_LPLL>;
+};

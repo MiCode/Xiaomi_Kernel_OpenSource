@@ -462,9 +462,6 @@ static int gve_tx_add_skb_no_copy_dqo(struct gve_tx_ring *tx,
 	int i;
 
 	pkt = gve_alloc_pending_packet(tx);
-	if (!pkt)
-		return -ENOMEM;
-
 	pkt->skb = skb;
 	pkt->num_bufs = 0;
 	completion_tag = pkt - tx->dqo.pending_packets;

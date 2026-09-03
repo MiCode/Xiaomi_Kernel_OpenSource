@@ -1,0 +1,101 @@
+menu "UNISOC SIPC modules"
+
+config UNISOC_SIPC
+	tristate "UNISOC IPC support"
+	depends on SPRD_MBOX || UNISOC_MAILBOX
+	select UNISOC_MODEM_POWER_MANAGER
+	default n
+	help
+	  SIPC is a module for spreadtrum AP/CP communicaiton system,
+	  This driver is a SIPC V3 driver, it is base to SIPC v2 dirver.
+	  depends on MBOX.
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_SPIPE
+	tristate "UNISOC pipe driver based on SBUF"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  This driver is a pipe driver base on SBUF, which create
+	  general pipes between AP & CP.
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_SPOOL
+	tristate "UNISOC pool driver based on SBLOCK"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  This driver is a pool driver base on SBLOCK, which create
+	  general pools between AP & CP.
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_SLOG_BRIDGE
+	tristate "UNISOC slog bridge driver based on SIPC"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  This driver is a slog bridge driver base on SIPC, which create
+	  slog bridge .
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_SLOG_BRIDGE_5G
+	bool "UNISOC slog bridge for 5g projects"
+	default n
+	depends on UNISOC_SIPC_SLOG_BRIDGE
+	help
+	  Enable slog bridge function for 5g projects,
+	  but UNISOC_SIPC_SLOG_BRIDGE_5G is not use for
+	  4g projects. To distinguish between 4g and 5g
+	  projects, this macro is added.
+
+	  Say Y here if you want to use slog bridge for 5g projects.
+
+config UNISOC_SIPC_SBUF_BRIDGE
+	tristate "UNISOC sbuf bridge driver based on SIPC"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  This driver is a slog bridge driver base on SIPC, which create
+	  sbuf bridge .
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_SBLOCK_BRIDGE
+	tristate "UNISOC sblock bridge driver based on SIPC"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  This driver is a sblock bridge driver base on SIPC, which create
+	  sblock bridge .
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_ZERO_COPY_SIPX
+	tristate "UNISOC SIPX driver"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  SIPX driver implementation for the Spreadtrum platform.
+	  It is used to provide read/write application program interface.
+	  It can transmit large blocks data and IP packets based on sblock.
+
+	  Say M here if you want to build a module.
+
+config UNISOC_SIPC_MEM_CACHE_EN
+	bool "Enable cache from sipc memory"
+	default n
+	depends on UNISOC_SIPC_ZERO_COPY_SIPX
+	help
+	  Enable cache from sipc memory.
+
+config SPRD_SIPC_WCN
+	bool "Enable sipc for WCN"
+	default n
+	depends on UNISOC_SIPC
+	help
+	  This option enables sipc interface for WCN.
+endmenu

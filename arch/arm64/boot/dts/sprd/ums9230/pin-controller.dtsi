@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc pin-controller dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	pin_controller: pinctrl@64710000 {
+		compatible = "sprd,qogirl6-pinctrl";
+		reg = <0 0x64710000 0 0x10000>;
+	};
+};

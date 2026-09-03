@@ -744,7 +744,7 @@ err:
 
 	if (cfv->vr_rx)
 		vdev->vringh_config->del_vrhs(cfv->vdev);
-	if (cfv->vq_tx)
+	if (cfv->vdev)
 		vdev->config->del_vqs(cfv->vdev);
 	free_netdev(netdev);
 	return err;

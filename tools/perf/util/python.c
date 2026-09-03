@@ -158,7 +158,7 @@ struct pyrf_event {
 };
 
 #define sample_members \
-	sample_member_def(sample_ip, ip, T_ULONGLONG, "event ip"),			 \
+	sample_member_def(sample_ip, ip, T_ULONGLONG, "event type"),			 \
 	sample_member_def(sample_pid, pid, T_INT, "event pid"),			 \
 	sample_member_def(sample_tid, tid, T_INT, "event tid"),			 \
 	sample_member_def(sample_time, time, T_ULONGLONG, "event timestamp"),		 \
@@ -583,11 +583,6 @@ static PyObject *pyrf_event__new(union perf_event *event)
 	     event->header.type > PERF_RECORD_SAMPLE) &&
 	    !(event->header.type == PERF_RECORD_SWITCH ||
 	      event->header.type == PERF_RECORD_SWITCH_CPU_WIDE))
-		return NULL;
-
-	// FIXME this better be dynamic or we need to parse everything
-	// before calling perf_mmap__consume(), including tracepoint fields.
-	if (sizeof(pevent->event) < event->header.size)
 		return NULL;
 
 	ptype = pyrf_event__type[event->header.type];
@@ -1089,22 +1084,20 @@ static PyObject *pyrf_evlist__read_on_cpu(struct pyrf_evlist *pevlist,
 
 		evsel = evlist__event2evsel(evlist, event);
 		if (!evsel) {
-			Py_DECREF(pyevent);
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
 
 		pevent->evsel = evsel;
 
+		err = evsel__parse_sample(evsel, event, &pevent->sample);
+
+		/* Consume the even only after we parsed it out. */
 		perf_mmap__consume(&md->core);
 
-		err = evsel__parse_sample(evsel, &pevent->event, &pevent->sample);
-		if (err) {
-			Py_DECREF(pyevent);
+		if (err)
 			return PyErr_Format(PyExc_OSError,
 					    "perf: can't parse sample, err=%d", err);
-		}
-
 		return pyevent;
 	}
 end:

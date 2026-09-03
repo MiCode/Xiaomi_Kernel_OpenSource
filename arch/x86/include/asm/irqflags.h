@@ -47,13 +47,13 @@ static __always_inline void native_irq_enable(void)
 
 static inline __cpuidle void native_safe_halt(void)
 {
-	x86_idle_clear_cpu_buffers();
+	mds_idle_clear_cpu_buffers();
 	asm volatile("sti; hlt": : :"memory");
 }
 
 static inline __cpuidle void native_halt(void)
 {
-	x86_idle_clear_cpu_buffers();
+	mds_idle_clear_cpu_buffers();
 	asm volatile("hlt": : :"memory");
 }
 

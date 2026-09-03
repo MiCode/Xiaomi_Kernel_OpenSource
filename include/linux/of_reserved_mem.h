@@ -40,6 +40,11 @@ int of_reserved_mem_device_init_by_name(struct device *dev,
 void of_reserved_mem_device_release(struct device *dev);
 
 struct reserved_mem *of_reserved_mem_lookup(struct device_node *np);
+
+#ifdef CONFIG_E_SHOW_MEM
+void show_reserved_memory_info(void);
+#endif
+
 #else
 
 #define RESERVEDMEM_OF_DECLARE(name, compat, init)			\
@@ -64,6 +69,11 @@ static inline struct reserved_mem *of_reserved_mem_lookup(struct device_node *np
 {
 	return NULL;
 }
+
+#ifdef CONFIG_E_SHOW_MEM
+static inline void show_reserved_memory_info(void) { }
+#endif
+
 #endif
 
 /**

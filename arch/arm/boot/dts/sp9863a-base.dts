@@ -1,0 +1,269 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc SP9863A-1h10 boards DTS file
+ *
+ * Copyright (C) 2019, Unisoc Inc.
+ */
+
+/dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
+#include "sc9863a.dtsi"
+#include "sc2721.dtsi"
+#include "sprd-sound-sharkl.dtsi"
+#include "sp9863a-mach.dtsi"
+#include "sc9863a-wcn.dtsi"
+
+/ {
+	model = "Spreadtrum SP9863A SoC";
+
+	compatible = "sprd,sc9863a";
+
+	sprd,sc-id = "sp9863a 1000 1000";
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		mmc0 = &sdio3;
+		mmc1 = &sdio0;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+
+	chosen: chosen {
+		stdout-path = "serial1:921600n8";
+		bootargs = "earlycon console=ttyS1,921600n8 loop.max_part=7 loglevel=1
+			    init=/init root=/dev/ram0 rw printk.devkmsg=on dummy_hcd.num=0
+			    initcall_debug=1 vmalloc=300M ftrace_dump_on_oops
+			    firmware_class.path=/odm/firmware,/vendor/firmware";
+	};
+
+	extcon_gpio: extcon-gpio {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmic_eic 0 0>;
+	};
+};
+
+&adi_bus {
+	sprd,psci-reboot = <1>;
+};
+
+&pmic_pwroff {
+	sprd,psci-poweroff = <1>;
+};
+
+&i2c7 {
+	status = "okay";
+};
+
+&dmc_mpu {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&spi0 {
+	/*used for fingerprint sensor*/
+	status = "okay";
+};
+
+&vdd18 {
+	regulator-always-on;
+};
+
+&vddrf18 {
+	regulator-always-on;
+};
+
+&vddrf125 {
+	regulator-always-on;
+};
+
+&vddldomem {
+	regulator-always-on;
+};
+
+&vddsim2 {
+	status = "disabled";
+};
+
+&i2c3 {
+	status = "okay";
+
+	touchscreen@38 {
+		compatible = "focaltech,ft5436-touchscreen";
+		reg = <0x38>;
+		gpios = <&ap_gpio 145 GPIO_ACTIVE_HIGH
+			&ap_gpio 144 GPIO_ACTIVE_HIGH>;
+		controller = "focaltech,FT5436";
+		virtualkeys = <580 60 1320 60 45
+			172 360 1320 60 45
+			158 600 1320 60 45>;
+		surface-width = <720>;
+		surface-height = <1280>;
+		firmware-auto-upgrade;
+		private-data {
+			a8 = /bits/ 8 <0x5a>;
+		};
+	};
+};
+
+&i2c7 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	fan53555_dcdc: regulator@60 {
+		compatible = "fcs,fan53555";
+		reg = <0x60>;
+		regulator-name = "fan53555";
+		regulator-min-microvolt = <603000>;
+		regulator-max-microvolt = <1411000>;
+		regulator-ramp-delay = <64000>;
+		regulator-always-on;
+		fcs,suspend-voltage-selector = <1>;
+	};
+};
+
+&mm_domain {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
+&csi1 {
+	status = "okay";
+};
+
+&csi2 {
+	status = "okay";
+};
+
+&dcam {
+	status = "okay";
+};
+
+&iommu_dcam {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&iommu_isp {
+	status = "okay";
+};
+
+&cpp {
+	status = "okay";
+};
+
+&iommu_cpp {
+	status = "okay";
+};
+
+&dpu {
+	status = "okay";
+};
+
+&iommu_dispc {
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel {
+		compatible = "sprd,generic-mipi-panel";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		avdd-gpio = <&ap_gpio 4 GPIO_ACTIVE_HIGH>;
+		avee-gpio = <&ap_gpio 5 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&ap_gpio 50 GPIO_ACTIVE_HIGH>;
+		port@1 {
+			reg = <1>;
+			panel_in: endpoint {
+				remote-endpoint = <&dphy_out>;
+			};
+		};
+	};
+};
+
+&dphy {
+	status = "okay";
+};
+
+&jpg {
+	status = "okay";
+};
+
+&iommu_jpg {
+	status = "okay";
+};
+
+&vsp_pd {
+	status = "okay";
+};
+
+&vsp {
+	status = "okay";
+};
+
+&iommu_vsp {
+	status = "okay";
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&pmic_typec>;
+	/* first value is device eye-patt setting, the second is host */
+	sprd,hsphy-tunehsamp = /bits/ 8 <0x03 0x03>;
+	sprd,hsphy-tuneeq = /bits/ 8 <0x00 0x00>;
+	sprd,hsphy-tfregres = /bits/ 8 <0x1e 0x26>;
+	status = "okay";
+};
+
+&usb {
+	extcon = <&extcon_gpio>;
+	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+&sprd_audio_codec_ana {
+	status = "okay";
+	digital-codec = <&sprd_audio_codec_dig>;
+};
+
+&sprd_headset {
+	status = "okay";
+};
+
+&sound_vbc_r1p0v3_sprd_codec {
+	status = "okay";
+};
+
+&power_debug {
+	status = "okay";
+	memory-region = <&pdbg_reserved>;
+};
+
+&sound_sprd_ap_alliis {
+	status = "okay";
+};

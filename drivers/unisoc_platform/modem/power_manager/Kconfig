@@ -1,0 +1,8 @@
+
+config UNISOC_MODEM_POWER_MANAGER
+	tristate "UNISOC Modem Power Manager"
+	depends on PM_SLEEP
+	default n
+	help
+	  UNISOC modem power manager. It be user for modem power management,
+

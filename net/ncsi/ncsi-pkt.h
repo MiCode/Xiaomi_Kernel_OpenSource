@@ -252,15 +252,16 @@ struct ncsi_rsp_gp_pkt {
 /* Get Controller Packet Statistics */
 struct ncsi_rsp_gcps_pkt {
 	struct ncsi_rsp_pkt_hdr rsp;            /* Response header            */
-	__be64                  cnt;            /* Counter cleared            */
-	__be64                  rx_bytes;       /* Rx bytes                   */
-	__be64                  tx_bytes;       /* Tx bytes                   */
-	__be64                  rx_uc_pkts;     /* Rx UC packets              */
-	__be64                  rx_mc_pkts;     /* Rx MC packets              */
-	__be64                  rx_bc_pkts;     /* Rx BC packets              */
-	__be64                  tx_uc_pkts;     /* Tx UC packets              */
-	__be64                  tx_mc_pkts;     /* Tx MC packets              */
-	__be64                  tx_bc_pkts;     /* Tx BC packets              */
+	__be32                  cnt_hi;         /* Counter cleared            */
+	__be32                  cnt_lo;         /* Counter cleared            */
+	__be32                  rx_bytes;       /* Rx bytes                   */
+	__be32                  tx_bytes;       /* Tx bytes                   */
+	__be32                  rx_uc_pkts;     /* Rx UC packets              */
+	__be32                  rx_mc_pkts;     /* Rx MC packets              */
+	__be32                  rx_bc_pkts;     /* Rx BC packets              */
+	__be32                  tx_uc_pkts;     /* Tx UC packets              */
+	__be32                  tx_mc_pkts;     /* Tx MC packets              */
+	__be32                  tx_bc_pkts;     /* Tx BC packets              */
 	__be32                  fcs_err;        /* FCS errors                 */
 	__be32                  align_err;      /* Alignment errors           */
 	__be32                  false_carrier;  /* False carrier detection    */
@@ -289,11 +290,11 @@ struct ncsi_rsp_gcps_pkt {
 	__be32                  tx_1023_frames; /* Tx 512-1023 bytes frames   */
 	__be32                  tx_1522_frames; /* Tx 1024-1522 bytes frames  */
 	__be32                  tx_9022_frames; /* Tx 1523-9022 bytes frames  */
-	__be64                  rx_valid_bytes; /* Rx valid bytes             */
+	__be32                  rx_valid_bytes; /* Rx valid bytes             */
 	__be32                  rx_runt_pkts;   /* Rx error runt packets      */
 	__be32                  rx_jabber_pkts; /* Rx error jabber packets    */
 	__be32                  checksum;       /* Checksum                   */
-}  __packed __aligned(4);
+};
 
 /* Get NCSI Statistics */
 struct ncsi_rsp_gns_pkt {
@@ -335,14 +336,6 @@ struct ncsi_rsp_gpuuid_pkt {
 	struct ncsi_rsp_pkt_hdr rsp;      /* Response header */
 	unsigned char           uuid[16]; /* UUID            */
 	__be32                  checksum;
-};
-
-/* Get MC MAC Address */
-struct ncsi_rsp_gmcma_pkt {
-	struct ncsi_rsp_pkt_hdr rsp;
-	unsigned char           address_count;
-	unsigned char           reserved[3];
-	unsigned char           addresses[][ETH_ALEN];
 };
 
 /* AEN: Link State Change */
@@ -405,7 +398,6 @@ struct ncsi_aen_hncdsc_pkt {
 #define NCSI_PKT_CMD_GPUUID	0x52 /* Get package UUID                 */
 #define NCSI_PKT_CMD_QPNPR	0x56 /* Query Pending NC PLDM request */
 #define NCSI_PKT_CMD_SNPR	0x57 /* Send NC PLDM Reply  */
-#define NCSI_PKT_CMD_GMCMA	0x58 /* Get MC MAC Address */
 
 
 /* NCSI packet responses */
@@ -441,7 +433,6 @@ struct ncsi_aen_hncdsc_pkt {
 #define NCSI_PKT_RSP_GPUUID	(NCSI_PKT_CMD_GPUUID + 0x80)
 #define NCSI_PKT_RSP_QPNPR	(NCSI_PKT_CMD_QPNPR   + 0x80)
 #define NCSI_PKT_RSP_SNPR	(NCSI_PKT_CMD_SNPR   + 0x80)
-#define NCSI_PKT_RSP_GMCMA	(NCSI_PKT_CMD_GMCMA  + 0x80)
 
 /* NCSI response code/reason */
 #define NCSI_PKT_RSP_C_COMPLETED	0x0000 /* Command Completed        */

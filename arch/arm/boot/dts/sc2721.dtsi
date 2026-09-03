@@ -1,0 +1,357 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Unisoc Dummy LCD config DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+&adi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	sc2721_pmic: pmic@0 {
+		compatible = "sprd,sc2721";
+		reg = <0>;
+		spi-max-frequency = <26000000>;
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pmic_wdt: watchdog@40 {
+			compatible = "sprd,sc2721-wdt", "sprd,sc27xx-wdt";
+			reg = <0x40>;
+		};
+
+		led-controller@180 {
+			compatible = "sprd,sc2721-bltc";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x180>;
+
+			led@0 {
+				label = "red";
+				reg = <0x0>;
+			};
+
+			led@1 {
+				label = "green";
+				reg = <0x1>;
+			};
+
+			led@2 {
+				label = "blue";
+				reg = <0x2>;
+			};
+		};
+
+		rtc@200 {
+			compatible = "sprd,sc2731-rtc", "sprd,sc2721-rtc";
+			reg = <0x200>;
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <1>;
+		};
+
+		pmic_eic: gpio-controller@280 {
+			compatible = "sprd,sc2731-eic", "sprd,sc2721-eic";
+			reg = <0x280>;
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		pmic_flash: flash@2a8 {
+			compatible = "sprd,sc2731-flash", "sprd,sc2721-flash";
+			reg = <0x2a8>;
+			status = "disabled";
+		};
+
+		efuse@300 {
+			compatible = "sprd,sc2731-efuse", "sprd,sc2721-efuse";
+			reg = <0x300>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			hwlocks = <&hwlock 12>;
+			/* Data cells */
+			fgu_calib: calib@6 {
+				reg = <0x6 0x2>;
+			};
+
+			adc_bcal: calib@24 {
+				reg = <0x24 0x2>;
+			};
+
+			adc_scal: calib@26 {
+				reg = <0x26 0x2>;
+			};
+
+			typec_cc1_cal: calib@d1 {
+				reg = <0x1a 0x2>;
+			};
+
+			typec_cc2_cal: calib@d2 {
+				reg = <0x1a 0x2>;
+			};
+
+			efuse_blk0: calib@0 {
+				reg = <0x0 0x2>;
+			};
+
+			efuse_blk14: calib@28 {
+				reg = <0x28 0x2>;
+			};
+
+			efuse_blk16: calib@2c {
+				reg = <0x2c 0x2>;
+			};
+		};
+
+		pmic_typec: typec@380 {
+			compatible = "sprd,sc2721-typec";
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <10>;
+			reg = <0x380>;
+			sprd,mode = <2>;
+			nvmem-cells = <&typec_cc1_cal>, <&typec_cc2_cal>;
+			nvmem-cell-names = "typec_cc1_cal", "typec_cc2_cal";
+		};
+
+		pmic_adc: adc@400 {
+			compatible = "sprd,sc27xx-adc", "sprd,sc2721-adc";
+			reg = <0x400>;
+			interrupt-parent = <&sc2721_pmic>;
+			vref-supply = <&vdd28>;
+			interrupts = <0>;
+			#io-channel-cells = <1>;
+			hwlocks = <&hwlock 4>;
+			nvmem-cells = <&adc_bcal>, <&adc_scal>;
+			nvmem-cell-names = "big_scale_calib", "small_scale_calib";
+		};
+
+		pmic_fgu: fgu@a00 {
+			compatible = "sprd,sc27xx-fgu", "sprd,sc2721-fgu", "sprd,sprd-fgu";
+			reg = <0xa00>;
+			bat-detect-gpio = <&pmic_eic 9 GPIO_ACTIVE_HIGH>;
+			nvmem-cell-names = "fgu_calib";
+			nvmem-cells = <&fgu_calib>;
+			io-channels = <&pmic_adc 0>, <&pmic_adc 14>;
+			io-channel-names = "bat-temp", "charge-vol";
+			interrupt-parent = <&sc2721_pmic>;
+			interrupts = <3>;
+		};
+
+		syscon@c00 {
+			compatible = "sprd,sc2731-syscon", "sprd,sc27xx-syscon";
+			reg = <0xc00>, <0xecc>, <0xec0>;
+		};
+
+		sprd_audio_codec_ana: audio-codec@700 {
+			compatible = "unisoc,sc2721-audio-codec",
+				"unisoc,sc2731-audio-codec";
+			#sound-dai-cells = <1>;
+			reg = <0x700>;
+			interrupts = <6>;
+			sprd,syscon-pmu-apb = <&pmu_apb_regs>;
+			status = "disabled";
+		};
+
+		power-controller@c00 {
+			compatible = "sprd,sc2731-regulator", "sprd,sc2721-regulator";
+
+			/* regulator-debugfs-enable; */
+			vddcpu: DCDC_CPU {
+				regulator-name = "vddcpu";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1996000>;
+				regulator-ramp-delay = <25000>;
+				regulator-always-on;
+			};
+
+			vddcore: DCDC_CORE {
+				regulator-name = "vddcore";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1996000>;
+				regulator-ramp-delay = <25000>;
+				regulator-always-on;
+			};
+
+			vddmem: DCDC_MEM {
+				regulator-name = "vddmem";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <3596875>;
+				regulator-ramp-delay = <25000>;
+				regulator-always-on;
+			};
+
+			vddgen: DCDC_GEN {
+				regulator-name = "vddgen";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <3796875>;
+				regulator-ramp-delay = <25000>;
+				regulator-always-on;
+			};
+
+			vddcama: LDO_VDDCAMA {
+				regulator-name = "vddcama";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddcammot: LDO_VDDCAMMOT {
+				regulator-name = "vddcammot";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddsim2: LDO_VDDSIM2 {
+				regulator-name = "vddsim2";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddemmccore: LDO_VDDEMMCCORE {
+				regulator-name = "vddemmccore";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddsdcore: LDO_VDDSDCORE {
+				regulator-name = "vddsdcore";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddsdio: LDO_VDDSDIO {
+				regulator-name = "vddsdio";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vdd28: LDO_VDD28 {
+				regulator-name = "vdd28";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+				regulator-always-on;
+			};
+
+			vddwifipa: LDO_VDDWIFIPA {
+				regulator-name = "vddwifipa";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vdddcxo: LDO_VDDDCXO {
+				regulator-name = "vdddcxo";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+				regulator-always-on;
+			};
+
+			vddusb33: LDO_VDDUSB33 {
+				regulator-name = "vddusb33";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddcamd: LDO_VDDCAMD {
+				regulator-name = "vddcamd";
+				regulator-min-microvolt = <1006250>;
+				regulator-max-microvolt = <1500000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddcon: LDO_VDDCON {
+				regulator-name = "vddcon";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1600000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddcamio: LDO_VDDCAMIO {
+				regulator-name = "vddcamio";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1900000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vdd18: LDO_VDD18 {
+				regulator-name = "vdd18";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1900000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddrf18: LDO_VDDRF18 {
+				regulator-name = "vddrf18";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1900000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddrf125: LDO_VDDRF125 {
+				regulator-name = "vddrf125";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1400000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddldomem: LDO_VDDLDOMEM {
+				regulator-name = "vddldomem";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1400000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			vddkpled: LDO_VDDKPLED {
+				regulator-name = "vddkpled";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3750000>;
+				regulator-ramp-delay = <25000>;
+			};
+
+			avdd18_slp: LDO_AVDD18_SLP {
+				regulator-name = "avdd18_slp";
+				regulator-min-microvolt = <1106250>;
+				regulator-max-microvolt = <1900000>;
+				regulator-ramp-delay = <25000>;
+			};
+		};
+
+		pmic_smpl: smpl@c00 {
+			compatible = "sprd,sc27xx-smpl", "sprd,sc2721-smpl";
+			reg = <0xc00>;
+			sprd,smpl-timer-threshold = <250>;
+		};
+
+		pmic_pwroff: poweroff@c20 {
+			compatible = "sprd,sc27xx-poweroff", "sprd,sc2721-poweroff";
+			reg = <0xc20>;
+		};
+
+		vibrator@eb4 {
+			compatible = "sprd,sc2731-vibrator", "sprd,sc2721-vibrator";
+			reg = <0xeb4>;
+		};
+
+		bc1p2@ec8 {
+			compatible = "sprd,sc27xx-bc1p2", "sprd,sc2721-bc1p2";
+		};
+
+		hw-reset@eec {
+			compatible = "sprd,sc27xx-7sreset", "sprd,sc2721-7sreset";
+			reg = <0xf1c>, <0xeec>;
+		};
+	};
+};

@@ -15,48 +15,6 @@
 
 #include "btree.h"
 
-static inline
-bool is_bnode_offset_valid(struct hfs_bnode *node, int off)
-{
-	bool is_valid = off < node->tree->node_size;
-
-	if (!is_valid) {
-		pr_err("requested invalid offset: "
-		       "NODE: id %u, type %#x, height %u, "
-		       "node_size %u, offset %d\n",
-		       node->this, node->type, node->height,
-		       node->tree->node_size, off);
-	}
-
-	return is_valid;
-}
-
-static inline
-int check_and_correct_requested_length(struct hfs_bnode *node, int off, int len)
-{
-	unsigned int node_size;
-
-	if (!is_bnode_offset_valid(node, off))
-		return 0;
-
-	node_size = node->tree->node_size;
-
-	if ((off + len) > node_size) {
-		int new_len = (int)node_size - off;
-
-		pr_err("requested length has been corrected: "
-		       "NODE: id %u, type %#x, height %u, "
-		       "node_size %u, offset %d, "
-		       "requested_len %d, corrected_len %d\n",
-		       node->this, node->type, node->height,
-		       node->tree->node_size, off, len, new_len);
-
-		return new_len;
-	}
-
-	return len;
-}
-
 void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 {
 	struct page *page;
@@ -64,20 +22,6 @@ void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 	int bytes_read;
 	int bytes_to_read;
 	void *vaddr;
-
-	if (!is_bnode_offset_valid(node, off))
-		return;
-
-	if (len == 0) {
-		pr_err("requested zero length: "
-		       "NODE: id %u, type %#x, height %u, "
-		       "node_size %u, offset %d, len %d\n",
-		       node->this, node->type, node->height,
-		       node->tree->node_size, off, len);
-		return;
-	}
-
-	len = check_and_correct_requested_length(node, off, len);
 
 	off += node->page_offset;
 	pagenum = off >> PAGE_SHIFT;
@@ -126,32 +70,12 @@ void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 	else
 		key_len = tree->max_key_len + 1;
 
-	if (key_len > sizeof(hfs_btree_key) || key_len < 1) {
-		memset(key, 0, sizeof(hfs_btree_key));
-		pr_err("hfs: Invalid key length: %d\n", key_len);
-		return;
-	}
-
 	hfs_bnode_read(node, key, off, key_len);
 }
 
 void hfs_bnode_write(struct hfs_bnode *node, void *buf, int off, int len)
 {
 	struct page *page;
-
-	if (!is_bnode_offset_valid(node, off))
-		return;
-
-	if (len == 0) {
-		pr_err("requested zero length: "
-		       "NODE: id %u, type %#x, height %u, "
-		       "node_size %u, offset %d, len %d\n",
-		       node->this, node->type, node->height,
-		       node->tree->node_size, off, len);
-		return;
-	}
-
-	len = check_and_correct_requested_length(node, off, len);
 
 	off += node->page_offset;
 	page = node->page[0];
@@ -178,20 +102,6 @@ void hfs_bnode_clear(struct hfs_bnode *node, int off, int len)
 {
 	struct page *page;
 
-	if (!is_bnode_offset_valid(node, off))
-		return;
-
-	if (len == 0) {
-		pr_err("requested zero length: "
-		       "NODE: id %u, type %#x, height %u, "
-		       "node_size %u, offset %d, len %d\n",
-		       node->this, node->type, node->height,
-		       node->tree->node_size, off, len);
-		return;
-	}
-
-	len = check_and_correct_requested_length(node, off, len);
-
 	off += node->page_offset;
 	page = node->page[0];
 
@@ -208,10 +118,6 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 	hfs_dbg(BNODE_MOD, "copybytes: %u,%u,%u\n", dst, src, len);
 	if (!len)
 		return;
-
-	len = check_and_correct_requested_length(src_node, src, len);
-	len = check_and_correct_requested_length(dst_node, dst, len);
-
 	src += src_node->page_offset;
 	dst += dst_node->page_offset;
 	src_page = src_node->page[0];
@@ -231,10 +137,6 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 	hfs_dbg(BNODE_MOD, "movebytes: %u,%u,%u\n", dst, src, len);
 	if (!len)
 		return;
-
-	len = check_and_correct_requested_length(node, src, len);
-	len = check_and_correct_requested_length(node, dst, len);
-
 	src += node->page_offset;
 	dst += node->page_offset;
 	page = node->page[0];
@@ -586,7 +488,6 @@ void hfs_bnode_put(struct hfs_bnode *node)
 		if (test_bit(HFS_BNODE_DELETED, &node->flags)) {
 			hfs_bnode_unhash(node);
 			spin_unlock(&tree->hash_lock);
-			hfs_bnode_clear(node, 0, tree->node_size);
 			hfs_bmap_free(node);
 			hfs_bnode_free(node);
 			return;

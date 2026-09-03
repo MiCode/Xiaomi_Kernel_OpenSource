@@ -335,7 +335,6 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	const char *function, *pin_prop;
 	const char *group;
 	int ret, npins, nmaps, configlen = 0, i = 0;
-	struct pinctrl_map *new_map;
 
 	*map = NULL;
 	*num_maps = 0;
@@ -410,13 +409,9 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	 * We know have the number of maps we need, we can resize our
 	 * map array
 	 */
-	new_map = krealloc(*map, i * sizeof(struct pinctrl_map), GFP_KERNEL);
-	if (!new_map) {
-		ret = -ENOMEM;
-		goto err_free_map;
-	}
-
-	*map = new_map;
+	*map = krealloc(*map, i * sizeof(struct pinctrl_map), GFP_KERNEL);
+	if (!*map)
+		return -ENOMEM;
 
 	return 0;
 

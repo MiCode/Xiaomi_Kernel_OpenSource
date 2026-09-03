@@ -1,0 +1,44 @@
+config SPRD_DEBUG
+	bool "Spreadtrum debug module"
+	depends on ARCH_SPRD || COMPILE_TEST
+	help
+	  Say y here to enable Debug support.
+
+config SPRD_LOOK_AT
+	tristate "Sprdtrum lookat tool support"
+	depends on SPRD_DEBUG || COMPILE_TEST
+	default n
+	help
+	  this macro is for lookat driver, lookat is a debug tool that is used to
+	  view the content of arm/arm64 of the address space through usb port,
+	  such as the register of each module, DDR address space, etc.
+	  When in doubt, say n
+
+config SPRD_DEBUG_GIC
+	bool "Spreadtrum debug gic"
+	depends on ARCH_SPRD
+	help
+	  Say y here to enable Debug support.
+	  When in doubt, say n
+	  this is a debug feature that recored gic to handler
+	  all irqs
+
+config UNISOC_SYZKALLER_TEST
+	bool "UNISOC syzkaller test mask"
+	depends on UNISOC_DEBUG
+	default n
+	help
+	  This configuration is to mask the syzkaller test.
+
+	  If you need to configure the syzkaller project for test,
+	  please set it to Y. In a normal version of userdebug,
+	  please keep the configuration as the default value.
+
+source "drivers/unisoc_platform/debug/busmonitor/Kconfig"
+source "drivers/unisoc_platform/debug/data_collector/Kconfig"
+source "drivers/unisoc_platform/debug/djtag/Kconfig"
+source "drivers/unisoc_platform/debug/dmc_mpu/Kconfig"
+source "drivers/unisoc_platform/debug/apb_prot/Kconfig"
+source "drivers/unisoc_platform/debug/reg_trace_monitor/Kconfig"
+source "drivers/unisoc_platform/debug/userspace_debug/Kconfig"
+source "drivers/unisoc_platform/debug/sprd_undef_hook/Kconfig"

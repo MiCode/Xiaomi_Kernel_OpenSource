@@ -1,0 +1,395 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * UNISOC UMS312 board common DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/sprd,ums312-clk.h>
+#include <dt-bindings/mfd/sprd,sc2730-regs.h>
+#include <dt-bindings/mfd/sprd,sc2730-mask.h>
+#include "lcd/lcd_r61350_truly_mipi_hd.dtsi"
+#include "lcd/lcd_ili9881c_truly_mipi_hd.dtsi"
+#include "lcd/lcd_dummy_mipi.dtsi"
+#include "reserved-memory/ums312-2h10-overlay.dtsi"
+#include "wcn/wcn_modules.h"
+#include "wcn/interface/wcn-sdio-register.dtsi"
+#include "wcn/chip/wcn-marlin3lite-umw2652-register.dtsi"
+#include "battery/ums312-2h10-overlay.dtsi"
+
+/ {
+	model = "Unisoc UMS312 2H10 board";
+
+	compatible = "sprd,ums312-2h10";
+
+	sprd,sc-id = "ums312 2h10 1000";
+
+	sprd,board_id = <0x210000>; //XXYY00:base board,XXYY00~XXYYFF:customize board
+
+	fragment {
+		target-path = "/";
+		__overlay__ {
+				pwm_backlight: sprd_backlight {
+					compatible = "sprd,sharkl5-backlight";
+					pwms = <&pwms 2 40000>;
+					pwm-names = "backlight";
+					sprd,max-brightness-level = <247>;
+					default-brightness-level = <24>;
+					sprd,brightness-scale = <255>;
+					brightness-levels = <
+						      0   2   3   4   5   6   7   8   9
+						 10  11  12  13  14  15  16  17  18  19
+						 20  21  22  23  24  25  26  27  28  29
+						 30  31  32  33  34  35  36  37  38  39
+						 40  41  42  43  44  45  46  47  48  49
+						 50  51  52  53  54  55  56  57  58  59
+						 60  61  62  63  64  65  66  67  68  69
+						 70  71  72  73  74  75  76  77  78  79
+						 80  81  82  83  84  85  86  87  88  89
+						 90  91  92  93  94  95  96  97  98  99
+						100 101 102 103 104 105 106 107 108 109
+						110 111 112 113 114 115 116 117 118 119
+						120 121 122 123 124 125 126 127 128 129
+						130 131 132 133 134 135 136 137 138 139
+						140 141 142 143 144 145 146 147 148 149
+						150 151 152 153 154 155 156 157 158 159
+						160 161 162 163 164 165 166 167 168 169
+						170 171 172 173 174 175 176 177 178 179
+						180 181 182 183 184 185 186 187 188 189
+						190 191 192 193 194 195 196 197 198 199
+						200 201 202 203 204 205 206 207 208 209
+						210 211 212 213 214 215 216 217 218 219
+						220 221 222 223 224 225 226 227 228 229
+						230 231 232 233 234 235 236 237 238 239
+						240 241 242 243 244 245 246 247 247 247
+						247 247 247 247 247 247 247
+						>;
+				};
+				sprd_marlin3: sprd-marlin3 {
+					compatible = "unisoc,marlin3lite_sdio";
+					m2-wakeup-ap-gpios = <&ap_gpio 32 GPIO_ACTIVE_LOW>;
+					reset-gpios = <&ap_gpio 97 GPIO_ACTIVE_LOW>;
+					enable-gpios = <&ap_gpio 143 GPIO_ACTIVE_LOW>;
+					m2-to-ap-irq-gpios = <&ap_gpio 96 GPIO_ACTIVE_LOW>;
+					xtal-26m-clk-type = "TSX";
+					avdd12-supply = <&vddwcn>;
+					avdd33-supply = <&vddwifipa>;
+					dcxo18-supply = <&vddsim2>;
+
+					clock-names = "clk_32k","source","enable";
+					clocks = <&aon_clk CLK_AUX0>,
+						 <&ext_32k>,
+						 <&aonapb_gate CLK_AUX0_EB>;
+
+					sdhci-name = <&sdio1>;
+					sprd,btwf-file-name = "/dev/block/platform/soc/soc:ap-apb/71400000.sdio/by-name/wcnmodem";
+					sprd,gnss-file-name = "/dev/block/platform/soc/soc:ap-apb/71400000.sdio/by-name/gnssmodem";
+					adma-tx;
+					adma-rx;
+					/*
+					 * bound parameter:
+					 * [0]:addr offset, [1]:mask, [2]:unboundval, [3]:boundval
+					 */
+					avdd12-parent-bound-chip = <REG_ANA_SLP_DCDC_PD_CTRL MASK_ANA_SLP_DCDCGEN1_PD_EN 0x0 MASK_ANA_SLP_DCDCGEN1_PD_EN>;
+					avdd12-bound-wbreq = <REG_ANA_LDO_XTL_EN10 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN>;
+					avdd33-bound-wbreq = <REG_ANA_LDO_XTL_EN11 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN>;
+
+					wlan {
+						compatible = "sprd,sc2355-sdio-wifi";
+					};
+
+					gnss {
+						compatible = "sprd,gnss";
+					};
+
+					sprd-mtty {
+						compatible = "sprd,mtty";
+						sprd,name = "ttyBT";
+					};
+
+					sprd-fm {
+						compatible = "sprd,marlin3-fm";
+						sprd,name = "sprd-fm";
+					};
+				};
+				fingerprint@0 {
+					compatible = "microarray,afs121";
+					fpint-gpios = <&eic_async 13 0>;
+				};
+				sprd-uid {
+					compatible = "sprd,uid";
+					nvmem-cells = <&uid_start>, <&uid_end>;
+					nvmem-cell-names = "uid_start", "uid_end";
+				};
+				skin_sensor: skin-sensor {
+					compatible = "sprd,virt-thm";
+					#thermal-sensor-cells = <0>;
+					thmzone-cells = <&bd_thmzone>;
+				};
+			};
+		};
+};
+
+&adi_bus {
+	sprd,hw-channels = <2 0x18cc>, <3 0x18cc>, <15 0x1874>,
+			   <17 0x1844>, <19 0x1854>, <30 0x1820>,
+			   <32 0x197c>, <33 0x1988>, <35 0x19b8>, <39 0x19ac>;
+};
+
+&ddr_dfs {
+	sprd-scene = "boost", "lcdon", "lcdoff", "camlow",
+		"camhigh", "camveryhigh", "dpu", "boot-opt", "top";
+	sprd-freq = <933 512 256 384 512 933 384 933 0xbacd>;
+};
+
+&dmabuf {
+
+	fd-reserved {
+		label = "carveout_fd";
+		memory-region = <&fd_reserved>;
+	};
+
+	protected-reserved {
+		label = "protected";
+		memory-region = <&protected_reserved>;
+	};
+
+};
+
+&pin_controller {
+	pinctrl-names =
+	/* keyout0 ~ keyout2 */
+	"gpio_121", "gpio_122", "gpio_123",
+	/* keyin0 ~ keyin2 */
+	"gpio_124", "gpio_125", "gpio_126",
+	/* extint0, extint1, sda3, scl3 */
+	"gpio_144", "gpio_145", "gpio_146", "gpio_147";
+	pinctrl-0 = <&gpio_121>;
+	pinctrl-1 = <&gpio_122>;
+	pinctrl-2 = <&gpio_123>;
+	pinctrl-3 = <&gpio_124>;
+	pinctrl-4 = <&gpio_125>;
+	pinctrl-5 = <&gpio_126>;
+	pinctrl-6 = <&gpio_144>;
+	pinctrl-7 = <&gpio_145>;
+	pinctrl-8 = <&gpio_146>;
+	pinctrl-9 = <&gpio_147>;
+
+	gpio_121: keyout0 {
+		pins = "SHARKL5_KEYOUT0";
+		function = "func4";
+	};
+
+	gpio_122: keyout1 {
+		pins = "SHARKL5_KEYOUT1";
+		function = "func4";
+	};
+
+	gpio_123: keyout2 {
+		pins = "SHARKL5_KEYOUT2";
+		function = "func4";
+	};
+
+	gpio_124: keyin0 {
+		pins = "SHARKL5_KEYIN0";
+		function = "func4";
+	};
+
+	gpio_125: keyin1 {
+		pins = "SHARKL5_KEYIN1";
+		function = "func4";
+	};
+
+	gpio_126: keyin2 {
+		pins = "SHARKL5_KEYIN2";
+		function = "func4";
+	};
+
+	gpio_144: extint0 {
+		pins = "SHARKL5_EXTINT0";
+		function = "func4";
+	};
+
+	gpio_145: extint1 {
+		pins = "SHARKL5_EXTINT1";
+		function = "func4";
+	};
+
+	gpio_146: sda3 {
+		pins = "SHARKL5_SDA3";
+		function = "func4";
+	};
+
+	gpio_147: scl3 {
+		pins = "SHARKL5_SCL3";
+		function = "func4";
+	};
+};
+
+&chosen {
+	bootargs_ext = "kvm-arm.mode=none";
+};
+
+&skin_thmzone {
+	thermal-sensors = <&skin_sensor>;
+};
+
+&i2c0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sensor_main: sensor-main@20 {
+		compatible = "sprd,sensor-main";
+		reg = <0x20>;
+
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR0>,<&mm_gate CLK_MM_SENSOR0_EB>,
+			<&pll2 CLK_TWPLL_96M>,<&pll2 CLK_TWPLL_76M8>,
+			<&pll2 CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama0>;
+		vddcamd-supply = <&vddcamd0>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <0>;
+		csi = <&csi0>;
+		reset-gpios = <&ap_gpio 44 0>;
+		power-down-gpios = <&ap_gpio 46 0>;
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sensor_sub: sensor-sub@20 {
+		compatible = "sprd,sensor-sub";
+		reg = <0x20>;
+
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR1>,<&mm_gate CLK_MM_SENSOR1_EB>,
+			<&pll2 CLK_TWPLL_96M>,<&pll2 CLK_TWPLL_76M8>,
+			<&pll2 CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama0>;
+		vddcamd-supply = <&vddcamd0>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <4>;
+		csi = <&csi1>;
+		reset-gpios = <&ap_gpio 41 0>;
+		power-down-gpios = <&ap_gpio 40 0>;
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+
+	sensor_main2: sensor-main2@6c {
+		compatible = "sprd,sensor-main2";
+		reg = <0x6c>;
+
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR1>,<&mm_gate CLK_MM_SENSOR1_EB>,
+			<&pll2 CLK_TWPLL_96M>,<&pll2 CLK_TWPLL_76M8>,
+			<&pll2 CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama1>;
+		vddcamd-supply = <&vddcamd1>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <3>;
+		csi = <&csi1>;
+		reset-gpios = <&ap_gpio 45 0>;
+		power-down-gpios = <&ap_gpio 47 0>;
+		power-domains = <&mm_domain>;
+		status = "okay";
+	};
+};
+
+&i2c3 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	adaptive-touchscreen@38 {
+		compatible = "focaltech,ft5436-touchscreen";
+		reg = <0x38>;
+		gpios = <&ap_gpio 145 GPIO_ACTIVE_HIGH
+			&ap_gpio 144 GPIO_ACTIVE_HIGH>;
+		controller = "focaltech,FT5436";
+		virtualkeys = <580 60 1320 60 45
+				172 360 1320 60 45
+				158 600 1320 60 45>;
+		firmware-auto-upgrade;
+		private-data {
+			a8 = /bits/ 8 <0x5a>;
+		};
+	};
+};
+
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	flash_ic: flash-ic@63 {
+		compatible = "sprd,flash-ocp8137";
+		reg = <0x63>;
+		sprd,flash-ic = <8137>;
+		sprd,torch = <1>;
+		sprd,preflash = <1>;
+		sprd,highlight = <1>;
+		sprd,torch-level = <128>;
+		sprd,preflash-level = <128>;
+		sprd,highlight-level = <128>;
+		sprd,lvfm-enable = <1>;
+		flash-torch-en-gpios = <&ap_gpio 136 0>;
+		flash-chip-en-gpios = <&ap_gpio 135 0>;
+		flash-en-gpios = <&ap_gpio 137 0>;
+		flash-sync-gpios = <&ap_gpio 138 0>;
+	};
+};
+
+&pmic_typec {
+	extcon = <&extcon_gpio>;
+	no_support_typec_analog_earphone;
+};
+
+&panel {
+	sprd,backlight = <&pwm_backlight>;
+	reset-gpio = <&ap_gpio 50 GPIO_ACTIVE_HIGH>;
+};
+
+&hsphy {
+	vdd-supply = <&vddusb33>;
+	extcon = <&pmic_typec>;
+	/* first value is device eye-patt setting, the second is host */
+	sprd,hsphy-tunehsamp = /bits/ 8 <0x03 0x03>;
+	sprd,hsphy-tuneeq = /bits/ 8 <0x00 0x00>;
+	sprd,hsphy-tfregres = /bits/ 8 <0x14 0x14>;
+};
+
+&usb {
+	extcon = <&pmic_typec>, <&pmic_typec>;
+	vbus-supply = <&vddvbus>;
+};
+
+&sdio0 {
+	cd-gpios = <&eic_sync 19 GPIO_ACTIVE_LOW>;
+};
+
+&vddldo0 {
+	regulator-always-on;
+};

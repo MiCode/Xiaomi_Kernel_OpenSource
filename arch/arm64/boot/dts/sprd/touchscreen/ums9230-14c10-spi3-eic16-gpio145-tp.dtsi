@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * ums9230-14c10-spi3-eic16-gpio145-tp.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&spi3 {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	touchpanel@0 {
+		status = "okay";
+		reg = <0>; //Same as CS ID
+		spi-max-frequency = <9600000>;  //4800000,9600000,15000000,19200000
+		compatible = "novatek,NVT-ts-spi","adaptive-touchscreen";
+		//novatek tp
+		novatek,reset-gpio = <&ap_gpio 145 0x0>;
+		novatek,irq-gpio = <&eic_async 16 0x0>;
+		novatek,resolution = <720 1612>;
+	};
+};

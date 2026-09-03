@@ -1,0 +1,9 @@
+menu "SPRD IQ modules"
+
+config UNISOC_IQ
+	tristate "Sprd IQ"
+	default n
+	help
+	  Sprd IQ module, capture the iq data.
+
+endmenu

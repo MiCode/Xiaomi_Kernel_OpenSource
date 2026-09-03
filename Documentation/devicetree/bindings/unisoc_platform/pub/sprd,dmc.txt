@@ -1,0 +1,16 @@
+DT binding for Spreadtrum dmc driver interface
+========================================
+
+This binding follows the generic dmc bindings defined in sprd,dmc.txt.
+
+Required properties:
+- compatible: should be "sprd,pub-dmc","sprd,pub-dmc-original"
+- reg: Address range of ddr mode registers and pub monitor registers.
+
+Example:
+dmc_controller  {
+	compatible = "sprd,pub-dmc";
+	reg = <0x0 0x31056200 0x0 0x1000>,
+		<0x0 0x3000 0x0 0x1000>;
+};
+

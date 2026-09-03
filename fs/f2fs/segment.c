@@ -257,7 +257,7 @@ retry:
 	} else {
 		blkcnt_t count = 1;
 
-		err = inc_valid_block_count(sbi, inode, &count, true);
+		err = inc_valid_block_count(sbi, inode, &count);
 		if (err) {
 			f2fs_put_dnode(&dn);
 			return err;
@@ -2626,7 +2626,7 @@ static unsigned int __get_next_segno(struct f2fs_sb_info *sbi, int type)
 		return SIT_I(sbi)->last_victim[ALLOC_NEXT];
 
 	/* find segments from 0 to reuse freed segments */
-	if (f2fs_get_alloc_mode(sbi) == ALLOC_MODE_REUSE)
+	if (F2FS_OPTION(sbi).alloc_mode == ALLOC_MODE_REUSE)
 		return 0;
 
 	return curseg->segno;

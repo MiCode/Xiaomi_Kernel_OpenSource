@@ -1211,7 +1211,7 @@ free_iv:
 free_sg:
 	kfree(sg);
 free_req:
-	aead_request_free(req);
+	kfree(req);
 free_ctx:
 	ksmbd_release_crypto_ctx(ctx);
 	return rc;

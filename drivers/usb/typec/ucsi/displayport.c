@@ -54,8 +54,7 @@ static int ucsi_displayport_enter(struct typec_altmode *alt, u32 *vdo)
 	u8 cur = 0;
 	int ret;
 
-	if (!ucsi_con_mutex_lock(dp->con))
-		return -ENOTCONN;
+	mutex_lock(&dp->con->lock);
 
 	if (!dp->override && dp->initialized) {
 		const struct typec_altmode *p = typec_altmode_get_partner(alt);
@@ -101,7 +100,7 @@ static int ucsi_displayport_enter(struct typec_altmode *alt, u32 *vdo)
 	schedule_work(&dp->work);
 	ret = 0;
 err_unlock:
-	ucsi_con_mutex_unlock(dp->con);
+	mutex_unlock(&dp->con->lock);
 
 	return ret;
 }
@@ -113,8 +112,7 @@ static int ucsi_displayport_exit(struct typec_altmode *alt)
 	u64 command;
 	int ret = 0;
 
-	if (!ucsi_con_mutex_lock(dp->con))
-		return -ENOTCONN;
+	mutex_lock(&dp->con->lock);
 
 	if (!dp->override) {
 		const struct typec_altmode *p = typec_altmode_get_partner(alt);
@@ -146,7 +144,7 @@ static int ucsi_displayport_exit(struct typec_altmode *alt)
 	schedule_work(&dp->work);
 
 out_unlock:
-	ucsi_con_mutex_unlock(dp->con);
+	mutex_unlock(&dp->con->lock);
 
 	return ret;
 }
@@ -204,21 +202,20 @@ static int ucsi_displayport_vdm(struct typec_altmode *alt,
 	int cmd = PD_VDO_CMD(header);
 	int svdm_version;
 
-	if (!ucsi_con_mutex_lock(dp->con))
-		return -ENOTCONN;
+	mutex_lock(&dp->con->lock);
 
 	if (!dp->override && dp->initialized) {
 		const struct typec_altmode *p = typec_altmode_get_partner(alt);
 
 		dev_warn(&p->dev,
 			 "firmware doesn't support alternate mode overriding\n");
-		ucsi_con_mutex_unlock(dp->con);
+		mutex_unlock(&dp->con->lock);
 		return -EOPNOTSUPP;
 	}
 
 	svdm_version = typec_altmode_get_svdm_version(alt);
 	if (svdm_version < 0) {
-		ucsi_con_mutex_unlock(dp->con);
+		mutex_unlock(&dp->con->lock);
 		return svdm_version;
 	}
 
@@ -262,7 +259,7 @@ static int ucsi_displayport_vdm(struct typec_altmode *alt,
 		break;
 	}
 
-	ucsi_con_mutex_unlock(dp->con);
+	mutex_unlock(&dp->con->lock);
 
 	return 0;
 }
@@ -298,8 +295,6 @@ void ucsi_displayport_remove_partner(struct typec_altmode *alt)
 	dp = typec_altmode_get_drvdata(alt);
 	if (!dp)
 		return;
-
-	cancel_work_sync(&dp->work);
 
 	dp->data.conf = 0;
 	dp->data.status = 0;

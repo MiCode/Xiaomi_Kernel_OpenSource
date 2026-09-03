@@ -182,9 +182,7 @@ static struct blk_major_name {
 	struct blk_major_name *next;
 	int major;
 	char name[16];
-#ifdef CONFIG_BLOCK_LEGACY_AUTOLOAD
 	void (*probe)(dev_t devt);
-#endif
 } *major_names[BLKDEV_MAJOR_HASH_SIZE];
 static DEFINE_MUTEX(major_names_lock);
 static DEFINE_SPINLOCK(major_names_spinlock);
@@ -271,9 +269,7 @@ int __register_blkdev(unsigned int major, const char *name,
 	}
 
 	p->major = major;
-#ifdef CONFIG_BLOCK_LEGACY_AUTOLOAD
 	p->probe = probe;
-#endif
 	strlcpy(p->name, name, sizeof(p->name));
 	p->next = NULL;
 	index = major_to_index(major);
@@ -673,8 +669,7 @@ static ssize_t disk_badblocks_store(struct device *dev,
 	return badblocks_store(disk->bb, page, len, 0);
 }
 
-#ifdef CONFIG_BLOCK_LEGACY_AUTOLOAD
-static bool blk_probe_dev(dev_t devt)
+void blk_request_module(dev_t devt)
 {
 	unsigned int major = MAJOR(devt);
 	struct blk_major_name **n;
@@ -684,28 +679,15 @@ static bool blk_probe_dev(dev_t devt)
 		if ((*n)->major == major && (*n)->probe) {
 			(*n)->probe(devt);
 			mutex_unlock(&major_names_lock);
-			return true;
+			return;
 		}
 	}
 	mutex_unlock(&major_names_lock);
-	return false;
+
+	if (request_module("block-major-%d-%d", MAJOR(devt), MINOR(devt)) > 0)
+		/* Make old-style 2.4 aliases work */
+		request_module("block-major-%d", MAJOR(devt));
 }
-
-void blk_request_module(dev_t devt)
-{
-	int error;
-
-	if (blk_probe_dev(devt))
-		return;
-
-	error = request_module("block-major-%d-%d", MAJOR(devt), MINOR(devt));
-	/* Make old-style 2.4 aliases work */
-	if (error > 0)
-		error = request_module("block-major-%d", MAJOR(devt));
-	if (!error)
-		blk_probe_dev(devt);
-}
-#endif /* CONFIG_BLOCK_LEGACY_AUTOLOAD */
 
 /*
  * print a full list of all partitions - intended for places where the root

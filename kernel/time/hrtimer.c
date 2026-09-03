@@ -41,6 +41,9 @@
 #include <linux/timer.h>
 #include <linux/freezer.h>
 #include <linux/compat.h>
+#ifndef CONFIG_ARM64_LSE_ATOMICS
+#include <linux/delay.h>
+#endif
 
 #include <linux/uaccess.h>
 
@@ -144,6 +147,11 @@ static struct hrtimer_cpu_base migration_cpu_base = {
 
 #define migration_base	migration_cpu_base.clock_base[0]
 
+static inline bool is_migration_base(struct hrtimer_clock_base *base)
+{
+	return base == &migration_base;
+}
+
 /*
  * We are using hashed locking: holding per_cpu(hrtimer_bases)[n].lock
  * means that all timers which are tied to this base via timer->base are
@@ -172,6 +180,9 @@ struct hrtimer_clock_base *lock_hrtimer_base(const struct hrtimer *timer,
 			raw_spin_unlock_irqrestore(&base->cpu_base->lock, *flags);
 		}
 		cpu_relax();
+#ifndef CONFIG_ARM64_LSE_ATOMICS
+		ndelay(TIMER_LOCK_TIGHT_LOOP_DELAY_NS);
+#endif
 	}
 }
 
@@ -267,6 +278,11 @@ again:
 }
 
 #else /* CONFIG_SMP */
+
+static inline bool is_migration_base(struct hrtimer_clock_base *base)
+{
+	return false;
+}
 
 static inline struct hrtimer_clock_base *
 lock_hrtimer_base(const struct hrtimer *timer, unsigned long *flags)
@@ -1366,18 +1382,6 @@ static void hrtimer_sync_wait_running(struct hrtimer_cpu_base *cpu_base,
 	}
 }
 
-#ifdef CONFIG_SMP
-static __always_inline bool is_migration_base(struct hrtimer_clock_base *base)
-{
-	return base == &migration_base;
-}
-#else
-static __always_inline bool is_migration_base(struct hrtimer_clock_base *base)
-{
-	return false;
-}
-#endif
-
 /*
  * This function is called on PREEMPT_RT kernels when the fast path
  * deletion of a timer failed because the timer callback function was
@@ -1446,8 +1450,15 @@ int hrtimer_cancel(struct hrtimer *timer)
 	do {
 		ret = hrtimer_try_to_cancel(timer);
 
+#ifndef CONFIG_ARM64_LSE_ATOMICS
+		if (ret < 0) {
+			hrtimer_cancel_wait_running(timer);
+			ndelay(TIMER_LOCK_TIGHT_LOOP_DELAY_NS);
+		}
+#else
 		if (ret < 0)
 			hrtimer_cancel_wait_running(timer);
+#endif
 	} while (ret < 0);
 	return ret;
 }

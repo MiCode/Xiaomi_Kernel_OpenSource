@@ -1753,11 +1753,8 @@ static int userfaultfd_copy(struct userfaultfd_ctx *ctx,
 	user_uffdio_copy = (struct uffdio_copy __user *) arg;
 
 	ret = -EAGAIN;
-	if (unlikely(atomic_read(&ctx->mmap_changing))) {
-		if (unlikely(put_user(ret, &user_uffdio_copy->copy)))
-			return -EFAULT;
+	if (atomic_read(&ctx->mmap_changing))
 		goto out;
-	}
 
 	ret = -EFAULT;
 	if (copy_from_user(&uffdio_copy, user_uffdio_copy,
@@ -1815,11 +1812,8 @@ static int userfaultfd_zeropage(struct userfaultfd_ctx *ctx,
 	user_uffdio_zeropage = (struct uffdio_zeropage __user *) arg;
 
 	ret = -EAGAIN;
-	if (unlikely(atomic_read(&ctx->mmap_changing))) {
-		if (unlikely(put_user(ret, &user_uffdio_zeropage->zeropage)))
-			return -EFAULT;
+	if (atomic_read(&ctx->mmap_changing))
 		goto out;
-	}
 
 	ret = -EFAULT;
 	if (copy_from_user(&uffdio_zeropage, user_uffdio_zeropage,
@@ -1923,11 +1917,8 @@ static int userfaultfd_continue(struct userfaultfd_ctx *ctx, unsigned long arg)
 	user_uffdio_continue = (struct uffdio_continue __user *)arg;
 
 	ret = -EAGAIN;
-	if (unlikely(atomic_read(&ctx->mmap_changing))) {
-		if (unlikely(put_user(ret, &user_uffdio_continue->mapped)))
-			return -EFAULT;
+	if (atomic_read(&ctx->mmap_changing))
 		goto out;
-	}
 
 	ret = -EFAULT;
 	if (copy_from_user(&uffdio_continue, user_uffdio_continue,

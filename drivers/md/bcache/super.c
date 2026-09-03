@@ -1746,12 +1746,7 @@ static void cache_set_flush(struct closure *cl)
 			mutex_unlock(&b->write_lock);
 		}
 
-	/*
-	 * If the register_cache_set() call to bch_cache_set_alloc() failed,
-	 * ca has not been assigned a value and return error.
-	 * So we need check ca is not NULL during bch_cache_set_unregister().
-	 */
-	if (ca && ca->alloc_thread)
+	if (ca->alloc_thread)
 		kthread_stop(ca->alloc_thread);
 
 	if (c->journal.cur) {

@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc I2C dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&apahb {
+	i2c0: i2c@2240000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x2240000 0x100>;
+		interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C0_EB>,
+			<&ap_clk CLK_AP_I2C0>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C0_SOFT_RST>;
+	};
+
+	i2c1: i2c@2250000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x2250000 0x100>;
+		interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C1_EB>,
+			<&ap_clk CLK_AP_I2C1>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C1_SOFT_RST>;
+	};
+
+	i2c2: i2c@2260000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x2260000 0x100>;
+		interrupts = <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C2_EB>,
+			<&ap_clk CLK_AP_I2C2>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C2_SOFT_RST>;
+	};
+
+	i2c3: i2c@2270000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x2270000 0x100>;
+		interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C3_EB>,
+			<&ap_clk CLK_AP_I2C3>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C3_SOFT_RST>;
+	};
+
+	i2c4: i2c@2280000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x2280000 0x100>;
+		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C4_EB>,
+			<&ap_clk CLK_AP_I2C4>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C4_SOFT_RST>;
+	};
+
+	i2c5: i2c@2290000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x2290000 0x100>;
+		interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C5_EB>,
+			<&ap_clk CLK_AP_I2C5>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C5_SOFT_RST>;
+	};
+
+	i2c6: i2c@22a0000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x22a0000 0x100>;
+		interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C6_EB>,
+			<&ap_clk CLK_AP_I2C6>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C6_SOFT_RST>;
+	};
+
+	i2c7: i2c@22b0000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x22b0000 0x100>;
+		interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C7_EB>,
+			<&ap_clk CLK_AP_I2C7>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C7_SOFT_RST>;
+	};
+
+	i2c8: i2c@22c0000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x22c0000 0x100>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <400000>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C8_EB>,
+			<&ap_clk CLK_AP_I2C8>, <&ext_26m>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C8_SOFT_RST>;
+	};
+
+	i2c9: i2c@22d0000 {
+		compatible = "sprd,qogirn6pro-i2c", "sprd,sc9860-i2c";
+		reg = <0x22d0000 0x100>;
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "enable", "i2c", "source";
+		clocks = <&apahb_gate CLK_I2C9_EB>,
+			<&ap_clk CLK_AP_I2C9>, <&ext_26m>;
+		clock-frequency = <400000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reset-names ="i2c_rst";
+		resets = <&apahb_gate RESET_AP_AHB_I2C9_SOFT_RST>;
+	};
+};

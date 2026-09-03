@@ -173,13 +173,6 @@ static void conf_message(const char *fmt, ...)
 static const char *conf_filename;
 static int conf_lineno, conf_warnings;
 
-bool conf_errors(void)
-{
-	if (conf_warnings)
-		return getenv("KCONFIG_WERROR");
-	return false;
-}
-
 static void conf_warning(const char *fmt, ...)
 {
 	va_list ap;
@@ -355,12 +348,10 @@ int conf_read_simple(const char *name, int def)
 	FILE *in = NULL;
 	char   *line = NULL;
 	size_t  line_asize = 0;
-	char *p, *p2, *val;
+	char *p, *p2;
 	struct symbol *sym;
 	int i, def_flags;
-	const char *warn_unknown, *sym_name;
 
-	warn_unknown = getenv("KCONFIG_WARN_UNKNOWN_SYMBOLS");
 	if (name) {
 		in = zconf_fopen(name);
 	} else {
@@ -393,12 +384,10 @@ int conf_read_simple(const char *name, int def)
 
 			*p = '\0';
 
-			name = env;
-
-			in = zconf_fopen(name);
+			in = zconf_fopen(env);
 			if (in) {
 				conf_message("using defaults found in %s",
-					     name);
+					     env);
 				goto load;
 			}
 
@@ -437,34 +426,71 @@ load:
 
 	while (compat_getline(&line, &line_asize, in) != -1) {
 		conf_lineno++;
+		sym = NULL;
 		if (line[0] == '#') {
-			if (line[1] != ' ')
+			if (memcmp(line + 2, CONFIG_, strlen(CONFIG_)))
 				continue;
-			p = line + 2;
-			if (memcmp(p, CONFIG_, strlen(CONFIG_)))
-				continue;
-			sym_name = p + strlen(CONFIG_);
-			p = strchr(sym_name, ' ');
+			p = strchr(line + 2 + strlen(CONFIG_), ' ');
 			if (!p)
 				continue;
 			*p++ = 0;
 			if (strncmp(p, "is not set", 10))
 				continue;
-
-			val = "n";
+			if (def == S_DEF_USER) {
+				sym = sym_find(line + 2 + strlen(CONFIG_));
+				if (!sym) {
+					conf_set_changed(true);
+					continue;
+				}
+			} else {
+				sym = sym_lookup(line + 2 + strlen(CONFIG_), 0);
+				if (sym->type == S_UNKNOWN)
+					sym->type = S_BOOLEAN;
+			}
+			if (sym->flags & def_flags) {
+				conf_warning("override: reassigning to symbol %s", sym->name);
+			}
+			switch (sym->type) {
+			case S_BOOLEAN:
+			case S_TRISTATE:
+				sym->def[def].tri = no;
+				sym->flags |= def_flags;
+				break;
+			default:
+				;
+			}
 		} else if (memcmp(line, CONFIG_, strlen(CONFIG_)) == 0) {
-			sym_name = line + strlen(CONFIG_);
-			p = strchr(sym_name, '=');
+			p = strchr(line + strlen(CONFIG_), '=');
 			if (!p)
 				continue;
 			*p++ = 0;
-			val = p;
 			p2 = strchr(p, '\n');
 			if (p2) {
 				*p2-- = 0;
 				if (*p2 == '\r')
 					*p2 = 0;
 			}
+
+			sym = sym_find(line + strlen(CONFIG_));
+			if (!sym) {
+				if (def == S_DEF_AUTO)
+					/*
+					 * Reading from include/config/auto.conf
+					 * If CONFIG_FOO previously existed in
+					 * auto.conf but it is missing now,
+					 * include/config/FOO must be touched.
+					 */
+					conf_touch_dep(line + strlen(CONFIG_));
+				else
+					conf_set_changed(true);
+				continue;
+			}
+
+			if (sym->flags & def_flags) {
+				conf_warning("override: reassigning to symbol %s", sym->name);
+			}
+			if (conf_set_sym_val(sym, def, def_flags, p))
+				continue;
 		} else {
 			if (line[0] != '\r' && line[0] != '\n')
 				conf_warning("unexpected data: %.*s",
@@ -472,31 +498,6 @@ load:
 
 			continue;
 		}
-
-		sym = sym_find(sym_name);
-		if (!sym) {
-			if (def == S_DEF_AUTO) {
-				/*
-				 * Reading from include/config/auto.conf.
-				 * If CONFIG_FOO previously existed in auto.conf
-				 * but it is missing now, include/config/FOO
-				 * must be touched.
-				 */
-				conf_touch_dep(sym_name);
-			} else {
-				if (warn_unknown)
-					conf_warning("unknown symbol: %s", sym_name);
-
-				conf_set_changed(true);
-			}
-			continue;
-		}
-
-		if (sym->flags & def_flags)
-			conf_warning("override: reassigning to symbol %s", sym->name);
-
-		if (conf_set_sym_val(sym, def, def_flags, val))
-			continue;
 
 		if (sym && sym_is_choice_value(sym)) {
 			struct symbol *cs = prop_get_symbol(sym_get_choice_prop(sym));
@@ -520,7 +521,6 @@ load:
 	}
 	free(line);
 	fclose(in);
-
 	return 0;
 }
 

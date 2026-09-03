@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Copyright 2023 Unisoc(Shanghai) Technologies Co.Ltd
+# This program is free software; you can redistribute it and/or modify it under the terms of the
+# GNU General Public License as published by the Free Software Foundation; version 2.
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along with this program;
+# if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA 02110-1301, USA.
+
+menu "Unisoc Binder Features"
+
+config UNISOC_BINDER
+	tristate "Support Unisoc Binder Features"
+	depends on ANDROID_BINDER_IPC
+	default n
+	help
+	  This is the base of unisoc binder feature.
+
+	  Unisoc binder is add some customized changes into Android binder driver through
+	  Android binder driver vendor hooks.And now we support the binder netlink feature,
+	  and binder thread related schedule policy and priority adjust.
+
+config UNISOC_BINDER_NETLINK
+	bool "Support binder netlink feature"
+	default y
+	depends on UNISOC_BINDER
+	help
+	  binder netlink feature is used to communication between userspace and binder driver.
+
+	  When enable this feature, userspace process can send genl message to binder driver, and binder
+	  driver also can send some genl message to userspace.
+	  If you do not want to receive the messege, turn off it.
+
+config UNISOC_BINDER_SCHED
+	tristate "Support Binder thread sched feature."
+	default y
+	depends on UNISOC_BINDER_NETLINK
+	help
+	  This feature contains two features now:
+		1) dynamic abort the binder priority restore flow when user required
+		2) dynamic enable the binder thread inherit rt when user required
+
+	  Unisoc binder sched feature is used to add some customized changes for the binder thread
+	  schedule policy and priority.
+
+endmenu

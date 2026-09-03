@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * battery-common.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+/ {
+/* NVT aging 0--100 */
+	bat: battery {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT aging 100--200 */
+	bat_1: battery_1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT aging 200--300 */
+	bat_2: battery_2 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT aging 300--800 */
+	bat_3: battery_3 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT aging > 800 */
+	bat_4: battery_4 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD aging 0--100 */
+	bat1: battery1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD aging 100--200 */
+	bat1_1: battery1_1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD aging 200--300 */
+	bat1_2: battery1_2 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD aging 300--800 */
+	bat1_3: battery1_3 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD aging > 800 */
+	bat1_4: battery1_4 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* COS aging 0--100 */
+	bat2: battery2 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* COS aging 100--200 */
+	bat2_1: battery2_1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* COS aging 200--300 */
+	bat2_2: battery2_2 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* COS aging 300--800 */
+	bat2_3: battery2_3 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* COS aging > 800 */
+	bat2_4: battery2_4 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD-single aging 0--100 */
+	bat3: battery3 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD-single aging 100--200 */
+	bat3_1: battery3_1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD-single aging 200--300 */
+	bat3_2: battery3_2 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD-single aging 300--800 */
+	bat3_3: battery3_3 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* SWD-single aging > 800 */
+	bat3_4: battery3_4 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT-single aging 0--100 */
+	bat4: battery4 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT-single aging 100--200 */
+	bat4_1: battery4_1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT-single aging 200--300 */
+	bat4_2: battery4_2 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT-single aging 300--800 */
+	bat4_3: battery4_3 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+/* NVT-single aging > 800 */
+	bat4_4: battery4_4 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+	bat0_1: battery0_1 {
+		compatible = "simple-battery";
+		status = "disabled";
+	};
+
+	cm: charger-manager {
+		compatible = "charger-manager";
+		status = "disabled";
+	};
+
+	odm: odm{
+		compatible = "simple-bus";
+ 		/* reserved for overlay by odm */
+ 	};
+};

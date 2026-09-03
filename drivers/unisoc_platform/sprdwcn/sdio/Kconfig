@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Unisoc WCN sdio configuration
+#
+
+config SDIOHAL
+	tristate "SDIO Support"
+	depends on SC23XX
+	default n
+	help
+	  Enable this module for Unisoc WCN sdio device
+	  chip sdio interface bus Support.
+	  Please insmod this module before any other
+	  WCN subsystems. Thanks.

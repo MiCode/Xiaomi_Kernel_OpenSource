@@ -2182,7 +2182,7 @@ void __split_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
 	VM_BUG_ON(freeze && !page);
 	if (page) {
 		VM_WARN_ON_ONCE(!PageLocked(page));
-		if (is_pmd_migration_entry(*pmd) || page != pmd_page(*pmd))
+		if (page != pmd_page(*pmd))
 			goto out;
 	}
 
@@ -2315,7 +2315,11 @@ static void unmap_page(struct page *page)
 	if (PageAnon(page))
 		try_to_migrate(page, ttu_flags);
 	else
+#ifdef CONFIG_PROCESS_RECLAIM
+		try_to_unmap(page, ttu_flags | TTU_IGNORE_MLOCK, NULL);
+#else
 		try_to_unmap(page, ttu_flags | TTU_IGNORE_MLOCK);
+#endif
 
 	VM_WARN_ON_ONCE_PAGE(page_mapped(page), page);
 }

@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+
+$id: "http://devicetree.org/schemas/unisoc_platform/sprd,autotest.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Spreadtrum autotest bindings
+
+description: autotest driver, which will provide an interface for userspace to oprate gpio.
+
+
+Required properties:
+- compatible: Should be sprd,autotest
+- sprd,pinctrl: pinctrl for gpio function
+
+examples:
+  - |
+    autotest: autotest {
+      compatible              = "sprd,autotest";
+      sprd,pinctrl            = <&pin_controller>;
+    };

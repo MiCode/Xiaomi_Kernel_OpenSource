@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/extcon/extcon-usb-virt.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Spreadtrum USB Virtual Extcon device
+
+description: |
+  This is a virtual device used to generate USB cable states from sysfs node:
+  /sys/devices/platform/extcon-virt/id_virt
+  /sys/devices/platform/extcon-virt/vbus_virt
+  You can switch usb roles in user space.
+
+  The default usb role on boot depends on id-virt and vbus-virt configurations in dts.
+  id-virt = <0>, vbus-virt = <0>, means Default usb role is "host"; id-virt = <1>,
+  vbus-virt = <1>, means Default usb role is "device"; id-virt = <1>, vbus-virt = <0>,
+  means Default usb role is "shutdown"
+
+properties:
+  compatible:
+    items:
+      - const: sprd,extcon-usb-virt
+
+    id-virt:
+      description:
+        0 represent for id PIN low, 1 for high.
+      enum:
+        - <0>
+        - <1>
+    vbus-virt:
+      description:
+        0 represent for vbus PIN low, 1 for high.
+      enum:
+        - <0>
+        - <1>
+
+required:
+  - compatible
+  - id-virt
+  - vbus-virt
+
+additionalProperties: false
+
+Example:
+  - |
+	extcon_virt: extcon-virt {
+			compatible = "sprd,extcon-usb-virt";
+			id-virt = <0>;
+			vbus-virt = <0>;
+	};
+
+	&usb3 {
+		extcon = <&extcon_virt>, <&extcon_virt>;
+		vbus-supply = <&vddvbus>;
+		status = "okay";
+	};

@@ -1,0 +1,13 @@
+#
+# SPRD Soc power debug drivers
+#
+menuconfig SPRD_POWER_DEBUG
+	tristate "Spreadtrum power debug driver"
+	depends on PM_SLEEP && ARCH_SPRD
+	default n
+	help
+	Select this to enable power debug log driver for sprd soc. This driver
+	is only used to output the power state, wakeup interrupt and some specific
+	register values before the system enter deep sleep mode. and output the
+	power state and wakeup source information in sprd_pm_thread every 30s.
+	These logs will help to analysis system power issue.

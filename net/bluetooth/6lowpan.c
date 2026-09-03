@@ -824,16 +824,11 @@ static struct sk_buff *chan_alloc_skb_cb(struct l2cap_chan *chan,
 					 unsigned long hdr_len,
 					 unsigned long len, int nb)
 {
-	struct sk_buff *skb;
-
 	/* Note that we must allocate using GFP_ATOMIC here as
 	 * this function is called originally from netdev hard xmit
 	 * function in atomic context.
 	 */
-	skb = bt_skb_alloc(hdr_len + len, GFP_ATOMIC);
-	if (!skb)
-		return ERR_PTR(-ENOMEM);
-	return skb;
+	return bt_skb_alloc(hdr_len + len, GFP_ATOMIC);
 }
 
 static void chan_suspend_cb(struct l2cap_chan *chan)

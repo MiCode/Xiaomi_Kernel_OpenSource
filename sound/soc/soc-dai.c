@@ -269,15 +269,12 @@ int snd_soc_dai_set_tdm_slot(struct snd_soc_dai *dai,
 {
 	int ret = -ENOTSUPP;
 
-	if (slots) {
-		if (dai->driver->ops &&
-		    dai->driver->ops->xlate_tdm_slot_mask)
-			ret = dai->driver->ops->xlate_tdm_slot_mask(slots, &tx_mask, &rx_mask);
-		else
-			ret = snd_soc_xlate_tdm_slot_mask(slots, &tx_mask, &rx_mask);
-		if (ret)
-			goto err;
-	}
+	if (dai->driver->ops &&
+	    dai->driver->ops->xlate_tdm_slot_mask)
+		dai->driver->ops->xlate_tdm_slot_mask(slots,
+						      &tx_mask, &rx_mask);
+	else
+		snd_soc_xlate_tdm_slot_mask(slots, &tx_mask, &rx_mask);
 
 	dai->tx_mask = tx_mask;
 	dai->rx_mask = rx_mask;
@@ -286,7 +283,6 @@ int snd_soc_dai_set_tdm_slot(struct snd_soc_dai *dai,
 	    dai->driver->ops->set_tdm_slot)
 		ret = dai->driver->ops->set_tdm_slot(dai, tx_mask, rx_mask,
 						      slots, slot_width);
-err:
 	return soc_dai_ret(dai, ret);
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_set_tdm_slot);
@@ -559,9 +555,6 @@ int snd_soc_pcm_dai_probe(struct snd_soc_pcm_runtime *rtd, int order)
 
 	for_each_rtd_dais(rtd, i, dai) {
 		if (dai->driver->probe_order != order)
-			continue;
-
-		if (dai->probed)
 			continue;
 
 		if (dai->driver->probe) {

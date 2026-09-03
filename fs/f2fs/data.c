@@ -58,8 +58,8 @@ static bool __is_cp_guaranteed(struct page *page)
 	struct inode *inode;
 	struct f2fs_sb_info *sbi;
 
-	if (fscrypt_is_bounce_page(page))
-		return page_private_gcing(fscrypt_pagecache_page(page));
+	if (!mapping)
+		return false;
 
 	inode = mapping->host;
 	sbi = F2FS_I_SB(inode);
@@ -1124,8 +1124,7 @@ int f2fs_reserve_new_blocks(struct dnode_of_data *dn, blkcnt_t count)
 
 	if (unlikely(is_inode_flag_set(dn->inode, FI_NO_ALLOC)))
 		return -EPERM;
-	err = inc_valid_block_count(sbi, dn->inode, &count, true);
-	if (unlikely(err))
+	if (unlikely((err = inc_valid_block_count(sbi, dn->inode, &count))))
 		return err;
 
 	trace_f2fs_reserve_new_blocks(dn->inode, dn->nid,
@@ -1396,7 +1395,7 @@ static int __allocate_data_block(struct dnode_of_data *dn, int seg_type)
 	if (dn->data_blkaddr != NULL_ADDR)
 		goto alloc;
 
-	if (unlikely((err = inc_valid_block_count(sbi, dn->inode, &count, true))))
+	if (unlikely((err = inc_valid_block_count(sbi, dn->inode, &count))))
 		return err;
 
 alloc:
@@ -2163,12 +2162,6 @@ int f2fs_read_multi_pages(struct compress_ctx *cc, struct bio **bio_ret,
 	bool from_dnode = true;
 	int i;
 	int ret = 0;
-
-	if (unlikely(f2fs_cp_error(sbi))) {
-		ret = -EIO;
-		from_dnode = false;
-		goto out_put_dnode;
-	}
 
 	f2fs_bug_on(sbi, f2fs_cluster_is_empty(cc));
 

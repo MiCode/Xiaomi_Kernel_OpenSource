@@ -166,8 +166,8 @@ do_add_page_to_bio(struct bio *bio, int npg, int rw, sector_t isect,
 
 	/* limit length to what the device mapping allows */
 	end = disk_addr + *len;
-	if (end >= map->disk_offset + map->len)
-		*len = map->disk_offset + map->len - disk_addr;
+	if (end >= map->start + map->len)
+		*len = map->start + map->len - disk_addr;
 
 retry:
 	if (!bio) {

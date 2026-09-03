@@ -312,7 +312,7 @@ static enum power_supply_property sc2731_usb_props[] = {
 
 static const struct power_supply_desc sc2731_charger_desc = {
 	.name			= "sc2731_charger",
-	.type			= POWER_SUPPLY_TYPE_USB,
+	.type			= POWER_SUPPLY_TYPE_UNKNOWN,
 	.properties		= sc2731_usb_props,
 	.num_properties		= ARRAY_SIZE(sc2731_usb_props),
 	.get_property		= sc2731_charger_usb_get_property,
@@ -516,6 +516,8 @@ static int sc2731_charger_remove(struct platform_device *pdev)
 	struct sc2731_charger_info *info = platform_get_drvdata(pdev);
 
 	usb_unregister_notifier(info->usb_phy, &info->usb_notify);
+
+	mutex_destroy(&info->lock);
 
 	return 0;
 }

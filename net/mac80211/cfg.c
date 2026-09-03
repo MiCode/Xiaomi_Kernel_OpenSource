@@ -1652,12 +1652,12 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 		sta->listen_interval = params->listen_interval;
 
 	if (params->link_sta_params.supported_rates &&
-	    params->link_sta_params.supported_rates_len &&
-	    !ieee80211_parse_bitrates(&sdata->vif.bss_conf.chandef,
-				      sband, params->link_sta_params.supported_rates,
-				      params->link_sta_params.supported_rates_len,
-				      &sta->sta.supp_rates[sband->band]))
-		return -EINVAL;
+	    params->link_sta_params.supported_rates_len) {
+		ieee80211_parse_bitrates(&sdata->vif.bss_conf.chandef,
+					 sband, params->link_sta_params.supported_rates,
+					 params->link_sta_params.supported_rates_len,
+					 &sta->sta.supp_rates[sband->band]);
+	}
 
 	if (params->link_sta_params.ht_capa)
 		ieee80211_ht_cap_ie_to_sta_ht_cap(sdata, sband,

@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: (Licenseref-Unisoc-General-1.0 OR GPL-2.0-only)
+/*
+ * regulator.dtsi - Unisoc platform device
+ *
+ * Copyright 2022 Unisoc(Shanghai) Technologies Co.Ltd
+ *
+ * Licensed under the Unisoc General Software License, version 1.0 (the
+ * License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://www.unisoc.com/en_us/license/UNISOC_GENERAL_LICENSE_V1.0-EN_US
+ * Software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OF ANY KIND, either express or implied.
+ * See the Unisoc General Software License, version 1.0 for more details.
+ *
+ * Alternatively you can use and distribute this file under the terms of the
+ * GNU General Public License version 2, provided that it has to be used
+ *  (including but not limited to combining, linking) with any other file under
+ * the GNU General Public License version 2 on platforms that use Unisoc Chips.
+ */
+
+&sc2731_pmic {
+	regulators {
+		compatible = "sprd,sc2731-regulator";
+		regulator-debugfs-enable;
+
+		vddarm0: BUCK_CPU0 {
+			regulator-name = "vddarm0";
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1996875>;
+			regulator-ramp-delay = <25000>;
+			regulator-always-on;
+		};
+
+		vddarm1: BUCK_CPU1 {
+			regulator-name = "vddarm1";
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1996875>;
+			regulator-ramp-delay = <25000>;
+			regulator-always-on;
+		};
+
+		dcdcrf: BUCK_RF {
+			regulator-name = "dcdcrf";
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <2196875>;
+			regulator-ramp-delay = <25000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-always-on;
+		};
+
+		vddcama0: LDO_CAMA0 {
+			regulator-name = "vddcama0";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+		};
+
+		vddcama1: LDO_CAMA1 {
+			regulator-name = "vddcama1";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddcammot: LDO_CAMMOT {
+			regulator-name = "vddcammot";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddvldo: LDO_VLDO {
+			regulator-name = "vddvldo";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddemmccore: LDO_EMMCCORE {
+			regulator-name = "vddemmccore";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+			regulator-boot-on;
+		};
+
+		vddsdcore: LDO_SDCORE {
+			regulator-name = "vddsdcore";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddsdio: LDO_SDIO {
+			regulator-name = "vddsdio";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddwifipa: LDO_WIFIPA {
+			regulator-name = "vddwifipa";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddusb33: LDO_USB33 {
+			regulator-name = "vddusb33";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <3750000>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddcamd0: LDO_CAMD0 {
+			regulator-name = "vddcamd0";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1793750>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddcamd1: LDO_CAMD1 {
+			regulator-name = "vddcamd1";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1793750>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddcon: LDO_CON {
+			regulator-name = "vddcon";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1793750>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddcamio: LDO_CAMIO {
+			regulator-name = "vddcamio";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1793750>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+		};
+
+		vddsram: LDO_SRAM {
+			regulator-name = "vddsram";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1793750>;
+			regulator-enable-ramp-delay = <100>;
+			regulator-ramp-delay = <25000>;
+			regulator-always-on;
+		};
+	};
+};

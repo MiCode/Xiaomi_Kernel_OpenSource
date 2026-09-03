@@ -14,7 +14,6 @@
  * Access to the event log extended by the TCG BIOS of PC platform
  */
 
-#include <linux/device.h>
 #include <linux/seq_file.h>
 #include <linux/fs.h>
 #include <linux/security.h>
@@ -61,11 +60,6 @@ static bool tpm_is_tpm2_log(void *bios_event_log, u64 len)
 	n = memcmp(efispecid->signature, TCG_SPECID_SIG,
 		   sizeof(TCG_SPECID_SIG));
 	return n == 0;
-}
-
-static void tpm_bios_log_free(void *data)
-{
-	kvfree(data);
 }
 
 /* read binary bios log */
@@ -141,7 +135,7 @@ int tpm_read_log_acpi(struct tpm_chip *chip)
 	}
 
 	/* malloc EventLog space */
-	log->bios_event_log = kvmalloc(len, GFP_KERNEL);
+	log->bios_event_log = kmalloc(len, GFP_KERNEL);
 	if (!log->bios_event_log)
 		return -ENOMEM;
 
@@ -167,16 +161,10 @@ int tpm_read_log_acpi(struct tpm_chip *chip)
 		goto err;
 	}
 
-	ret = devm_add_action(&chip->dev, tpm_bios_log_free, log->bios_event_log);
-	if (ret) {
-		log->bios_event_log = NULL;
-		goto err;
-	}
-
 	return format;
 
 err:
-	tpm_bios_log_free(log->bios_event_log);
+	kfree(log->bios_event_log);
 	log->bios_event_log = NULL;
 	return ret;
 }

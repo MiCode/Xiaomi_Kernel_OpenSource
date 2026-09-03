@@ -10,7 +10,6 @@
 #include <linux/limits.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <linux/string.h>
 
 #include "ccs-data-defs.h"
 
@@ -98,7 +97,7 @@ ccs_data_parse_length_specifier(const struct __ccs_data_length_specifier *__len,
 		plen = ((size_t)
 			(__len3->length[0] &
 			 ((1 << CCS_DATA_LENGTH_SPECIFIER_SIZE_SHIFT) - 1))
-			<< 16) + (__len3->length[1] << 8) + __len3->length[2];
+			<< 16) + (__len3->length[0] << 8) + __len3->length[1];
 		break;
 	}
 	default:
@@ -949,15 +948,15 @@ int ccs_data_parse(struct ccs_data_container *ccsdata, const void *data,
 
 	rval = __ccs_data_parse(&bin, ccsdata, data, len, dev, verbose);
 	if (rval)
-		goto out_cleanup;
+		return rval;
 
 	rval = bin_backing_alloc(&bin);
 	if (rval)
-		goto out_cleanup;
+		return rval;
 
 	rval = __ccs_data_parse(&bin, ccsdata, data, len, dev, false);
 	if (rval)
-		goto out_cleanup;
+		goto out_free;
 
 	if (verbose && ccsdata->version)
 		print_ccs_data_version(dev, ccsdata->version);
@@ -966,16 +965,15 @@ int ccs_data_parse(struct ccs_data_container *ccsdata, const void *data,
 		rval = -EPROTO;
 		dev_dbg(dev, "parsing mismatch; base %p; now %p; end %p\n",
 			bin.base, bin.now, bin.end);
-		goto out_cleanup;
+		goto out_free;
 	}
 
 	ccsdata->backing = bin.base;
 
 	return 0;
 
-out_cleanup:
+out_free:
 	kvfree(bin.base);
-	memset(ccsdata, 0, sizeof(*ccsdata));
 
 	return rval;
 }

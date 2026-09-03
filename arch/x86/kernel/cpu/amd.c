@@ -582,64 +582,6 @@ static void early_init_amd_mc(struct cpuinfo_x86 *c)
 #endif
 }
 
-static bool amd_check_tsa_microcode(void)
-{
-	struct cpuinfo_x86 *c = &boot_cpu_data;
-	union zen_patch_rev p;
-	u32 min_rev = 0;
-
-	p.ext_fam	= c->x86 - 0xf;
-	p.model		= c->x86_model;
-	p.ext_model	= c->x86_model >> 4;
-	p.stepping	= c->x86_stepping;
-	/* reserved bits are expected to be 0 in test below */
-	p.__reserved	= 0;
-
-	if (c->x86 == 0x19) {
-		switch (p.ucode_rev >> 8) {
-		case 0xa0011:	min_rev = 0x0a0011d7; break;
-		case 0xa0012:	min_rev = 0x0a00123b; break;
-		case 0xa0082:	min_rev = 0x0a00820d; break;
-		case 0xa1011:	min_rev = 0x0a10114c; break;
-		case 0xa1012:	min_rev = 0x0a10124c; break;
-		case 0xa1081:	min_rev = 0x0a108109; break;
-		case 0xa2010:	min_rev = 0x0a20102e; break;
-		case 0xa2012:	min_rev = 0x0a201211; break;
-		case 0xa4041:	min_rev = 0x0a404108; break;
-		case 0xa5000:	min_rev = 0x0a500012; break;
-		case 0xa6012:	min_rev = 0x0a60120a; break;
-		case 0xa7041:	min_rev = 0x0a704108; break;
-		case 0xa7052:	min_rev = 0x0a705208; break;
-		case 0xa7080:	min_rev = 0x0a708008; break;
-		case 0xa70c0:	min_rev = 0x0a70c008; break;
-		case 0xaa002:	min_rev = 0x0aa00216; break;
-		default:
-			pr_debug("%s: ucode_rev: 0x%x, current revision: 0x%x\n",
-				 __func__, p.ucode_rev, c->microcode);
-			return false;
-		}
-	}
-
-	if (!min_rev)
-		return false;
-
-	return c->microcode >= min_rev;
-}
-
-static void tsa_init(struct cpuinfo_x86 *c)
-{
-	if (cpu_has(c, X86_FEATURE_HYPERVISOR))
-		return;
-
-	if (c->x86 == 0x19) {
-		if (amd_check_tsa_microcode())
-			setup_force_cpu_cap(X86_FEATURE_VERW_CLEAR);
-	} else {
-		setup_force_cpu_cap(X86_FEATURE_TSA_SQ_NO);
-		setup_force_cpu_cap(X86_FEATURE_TSA_L1_NO);
-	}
-}
-
 static void bsp_init_amd(struct cpuinfo_x86 *c)
 {
 	if (cpu_has(c, X86_FEATURE_CONSTANT_TSC)) {
@@ -707,8 +649,6 @@ static void bsp_init_amd(struct cpuinfo_x86 *c)
 	}
 
 	resctrl_cpu_detect(c);
-
-	tsa_init(c);
 }
 
 static void early_detect_mem_encrypt(struct cpuinfo_x86 *c)
@@ -746,7 +686,6 @@ static void early_detect_mem_encrypt(struct cpuinfo_x86 *c)
 		rdmsrl(MSR_K7_HWCR, msr);
 		if (!(msr & MSR_K7_HWCR_SMMLOCK))
 			goto clear_sev;
-
 
 		return;
 
@@ -872,7 +811,7 @@ static void init_amd_k8(struct cpuinfo_x86 *c)
 	 * (model = 0x14) and later actually support it.
 	 * (AMD Erratum #110, docId: 25759).
 	 */
-	if (c->x86_model < 0x14 && cpu_has(c, X86_FEATURE_LAHF_LM) && !cpu_has(c, X86_FEATURE_HYPERVISOR)) {
+	if (c->x86_model < 0x14 && cpu_has(c, X86_FEATURE_LAHF_LM)) {
 		clear_cpu_cap(c, X86_FEATURE_LAHF_LM);
 		if (!rdmsrl_amd_safe(0xc001100d, &value)) {
 			value &= ~BIT_64(32);

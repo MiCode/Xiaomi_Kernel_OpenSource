@@ -873,20 +873,21 @@ free_tts:
  * will be manipulated by the configure endpoint, allocate device, or update
  * hub functions while this function is removing the TT entries from the list.
  */
-void xhci_free_virt_device(struct xhci_hcd *xhci, struct xhci_virt_device *dev,
-		int slot_id)
+void xhci_free_virt_device(struct xhci_hcd *xhci, int slot_id)
 {
+	struct xhci_virt_device *dev;
 	int i;
 	int old_active_eps = 0;
 
 	/* Slot ID 0 is reserved */
-	if (slot_id == 0 || !dev)
+	if (slot_id == 0 || !xhci->devs[slot_id])
 		return;
 
-	/* If device ctx array still points to _this_ device, clear it */
-	if (dev->out_ctx &&
-	    xhci->dcbaa->dev_context_ptrs[slot_id] == cpu_to_le64(dev->out_ctx->dma))
-		xhci->dcbaa->dev_context_ptrs[slot_id] = 0;
+	dev = xhci->devs[slot_id];
+
+	xhci->dcbaa->dev_context_ptrs[slot_id] = 0;
+	if (!dev)
+		return;
 
 	trace_xhci_free_virt_device(dev);
 
@@ -925,9 +926,8 @@ void xhci_free_virt_device(struct xhci_hcd *xhci, struct xhci_virt_device *dev,
 
 	if (dev->udev && dev->udev->slot_id)
 		dev->udev->slot_id = 0;
-	if (xhci->devs[slot_id] == dev)
-		xhci->devs[slot_id] = NULL;
-	kfree(dev);
+	kfree(xhci->devs[slot_id]);
+	xhci->devs[slot_id] = NULL;
 }
 
 /*
@@ -969,7 +969,7 @@ static void xhci_free_virt_devices_depth_first(struct xhci_hcd *xhci, int slot_i
 out:
 	/* we are now at a leaf device */
 	xhci_debugfs_remove_slot(xhci, slot_id);
-	xhci_free_virt_device(xhci, vdev, slot_id);
+	xhci_free_virt_device(xhci, slot_id);
 }
 
 int xhci_alloc_virt_device(struct xhci_hcd *xhci, int slot_id,
@@ -1210,8 +1210,6 @@ int xhci_setup_addressable_virt_dev(struct xhci_hcd *xhci, struct usb_device *ud
 
 	ep0_ctx->deq = cpu_to_le64(dev->eps[0].ring->first_seg->dma |
 				   dev->eps[0].ring->cycle_state);
-
-	ep0_ctx->tx_info = cpu_to_le32(EP_AVG_TRB_LENGTH(8));
 
 	trace_xhci_setup_addressable_virt_device(dev);
 
@@ -1466,10 +1464,6 @@ int xhci_endpoint_init(struct xhci_hcd *xhci,
 	/* Periodic endpoint bInterval limit quirk */
 	if (usb_endpoint_xfer_int(&ep->desc) ||
 	    usb_endpoint_xfer_isoc(&ep->desc)) {
-		if ((xhci->quirks & XHCI_LIMIT_ENDPOINT_INTERVAL_9) &&
-		    interval >= 9) {
-			interval = 8;
-		}
 		if ((xhci->quirks & XHCI_LIMIT_ENDPOINT_INTERVAL_7) &&
 		    udev->speed >= USB_SPEED_HIGH &&
 		    interval >= 7) {
@@ -2483,8 +2477,7 @@ int xhci_mem_init(struct xhci_hcd *xhci, gfp_t flags)
 	 * and our use of dma addresses in the trb_address_map radix tree needs
 	 * TRB_SEGMENT_SIZE alignment, so we pick the greater alignment need.
 	 */
-	if (xhci->quirks & XHCI_TRB_OVERFETCH)
-		/* Buggy HC prefetches beyond segment bounds - allocate dummy space at the end */
+	if (xhci->quirks & XHCI_ZHAOXIN_TRB_FETCH)
 		xhci->segment_pool = dma_pool_create("xHCI ring segments", dev,
 				TRB_SEGMENT_SIZE * 2, TRB_SEGMENT_SIZE * 2, xhci->page_size * 2);
 	else

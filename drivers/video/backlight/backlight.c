@@ -276,6 +276,41 @@ static ssize_t type_show(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RO(type);
 
+#ifdef CONFIG_ARM
+static ssize_t max_brightness_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc;
+	unsigned long maxbrightness;
+	struct backlight_device *bd = to_backlight_device(dev);
+
+	rc = kstrtoul(buf, 0, &maxbrightness);
+	if (rc)
+		return rc;
+
+	mutex_lock(&bd->ops_lock);
+	if (bd->ops) {
+		pr_debug("set max_brightness to %lu\n", maxbrightness);
+		bd->props.max_brightness = maxbrightness;
+		if (bd->props.brightness > maxbrightness) {
+			bd->props.brightness = maxbrightness;
+			backlight_update_status(bd);
+		}
+	}
+	mutex_unlock(&bd->ops_lock);
+
+	return count;
+}
+
+static ssize_t max_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct backlight_device *bd = to_backlight_device(dev);
+
+	return sprintf(buf, "%d\n", bd->props.max_brightness);
+}
+static DEVICE_ATTR_RW(max_brightness);
+#else
 static ssize_t max_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -284,6 +319,7 @@ static ssize_t max_brightness_show(struct device *dev,
 	return sprintf(buf, "%d\n", bd->props.max_brightness);
 }
 static DEVICE_ATTR_RO(max_brightness);
+#endif
 
 static ssize_t actual_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)

@@ -1,0 +1,340 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Spreadtrum Qogirn6pro board common DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/sprd,ums9620-clk.h>
+#include <dt-bindings/usb/pd.h>
+#include "lcd/lcd_g40396_truly_mipi_fhd.dtsi"
+#include "lcd/lcd_nt36672e_truly_mipi_fhd_nodsc.dtsi"
+#include "lcd/lcd_dummy_mipi.dtsi"
+#include "reserved-memory/ums9650-haps-overlay.dtsi"
+#include "touchscreen/ums9610-spi1-gpio13-14-tp.dtsi"
+#include "battery/ums9610-haps-overlay.dtsi"
+#include <dt-bindings/mfd/sprd,ump9620-regs.h>
+#include <dt-bindings/mfd/sprd,ump9620-mask.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+
+	model = "Spreadtrum UMS9650 HAPS Board";
+
+	compatible = "sprd,ums9650-haps";
+
+	sprd,sc-id = "ums9650 haps 1000";
+
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			dtbo: dtbo {
+				compatible = "sprd,dtbo-test";
+				reg = <0x0 0x0 0x0 0x11>;
+			};
+			sprd_marlin3: sprd-marlin3 {
+				compatible = "unisoc,marlin3lite_sdio";
+				m2-wakeup-ap-gpios = <&ap_gpio 128 GPIO_ACTIVE_LOW>;
+				reset-gpios = <&ap_gpio 172 GPIO_ACTIVE_LOW>;
+				enable-gpios = <&ap_gpio 171 GPIO_ACTIVE_LOW>;
+				m2-to-ap-irq-gpios = <&ap_gpio 173 GPIO_ACTIVE_LOW>;
+				xtal-26m-clk-type = "TCXO";
+				avdd12-supply = <&vddwcn>;
+				avdd33-supply = <&vddwifipa>;
+				dcxo18-supply = <&vddsim2>;
+				clock-names = "clk_32k","source","enable";
+				clocks = <&aonapb_gate CLK_AUX0>,
+					 <&ext_32k>,
+					 <&aonapb_gate CLK_AUX0_EB>;
+				extcon = <&sdio1>;
+				sdhci-name = <&sdio1>;
+				sprd,btwf-file-name = "/dev/block/by-name/wcnmodem";
+				sprd,gnss-file-name = "/vendor/firmware/gnssmodem.bin";
+				adma-tx;
+				adma-rx;
+				/*
+				 * bound parameter:
+				 * [0]:addr offset, [1]:mask, [2]:unboundval, [3]:boundval
+				 */
+				avdd12-bound-wbreq = <REG_ANA_LDO_XTL_EN10 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWCN_EXT_XTL3_EN>;
+				avdd33-bound-wbreq = <REG_ANA_LDO_XTL_EN11 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN 0x0 MASK_ANA_LDO_VDDWIFIPA_EXT_XTL3_EN>;
+
+				wlan {
+					compatible = "sprd,sc2355-sdio-wifi";
+				};
+
+				gnss {
+					compatible = "sprd,gnss";
+				};
+
+				sprd-mtty {
+					compatible = "sprd,mtty";
+					sprd,name = "ttyBT";
+				};
+
+				sprd-fm {
+					compatible = "sprd,marlin3-fm";
+					sprd,name = "sprd-fm";
+				};
+
+			};
+
+			sprd-uid {
+				compatible = "sprd,uid";
+				nvmem-cells = <&uid_start>, <&uid_end>;
+				nvmem-cell-names = "uid_start", "uid_end";
+			};
+
+		};
+	};
+};
+
+&chosen {
+	bootargs_ext = "androidboot.hardware=ums9610_haps androidboot.dtbo_idx=0 androidboot.ddrsize=4096";
+};
+
+&adi_bus {
+	sprd,hw-channels = <2 0x20cc>, <9 0x2074>, <11 0x2054>, <13 0xa054>,
+			<15 0xa180>, <17 0xa1a0>, <19 0x244c>, <21 0xa0e8>,
+			<23 0x2044>, <25 0xa074>, <27 0xa044>, <30 0x2020>,
+			<32 0x217c>, <33 0x2188>, <34 0x21b8>, <35 0x21ac>;
+};
+
+&ddr_dfs {
+		sprd-scene = "boost", "lcdon", "lcdoff", "camlow",
+			"camhigh", "camveryhigh", "faceid", "top";
+		sprd-freq = <1244 768 384 1536 1536 1866 1244 1866>;
+};
+
+&vddwpa {
+	status = "disabled";
+};
+
+&vddldo0 {
+	status = "disabled";
+};
+
+&vddldo1 {
+	regulator-always-on;
+};
+
+&vddrf18 {
+	status = "disabled";
+};
+
+&vddrf1v1 {
+	status = "disabled";
+};
+
+&vddrf0v9 {
+	status = "disabled";
+};
+
+&vddldo4 {
+	status = "disabled";
+};
+
+&vddmodem {
+	status = "disabled";
+};
+
+&avdd12 {
+	regulator-always-on;
+};
+
+&avdd18 {
+	regulator-always-on;
+};
+
+&vdd28 {
+	regulator-always-on;
+};
+
+&vddmm {
+	regulator-always-on;
+};
+
+&dmabuf {
+	widevine-reserved {
+		label = "uncached_carveout_mm";
+		memory-region = <&widevine_reserved>;
+	};
+
+	fd-reserved {
+		label = "carveout_fd";
+		memory-region = <&fd_reserved>;
+	};
+};
+
+&sdio0 {
+	cd-gpios = <&eic_sync 35 GPIO_ACTIVE_HIGH>;
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_main: sensor-main@20 {
+		compatible = "sprd,sensor-main";
+		reg = <0x20>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR0>,<&mm_gate CLK_SENSOR0_EN>,
+				<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+				<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama0>;
+		vddcamd-supply = <&vddcamd0>;
+		vddcammot-supply = <&vddcammot0>;
+		reset-gpios = <&ap_gpio 39 0>;
+		power-down-gpios = <&ap_gpio 45 0>;
+		sprd,phyid = <0>;
+		csi = <&csi0>;
+		power-domains = <&mm_domain>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_main2: sensor-main2@20 {
+		compatible = "sprd,sensor-main2";
+		reg = <0x20>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR3>,<&mm_gate CLK_SENSOR3_EN>,
+			<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+			<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama1>;
+		/*avdd-gpios = <&ap_gpio 79 0>;*/
+		vddcamd-supply = <&vddcamd1>;
+		reset-gpios = <&ap_gpio 40 0>;
+		power-down-gpios = <&ap_gpio 46 0>;
+		sprd,phyid = <2>;/*5*/
+		csi = <&csi2>;
+		power-domains = <&mm_domain>;
+	};
+};
+
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_sub2: sensor-sensor_sub2@2a {
+		compatible = "sprd,sensor-sub2";
+		reg = <0x2a>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR2>,<&mm_gate CLK_SENSOR2_EN>,
+			<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+			<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama2>;
+		vddcamd-supply = <&vddcamd2>;
+		vddcammot-supply = <&vddcammot1>;
+		reset-gpios = <&ap_gpio 41 0>;
+		/*power-down-gpios = <&ap_gpio 50 0>;*/
+		sprd,phyid = <6>;
+		csi = <&csi2>;
+		power-domains = <&mm_domain>;
+	};
+
+};
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_sub: sensor-sub@5a {
+		compatible = "sprd,sensor-sub";
+		reg = <0x5a>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_64m",
+			"clk_51m2","clk_48m","clk_26m";
+		clocks = <&mm_clk CLK_SENSOR3>,<&mm_gate CLK_SENSOR3_EN>,
+			<&g5l_pll CLK_TGPLL_96M>,<&g5l_pll CLK_TGPLL_64M>,
+			<&g5l_pll CLK_TGPLL_51M2>,<&g5l_pll CLK_TGPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama0>;
+		vddcamd-supply = <&vddcamd0>;
+		vddcammot-supply = <&vddcammot0>;
+		reset-gpios = <&ap_gpio 42 0>;
+		power-down-gpios = <&ap_gpio 48 0>;
+		sprd,phyid = <1>;
+		csi = <&csi1>;
+		power-domains = <&mm_domain>;
+	};
+
+
+};
+
+&i2c6 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	flash_ic: flash-ic@63 {
+		compatible = "sprd,flash-ocp8137";
+		reg = <0x63>;
+		sprd,flash-ic = <8137>;
+		sprd,torch = <1>;
+		sprd,preflash = <1>;
+		sprd,highlight = <1>;
+		sprd,torch-level = <128>;
+		sprd,preflash-level = <128>;
+		sprd,highlight-level = <128>;
+		sprd,lvfm-enable = <1>;
+		flash-torch-en-gpios = <&ap_gpio 112 0>;
+		flash-chip-en-gpios = <&ap_gpio 119 0>;
+		flash-en-gpios = <&ap_gpio 111 0>;
+		flash-sync-gpios = <&ap_gpio 59 0>;
+	};
+
+	stm_vl53l0: vl53l0@52 {
+		compatible = "st,stmvl53l0";
+		reg = <0x52>;
+		reset_gpios = <258>;
+		irq_gpios = <213>;
+		interrupt-parent = <&ap_gpio>;
+		interrupts = <169 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+/*
+ * Because LK define CONFIG_FPGA in HAPS Board and not perform subsys enable.
+ * Disable clk subsys node:mm,gpu,dpu_vsp.
+ */
+&mm_gate {
+	status = "disabled";
+};
+
+&gpuapb_gate {
+	status = "disabled";
+};
+
+&dpu_vsp_gate {
+	status = "disabled";
+};
+
+&mm_clk {
+	status = "disabled";
+};
+
+&gpu_clk {
+	status = "disabled";
+};
+
+&dpu_vsp_clk {
+	status = "disabled";
+};

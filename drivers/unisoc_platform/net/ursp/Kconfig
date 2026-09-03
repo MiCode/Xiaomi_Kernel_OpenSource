@@ -1,0 +1,13 @@
+menu "URSP modules"
+
+config UNISOC_URSP_REPORT
+	tristate "REPORT IP INFO"
+	depends on ARCH_SPRD && NF_CONNTRACK
+	default n
+	help
+		Choosing this option will include conntrack support in the image.
+		This will report establish event and close event to user space from conntrack.
+
+		This module is used to report the IP triplet information of TCP/UDP link
+		establishment and disconnection events to user space.
+endmenu

@@ -33,12 +33,9 @@ static inline unsigned long arch_calc_vm_flag_bits(struct file *file,
 	 * backed by tags-capable memory. The vm_flags may be overridden by a
 	 * filesystem supporting MTE (RAM-based).
 	 */
-	if (system_supports_mte()) {
-		if ((flags & MAP_ANONYMOUS) && !(flags & MAP_HUGETLB))
-			return VM_MTE_ALLOWED;
-		if (shmem_file(file))
-			return VM_MTE_ALLOWED;
-	}
+	if (system_supports_mte() &&
+	    ((flags & MAP_ANONYMOUS) || shmem_file(file)))
+		return VM_MTE_ALLOWED;
 
 	return 0;
 }

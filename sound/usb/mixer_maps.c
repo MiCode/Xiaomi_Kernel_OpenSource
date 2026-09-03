@@ -366,13 +366,6 @@ static const struct usbmix_name_map corsair_virtuoso_map[] = {
 	{ 0 }
 };
 
-/* KTMicro USB */
-static struct usbmix_name_map s31b2_0022_map[] = {
-	{ 23, "Speaker Playback" },
-	{ 18, "Headphone Playback" },
-	{ 0 }
-};
-
 /* ASUS ROG Zenith II with Realtek ALC1220-VB */
 static const struct usbmix_name_map asus_zenith_ii_map[] = {
 	{ 19, NULL, 12 }, /* FU, Input Gain Pad - broken response, disabled */
@@ -707,11 +700,6 @@ static const struct usbmix_ctl_map uac3_badd_usbmix_ctl_maps[] = {
 	{
 		.id = UAC3_FUNCTION_SUBCLASS_SPEAKERPHONE,
 		.map = uac3_badd_speakerphone_map,
-	},
-	{
-		/* KTMicro USB */
-		.id = USB_ID(0X31b2, 0x0022),
-		.map = s31b2_0022_map,
 	},
 	{ 0 } /* terminator */
 };

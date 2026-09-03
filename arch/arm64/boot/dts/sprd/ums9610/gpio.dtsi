@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc GPIO dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&aon {
+	eic_debounce: gpio@200000 {
+		compatible = "sprd,qogirn6pro-eic-debounce", "sprd,sc9860-eic-debounce";
+		reg = <0x200000 0x80>,
+			<0x210000 0x80>,
+			<0x220000 0x80>,
+			<0x230000 0x80>,
+			<0x240000 0x80>,
+			<0x250000 0x80>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eic_latch: gpio@200080 {
+		compatible = "sprd,qogirn6pro-eic-latch", "sprd,sc9860-eic-latch";
+		reg = <0x200080 0x20>,
+			<0x210080 0x20>,
+			<0x220080 0x20>,
+			<0x230080 0x20>,
+			<0x240080 0x20>,
+			<0x250080 0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eic_async: gpio@2000a0 {
+		compatible = "sprd,qogirn6pro-eic-async", "sprd,sc9860-eic-async";
+		reg = <0x2000a0 0x20>,
+			<0x2100a0 0x20>,
+			<0x2200a0 0x20>,
+			<0x2300a0 0x20>,
+			<0x2400a0 0x20>,
+			<0x2500a0 0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eic_sync: gpio@2000c0 {
+		compatible = "sprd,qogirn6pro-eic-sync", "sprd,sc9860-eic-sync";
+		reg = <0x2000c0 0x20>,
+			<0x2100c0 0x20>,
+			<0x2200c0 0x20>,
+			<0x2300c0 0x20>,
+			<0x2400c0 0x20>,
+			<0x2500c0 0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	ap_gpio: gpio@170000 {
+		compatible = "sprd,qogirn6pro-gpio", "sprd,sc9860-gpio";
+		reg = <0x170000 0x10000>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};

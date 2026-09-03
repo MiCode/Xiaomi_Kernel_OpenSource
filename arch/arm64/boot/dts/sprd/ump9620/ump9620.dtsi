@@ -1,0 +1,162 @@
+/*
+ * UNISOC UMP9620 PMIC dts file
+ *
+ * Copyright (C) 2020, UNISOC Communications Inc.
+ *
+ * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+*/
+
+&adi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ump9620_pmic: pmic@0 {
+		compatible = "sprd,ump9620";
+		reg = <0x0>;
+		spi-max-frequency = <26000000>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pmic_wdt: watchdog@40 {
+			compatible = "sprd,ump9620-wdt", "sprd,sc27xx-wdt";
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <2 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x40>;
+		};
+
+		led-controller@180 {
+			compatible = "sprd,ump9620-bltc", "sprd,sc27xx-bltc";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x180>;
+
+			led@0 {
+				label = "red";
+				reg = <0x0>;
+			};
+
+			led@1 {
+				label = "green";
+				reg = <0x1>;
+			};
+
+			led@2 {
+				label = "blue";
+				reg = <0x2>;
+			};
+		};
+
+		led-controller@1b88 {
+			compatible = "sprd,ump9620-keypad-led";
+			reg = <0x1b88>, <0x1b8c>;
+		};
+
+		rtc@200 {
+			compatible = "sprd,ump96xx-rtc", "sprd,sc27xx-rtc";
+			reg = <0x200>;
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pmic_eic: gpio@280 {
+			compatible = "sprd,ump96xx-eic", "sprd,sc27xx-eic", "sprd,sc2731-eic";
+			reg = <0x280>;
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <4 IRQ_TYPE_LEVEL_HIGH>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		pmic_typec: typec@380 {
+			compatible = "sprd,ump96xx-typec", "sprd,sc27xx-typec";
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x380>;
+			sprd,mode = <2>;
+			try-power-role = "sink";
+			nvmem-cells = <&typec_cc1_cal>, <&typec_cc2_cal>;
+			nvmem-cell-names = "typec_cc1_cal", "typec_cc2_cal";
+		};
+
+		pmic_dump {
+			compatible = "sprd,pmic-dump";
+			sprd,pmic-dump-mem = <&pmic_reserved>;
+		};
+
+		pmic_fchg: fchg@400 {
+			compatible = "sprd,ump9620-fast-chg", "sprd,sc27xx-fast-chg";
+			reg = <0x400>;
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
+			nvmem-cell-names = "fchg_cur_calib";
+			nvmem-cells = <&sfcp_calib>;
+			status = "disabled";
+		};
+
+		pmic_fgu: fgu@800 {
+			compatible = "sprd,ump9620-fgu", "sprd,sprd-fgu";
+			reg = <0x800>;
+			bat-detect-gpio = <&pmic_eic 3 GPIO_ACTIVE_HIGH>;
+			nvmem-cell-names = "fgu_calib";
+			nvmem-cells = <&fgu_calib>;
+			io-channels = <&pmic_adc 0>, <&pmic_adc 14>;
+			io-channel-names = "bat-temp", "charge-vol";
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <3 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pmic_pd: pd@e00 {
+			compatible = "sprd,sc27xx-pd", "sprd,ump9620-pd";
+			reg = <0xe00>, <0x380>;
+			interrupt-parent = <&ump9620_pmic>;
+			interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+			extcon = <&pmic_typec>, <&extcon_gpio>;
+			nvmem-cells = <&pdrc_calib>, <&pddelta_calib>, <&pddelta_calib>,
+				      <&typec_cc_mark>;
+			nvmem-cell-names = "pdrc_calib", "pddelta_calib", "pdref_calib",
+					   "typec_cc_mark";
+		};
+
+		pmic_smpl: smpl@2000 {
+			compatible = "sprd,ump9620-smpl", "sprd,sc27xx-smpl";
+			reg = <0x2000>;
+			sprd,smpl-timer-threshold = <900>;
+		};
+
+		syscon@2000 {
+			compatible = "sprd,ump962x-syscon";
+			reg = <0x2000>, <0x23a0>, <0x2398>;
+		};
+
+		pmic_pwroff: poweroff@2020 {
+			compatible = "sprd,ump9620-poweroff", "sprd,sc27xx-poweroff";
+			reg = <0x2020>;
+		};
+
+		bc1p2@239c {
+			compatible = "sprd,ump9620-bc1p2", "sprd,ump96xx-bc1p2";
+			vbus_ok_bybass;
+		};
+
+		hw_reset@23c0 {
+			compatible = "sprd,ump9620-7sreset", "sprd,sc27xx-7sreset";
+			reg = <0x23b8>, <0x23c0>;
+		};
+
+		vibrator@2390 {
+			compatible = "sprd,ump9620-vibrator", "sprd,sc27xx-vibrator";
+			reg = <0x2390>;
+		};
+	};
+
+};
+
+#include "adc.dtsi"
+#include "efuse.dtsi"
+#include "regulator.dtsi"
+#include "audio-codec.dtsi"

@@ -13,6 +13,9 @@ struct cma_kobject {
 struct cma {
 	unsigned long   base_pfn;
 	unsigned long   count;
+#ifdef CONFIG_SPRD_CMA_DEBUG
+	unsigned long   free_count;
+#endif
 	unsigned long   *bitmap;
 	unsigned int order_per_bit; /* Order of pages represented by one bit */
 	spinlock_t	lock;
@@ -31,6 +34,24 @@ struct cma {
 	struct cma_kobject *cma_kobj;
 #endif
 };
+
+#ifdef CONFIG_SPRD_CMA_DEBUG
+struct sprd_cma_debug_info {
+	unsigned long caller_addr;
+	int alloc_pages;
+	unsigned int alloc_cnt;
+	unsigned long cost_us;
+};
+
+#define MAX_SPRD_CMA_DEBUG_NUM 512
+
+struct sprd_cma_debug {
+	struct sprd_cma_debug_info sprd_cma_info[MAX_SPRD_CMA_DEBUG_NUM];
+	struct mutex lock;
+	unsigned int sum_cnt;
+};
+
+#endif
 
 extern struct cma cma_areas[MAX_CMA_AREAS];
 extern unsigned cma_area_count;

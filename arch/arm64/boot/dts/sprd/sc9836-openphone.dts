@@ -8,7 +8,7 @@
 
 /dts-v1/;
 
-#include "sc9836.dtsi"
+#include "sc9836/sc9836.dtsi"
 
 / {
 	model = "Spreadtrum SC9836 Openphone Board";

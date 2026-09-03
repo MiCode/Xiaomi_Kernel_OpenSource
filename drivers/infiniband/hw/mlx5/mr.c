@@ -916,13 +916,12 @@ static struct mlx5_cache_ent *mr_cache_ent_from_order(struct mlx5_ib_dev *dev,
 }
 
 static void set_mr_fields(struct mlx5_ib_dev *dev, struct mlx5_ib_mr *mr,
-			  u64 length, int access_flags, u64 iova)
+			  u64 length, int access_flags)
 {
 	mr->ibmr.lkey = mr->mmkey.key;
 	mr->ibmr.rkey = mr->mmkey.key;
 	mr->ibmr.length = length;
 	mr->ibmr.device = &dev->ib_dev;
-	mr->ibmr.iova = iova;
 	mr->access_flags = access_flags;
 }
 
@@ -980,10 +979,11 @@ static struct mlx5_ib_mr *alloc_cacheable_mr(struct ib_pd *pd,
 
 	mr->ibmr.pd = pd;
 	mr->umem = umem;
+	mr->mmkey.iova = iova;
 	mr->mmkey.size = umem->length;
 	mr->mmkey.pd = to_mpd(pd)->pdn;
 	mr->page_shift = order_base_2(page_size);
-	set_mr_fields(dev, mr, umem->length, access_flags, iova);
+	set_mr_fields(dev, mr, umem->length, access_flags);
 
 	return mr;
 }
@@ -1093,7 +1093,7 @@ static void *mlx5_ib_create_xlt_wr(struct mlx5_ib_mr *mr,
 	wr->pd = mr->ibmr.pd;
 	wr->mkey = mr->mmkey.key;
 	wr->length = mr->mmkey.size;
-	wr->virt_addr = mr->ibmr.iova;
+	wr->virt_addr = mr->mmkey.iova;
 	wr->access_flags = mr->access_flags;
 	wr->page_shift = mr->page_shift;
 	wr->xlt_size = sg->length;
@@ -1345,7 +1345,7 @@ static struct mlx5_ib_mr *reg_create(struct ib_pd *pd, struct ib_umem *umem,
 	}
 	mr->mmkey.type = MLX5_MKEY_MR;
 	mr->umem = umem;
-	set_mr_fields(dev, mr, umem->length, access_flags, iova);
+	set_mr_fields(dev, mr, umem->length, access_flags);
 	kvfree(in);
 
 	mlx5_ib_dbg(dev, "mkey = 0x%x\n", mr->mmkey.key);
@@ -1392,7 +1392,7 @@ static struct ib_mr *mlx5_ib_get_dm_mr(struct ib_pd *pd, u64 start_addr,
 
 	kfree(in);
 
-	set_mr_fields(dev, mr, length, acc, start_addr);
+	set_mr_fields(dev, mr, length, acc);
 
 	return &mr->ibmr;
 
@@ -1769,7 +1769,7 @@ static int umr_rereg_pas(struct mlx5_ib_mr *mr, struct ib_pd *pd,
 	}
 
 	mr->ibmr.length = new_umem->length;
-	mr->ibmr.iova = iova;
+	mr->mmkey.iova = iova;
 	mr->mmkey.size = new_umem->length;
 	mr->page_shift = order_base_2(page_size);
 	mr->umem = new_umem;
@@ -1840,7 +1840,7 @@ struct ib_mr *mlx5_ib_rereg_user_mr(struct ib_mr *ib_mr, int flags, u64 start,
 		mr->umem = NULL;
 		atomic_sub(ib_umem_num_pages(umem), &dev->mdev->priv.reg_pages);
 
-		return create_real_mr(new_pd, umem, mr->ibmr.iova,
+		return create_real_mr(new_pd, umem, mr->mmkey.iova,
 				      new_access_flags);
 	}
 

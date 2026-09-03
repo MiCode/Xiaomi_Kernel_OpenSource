@@ -32,7 +32,9 @@ properties:
 
   connector:
     type: object
-    $ref: /schemas/connector/usb-connector.yaml#
+
+    allOf:
+      - $ref: ../connector/usb-connector.yaml
 
     properties:
       compatible:

@@ -72,12 +72,7 @@ static struct acpi_driver acpi_hed_driver = {
 		.notify = acpi_hed_notify,
 	},
 };
-
-static int __init acpi_hed_driver_init(void)
-{
-	return acpi_bus_register_driver(&acpi_hed_driver);
-}
-subsys_initcall(acpi_hed_driver_init);
+module_acpi_driver(acpi_hed_driver);
 
 MODULE_AUTHOR("Huang Ying");
 MODULE_DESCRIPTION("ACPI Hardware Error Device Driver");

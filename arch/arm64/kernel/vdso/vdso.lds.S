@@ -37,7 +37,6 @@ SECTIONS
 	 */
 	/DISCARD/	: {
 		*(.note.GNU-stack .note.gnu.property)
-		*(.ARM.attributes)
 	}
 	.note		: { *(.note.*) }		:text	:note
 

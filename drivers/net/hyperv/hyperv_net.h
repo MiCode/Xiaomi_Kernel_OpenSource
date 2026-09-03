@@ -1032,7 +1032,6 @@ struct net_device_context {
 	struct net_device __rcu *vf_netdev;
 	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
 	struct delayed_work vf_takeover;
-	struct delayed_work vfns_work;
 
 	/* 1: allocated, serial number is valid. 0: not allocated */
 	u32 vf_alloc;
@@ -1046,8 +1045,6 @@ struct net_device_context {
 	/* Used to temporarily save the config info across hibernation */
 	struct netvsc_device_info *saved_netvsc_dev_info;
 };
-
-void netvsc_vfns_work(struct work_struct *w);
 
 /* Per channel data */
 struct netvsc_channel {

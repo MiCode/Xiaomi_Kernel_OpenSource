@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config UNISOC_CMA_FEATURES
+	tristate "unisoc cma features"
+	help
+	  This item introduce two vendor hooks for unisoc cma
+	  related features.
+	  gfp_highuser_adjust is used for anon allocation.
+	  use_cma_check is used for pre-condition check of optimization of
+	  cma allocation.
+
+config GFP_HIGHUSER_ADJUST
+	bool "gfp flag adjust"
+	default y
+	help
+	  This config implement the vendor hook function to do the adjust
+	  on gfp flags.
+	  This could be useful for anon or zram pages as android have them
+	  use GFP_CMA now.
+
+config USE_CMA_FIRST_CHECK
+	bool "use cma first check"
+	default y
+	help
+	  This config revise the default value of use_cma_first_check which
+	  is introduced to keep AOSP's behaviour unchanged by default.
+	  This value should be set to Y in any circumstance as it is indeed
+	  a bug there.
+

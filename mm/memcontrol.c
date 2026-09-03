@@ -97,9 +97,6 @@ bool cgroup_memory_noswap __ro_after_init;
 #define cgroup_memory_noswap		1
 #endif
 
-static struct kmem_cache *memcg_cachep;
-static struct kmem_cache *memcg_pn_cachep;
-
 #ifdef CONFIG_CGROUP_WRITEBACK
 static DECLARE_WAIT_QUEUE_HEAD(memcg_cgwb_frn_waitq);
 #endif
@@ -1223,11 +1220,8 @@ int mem_cgroup_scan_tasks(struct mem_cgroup *memcg,
 		struct task_struct *task;
 
 		css_task_iter_start(&iter->css, CSS_TASK_ITER_PROCS, &it);
-		while (!ret && (task = css_task_iter_next(&it))) {
+		while (!ret && (task = css_task_iter_next(&it)))
 			ret = fn(task, arg);
-			/* Avoid potential softlockup warning */
-			cond_resched();
-		}
 		css_task_iter_end(&it);
 		if (ret) {
 			mem_cgroup_iter_break(memcg, iter);
@@ -1320,16 +1314,8 @@ void do_traversal_all_lruvec(void)
 		memcg = mem_cgroup_iter(NULL, NULL, NULL);
 		do {
 			struct lruvec *lruvec = mem_cgroup_lruvec(memcg, pgdat);
-			bool stop = false;
 
 			trace_android_vh_do_traversal_lruvec(lruvec);
-
-			trace_android_rvh_do_traversal_lruvec_ex(memcg, lruvec,
-								 &stop);
-			if (stop) {
-				mem_cgroup_iter_break(NULL, memcg);
-				break;
-			}
 
 			memcg = mem_cgroup_iter(NULL, memcg, NULL);
 		} while (memcg);
@@ -5224,8 +5210,7 @@ static int alloc_mem_cgroup_per_node_info(struct mem_cgroup *memcg, int node)
 	 */
 	if (!node_state(node, N_NORMAL_MEMORY))
 		tmp = -1;
-	pn = kmem_cache_alloc_node(memcg_pn_cachep, GFP_KERNEL | __GFP_ZERO,
-				   tmp);
+	pn = kzalloc_node(sizeof(*pn), GFP_KERNEL, tmp);
 	if (!pn)
 		return 1;
 
@@ -5277,11 +5262,15 @@ static void mem_cgroup_free(struct mem_cgroup *memcg)
 static struct mem_cgroup *mem_cgroup_alloc(void)
 {
 	struct mem_cgroup *memcg;
+	unsigned int size;
 	int node;
 	int __maybe_unused i;
 	long error = -ENOMEM;
 
-	memcg = kmem_cache_zalloc(memcg_cachep, GFP_KERNEL);
+	size = sizeof(struct mem_cgroup);
+	size += nr_node_ids * sizeof(struct mem_cgroup_per_node *);
+
+	memcg = kzalloc(size, GFP_KERNEL);
 	if (!memcg)
 		return ERR_PTR(error);
 
@@ -6894,7 +6883,6 @@ int __mem_cgroup_charge(struct page *page, struct mm_struct *mm,
 	int ret;
 
 	memcg = get_mem_cgroup_from_mm(mm);
-	trace_android_vh_mem_cgroup_charge(page, &memcg);
 	ret = charge_memcg(page, memcg, gfp_mask);
 	css_put(&memcg->css);
 
@@ -7256,16 +7244,15 @@ static int __init cgroup_memory(char *s)
 __setup("cgroup.memory=", cgroup_memory);
 
 /*
- * Memory controller init before cgroup_init() initialize root_mem_cgroup.
+ * subsys_initcall() for memory controller.
  *
  * Some parts like memcg_hotplug_cpu_dead() have to be initialized from this
  * context because of lock dependencies (cgroup_lock -> cpu hotplug) but
  * basically everything that doesn't depend on a specific mem_cgroup structure
  * should be initialized from here.
  */
-int __init mem_cgroup_init(void)
+static int __init mem_cgroup_init(void)
 {
-	unsigned int memcg_size;
 	int cpu, node;
 
 	/*
@@ -7283,13 +7270,6 @@ int __init mem_cgroup_init(void)
 		INIT_WORK(&per_cpu_ptr(&memcg_stock, cpu)->work,
 			  drain_local_stock);
 
-	memcg_size = struct_size((struct mem_cgroup *)NULL, nodeinfo, nr_node_ids);
-	memcg_cachep = kmem_cache_create("mem_cgroup", memcg_size, 0,
-					 SLAB_PANIC | SLAB_HWCACHE_ALIGN, NULL);
-
-	memcg_pn_cachep = KMEM_CACHE(mem_cgroup_per_node,
-				     SLAB_PANIC | SLAB_HWCACHE_ALIGN);
-
 	for_each_node(node) {
 		struct mem_cgroup_tree_per_node *rtpn;
 
@@ -7304,6 +7284,7 @@ int __init mem_cgroup_init(void)
 
 	return 0;
 }
+subsys_initcall(mem_cgroup_init);
 
 #ifdef CONFIG_MEMCG_SWAP
 static struct mem_cgroup *mem_cgroup_id_get_online(struct mem_cgroup *memcg)
@@ -7485,6 +7466,11 @@ bool mem_cgroup_swap_full(struct page *page)
 	struct mem_cgroup *memcg;
 
 	VM_BUG_ON_PAGE(!PageLocked(page), page);
+
+#ifdef CONFIG_WRITEBACK_SWAPCACHE
+	if (writeback_swapcache)
+		return true;
+#endif
 
 	if (vm_swap_full())
 		return true;

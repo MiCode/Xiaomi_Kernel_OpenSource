@@ -321,7 +321,7 @@ int v4l2_create_fwnode_links_to_pad(struct v4l2_subdev *src_sd,
 
 	sink_sd = media_entity_to_v4l2_subdev(sink->entity);
 
-	fwnode_graph_for_each_endpoint(src_sd->fwnode, endpoint) {
+	fwnode_graph_for_each_endpoint(dev_fwnode(src_sd->dev), endpoint) {
 		struct fwnode_handle *remote_ep;
 		int src_idx, sink_idx, ret;
 		struct media_pad *src;

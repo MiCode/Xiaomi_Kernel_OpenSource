@@ -1,0 +1,23 @@
+obj-m := nfc_i2c.o
+
+nfc_i2c-y := common.o \
+             common_ese.o \
+             i2c_drv.o
+
+ifdef CONFIG_NXP_COLD_RESET
+nfc_i2c-y += cold_reset.o
+endif
+
+ifdef CONFIG_NXP_NFC_VBAT_MONITOR
+nfc_i2c-y += nfc_vbat_monitor.o
+endif
+
+ccflags-y += -DDYNAMIC_DEBUG_MODULE
+
+ifdef CONFIG_NXP_COLD_RESET
+ccflags-y += -DCONFIG_NXP_COLD_RESET
+endif
+
+ifdef CONFIG_NXP_NFC_VBAT_MONITOR
+ccflags-y += -DCONFIG_NXP_NFC_VBAT_MONITOR
+endif

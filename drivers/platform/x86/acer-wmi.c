@@ -88,7 +88,6 @@ enum acer_wmi_event_ids {
 	WMID_HOTKEY_EVENT = 0x1,
 	WMID_ACCEL_OR_KBD_DOCK_EVENT = 0x5,
 	WMID_GAMING_TURBO_KEY_EVENT = 0x7,
-	WMID_AC_EVENT = 0x8,
 };
 
 static const struct key_entry acer_wmi_keymap[] __initconst = {
@@ -2067,9 +2066,6 @@ static void acer_wmi_notify(u32 value, void *context)
 	case WMID_GAMING_TURBO_KEY_EVENT:
 		if (return_value.key_num == 0x4)
 			acer_toggle_turbo();
-		break;
-	case WMID_AC_EVENT:
-		/* We ignore AC events here */
 		break;
 	default:
 		pr_warn("Unknown function number - %d - %d\n",

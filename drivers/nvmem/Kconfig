@@ -300,4 +300,14 @@ config NVMEM_BRCM_NVRAM
 	  This driver provides support for Broadcom's NVRAM that can be accessed
 	  using I/O mapping.
 
+config SPRD_CACHE_EFUSE
+	tristate "Spreadtrum normal cache eFuse Support"
+	depends on ARCH_SPRD || COMPILE_TEST
+	depends on HAS_IOMEM
+	help
+	  This is a simple driver to dump specified values of Spreadtrum
+	  SoC from normal eFuse.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called nvmem_sprd_cache_efuse.
 endif

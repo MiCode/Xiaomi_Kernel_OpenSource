@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc TP dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+&spi1 {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* Novatek device tree node */
+	touchpanel@0 {
+		power-dependency = <&dpu>;
+		compatible = "focaltech,fts","novatek,NVT-ts-spi","synaptics,tcm-spi";
+		reg = <0>; //Same as CS ID
+		status = "ok";
+		spi-max-frequency = <8000000>;	//4800000,9600000,15000000,19200000
+
+		/*------------------synaptics_td4320_spi------------------*/
+		synaptics,irq-gpio = <&ap_gpio 13 GPIO_ACTIVE_HIGH>;
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-gpio = <&ap_gpio 14 GPIO_ACTIVE_HIGH>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,spi-mode = <3>;
+		synaptics,byte-delay-us = <0>;
+		synaptics,block-delay-us = <0>;
+		synaptics,ubl-max-freq = <6000000>;
+		synaptics,ubl-byte-delay-us = <20>;
+
+		/*------------------focaltech_ft8756------------------*/
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords =  <0 0 1080 2400>;
+		focaltech,reset-gpio = <&ap_gpio 14 GPIO_ACTIVE_HIGH>;
+		focaltech,irq-gpio = <&ap_gpio 13 GPIO_ACTIVE_HIGH>;
+
+		/*------------------novatek------------------*/
+		//novatek,pen-support;
+		//novatek,wgp-stylus;
+
+		novatek,reset-gpio = <&ap_gpio 14 GPIO_ACTIVE_HIGH>;
+		novatek,irq-gpio = <&ap_gpio 13 GPIO_ACTIVE_HIGH>;
+		/* 525 */
+		//novatek,swrst-n8-addr = <0x01F01A>;
+
+		/* 672A, 525B, 675, 526, 672C, 523 */
+		novatek,swrst-n8-addr = <0x03F0FE>;
+		novatek,spi-rd-fast-addr = <0x03F310>;
+		novatek,resolution = <720 1612>;
+
+		/* MP */
+		//novatek,mp-support-dt;
+
+		#include "nvt-touchscreen-novatek-nt36xxx-spi.dtsi"
+	};
+};

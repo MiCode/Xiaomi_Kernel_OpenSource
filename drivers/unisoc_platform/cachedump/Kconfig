@@ -1,0 +1,7 @@
+config UNISOC_CACHEDUMP
+	tristate "Enable UNISOC cachedump handler"
+        depends on SPRD_SYSDUMP && SPRD_DEBUG
+	help
+	  This option enables Spreatrum cachedump which prepare debug info
+	  for u-boot to write into mmc storage after sysdump in userdebug version.
+          And use smcc notify sml to save cachedump.

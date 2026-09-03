@@ -354,13 +354,13 @@ enum req_opf {
 	/* Close a zone */
 	REQ_OP_ZONE_CLOSE	= 11,
 	/* Transition a zone to full */
-	REQ_OP_ZONE_FINISH	= 13,
+	REQ_OP_ZONE_FINISH	= 12,
 	/* write data at the current zone write pointer */
-	REQ_OP_ZONE_APPEND	= 15,
+	REQ_OP_ZONE_APPEND	= 13,
 	/* reset a zone write pointer */
-	REQ_OP_ZONE_RESET	= 17,
+	REQ_OP_ZONE_RESET	= 15,
 	/* reset all the zone present on the device */
-	REQ_OP_ZONE_RESET_ALL	= 19,
+	REQ_OP_ZONE_RESET_ALL	= 17,
 
 	/* Driver private requests */
 	REQ_OP_DRV_IN		= 34,

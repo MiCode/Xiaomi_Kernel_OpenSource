@@ -1,0 +1,14 @@
+
+config UNISOC_MODEM_LOADER
+	tristate "UNISOC Modem Loader"
+	select UNISOC_MODEM_POWER_MANAGER
+	default n
+	help
+	  UNISOC modem loader driver. It be user for modem poweron,
+	  modem image load, modem memory dump, modem boot and modem reset.
+config UNISOC_MODEM_LOADER_RAM_VMAP
+	bool "Enable modem ram vmap ext in ARM"
+	default n
+	help
+	  This option is use for modem map ram in ARM.
+

@@ -50,6 +50,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/debug.h>
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_raise);
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_entry);
@@ -652,6 +654,7 @@ static void do_handle_IPI(int ipinr)
 		break;
 
 	case IPI_CPU_STOP:
+		trace_android_vh_ipi_stop(get_irq_regs());
 		ipi_cpu_stop(cpu);
 		break;
 

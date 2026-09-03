@@ -1,0 +1,17 @@
+config SPRD_PAST_RECORD
+	tristate "SPRD past event debug"
+	depends on SPRD_DEBUG
+	help
+	  SPRD past record for Debug.
+
+config ENABLE_SPRD_IO_TRACING
+	tristate "SPRD IO TRACING event debug"
+	depends on SPRD_PAST_RECORD
+	help
+	  SPRD IO TRACING for Debug.
+
+config ENABLE_SPRD_DEEP_SLEEP_TRACING
+	tristate "SPRD deep sleep debug"
+	depends on SPRD_PAST_RECORD
+	help
+	  SPRD deep sleep TRACING for Debug. For user version, say no.

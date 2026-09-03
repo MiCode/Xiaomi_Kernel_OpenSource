@@ -75,6 +75,7 @@ int sprd_clk_regmap_init(struct platform_device *pdev,
 	}
 
 	sprd_clk_set_regmap(desc, regmap);
+	platform_set_drvdata(pdev, regmap);
 
 	return 0;
 }

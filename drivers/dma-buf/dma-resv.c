@@ -267,9 +267,8 @@ void dma_resv_add_shared_fence(struct dma_resv *obj, struct dma_fence *fence)
 
 replace:
 	RCU_INIT_POINTER(fobj->shared[i], fence);
-	/* fence update must be visible before we extend the shared_count */
-	smp_wmb();
-	fobj->shared_count = count;
+	/* pointer update must be visible before we extend the shared_count */
+	smp_store_mb(fobj->shared_count, count);
 
 	write_seqcount_end(&obj->seq);
 	dma_fence_put(old);
@@ -313,106 +312,6 @@ void dma_resv_add_excl_fence(struct dma_resv *obj, struct dma_fence *fence)
 	dma_fence_put(old_fence);
 }
 EXPORT_SYMBOL(dma_resv_add_excl_fence);
-
-/**
- * dma_resv_iter_restart_unlocked - restart the unlocked iterator
- * @cursor: The dma_resv_iter object to restart
- *
- * Restart the unlocked iteration by initializing the cursor object.
- */
-static void dma_resv_iter_restart_unlocked(struct dma_resv_iter *cursor)
-{
-	cursor->seq = read_seqcount_begin(&cursor->obj->seq);
-	cursor->index = -1;
-	if (cursor->all_fences)
-		cursor->fences = dma_resv_shared_list(cursor->obj);
-	else
-		cursor->fences = NULL;
-	cursor->is_restarted = true;
-}
-
-/**
- * dma_resv_iter_walk_unlocked - walk over fences in a dma_resv obj
- * @cursor: cursor to record the current position
- *
- * Return all the fences in the dma_resv object which are not yet signaled.
- * The returned fence has an extra local reference so will stay alive.
- * If a concurrent modify is detected the whole iteration is started over again.
- */
-static void dma_resv_iter_walk_unlocked(struct dma_resv_iter *cursor)
-{
-	struct dma_resv *obj = cursor->obj;
-
-	do {
-		/* Drop the reference from the previous round */
-		dma_fence_put(cursor->fence);
-
-		if (cursor->index == -1) {
-			cursor->fence = dma_resv_excl_fence(obj);
-			cursor->index++;
-			if (!cursor->fence)
-				continue;
-
-		} else if (!cursor->fences ||
-			   cursor->index >= cursor->fences->shared_count) {
-			cursor->fence = NULL;
-			break;
-
-		} else {
-			struct dma_resv_list *fences = cursor->fences;
-			unsigned int idx = cursor->index++;
-
-			cursor->fence = rcu_dereference(fences->shared[idx]);
-		}
-		cursor->fence = dma_fence_get_rcu(cursor->fence);
-		if (!cursor->fence || !dma_fence_is_signaled(cursor->fence))
-			break;
-	} while (true);
-}
-
-/**
- * dma_resv_iter_first_unlocked - first fence in an unlocked dma_resv obj.
- * @cursor: the cursor with the current position
- *
- * Returns the first fence from an unlocked dma_resv obj.
- */
-struct dma_fence *dma_resv_iter_first_unlocked(struct dma_resv_iter *cursor)
-{
-	rcu_read_lock();
-	do {
-		dma_resv_iter_restart_unlocked(cursor);
-		dma_resv_iter_walk_unlocked(cursor);
-	} while (read_seqcount_retry(&cursor->obj->seq, cursor->seq));
-	rcu_read_unlock();
-
-	return cursor->fence;
-}
-EXPORT_SYMBOL(dma_resv_iter_first_unlocked);
-
-/**
- * dma_resv_iter_next_unlocked - next fence in an unlocked dma_resv obj.
- * @cursor: the cursor with the current position
- *
- * Returns the next fence from an unlocked dma_resv obj.
- */
-struct dma_fence *dma_resv_iter_next_unlocked(struct dma_resv_iter *cursor)
-{
-	bool restart;
-
-	rcu_read_lock();
-	cursor->is_restarted = false;
-	restart = read_seqcount_retry(&cursor->obj->seq, cursor->seq);
-	do {
-		if (restart)
-			dma_resv_iter_restart_unlocked(cursor);
-		dma_resv_iter_walk_unlocked(cursor);
-		restart = true;
-	} while (read_seqcount_retry(&cursor->obj->seq, cursor->seq));
-	rcu_read_unlock();
-
-	return cursor->fence;
-}
-EXPORT_SYMBOL(dma_resv_iter_next_unlocked);
 
 /**
  * dma_resv_copy_fences - Copy all fences from src to dst.
@@ -614,23 +513,74 @@ long dma_resv_wait_timeout(struct dma_resv *obj, bool wait_all, bool intr,
 			   unsigned long timeout)
 {
 	long ret = timeout ? timeout : 1;
-	struct dma_resv_iter cursor;
+	unsigned int seq, shared_count;
 	struct dma_fence *fence;
+	int i;
 
-	dma_resv_iter_begin(&cursor, obj, wait_all);
-	dma_resv_for_each_fence_unlocked(&cursor, fence) {
+retry:
+	shared_count = 0;
+	seq = read_seqcount_begin(&obj->seq);
+	rcu_read_lock();
+	i = -1;
 
-		ret = dma_fence_wait_timeout(fence, intr, timeout);
-		if (ret <= 0)
-			break;
+	fence = dma_resv_excl_fence(obj);
+	if (fence && !test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &fence->flags)) {
+		if (!dma_fence_get_rcu(fence))
+			goto unlock_retry;
 
-		/* Even for zero timeout the return value is 1 */
-		if (timeout)
-			timeout = ret;
+		if (dma_fence_is_signaled(fence)) {
+			dma_fence_put(fence);
+			fence = NULL;
+		}
+
+	} else {
+		fence = NULL;
 	}
-	dma_resv_iter_end(&cursor);
 
+	if (wait_all) {
+		struct dma_resv_list *fobj = dma_resv_shared_list(obj);
+
+		if (fobj)
+			shared_count = fobj->shared_count;
+
+		for (i = 0; !fence && i < shared_count; ++i) {
+			struct dma_fence *lfence;
+
+			lfence = rcu_dereference(fobj->shared[i]);
+			if (test_bit(DMA_FENCE_FLAG_SIGNALED_BIT,
+				     &lfence->flags))
+				continue;
+
+			if (!dma_fence_get_rcu(lfence))
+				goto unlock_retry;
+
+			if (dma_fence_is_signaled(lfence)) {
+				dma_fence_put(lfence);
+				continue;
+			}
+
+			fence = lfence;
+			break;
+		}
+	}
+
+	rcu_read_unlock();
+	if (fence) {
+		if (read_seqcount_retry(&obj->seq, seq)) {
+			dma_fence_put(fence);
+			goto retry;
+		}
+
+		ret = dma_fence_wait_timeout(fence, intr, ret);
+		dma_fence_put(fence);
+		if (ret > 0 && wait_all && (i + 1 < shared_count))
+			goto retry;
+	}
 	return ret;
+
+unlock_retry:
+	rcu_read_unlock();
+	goto retry;
 }
 EXPORT_SYMBOL_GPL(dma_resv_wait_timeout);
 

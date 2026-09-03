@@ -1466,10 +1466,10 @@ static void be_tx_timeout(struct net_device *netdev, unsigned int txqueue)
 						 ntohs(tcphdr->source));
 					dev_info(dev, "TCP dest port %d\n",
 						 ntohs(tcphdr->dest));
-					dev_info(dev, "TCP sequence num %u\n",
-						 ntohl(tcphdr->seq));
-					dev_info(dev, "TCP ack_seq %u\n",
-						 ntohl(tcphdr->ack_seq));
+					dev_info(dev, "TCP sequence num %d\n",
+						 ntohs(tcphdr->seq));
+					dev_info(dev, "TCP ack_seq %d\n",
+						 ntohs(tcphdr->ack_seq));
 				} else if (ip_hdr(skb)->protocol ==
 					   IPPROTO_UDP) {
 					udphdr = udp_hdr(skb);
@@ -5673,8 +5673,8 @@ static int be_drv_init(struct be_adapter *adapter)
 	}
 
 	mutex_init(&adapter->mbox_lock);
+	mutex_init(&adapter->mcc_lock);
 	mutex_init(&adapter->rx_filter_lock);
-	spin_lock_init(&adapter->mcc_lock);
 	spin_lock_init(&adapter->mcc_cq_lock);
 	init_completion(&adapter->et_cmd_compl);
 

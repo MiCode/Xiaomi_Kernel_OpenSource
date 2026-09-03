@@ -8,12 +8,11 @@
  *
  * Copyright (c) 2019 Robert Bosch Engineering and Business Solutions. All rights reserved.
  * Copyright (c) 2020 ETAS K.K.. All rights reserved.
- * Copyright (c) 2020-2022 Vincent Mailhol <mailhol.vincent@wanadoo.fr>
+ * Copyright (c) 2020, 2021 Vincent Mailhol <mailhol.vincent@wanadoo.fr>
  */
 
-#include <asm/unaligned.h>
 #include <linux/kernel.h>
-#include <linux/units.h>
+#include <asm/unaligned.h>
 
 #include "es58x_core.h"
 #include "es58x_fd.h"
@@ -428,7 +427,7 @@ static int es58x_fd_enable_channel(struct es58x_priv *priv)
 		es58x_fd_convert_bittiming(&tx_conf_msg.data_bittiming,
 					   &priv->can.data_bittiming);
 
-		if (can_tdc_is_enabled(&priv->can)) {
+		if (priv->can.tdc.tdco) {
 			tx_conf_msg.tdc_enabled = 1;
 			tx_conf_msg.tdco = cpu_to_le16(priv->can.tdc.tdco);
 			tx_conf_msg.tdcf = cpu_to_le16(priv->can.tdc.tdcf);
@@ -505,11 +504,8 @@ static const struct can_bittiming_const es58x_fd_data_bittiming_const = {
  * Register" from Microchip.
  */
 static const struct can_tdc_const es58x_tdc_const = {
-	.tdcv_min = 0,
 	.tdcv_max = 0, /* Manual mode not supported. */
-	.tdco_min = 0,
 	.tdco_max = 127,
-	.tdcf_min = 0,
 	.tdcf_max = 127
 };
 
@@ -522,11 +518,11 @@ const struct es58x_parameters es58x_fd_param = {
 	 * Mbps work in an optimal environment but are not recommended
 	 * for production environment.
 	 */
-	.bitrate_max = 8 * MEGA /* BPS */,
-	.clock = {.freq = 80 * MEGA /* Hz */},
+	.bitrate_max = 8 * CAN_MBPS,
+	.clock = {.freq = 80 * CAN_MHZ},
 	.ctrlmode_supported = CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY |
 	    CAN_CTRLMODE_3_SAMPLES | CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO |
-	    CAN_CTRLMODE_CC_LEN8_DLC | CAN_CTRLMODE_TDC_AUTO,
+	    CAN_CTRLMODE_CC_LEN8_DLC,
 	.tx_start_of_frame = 0xCEFA,	/* FACE in little endian */
 	.rx_start_of_frame = 0xFECA,	/* CAFE in little endian */
 	.tx_urb_cmd_max_len = ES58X_FD_TX_URB_CMD_MAX_LEN,

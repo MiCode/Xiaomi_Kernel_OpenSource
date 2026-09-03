@@ -165,6 +165,9 @@ DECLARE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases);
 
 extern u64 get_next_timer_interrupt(unsigned long basej, u64 basem);
 void timer_clear_idle(void);
+#ifndef CONFIG_ARM64_LSE_ATOMICS
+#define TIMER_LOCK_TIGHT_LOOP_DELAY_NS	350
+#endif
 
 #define CLOCK_SET_WALL							\
 	(BIT(HRTIMER_BASE_REALTIME) | BIT(HRTIMER_BASE_REALTIME_SOFT) |	\

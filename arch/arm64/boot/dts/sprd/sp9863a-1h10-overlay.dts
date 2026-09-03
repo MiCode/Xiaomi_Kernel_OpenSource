@@ -1,0 +1,422 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * UNISOC SP9863 board common DTS file
+ *
+ * Copyright (C) 2021, Unisoc Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/sprd,sc9863a-clk.h>
+#include "lcd/lcd_dummy_mipi.dtsi"
+#include "battery/sp9863a-1h10-overlay.dtsi"
+#include "lcd/lcd_nt35695_truly_mipi_fhd.dtsi"
+#include "lcd/lcd_nt35532_truly_mipi_fhd.dtsi"
+#include "lcd/lcd_nt35596_boe_mipi_fhd.dtsi"
+#include "lcd/lcd_c3y_truly_mipi_hd.dtsi"
+#include "reserved-memory/sp9863a-1h10-overlay.dtsi"
+#include "touchscreen/sp9863a-i2c3-gpio144-145-tp.dtsi"
+#include "sc9863a/sc9863a-wcn.dtsi"
+#include "wcn/wcn_modules.h"
+#include "wcn/chip/wcn-integrate-sharkl3-register.dtsi"
+
+/ {
+	model = "Unisoc SP9863A 1H10 board";
+
+	compatible = "sprd,sp986a-1h10";
+
+	sprd,sc-id = "sp9863a 1h10 1000";
+
+	sprd,board_id = <0x110000>; //XXYY00:base board,XXYY00~XXYYFF:customize board
+
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			gpio-keys {
+				compatible = "gpio-keys";
+				pinctrl-names = "gpio_124";
+				pinctrl-0 = <&gpio_124>;
+
+				key-volumedown {
+					label = "Volume Down Key";
+					linux,code = <KEY_VOLUMEDOWN>;
+					gpios = <&eic_debounce 2 GPIO_ACTIVE_LOW>;
+					debounce-interval = <2>;
+					wakeup-source;
+				};
+				key-volumeup {
+					label = "Volume Up Key";
+					linux,code = <KEY_VOLUMEUP>;
+					gpios = <&pmic_eic 10 GPIO_ACTIVE_HIGH>;
+					debounce-interval = <2>;
+					wakeup-source;
+				};
+				key-power {
+					label = "Power Key";
+					linux,code =<KEY_POWER>;
+					gpios = <&pmic_eic 1 GPIO_ACTIVE_LOW>;
+					debounce-interval = <2>;
+					wakeup-source;
+				};
+			};
+			fingerprint@0 {
+				compatible = "microarray,afs121";
+				fpint-gpios = <&ap_gpio 130 0>;
+			};
+
+			pwm_backlight: sprd_backlight {
+				compatible = "sprd,sharkl3-backlight";
+				pwms = <&pwms 1 30000>;
+				pwm-names = "backlight";
+				sprd,max-brightness-level = <247>;
+				default-brightness-level = <29>;
+				sprd,brightness-scale = <255>;
+				brightness-levels = <
+								  0   2   2   2
+					  2   2   2   3   4   5   6   7   8   9
+					 10  11  12  13  14  15  16  17  18  19
+					 20  21  22  23  24  25  26  27  28  29
+					 30  31  32  33  34  35  36  37  38  39
+					 40  41  42  43  44  45  46  47  48  49
+					 50  51  52  53  54  55  56  57  58  59
+					 60  61  62  63  64  65  66  67  68  69
+					 70  71  72  73  74  75  76  77  78  79
+					 80  81  82  83  84  85  86  87  88  89
+					 90  91  92  93  94  95  96  97  98  99
+					100 101 102 103 104 105 106 107 108 109
+					110 111 112 113 114 115 116 117 118 119
+					120 121 122 123 124 125 126 127 128 129
+					130 131 132 133 134 135 136 137 138 139
+					140 141 142 143 144 145 146 147 148 149
+					150 151 152 153 154 155 156 157 158 159
+					160 161 162 163 164 165 166 167 168 169
+					170 171 172 173 174 175 176 177 178 179
+					180 181 182 183 184 185 186 187 188 189
+					190 191 192 193 194 195 196 197 198 199
+					200 201 202 203 204 205 206 207 208 209
+					210 211 212 213 214 215 216 217 218 219
+					220 221 222 223 224 225 226 227 228 229
+					230 231 232 233 234 235 236 237 238 239
+					240 241 242 243 244 245 246 247 247 247
+					247 247
+				>;
+			};
+			sprd-uid {
+				compatible = "sprd,uid";
+				nvmem-cells = <&uid_start>, <&uid_end>;
+				nvmem-cell-names = "uid_start", "uid_end";
+			};
+		};
+	};
+};
+
+&chosen {
+	bootargs_ext = "kvm-arm.mode=none";
+};
+
+&i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_main: sensor-main@20 {
+		compatible = "sprd,sensor-main";
+		reg = <0x20>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&aon_clk CLK_SENSOR0>, <&mm_gate CLK_SENSOR0_EB>,
+			<&pll CLK_TWPLL_96M>,<&pll CLK_TWPLL_76M8>,
+			<&pll CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama>;
+		vddcamd-supply = <&vddcamd>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <1>;
+		csi = <&csi0>;
+		reset-gpios = <&ap_gpio 44 0>;
+		power-down-gpios = <&ap_gpio 46 0>;
+		power-domains = <&mm_domain>;
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sensor_sub: sensor-sub@20 {
+		compatible = "sprd,sensor-sub";
+		reg = <0x20>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&aon_clk CLK_SENSOR1>, <&mm_gate CLK_SENSOR1_EB>,
+			<&pll CLK_TWPLL_96M>,<&pll CLK_TWPLL_76M8>,
+			<&pll CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama>;
+		vddcamd-supply = <&vddcamd>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <4>;
+		csi = <&csi0>;
+		reset-gpios = <&ap_gpio 41 0>;
+		power-down-gpios = <&ap_gpio 40 0>;
+		power-domains = <&mm_domain>;
+	};
+
+	sensor_main2: sensor-main2@6c {
+		compatible = "sprd,sensor-main2";
+		reg = <0x6C>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&aon_clk CLK_SENSOR1>, <&mm_gate CLK_SENSOR1_EB>,
+			<&pll CLK_TWPLL_96M>,<&pll CLK_TWPLL_76M8>,
+			<&pll CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama>;
+		vddcamd-supply = <&vddcamd>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <3>;
+		csi = <&csi1>;
+		/*avdd-gpios=<&ap_gpio 140 0>;*/
+		dvdd-gpios=<&ap_gpio 62 0>;
+		reset-gpios = <&ap_gpio 45 0>;
+		power-down-gpios = <&ap_gpio 47 0>;
+		power-domains = <&mm_domain>;
+	};
+
+
+	sensor_sub2: sensor-sub2@2a {
+		compatible = "sprd,sensor-sub2";
+		reg = <0x2a>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&aon_clk CLK_SENSOR1>, <&mm_gate CLK_SENSOR1_EB>,
+			<&pll CLK_TWPLL_96M>,<&pll CLK_TWPLL_76M8>,
+			<&pll CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama>;
+		vddcamd-supply = <&vddcamd>;
+		vddcammot-supply = <&vddcammot>;
+		sprd,phyid = <4>;
+		csi = <&csi2>;
+		/*avdd-gpios=<&ap_gpio 140 0>;*/
+		reset-gpios = <&ap_gpio 45 0>;
+		power-down-gpios = <&ap_gpio 40 0>;
+		power-domains = <&mm_domain>;
+	};
+
+
+
+	qvga_ic: sprd_qvga@22 {
+		compatible = "sprd,qvga-ic";
+		reg = <0x22>;
+		clock-names = "clk_src","sensor_eb",
+			"clk_96m","clk_76m8",
+			"clk_48m","clk_26m";
+		clocks = <&aon_clk CLK_SENSOR1>, <&mm_gate CLK_SENSOR1_EB>,
+			<&pll CLK_TWPLL_96M>,<&pll CLK_TWPLL_76M8>,
+			<&pll CLK_TWPLL_48M>,<&ext_26m>;
+		vddio-supply = <&vddcamio>;
+		vddcama-supply = <&vddcama>;
+		vddcamd-supply = <&vddcamd>;
+		dvdd-gpios=<&ap_gpio 62 0>;
+		reset-gpios = <&ap_gpio 45 0>;
+		power-down-gpios = <&ap_gpio 47 0>;
+		power-domains = <&mm_domain>;
+	};
+
+};
+
+&i2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	clock-frequency = <400000>;
+
+	flash_ic: flash-ic@63 {
+		compatible = "sprd,flash-ocp8137";
+		reg = <0x63>;
+		sprd,flash-ic = <8137>;
+		sprd,torch = <1>;
+		sprd,preflash = <1>;
+		sprd,highlight = <1>;
+		sprd,torch-level = <128>;
+		sprd,preflash-level = <128>;
+		sprd,highlight-level = <128>;
+		sprd,lvfm-enable = <1>;
+		flash-torch-en-gpios = <&ap_gpio 88 0>;
+		flash-chip-en-gpios = <&ap_gpio 89 0>;
+		flash-en-gpios = <&ap_gpio 76 0>;
+		flash-sync-gpios = <&ap_gpio 141 0>;
+	};
+};
+
+&pmic_typec {
+	extcon = <&extcon_gpio>;
+	no_support_typec_analog_earphone;
+};
+
+&ddr_dfs {
+	sprd-scene = "boost", "lcdon", "lcdoff", "camlow",
+		"camhigh", "camveryhigh", "top", "boot-opt";
+	sprd-freq = <933 400 233 622 622 933 933 933>;
+};
+
+&pin_controller {
+	pinctrl-names =
+	/* keyout0 ~ keyout2 */
+	"gpio_121", "gpio_122", "gpio_123",
+	/* keyin0 ~ keyin2 */
+	"gpio_124", "gpio_125", "gpio_126",
+	/* extint0, extint1, scl3, sda3 */
+	"gpio_144", "gpio_145", "gpio_146", "gpio_147",
+	/* Note:If create a new board,need to add the shutdown node */
+	"shutdown";
+	pinctrl-0 = <&gpio_121>;
+	pinctrl-1 = <&gpio_122>;
+	pinctrl-2 = <&gpio_123>;
+	pinctrl-3 = <&gpio_124>;
+	pinctrl-4 = <&gpio_125>;
+	pinctrl-5 = <&gpio_126>;
+	pinctrl-6 = <&gpio_144>;
+	pinctrl-7 = <&gpio_145>;
+	pinctrl-8 = <&gpio_146>;
+	pinctrl-9 = <&gpio_147>;
+	pinctrl-10 = <&shutdown0
+			&shutdown1
+			&shutdown2
+			&shutdown3
+			&shutdown4
+			&shutdown5>;
+
+	gpio_121: keyout0 {
+		pins = "SHARKL3_KEYOUT0";
+		function = "func4";
+	};
+
+	gpio_122: keyout1 {
+		pins = "SHARKL3_KEYOUT1";
+		function = "func4";
+	};
+
+	gpio_123: keyout2 {
+		pins = "SHARKL3_KEYOUT2";
+		function = "func4";
+	};
+
+	gpio_124: keyin0 {
+		pins = "SHARKL3_KEYIN0";
+		function = "func4";
+	};
+
+	gpio_125: keyin1 {
+		pins = "SHARKL3_KEYIN1";
+		function = "func4";
+	};
+
+	gpio_126: keyin2 {
+		pins = "SHARKL3_KEYIN2";
+		function = "func4";
+	};
+
+	gpio_144: extint0 {
+		pins = "SHARKL3_EXTINT0";
+		function = "func4";
+	};
+
+	gpio_145: extint1 {
+		pins = "SHARKL3_EXTINT1";
+		function = "func4";
+	};
+
+	gpio_146: scl3 {
+		pins = "SHARKL3_SCL3";
+		function = "func4";
+	};
+
+	gpio_147: sda3 {
+		pins = "SHARKL3_SDA3";
+		function = "func4";
+	};
+
+	shutdown0: rfsen0 {
+		pins = "SHARKL3_RFSEN0";
+		function = "func4";
+	};
+
+	shutdown1: rfsck0 {
+		pins = "SHARKL3_RFSCK0";
+		function = "func4";
+	};
+
+	shutdown2: rfsda0 {
+		pins = "SHARKL3_RFSDA0";
+		function = "func4";
+	};
+
+	shutdown3: rfsen1 {
+		pins = "SHARKL3_RFSEN1";
+		function = "func4";
+	};
+
+	shutdown4: rfsck1 {
+		pins = "SHARKL3_RFSCK1";
+		function = "func4";
+	};
+
+	shutdown5: rfsda1 {
+		pins = "SHARKL3_RFSDA1";
+		function = "func4";
+	};
+};
+
+&dmabuf {
+	fd_reserved {
+		label = "carveout_fd";
+		memory-region = <&fd_reserved>;
+	};
+
+	protected-reserved {
+		label = "protected";
+		memory-region = <&protected_reserved>;
+	};
+};
+
+&usb{
+	extcon = <&pmic_typec>, <&pmic_typec>;
+	status = "okay";
+	vbus-supply = <&vddvbus>;
+};
+
+&dpu {
+	sprd,backlight = <&pwm_backlight>;
+};
+
+&panel {
+	sprd,backlight = <&pwm_backlight>;
+	avdd-gpio = <&ap_gpio 4 GPIO_ACTIVE_HIGH>;
+	avee-gpio = <&ap_gpio 5 GPIO_ACTIVE_HIGH>;
+	reset-gpio = <&ap_gpio 50 GPIO_ACTIVE_HIGH>;
+};
+
+&thm_zone {
+	pa_thmzone: pa-thmzone {
+		status = "disabled";
+	};
+};
+
+&sdio0 {
+	cd-gpios = <&eic_async 9 1>;
+};

@@ -643,63 +643,6 @@ static bool cake_ddst(int flow_mode)
 	return (flow_mode & CAKE_FLOW_DUAL_DST) == CAKE_FLOW_DUAL_DST;
 }
 
-static void cake_dec_srchost_bulk_flow_count(struct cake_tin_data *q,
-					     struct cake_flow *flow,
-					     int flow_mode)
-{
-	if (likely(cake_dsrc(flow_mode) &&
-		   q->hosts[flow->srchost].srchost_bulk_flow_count))
-		q->hosts[flow->srchost].srchost_bulk_flow_count--;
-}
-
-static void cake_inc_srchost_bulk_flow_count(struct cake_tin_data *q,
-					     struct cake_flow *flow,
-					     int flow_mode)
-{
-	if (likely(cake_dsrc(flow_mode) &&
-		   q->hosts[flow->srchost].srchost_bulk_flow_count < CAKE_QUEUES))
-		q->hosts[flow->srchost].srchost_bulk_flow_count++;
-}
-
-static void cake_dec_dsthost_bulk_flow_count(struct cake_tin_data *q,
-					     struct cake_flow *flow,
-					     int flow_mode)
-{
-	if (likely(cake_ddst(flow_mode) &&
-		   q->hosts[flow->dsthost].dsthost_bulk_flow_count))
-		q->hosts[flow->dsthost].dsthost_bulk_flow_count--;
-}
-
-static void cake_inc_dsthost_bulk_flow_count(struct cake_tin_data *q,
-					     struct cake_flow *flow,
-					     int flow_mode)
-{
-	if (likely(cake_ddst(flow_mode) &&
-		   q->hosts[flow->dsthost].dsthost_bulk_flow_count < CAKE_QUEUES))
-		q->hosts[flow->dsthost].dsthost_bulk_flow_count++;
-}
-
-static u16 cake_get_flow_quantum(struct cake_tin_data *q,
-				 struct cake_flow *flow,
-				 int flow_mode)
-{
-	u16 host_load = 1;
-
-	if (cake_dsrc(flow_mode))
-		host_load = max(host_load,
-				q->hosts[flow->srchost].srchost_bulk_flow_count);
-
-	if (cake_ddst(flow_mode))
-		host_load = max(host_load,
-				q->hosts[flow->dsthost].dsthost_bulk_flow_count);
-
-	/* The shifted prandom_u32() is a way to apply dithering to avoid
-	 * accumulating roundoff errors
-	 */
-	return (q->flow_quantum * quantum_div[host_load] +
-		(prandom_u32() >> 16)) >> 16;
-}
-
 static u32 cake_hash(struct cake_tin_data *q, const struct sk_buff *skb,
 		     int flow_mode, u16 flow_override, u16 host_override)
 {
@@ -846,8 +789,10 @@ skip_hash:
 		allocate_dst = cake_ddst(flow_mode);
 
 		if (q->flows[outer_hash + k].set == CAKE_SET_BULK) {
-			cake_dec_srchost_bulk_flow_count(q, &q->flows[outer_hash + k], flow_mode);
-			cake_dec_dsthost_bulk_flow_count(q, &q->flows[outer_hash + k], flow_mode);
+			if (allocate_src)
+				q->hosts[q->flows[reduced_hash].srchost].srchost_bulk_flow_count--;
+			if (allocate_dst)
+				q->hosts[q->flows[reduced_hash].dsthost].dsthost_bulk_flow_count--;
 		}
 found:
 		/* reserve queue for future packets in same flow */
@@ -872,10 +817,9 @@ found:
 			q->hosts[outer_hash + k].srchost_tag = srchost_hash;
 found_src:
 			srchost_idx = outer_hash + k;
-			q->flows[reduced_hash].srchost = srchost_idx;
-
 			if (q->flows[reduced_hash].set == CAKE_SET_BULK)
-				cake_inc_srchost_bulk_flow_count(q, &q->flows[reduced_hash], flow_mode);
+				q->hosts[srchost_idx].srchost_bulk_flow_count++;
+			q->flows[reduced_hash].srchost = srchost_idx;
 		}
 
 		if (allocate_dst) {
@@ -896,10 +840,9 @@ found_src:
 			q->hosts[outer_hash + k].dsthost_tag = dsthost_hash;
 found_dst:
 			dsthost_idx = outer_hash + k;
-			q->flows[reduced_hash].dsthost = dsthost_idx;
-
 			if (q->flows[reduced_hash].set == CAKE_SET_BULK)
-				cake_inc_dsthost_bulk_flow_count(q, &q->flows[reduced_hash], flow_mode);
+				q->hosts[dsthost_idx].dsthost_bulk_flow_count++;
+			q->flows[reduced_hash].dsthost = dsthost_idx;
 		}
 	}
 
@@ -1761,7 +1704,7 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 	ktime_t now = ktime_get();
 	struct cake_tin_data *b;
 	struct cake_flow *flow;
-	u32 idx, tin;
+	u32 idx;
 
 	/* choose flow to insert into */
 	idx = cake_classify(sch, &b, skb, q->flow_mode, &ret);
@@ -1771,7 +1714,6 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 		__qdisc_drop(skb, to_free);
 		return ret;
 	}
-	tin = (u32)(b - q->tins);
 	idx--;
 	flow = &b->flows[idx];
 
@@ -1913,6 +1855,10 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 
 	/* flowchain */
 	if (!flow->set || flow->set == CAKE_SET_DECAYING) {
+		struct cake_host *srchost = &b->hosts[flow->srchost];
+		struct cake_host *dsthost = &b->hosts[flow->dsthost];
+		u16 host_load = 1;
+
 		if (!flow->set) {
 			list_add_tail(&flow->flowchain, &b->new_flows);
 		} else {
@@ -1922,8 +1868,18 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 		flow->set = CAKE_SET_SPARSE;
 		b->sparse_flow_count++;
 
-		flow->deficit = cake_get_flow_quantum(b, flow, q->flow_mode);
+		if (cake_dsrc(q->flow_mode))
+			host_load = max(host_load, srchost->srchost_bulk_flow_count);
+
+		if (cake_ddst(q->flow_mode))
+			host_load = max(host_load, dsthost->dsthost_bulk_flow_count);
+
+		flow->deficit = (b->flow_quantum *
+				 quantum_div[host_load]) >> 16;
 	} else if (flow->set == CAKE_SET_SPARSE_WAIT) {
+		struct cake_host *srchost = &b->hosts[flow->srchost];
+		struct cake_host *dsthost = &b->hosts[flow->dsthost];
+
 		/* this flow was empty, accounted as a sparse flow, but actually
 		 * in the bulk rotation.
 		 */
@@ -1931,30 +1887,25 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 		b->sparse_flow_count--;
 		b->bulk_flow_count++;
 
-		cake_inc_srchost_bulk_flow_count(b, flow, q->flow_mode);
-		cake_inc_dsthost_bulk_flow_count(b, flow, q->flow_mode);
+		if (cake_dsrc(q->flow_mode))
+			srchost->srchost_bulk_flow_count++;
+
+		if (cake_ddst(q->flow_mode))
+			dsthost->dsthost_bulk_flow_count++;
+
 	}
 
 	if (q->buffer_used > q->buffer_max_used)
 		q->buffer_max_used = q->buffer_used;
 
 	if (q->buffer_used > q->buffer_limit) {
-		bool same_flow = false;
 		u32 dropped = 0;
-		u32 drop_id;
 
 		while (q->buffer_used > q->buffer_limit) {
 			dropped++;
-			drop_id = cake_drop(sch, to_free);
-
-			if ((drop_id >> 16) == tin &&
-			    (drop_id & 0xFFFF) == idx)
-				same_flow = true;
+			cake_drop(sch, to_free);
 		}
 		b->drop_overlimit += dropped;
-
-		if (same_flow)
-			return NET_XMIT_CN;
 	}
 	return NET_XMIT_SUCCESS;
 }
@@ -1998,11 +1949,13 @@ static struct sk_buff *cake_dequeue(struct Qdisc *sch)
 {
 	struct cake_sched_data *q = qdisc_priv(sch);
 	struct cake_tin_data *b = &q->tins[q->cur_tin];
+	struct cake_host *srchost, *dsthost;
 	ktime_t now = ktime_get();
 	struct cake_flow *flow;
 	struct list_head *head;
 	bool first_flow = true;
 	struct sk_buff *skb;
+	u16 host_load;
 	u64 delay;
 	u32 len;
 
@@ -2102,6 +2055,11 @@ retry:
 	q->cur_flow = flow - b->flows;
 	first_flow = false;
 
+	/* triple isolation (modified DRR++) */
+	srchost = &b->hosts[flow->srchost];
+	dsthost = &b->hosts[flow->dsthost];
+	host_load = 1;
+
 	/* flow isolation (DRR++) */
 	if (flow->deficit <= 0) {
 		/* Keep all flows with deficits out of the sparse and decaying
@@ -2113,8 +2071,11 @@ retry:
 				b->sparse_flow_count--;
 				b->bulk_flow_count++;
 
-				cake_inc_srchost_bulk_flow_count(b, flow, q->flow_mode);
-				cake_inc_dsthost_bulk_flow_count(b, flow, q->flow_mode);
+				if (cake_dsrc(q->flow_mode))
+					srchost->srchost_bulk_flow_count++;
+
+				if (cake_ddst(q->flow_mode))
+					dsthost->dsthost_bulk_flow_count++;
 
 				flow->set = CAKE_SET_BULK;
 			} else {
@@ -2126,7 +2087,19 @@ retry:
 			}
 		}
 
-		flow->deficit += cake_get_flow_quantum(b, flow, q->flow_mode);
+		if (cake_dsrc(q->flow_mode))
+			host_load = max(host_load, srchost->srchost_bulk_flow_count);
+
+		if (cake_ddst(q->flow_mode))
+			host_load = max(host_load, dsthost->dsthost_bulk_flow_count);
+
+		WARN_ON(host_load > CAKE_QUEUES);
+
+		/* The shifted prandom_u32() is a way to apply dithering to
+		 * avoid accumulating roundoff errors
+		 */
+		flow->deficit += (b->flow_quantum * quantum_div[host_load] +
+				  (prandom_u32() >> 16)) >> 16;
 		list_move_tail(&flow->flowchain, &b->old_flows);
 
 		goto retry;
@@ -2150,8 +2123,11 @@ retry:
 				if (flow->set == CAKE_SET_BULK) {
 					b->bulk_flow_count--;
 
-					cake_dec_srchost_bulk_flow_count(b, flow, q->flow_mode);
-					cake_dec_dsthost_bulk_flow_count(b, flow, q->flow_mode);
+					if (cake_dsrc(q->flow_mode))
+						srchost->srchost_bulk_flow_count--;
+
+					if (cake_ddst(q->flow_mode))
+						dsthost->dsthost_bulk_flow_count--;
 
 					b->decaying_flow_count++;
 				} else if (flow->set == CAKE_SET_SPARSE ||
@@ -2169,8 +2145,12 @@ retry:
 				else if (flow->set == CAKE_SET_BULK) {
 					b->bulk_flow_count--;
 
-					cake_dec_srchost_bulk_flow_count(b, flow, q->flow_mode);
-					cake_dec_dsthost_bulk_flow_count(b, flow, q->flow_mode);
+					if (cake_dsrc(q->flow_mode))
+						srchost->srchost_bulk_flow_count--;
+
+					if (cake_ddst(q->flow_mode))
+						dsthost->dsthost_bulk_flow_count--;
+
 				} else
 					b->decaying_flow_count--;
 

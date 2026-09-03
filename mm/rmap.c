@@ -1772,6 +1772,58 @@ static int page_not_mapped(struct page *page)
  * try_to_unmap - try to remove all page table mappings to a page
  * @page: the page to get unmapped
  * @flags: action and flags
+ * @vma : target vma for reclaim
+ *
+ * Tries to remove all the page table entries which are mapping this
+ * page, used in the pageout path.  Caller must hold the page lock.
+ * If @vma is not NULL, this function try to remove @page from only @vma
+ * without peeking all mapped vma for @page.
+ * Return values are:
+ *
+ * It is the caller's responsibility to check if the page is still
+ * mapped when needed (use TTU_SYNC to prevent accounting races).
+ */
+#ifdef CONFIG_PROCESS_RECLAIM
+bool try_to_unmap(struct page *page, enum ttu_flags flags,
+			struct vm_area_struct *vma)
+{
+	struct rmap_walk_control rwc = {
+		.rmap_one = try_to_unmap_one,
+		.arg = (void *)flags,
+		.done = page_not_mapped,
+		.anon_lock = page_lock_anon_vma_read,
+		.target_vma = vma,
+	};
+
+	/*
+	 * During exec, a temporary VMA is setup and later moved.
+	 * The VMA is moved under the anon_vma lock but not the
+	 * page tables leading to a race where migration cannot
+	 * find the migration ptes. Rather than increasing the
+	 * locking requirements of exec(), migration skips
+	 * temporary VMAs until after exec() completes.
+	 */
+	if (!PageKsm(page) && PageAnon(page))
+		rwc.invalid_vma = invalid_migration_vma;
+
+	if (flags & TTU_RMAP_LOCKED)
+		rmap_walk_locked(page, &rwc);
+	else
+		rmap_walk(page, &rwc);
+
+	/*
+	 * When racing against e.g. zap_pte_range() on another cpu,
+	 * in between its ptep_get_and_clear_full() and page_remove_rmap(),
+	 * try_to_unmap() may return false when it is about to become true,
+	 * if page table locking is skipped: use TTU_SYNC to wait for that.
+	 */
+	return !page_mapcount(page);
+}
+#else
+/**
+ * try_to_unmap - try to remove all page table mappings to a page
+ * @page: the page to get unmapped
+ * @flags: action and flags
  *
  * Tries to remove all the page table entries which are mapping this
  * page, used in the pageout path.  Caller must hold the page lock.
@@ -1793,6 +1845,7 @@ void try_to_unmap(struct page *page, enum ttu_flags flags)
 	else
 		rmap_walk(page, &rwc);
 }
+#endif
 
 /*
  * @arg: enum ttu_flags will be passed to this argument.
@@ -2272,7 +2325,7 @@ static bool page_make_device_exclusive(struct page *page, struct mm_struct *mm,
 	 * issues. Also tail pages shouldn't be passed to rmap_walk so skip
 	 * those.
 	 */
-	if (!PageAnon(page) || PageTail(page) || PageHuge(page))
+	if (!PageAnon(page) || PageTail(page))
 		return false;
 
 	rmap_walk(page, &rwc);
@@ -2395,6 +2448,14 @@ static void rmap_walk_anon(struct page *page, struct rmap_walk_control *rwc,
 	pgoff_t pgoff_start, pgoff_end;
 	struct anon_vma_chain *avc;
 
+#ifdef CONFIG_PROCESS_RECLAIM
+	if (rwc->target_vma) {
+		unsigned long address = vma_address(page, rwc->target_vma);
+
+		rwc->rmap_one(page, rwc->target_vma, address, rwc->arg);
+		return;
+	}
+#endif
 	if (locked) {
 		anon_vma = page_anon_vma(page);
 		/* anon_vma disappear under us? */
@@ -2480,6 +2541,16 @@ static void rmap_walk_file(struct page *page, struct rmap_walk_control *rwc,
 			i_mmap_lock_read(mapping);
 		}
 	}
+
+#ifdef CONFIG_PROCESS_RECLAIM
+	if (rwc->target_vma) {
+		unsigned long address = vma_address(page, rwc->target_vma);
+
+		rwc->rmap_one(page, rwc->target_vma, address, rwc->arg);
+		goto done;
+	}
+#endif
+
 lookup:
 	vma_interval_tree_foreach(vma, &mapping->i_mmap,
 			pgoff_start, pgoff_end) {

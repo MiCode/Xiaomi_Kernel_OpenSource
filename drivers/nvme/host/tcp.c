@@ -1602,7 +1602,7 @@ static void __nvme_tcp_stop_queue(struct nvme_tcp_queue *queue)
 	cancel_work_sync(&queue->io_work);
 }
 
-static void nvme_tcp_stop_queue_nowait(struct nvme_ctrl *nctrl, int qid)
+static void nvme_tcp_stop_queue(struct nvme_ctrl *nctrl, int qid)
 {
 	struct nvme_tcp_ctrl *ctrl = to_tcp_ctrl(nctrl);
 	struct nvme_tcp_queue *queue = &ctrl->queues[qid];
@@ -1612,31 +1612,6 @@ static void nvme_tcp_stop_queue_nowait(struct nvme_ctrl *nctrl, int qid)
 		__nvme_tcp_stop_queue(queue);
 	mutex_unlock(&queue->queue_lock);
 }
-
-static void nvme_tcp_wait_queue(struct nvme_ctrl *nctrl, int qid)
-{
-	struct nvme_tcp_ctrl *ctrl = to_tcp_ctrl(nctrl);
-	struct nvme_tcp_queue *queue = &ctrl->queues[qid];
-	int timeout = 100;
-
-	while (timeout > 0) {
-		if (!test_bit(NVME_TCP_Q_ALLOCATED, &queue->flags) ||
-		    !sk_wmem_alloc_get(queue->sock->sk))
-			return;
-		msleep(2);
-		timeout -= 2;
-	}
-	dev_warn(nctrl->device,
-		 "qid %d: timeout draining sock wmem allocation expired\n",
-		 qid);
-}
-
-static void nvme_tcp_stop_queue(struct nvme_ctrl *nctrl, int qid)
-{
-	nvme_tcp_stop_queue_nowait(nctrl, qid);
-	nvme_tcp_wait_queue(nctrl, qid);
-}
-
 
 static void nvme_tcp_setup_sock_ops(struct nvme_tcp_queue *queue)
 {
@@ -1745,9 +1720,7 @@ static void nvme_tcp_stop_io_queues(struct nvme_ctrl *ctrl)
 	int i;
 
 	for (i = 1; i < ctrl->queue_count; i++)
-		nvme_tcp_stop_queue_nowait(ctrl, i);
-	for (i = 1; i < ctrl->queue_count; i++)
-		nvme_tcp_wait_queue(ctrl, i);
+		nvme_tcp_stop_queue(ctrl, i);
 }
 
 static int nvme_tcp_start_io_queues(struct nvme_ctrl *ctrl)
@@ -2518,7 +2491,6 @@ static int nvme_tcp_poll(struct blk_mq_hw_ctx *hctx)
 {
 	struct nvme_tcp_queue *queue = hctx->driver_data;
 	struct sock *sk = queue->sock->sk;
-	int ret;
 
 	if (!test_bit(NVME_TCP_Q_LIVE, &queue->flags))
 		return 0;
@@ -2526,9 +2498,9 @@ static int nvme_tcp_poll(struct blk_mq_hw_ctx *hctx)
 	set_bit(NVME_TCP_Q_POLLING, &queue->flags);
 	if (sk_can_busy_loop(sk) && skb_queue_empty_lockless(&sk->sk_receive_queue))
 		sk_busy_loop(sk, true);
-	ret = nvme_tcp_try_recv(queue);
+	nvme_tcp_try_recv(queue);
 	clear_bit(NVME_TCP_Q_POLLING, &queue->flags);
-	return ret < 0 ? ret : queue->nr_cqe;
+	return queue->nr_cqe;
 }
 
 static const struct blk_mq_ops nvme_tcp_mq_ops = {

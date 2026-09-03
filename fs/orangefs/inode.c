@@ -23,9 +23,9 @@ static int orangefs_writepage_locked(struct page *page,
 	struct orangefs_write_range *wr = NULL;
 	struct iov_iter iter;
 	struct bio_vec bv;
-	size_t wlen;
+	size_t len, wlen;
 	ssize_t ret;
-	loff_t len, off;
+	loff_t off;
 
 	set_page_writeback(page);
 
@@ -94,7 +94,8 @@ static int orangefs_writepages_work(struct orangefs_writepages *ow,
 	struct orangefs_write_range *wrp, wr;
 	struct iov_iter iter;
 	ssize_t ret;
-	loff_t len, off;
+	size_t len;
+	loff_t off;
 	int i;
 
 	len = i_size_read(inode);

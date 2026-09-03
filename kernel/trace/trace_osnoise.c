@@ -1560,6 +1560,7 @@ static int start_kthread(unsigned int cpu)
 
 	if (IS_ERR(kthread)) {
 		pr_err(BANNER "could not start sampling thread\n");
+		stop_per_cpu_kthreads();
 		return -ENOMEM;
 	}
 

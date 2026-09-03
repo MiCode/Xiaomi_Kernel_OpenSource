@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * DTS file of efuse in Spreadtrum SC2730 PMIC.
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+
+&sc2721_pmic {
+	efuse@300 {
+		compatible = "sprd,sc2731-efuse", "sprd,sc2721-efuse";
+		reg = <0x300>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		hwlocks = <&hwlock 12>;
+		/* Data cells */
+		fgu_calib: calib@6 {
+			reg = <0x6 0x2>;
+		};
+
+		adc_bcal: calib@24 {
+			reg = <0x24 0x2>;
+		};
+
+		adc_scal: calib@26 {
+			reg = <0x26 0x2>;
+		};
+
+		typec_cc1_cal: calib@d1 {
+			reg = <0x1a 0x2>;
+		};
+
+		typec_cc2_cal: calib@d2 {
+			reg = <0x1a 0x2>;
+		};
+
+		efuse_blk0: calib@0 {
+			reg = <0x0 0x2>;
+		};
+
+		efuse_blk14: calib@28 {
+			reg = <0x28 0x2>;
+		};
+
+		efuse_blk16: calib@2c {
+			reg = <0x2c 0x2>;
+		};
+	};
+
+};

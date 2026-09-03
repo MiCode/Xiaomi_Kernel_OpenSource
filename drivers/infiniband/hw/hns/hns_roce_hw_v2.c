@@ -42,6 +42,7 @@
 #include <rdma/ib_umem.h>
 #include <rdma/uverbs_ioctl.h>
 
+#include "hnae3.h"
 #include "hns_roce_common.h"
 #include "hns_roce_device.h"
 #include "hns_roce_cmd.h"
@@ -5008,10 +5009,11 @@ static int hns_roce_v2_modify_qp(struct ib_qp *ibqp,
 {
 	struct hns_roce_dev *hr_dev = to_hr_dev(ibqp->device);
 	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
-	struct hns_roce_v2_qp_context *context;
-	struct hns_roce_v2_qp_context *qpc_mask;
+	struct hns_roce_v2_qp_context ctx[2];
+	struct hns_roce_v2_qp_context *context = ctx;
+	struct hns_roce_v2_qp_context *qpc_mask = ctx + 1;
 	struct ib_device *ibdev = &hr_dev->ib_dev;
-	int ret = -ENOMEM;
+	int ret;
 
 	if (attr_mask & ~IB_QP_ATTR_STANDARD_BITS)
 		return -EOPNOTSUPP;
@@ -5022,11 +5024,7 @@ static int hns_roce_v2_modify_qp(struct ib_qp *ibqp,
 	 * we should set all bits of the relevant fields in context mask to
 	 * 0 at the same time, else set them to 0x1.
 	 */
-	context = kvzalloc(sizeof(*context), GFP_KERNEL);
-	qpc_mask = kvzalloc(sizeof(*qpc_mask), GFP_KERNEL);
-	if (!context || !qpc_mask)
-		goto out;
-
+	memset(context, 0, hr_dev->caps.qpc_sz);
 	memset(qpc_mask, 0xff, hr_dev->caps.qpc_sz);
 
 	ret = hns_roce_v2_set_abs_fields(ibqp, attr, attr_mask, cur_state,
@@ -5068,8 +5066,6 @@ static int hns_roce_v2_modify_qp(struct ib_qp *ibqp,
 		clear_qp(hr_qp);
 
 out:
-	kvfree(qpc_mask);
-	kvfree(context);
 	return ret;
 }
 

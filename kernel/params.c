@@ -945,9 +945,7 @@ int module_sysfs_initialized;
 static void module_kobj_release(struct kobject *kobj)
 {
 	struct module_kobject *mk = to_module_kobject(kobj);
-
-	if (mk->kobj_completion)
-		complete(mk->kobj_completion);
+	complete(mk->kobj_completion);
 }
 
 struct kobj_type module_ktype = {

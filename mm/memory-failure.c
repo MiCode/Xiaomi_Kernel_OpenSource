@@ -674,17 +674,9 @@ static int hwpoison_hugetlb_range(pte_t *ptep, unsigned long hmask,
 #define hwpoison_hugetlb_range	NULL
 #endif
 
-static int hwpoison_test_walk(unsigned long start, unsigned long end,
-			     struct mm_walk *walk)
-{
-	/* We also want to consider pages mapped into VM_PFNMAP. */
-	return 0;
-}
-
 static struct mm_walk_ops hwp_walk_ops = {
 	.pmd_entry = hwpoison_pte_range,
 	.hugetlb_entry = hwpoison_hugetlb_range,
-	.test_walk = hwpoison_test_walk,
 };
 
 /*
@@ -715,17 +707,12 @@ static int kill_accessing_process(struct task_struct *p, unsigned long pfn,
 	mmap_read_lock(p->mm);
 	ret = walk_page_range(p->mm, 0, TASK_SIZE, &hwp_walk_ops,
 			      (void *)&priv);
-	/*
-	 * ret = 1 when CMCI wins, regardless of whether try_to_unmap()
-	 * succeeds or fails, then kill the process with SIGBUS.
-	 * ret = 0 when poison page is a clean page and it's dropped, no
-	 * SIGBUS is needed.
-	 */
 	if (ret == 1 && priv.tk.addr)
 		kill_proc(&priv.tk, pfn, flags);
+	else
+		ret = 0;
 	mmap_read_unlock(p->mm);
-
-	return ret > 0 ? -EHWPOISON : 0;
+	return ret > 0 ? -EHWPOISON : -EFAULT;
 }
 
 static const char *action_name[] = {
@@ -1389,7 +1376,11 @@ static bool hwpoison_user_mappings(struct page *p, unsigned long pfn,
 		collect_procs(hpage, &tokill, flags & MF_ACTION_REQUIRED);
 
 	if (!PageHuge(hpage)) {
+#ifdef CONFIG_PROCESS_RECLAIM
+		try_to_unmap(hpage, ttu, NULL);
+#else
 		try_to_unmap(hpage, ttu);
+#endif
 	} else {
 		if (!PageAnon(hpage)) {
 			/*
@@ -1401,12 +1392,20 @@ static bool hwpoison_user_mappings(struct page *p, unsigned long pfn,
 			 */
 			mapping = hugetlb_page_mapping_lock_write(hpage);
 			if (mapping) {
+#ifdef CONFIG_PROCESS_RECLAIM
+				try_to_unmap(hpage, ttu|TTU_RMAP_LOCKED, NULL);
+#else
 				try_to_unmap(hpage, ttu|TTU_RMAP_LOCKED);
+#endif
 				i_mmap_unlock_write(mapping);
 			} else
 				pr_info("Memory failure: %#lx: could not lock mapping for mapped huge page\n", pfn);
 		} else {
+#ifdef CONFIG_PROCESS_RECLAIM
+			try_to_unmap(hpage, ttu, NULL);
+#else
 			try_to_unmap(hpage, ttu);
+#endif
 		}
 	}
 
@@ -2056,9 +2055,10 @@ int unpoison_memory(unsigned long pfn)
 	static DEFINE_RATELIMIT_STATE(unpoison_rs, DEFAULT_RATELIMIT_INTERVAL,
 					DEFAULT_RATELIMIT_BURST);
 
-	p = pfn_to_online_page(pfn);
-	if (!p)
-		return -EIO;
+	if (!pfn_valid(pfn))
+		return -ENXIO;
+
+	p = pfn_to_page(pfn);
 	page = compound_head(p);
 
 	mutex_lock(&mf_mutex);

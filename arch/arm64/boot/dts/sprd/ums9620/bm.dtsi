@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc busmonitor dts file
+ *
+ * Copyright (C) 2020, Unisoc Inc.
+ *
+ */
+#include <dt-bindings/debug/busmonitor/busmonitor.h>
+#include <dt-bindings/soc/sprd,qogirn6pro-regs.h>
+#include <dt-bindings/soc/sprd,qogirn6pro-mask.h>
+
+&aon {
+	djtag: djtag@570000 {
+		compatible = "sprd,djtag";
+		reg = <0x570000 0x1000>;
+		clock-names = "enable", "tck";
+		syscon = <&aon_apb_regs REG_AON_APB_APB_RST3
+			MASK_AON_APB_DJTAG_SOFT_RST>;
+		clocks = <&aonapb_gate CLK_DJTAG_EB>;
+		hwlocks = <&hwlock 10>;
+		hwlock-names = "djtag";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		aon-bm@7{
+			compatible = "sprd,busmonitor";
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x7>;
+			sprd,bm-num = <11>;
+			sprd,bm-name =
+				"AP", "IPA", "AUDCP", "PSCP",
+				"PHYCP", "SP_CMSTAR", "DEBUG_SYS",
+				"USB_OTG", "APCPU", "CH_CMSTAR",
+				"PUB_SYS";
+			sprd,bm-type =
+				<AXI>, <AXI>, <AXI>, <AXI>,
+				<AXI>, <AXI>, <AXI>, <AXI>,
+				<AXI>, <AXI>, <AXI>;
+			sprd,bm-dap = <0>, <1>, <2>, <3>,
+				<4>, <5>, <6>, <7>, <8>,
+				<9>, <11>;
+			sprd,bm-config =
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>,
+				<DISABLE MON_WRITE MON_INSIDE>;
+			sprd,bm-id =
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>,
+				<DISABLE 0 AXIID>;
+			sprd,bm-ranges =
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>,
+				<0 0>;
+		};
+	};
+
+	apb_bm: apb-bm@580000 {
+		compatible = "sprd,apb-busmonitor";
+		reg = <0x580000 0x1000>;
+		interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+		sprd,target-addr = <0 0>;
+		sprd,target-data = <0 0>;
+	};
+};

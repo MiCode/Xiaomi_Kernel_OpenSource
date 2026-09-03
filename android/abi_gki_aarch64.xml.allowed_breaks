@@ -125,15 +125,3 @@ type 'struct of_bus' changed
   member 'bool has_flags' was removed
   member 'int flag_cells' was added
 
-type 'struct prefix_info' changed
-  member changed from 'union { __u8 flags; struct { __u8 reserved; __u8 autoconf; __u8 onlink; }; }' to 'union { __u8 flags; struct { __u8 reserved; __u8 preferpd; __u8 routeraddr; __u8 autoconf; __u8 onlink; }; }'
-    type changed from 'union { __u8 flags; struct { __u8 reserved; __u8 autoconf; __u8 onlink; }; }' to 'union { __u8 flags; struct { __u8 reserved; __u8 preferpd; __u8 routeraddr; __u8 autoconf; __u8 onlink; }; }'
-      member changed from 'struct { __u8 reserved; __u8 autoconf; __u8 onlink; }' to 'struct { __u8 reserved; __u8 preferpd; __u8 routeraddr; __u8 autoconf; __u8 onlink; }'
-        type changed from 'struct { __u8 reserved; __u8 autoconf; __u8 onlink; }' to 'struct { __u8 reserved; __u8 preferpd; __u8 routeraddr; __u8 autoconf; __u8 onlink; }'
-          member '__u8 preferpd' was added
-          member '__u8 routeraddr' was added
-
-type 'struct ipv6_devconf' changed
-  member 'u64 android_kabi_reserved4' was removed
-  member 'union { struct { __u8 ra_honor_pio_pflag; __u8 padding4[7]; }; struct { u64 android_kabi_reserved4; }; union { }; }' was added
-

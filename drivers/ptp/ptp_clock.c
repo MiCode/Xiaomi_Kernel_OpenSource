@@ -180,11 +180,6 @@ static void ptp_clock_release(struct device *dev)
 	kfree(ptp);
 }
 
-static int ptp_enable(struct ptp_clock_info *ptp, struct ptp_clock_request *request, int on)
-{
-	return -EOPNOTSUPP;
-}
-
 static void ptp_aux_kworker(struct kthread_work *work)
 {
 	struct ptp_clock *ptp = container_of(work, struct ptp_clock,
@@ -231,9 +226,6 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
 	mutex_init(&ptp->pincfg_mux);
 	mutex_init(&ptp->n_vclocks_mux);
 	init_waitqueue_head(&ptp->tsev_wq);
-
-	if (!ptp->info->enable)
-		ptp->info->enable = ptp_enable;
 
 	if (ptp->info->do_aux_work) {
 		kthread_init_delayed_work(&ptp->aux_work, ptp_aux_kworker);

@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Unisoc USB dts file
+ *
+ * Copyright (C) 2023, Unisoc Inc.
+ *
+ */
+
+&apahb {
+	usb: usb@20200000 {
+			compatible = "sprd,sharkl3-musb";
+			reg = <0 0x20200000 0 0x2000>;
+			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "mc";
+			clocks = <&apahb_gate CLK_OTG_EB>;
+			clock-names = "core_clk";
+			phy-type = "usb20_sprd_phy";
+			usb-phy = <&hsphy>;
+			phy-names = "usb";
+			dr-mode = "peripheral";
+			sprd,usb-data-enable = <1>;
+		};
+
+	hsphy: hsphy@20e00000 {
+			compatible = "sprd,sharkl3-phy";
+			reg = <0 0x20e00000 0 0x3030>;
+			reg-names = "phy_glb_regs";
+			sprd,syscon-enable = <&aon_apb_regs>;
+			sprd,syscon-apahb = <&ap_ahb_regs>;
+			sprd,syscon-anag4 = <&anlg_phy_g4_regs>;
+			sprd,vdd-voltage = <3050000>;
+			io-channels = <&pmic_adc 30>, <&pmic_adc 31>;
+			io-channel-names = "dp", "dm";
+			#phy-cells = <0>;
+		};
+};

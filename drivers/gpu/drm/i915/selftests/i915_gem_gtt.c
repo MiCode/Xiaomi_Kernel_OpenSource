@@ -160,7 +160,7 @@ static int igt_ppgtt_alloc(void *arg)
 		return PTR_ERR(ppgtt);
 
 	if (!ppgtt->vm.allocate_va_range)
-		goto ppgtt_vm_put;
+		goto err_ppgtt_cleanup;
 
 	/*
 	 * While we only allocate the page tables here and so we could
@@ -228,7 +228,7 @@ err_ppgtt_cleanup:
 			goto retry;
 	}
 	i915_gem_ww_ctx_fini(&ww);
-ppgtt_vm_put:
+
 	i915_vm_put(&ppgtt->vm);
 	return err;
 }

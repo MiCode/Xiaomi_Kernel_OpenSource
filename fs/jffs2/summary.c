@@ -858,10 +858,7 @@ int jffs2_sum_write_sumnode(struct jffs2_sb_info *c)
 	spin_unlock(&c->erase_completion_lock);
 
 	jeb = c->nextblock;
-	ret = jffs2_prealloc_raw_node_refs(c, jeb, 1);
-
-	if (ret)
-		goto out;
+	jffs2_prealloc_raw_node_refs(c, jeb, 1);
 
 	if (!c->summary->sum_num || !c->summary->sum_list_head) {
 		JFFS2_WARNING("Empty summary info!!!\n");
@@ -875,8 +872,6 @@ int jffs2_sum_write_sumnode(struct jffs2_sb_info *c)
 	datasize += padsize;
 
 	ret = jffs2_sum_write_data(c, jeb, infosize, datasize, padsize);
-
-out:
 	spin_lock(&c->erase_completion_lock);
 	return ret;
 }

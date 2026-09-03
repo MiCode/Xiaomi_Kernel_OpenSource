@@ -886,7 +886,7 @@ out:
 	spin_unlock_irqrestore(&dp83640->rx_lock, flags);
 
 	if (shhwtstamps)
-		netif_rx(skb);
+		netif_rx_ni(skb);
 }
 
 static void decode_txts(struct dp83640_private *dp83640,
@@ -1332,7 +1332,7 @@ static void rx_timestamp_work(struct work_struct *work)
 			break;
 		}
 
-		netif_rx(skb);
+		netif_rx_ni(skb);
 	}
 
 	if (!skb_queue_empty(&dp83640->rx_queue))
@@ -1383,7 +1383,7 @@ static bool dp83640_rxtstamp(struct mii_timestamper *mii_ts,
 		skb_queue_tail(&dp83640->rx_queue, skb);
 		schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
 	} else {
-		netif_rx(skb);
+		netif_rx_ni(skb);
 	}
 
 	return true;

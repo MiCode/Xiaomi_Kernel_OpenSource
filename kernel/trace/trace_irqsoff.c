@@ -17,6 +17,7 @@
 #include <linux/kprobes.h>
 
 #include "trace.h"
+#include "../../drivers/unisoc_platform/preemptirq_warn/preemptirq_timing.h"
 
 #include <trace/events/preemptirq.h>
 
@@ -231,6 +232,8 @@ static void irqsoff_trace_open(struct trace_iterator *iter)
 {
 	if (is_graph(iter->tr))
 		graph_trace_open(iter);
+	else
+		iter->private = NULL;
 }
 
 static void irqsoff_trace_close(struct trace_iterator *iter)
@@ -437,6 +440,9 @@ void start_critical_timings(void)
 {
 	if (preempt_trace(preempt_count()) || irq_trace())
 		start_critical_timing(CALLER_ADDR0, CALLER_ADDR1);
+
+	stop_irqsoff_extra_timing();
+	stop_preemptoff_extra_timing();
 }
 EXPORT_SYMBOL_GPL(start_critical_timings);
 NOKPROBE_SYMBOL(start_critical_timings);
@@ -445,6 +451,9 @@ void stop_critical_timings(void)
 {
 	if (preempt_trace(preempt_count()) || irq_trace())
 		stop_critical_timing(CALLER_ADDR0, CALLER_ADDR1);
+
+	start_irqsoff_extra_timing();
+	start_preemptoff_extra_timing();
 }
 EXPORT_SYMBOL_GPL(stop_critical_timings);
 NOKPROBE_SYMBOL(stop_critical_timings);

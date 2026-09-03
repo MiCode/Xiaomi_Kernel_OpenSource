@@ -26,8 +26,7 @@
 # subcomponents.
 
 ifdef CONFIG_X86
-dml_ccflags-$(CONFIG_CC_IS_GCC) := -mhard-float
-dml_ccflags := $(dml_ccflags-y) -msse
+dml_ccflags := -mhard-float -msse
 endif
 
 ifdef CONFIG_PPC64

@@ -22,5 +22,3 @@ are configurable at compile, boot or run time.
    gather_data_sampling.rst
    srso
    reg-file-data-sampling
-   indirect-target-selection
-   vmscape

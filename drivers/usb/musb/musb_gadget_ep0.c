@@ -174,6 +174,8 @@ service_in_request(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
  */
 static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
 {
+	if (!musb->gadget_driver || !musb->softconnect)
+		return;
 	musb_g_giveback(&musb->endpoints[0].ep_in, req, 0);
 }
 
@@ -530,6 +532,11 @@ static void ep0_txstate(struct musb *musb)
 	}
 
 	request = &req->request;
+	if (!request->buf) {
+		/* request->buf could be NULL*/
+		musb_dbg(musb, "request->buf is NULL\n");
+		return;
+	}
 
 	/* load the data */
 	fifo_src = (u8 *) request->buf + request->actual;
@@ -625,9 +632,14 @@ __releases(musb->lock)
 __acquires(musb->lock)
 {
 	int retval;
-	if (!musb->gadget_driver)
+	if (!musb->gadget_driver || !musb->softconnect)
 		return -EOPNOTSUPP;
 	spin_unlock(&musb->lock);
+
+	if (!get_gadget_data(&musb->g)) {
+		musb_dbg(musb, "gadget driver_data is NULL\n");
+		return 0;
+	}
 	retval = musb->gadget_driver->setup(&musb->g, ctrlrequest);
 	spin_lock(&musb->lock);
 	return retval;
