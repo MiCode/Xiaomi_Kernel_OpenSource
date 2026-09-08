@@ -256,3 +256,4 @@
 | spark-w-oss | Redmi Pad SE 4G / Redmi Pad SE 8.7 4G | Android W | t-alps-release-v0.mp1.tc8sp3-V1.121 |[spark-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/spark-w-oss) |
 | bsp-chagall-w-oss | Xiaomi 17T | Android W | alps-mp-v0.mp1.tc8sp6-V1 | [bsp-chagall-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-chagall-w-oss ) |
 | warsaw-w-oss | REDMI K90 Ultra | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[warsaw-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/warsaw-w-oss) |
+| arctic-w-oss | POCO C81 Pro / REDMI A7 Pro / POCO C81 | Android W | 4G_MODEM_22B_W24.52.2_P34 |[arctic-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/arctic-w-oss) |
