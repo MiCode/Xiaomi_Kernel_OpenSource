@@ -1,0 +1,50 @@
+name: KernelSU Next + SUSFS
+run-name: Đang xây dựng... 🚀
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Tải nguồn Kernel
+        run: |
+          git clone --depth=1 --branch shennong-stable-6.6 https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git kernel
+          cd kernel
+
+      - name: 🔧 Cài công cụ
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y git bc bison build-essential gcc-aarch64-linux-gnu libelf-dev zip
+
+      - name: 🧠 Thêm KernelSU Next
+        run: |
+          cd kernel
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+
+      - name: 🔒 Thêm SUSFS
+        run: |
+          cd kernel
+          git clone https://github.com/SUSFS/susfs.git susfs || true
+
+      - name: ⚙️ Cấu hình
+        run: |
+          cd kernel
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          echo "CONFIG_KSU=y" >> .config
+          echo "CONFIG_KSU_SUSFS=y" >> .config
+          echo "CONFIG_SUSFS=y" >> .config
+          echo "CONFIG_SUSFS_HIDE_KSU=y" >> .config
+
+      - name: 🔨 Build Kernel
+        run: |
+          cd kernel
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
+
+      - name: 📤 Tải kết quả
+        uses: actions/upload-artifact@v4
+        with:
+          name: KernelSU-Next-SUSFS
+          path: kernel/arch/arm64/boot/Image
+          retention-days: 60
