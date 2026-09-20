@@ -52,4 +52,6 @@ ssize_t kernel_read_file_from_fd(int fd, loff_t offset,
 				 size_t *file_size,
 				 enum kernel_read_file_id id);
 
+ssize_t read_comp_algo_dictionary(void **dict, const char *dict_path);
+
 #endif /* _LINUX_KERNEL_READ_FILE_H */

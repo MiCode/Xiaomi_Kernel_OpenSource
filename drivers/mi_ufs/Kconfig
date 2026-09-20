@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# MI UFS feature configuration
+#
+
+source "drivers/mi_ufs/mi_memory/Kconfig"
+source "drivers/mi_ufs/mi_ffu/Kconfig"
+source "drivers/mi_ufs/wb_check/Kconfig"
+source "drivers/mi_ufs/cld/Kconfig"
+config UFS_WB
+	bool "UFS WB"
+	depends on SCSI_UFS_QCOM

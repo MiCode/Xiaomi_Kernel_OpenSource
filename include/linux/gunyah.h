@@ -463,6 +463,8 @@ struct gunyah_hypercall_vcpu_run_resp {
 			GUNYAH_VCPU_ADDRSPACE_VMMIO_WRITE	= 5,
 			/* VCPU blocked on fault where we can demand page */
 			GUNYAH_VCPU_ADDRSPACE_PAGE_FAULT	= 7,
+			/* VCPU is powered off due to some system event/reset */
+			GUNYAH_VCPU_STATE_SYSTEM_OFF		= 0x100,
 			/* clang-format on */
 		} state;
 		u64 sized_state;

@@ -858,3 +858,67 @@ Description:	This is a read-only entry to show the value of sb.s_encoding_flags,
 		SB_ENC_STRICT_MODE_FL            0x00000001
 		SB_ENC_NO_COMPAT_FALLBACK_FL     0x00000002
 		============================     ==========
+
+What:		/sys/fs/f2fs/<disk>/reserved_pin_section
+Date:		June 2025
+Contact:	"Chao Yu" <chao@kernel.org>
+Description:	This threshold is used to control triggering garbage collection while
+		fallocating on pinned file, so, it can guarantee there is enough free
+		reserved section before preallocating on pinned file.
+		By default, the value is ovp_sections, especially, for zoned ufs, the
+		value is 1.
+
+What:		/sys/fs/f2fs/<disk>/effective_lookup_mode
+Date:		August 2025
+Contact:	"Daniel Lee" <chullee@google.com>
+Description:
+		This is a read-only entry to show the effective directory lookup mode
+		F2FS is currently using for casefolded directories.
+		This considers both the "lookup_mode" mount option and the on-disk
+		encoding flag, SB_ENC_NO_COMPAT_FALLBACK_FL.
+
+		Possible values are:
+		- "perf": Hash-only lookup.
+		- "compat": Hash-based lookup with a linear search fallback enabled
+		- "auto:perf": lookup_mode is auto and fallback is disabled on-disk
+		- "auto:compat": lookup_mode is auto and fallback is enabled on-disk
+
+What:		/sys/fs/f2fs/<disk>/max_lock_elapsed_time
+Date:		December 2025
+Contact:	"Chao Yu" <chao@kernel.org>
+Description:	This is a threshold, once a thread enters critical region that lock covers, total
+		elapsed time exceeds this threshold, f2fs will print tracepoint to dump information
+		of related context. This sysfs entry can be used to control the value of threshold,
+		by default, the value is 500 ms.
+
+What:		/sys/fs/f2fs/<disk>/adjust_lock_priority
+Date:		January 2026
+Contact:	"Chao Yu" <chao@kernel.org>
+Description:	This sysfs entry can be used to enable/disable to adjust priority for task
+		which is in critical region covered by lock.
+		==========     ==================
+		Flag_Value     Flag_Description
+		==========     ==================
+		0x00000000     Disabled (default)
+		0x00000001     cp_rwsem
+		0x00000002     node_change
+		0x00000004     node_write
+		0x00000008     gc_lock
+		0x00000010     cp_global
+		0x00000020     io_rwsem
+		==========     ==================
+
+What:		/sys/fs/f2fs/<disk>/lock_duration_priority
+Date:		January 2026
+Contact:	"Chao Yu" <chao@kernel.org>
+Description:	f2fs can tune priority of thread which has entered into critical region covered by
+		f2fs rwsemphore lock. This sysfs entry can be used to control priority value, the
+		range is [100,139], by default the value is 120.
+
+What:		/sys/fs/f2fs/<disk>/critical_task_priority
+Date:		February 2026
+Contact:	"Chao Yu" <chao@kernel.org>
+Description:	It can be used to tune priority of f2fs critical task, e.g. f2fs_ckpt, f2fs_gc
+		threads, limitation as below:
+		- it requires user has CAP_SYS_NICE capability.
+		- the range is [100, 139], by default the value is 100.

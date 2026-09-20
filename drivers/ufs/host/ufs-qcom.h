@@ -245,12 +245,6 @@ enum ufs_qcom_phy_init_type {
 
 /* Device Quirks */
 /*
- * Some ufs devices may need more time to be in hibern8 before exiting.
- * Enable this quirk to give it an additional 100us.
- */
-#define UFS_DEVICE_QUIRK_PA_HIBER8TIME          (1 << 15)
-
-/*
  * Some ufs device vendors need a different TSync length.
  * Enable this quirk to give an additional TX_HS_SYNC_LENGTH.
  */
@@ -496,6 +490,14 @@ struct ufs_qcom_dev_params {
 	u32 desired_working_mode;
 };
 
+struct ufs_uic_stats {
+	u32 pa_err_cnt_total;
+	u32 pa_err_cnt[5];
+	u32 dl_err_cnt_total;
+	u32 dl_err_cnt[15];
+	u32 dme_err_cnt;
+};
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -532,6 +534,7 @@ struct ufs_qcom_host {
 	struct ufs_hba *hba;
 	struct ufs_qcom_bus_vote bus_vote;
 	struct ufs_pa_layer_attr dev_req_params;
+	struct ufs_uic_stats ufs_stats;
 	struct clk *rx_l0_sync_clk;
 	struct clk *tx_l0_sync_clk;
 	struct clk *rx_l1_sync_clk;

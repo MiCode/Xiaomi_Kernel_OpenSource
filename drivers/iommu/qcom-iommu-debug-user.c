@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  */
 
@@ -493,7 +493,7 @@ static int iommu_debug_build_phoney_sg_table(struct device *dev,
 	int i, j;
 	struct page *page;
 
-	if (!IS_ALIGNED(total_size, PAGE_SIZE))
+	if (!IS_ALIGNED(total_size, SZ_4K))
 		return -EINVAL;
 	if (!IS_ALIGNED(total_size, chunk_size))
 		return -EINVAL;

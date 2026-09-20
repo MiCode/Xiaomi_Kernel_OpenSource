@@ -54,6 +54,17 @@
  * Helper function
  ***************************************************************************/
 
+void *jent_kvzalloc(unsigned int len)
+{
+	return kvzalloc(len, GFP_KERNEL);
+}
+
+void jent_kvzfree(void *ptr, unsigned int len)
+{
+	memzero_explicit(ptr, len);
+	kvfree(ptr);
+}
+
 void *jent_zalloc(unsigned int len)
 {
 	return kzalloc(len, GFP_KERNEL);
@@ -107,6 +118,7 @@ int jent_hash_time(void *hash_state, __u64 time, u8 *addtl,
 		pr_warn_ratelimited("Unexpected digest size\n");
 		return -EINVAL;
 	}
+	kmsan_unpoison_memory(intermediary, sizeof(intermediary));
 
 	/*
 	 * This loop fills a buffer which is injected into the entropy pool.
@@ -134,7 +146,7 @@ int jent_hash_time(void *hash_state, __u64 time, u8 *addtl,
 	 * Inject the data from the previous loop into the pool. This data is
 	 * not considered to contain any entropy, but it stirs the pool a bit.
 	 */
-	ret = crypto_shash_update(desc, intermediary, sizeof(intermediary));
+	ret = crypto_shash_update(hash_state_desc, intermediary, sizeof(intermediary));
 	if (ret)
 		goto err;
 
@@ -147,10 +159,11 @@ int jent_hash_time(void *hash_state, __u64 time, u8 *addtl,
 	 * conditioning operation to have an identical amount of input data
 	 * according to section 3.1.5.
 	 */
-	if (!stuck) {
-		ret = crypto_shash_update(hash_state_desc, (u8 *)&time,
-					  sizeof(__u64));
+	if (stuck) {
+		time = 0;
 	}
+
+	ret = crypto_shash_update(hash_state_desc, (u8 *)&time, sizeof(__u64));
 
 err:
 	shash_desc_zero(desc);
@@ -245,7 +258,9 @@ static int jent_kcapi_init(struct crypto_tfm *tfm)
 	crypto_shash_init(sdesc);
 	rng->sdesc = sdesc;
 
-	rng->entropy_collector = jent_entropy_collector_alloc(1, 0, sdesc);
+	rng->entropy_collector =
+		jent_entropy_collector_alloc(CONFIG_CRYPTO_JITTERENTROPY_OSR, 0,
+					     sdesc);
 	if (!rng->entropy_collector) {
 		ret = -ENOMEM;
 		goto err;
@@ -334,7 +349,7 @@ static int __init jent_mod_init(void)
 
 	desc->tfm = tfm;
 	crypto_shash_init(desc);
-	ret = jent_entropy_init(desc);
+	ret = jent_entropy_init(CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, desc, NULL);
 	shash_desc_zero(desc);
 	crypto_free_shash(tfm);
 	if (ret) {

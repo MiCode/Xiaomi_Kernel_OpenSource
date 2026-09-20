@@ -2588,7 +2588,7 @@ static struct platform_driver sun_tlmm_driver = {
 		.pm = &noirq_msm_pinctrl_dev_pm_ops,
 	},
 	.probe = sun_tlmm_probe,
-	.remove = msm_pinctrl_remove,
+	.remove_new = msm_pinctrl_remove,
 };
 
 static int __init sun_tlmm_init(void)

@@ -1710,7 +1710,7 @@ static struct platform_driver monaco_tlmm_driver = {
 		.of_match_table = monaco_tlmm_of_match,
 	},
 	.probe = monaco_tlmm_probe,
-	.remove = msm_pinctrl_remove,
+	.remove_new = msm_pinctrl_remove,
 };
 
 static int __init monaco_tlmm_init(void)

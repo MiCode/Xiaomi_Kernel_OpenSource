@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-// Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. */
 
 #include <linux/device.h>
 #include <linux/dma-direction.h>
@@ -377,9 +377,7 @@ static bool mhi_sat_isvalid_header(struct sat_header *hdr, int len)
 static int mhi_sat_wait_cmd_completion(struct mhi_sat_cntrl *sat_cntrl)
 {
 	struct mhi_sat_subsys *subsys = sat_cntrl->subsys;
-	int ret;
-
-	reinit_completion(&sat_cntrl->completion);
+	int ret = 0;
 
 	MSG_LOG("Wait for command completion\n");
 	ret = wait_for_completion_timeout(&sat_cntrl->completion,
@@ -387,13 +385,17 @@ static int mhi_sat_wait_cmd_completion(struct mhi_sat_cntrl *sat_cntrl)
 	if (!ret || sat_cntrl->last_cmd_ccs != MHI_EV_CC_SUCCESS) {
 		MSG_ERR("Command completion failure:seq:%u:ret:%d:ccs:%d\n",
 			sat_cntrl->last_cmd_seq, ret, sat_cntrl->last_cmd_ccs);
-		return -EIO;
+		ret = -EIO;
+		goto reinit_comp;
 	}
 
 	MSG_LOG("Command completion successful for seq:%u\n",
 		    sat_cntrl->last_cmd_seq);
 
-	return 0;
+reinit_comp:
+	reinit_completion(&sat_cntrl->completion);
+
+	return ret;
 }
 
 static int mhi_sat_send_msg(struct mhi_sat_cntrl *sat_cntrl,

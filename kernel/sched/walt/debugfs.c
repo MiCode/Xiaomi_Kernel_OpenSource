@@ -10,6 +10,12 @@
 #include "trace.h"
 
 unsigned int debugfs_walt_features;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(debugfs_walt_features);
+#endif
+// END Performance_TurboSched
+
 static struct dentry *debugfs_walt;
 
 static ssize_t counter_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)

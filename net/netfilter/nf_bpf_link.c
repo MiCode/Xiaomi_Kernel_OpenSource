@@ -17,7 +17,7 @@ static unsigned int nf_hook_run_bpf(void *bpf_prog, struct sk_buff *skb,
 		.skb = skb,
 	};
 
-	return bpf_prog_run(prog, &ctx);
+	return bpf_prog_run_pin_on_cpu(prog, &ctx);
 }
 
 struct bpf_nf_link {
@@ -293,6 +293,9 @@ static bool nf_is_valid_access(int off, int size, enum bpf_access_type type,
 			       struct bpf_insn_access_aux *info)
 {
 	if (off < 0 || off >= sizeof(struct bpf_nf_ctx))
+		return false;
+
+	if (off % size != 0)
 		return false;
 
 	if (type == BPF_WRITE)

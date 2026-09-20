@@ -23,6 +23,8 @@
   __tracepoint_android_vh_tune_swappiness
   __traceiter_android_vh_do_shrink_slab_ex
   __tracepoint_android_vh_do_shrink_slab_ex
+  __traceiter_android_vh_migration_target_bypass
+  __tracepoint_android_vh_migration_target_bypass
 
 # required by lz4 decompress module
   __tracepoint_android_vh_lz4_decompress_bypass
@@ -77,6 +79,9 @@
   scsi_device_set_state
   blk_mq_quiesce_tagset
   blk_mq_unquiesce_tagset
+  dev_pm_opp_find_freq_floor_indexed
+  scsi_host_busy
+  dev_pm_opp_find_freq_ceil_indexed
   memblock_free
   __mem_cgroup_charge
   __mem_cgroup_uncharge
@@ -183,6 +188,10 @@
   free_uid
   find_user
 
+#required by dynamic_readahead.ko
+  __traceiter_android_vh_page_cache_ra_order_bypass
+  __tracepoint_android_vh_page_cache_ra_order_bypass
+
 #required by mi_freqwdg.ko
   __traceiter_android_vh_freq_qos_remove_request
   __traceiter_android_vh_freq_qos_update_request
@@ -194,6 +203,10 @@
   __tracepoint_android_vh_freq_qos_add_request
   __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_entity_tick
+
+# required by mi_damon.ko
+  folio_deactivate
+  folio_mark_accessed
 
 #required by cpq.ko
   elv_rb_former_request
@@ -461,6 +474,8 @@
   bio_init
   __bio_add_page
   blkdev_get_by_dev
+  __traceiter_android_rvh_swap_bio_charge
+  __tracepoint_android_rvh_swap_bio_charge
 
 #required by mem_reclaim_ctl.ko
 __traceiter_android_vh_page_should_be_protected
@@ -537,3 +552,10 @@ __traceiter_android_vh_filemap_read
 __tracepoint_android_vh_filemap_read
 __traceiter_android_vh_filemap_map_pages_range
 __tracepoint_android_vh_filemap_map_pages_range
+
+__traceiter_android_vh_pageset_update
+__tracepoint_android_vh_pageset_update
+__traceiter_android_vh_nr_pcp_alloc
+__tracepoint_android_vh_nr_pcp_alloc
+__traceiter_android_vh_pcp_alloc_factor_adjust
+__tracepoint_android_vh_pcp_alloc_factor_adjust

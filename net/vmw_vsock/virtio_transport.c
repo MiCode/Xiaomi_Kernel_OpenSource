@@ -63,6 +63,17 @@ struct virtio_vsock {
 
 	u32 guest_cid;
 	bool seqpacket_allow;
+
+	/* These fields are used only in tx path in function
+	 * 'virtio_transport_send_pkt_work()', so to save
+	 * stack space in it, place both of them here. Each
+	 * pointer from 'out_sgs' points to the corresponding
+	 * element in 'out_bufs' - this is initialized in
+	 * 'virtio_vsock_probe()'. Both fields are protected
+	 * by 'tx_lock'. +1 is needed for packet header.
+	 */
+	struct scatterlist *out_sgs[MAX_SKB_FRAGS + 1];
+	struct scatterlist out_bufs[MAX_SKB_FRAGS + 1];
 };
 
 static u32 virtio_transport_get_local_cid(void)
@@ -100,8 +111,8 @@ virtio_transport_send_pkt_work(struct work_struct *work)
 	vq = vsock->vqs[VSOCK_VQ_TX];
 
 	for (;;) {
-		struct scatterlist hdr, buf, *sgs[2];
 		int ret, in_sg = 0, out_sg = 0;
+		struct scatterlist **sgs;
 		struct sk_buff *skb;
 		bool reply;
 
@@ -110,12 +121,43 @@ virtio_transport_send_pkt_work(struct work_struct *work)
 			break;
 
 		reply = virtio_vsock_skb_reply(skb);
+		sgs = vsock->out_sgs;
+		sg_init_one(sgs[out_sg], virtio_vsock_hdr(skb),
+			    sizeof(*virtio_vsock_hdr(skb)));
+		out_sg++;
 
-		sg_init_one(&hdr, virtio_vsock_hdr(skb), sizeof(*virtio_vsock_hdr(skb)));
-		sgs[out_sg++] = &hdr;
-		if (skb->len > 0) {
-			sg_init_one(&buf, skb->data, skb->len);
-			sgs[out_sg++] = &buf;
+		if (!skb_is_nonlinear(skb)) {
+			if (skb->len > 0) {
+				sg_init_one(sgs[out_sg], skb->data, skb->len);
+				out_sg++;
+			}
+		} else {
+			struct skb_shared_info *si;
+			int i;
+
+			/* If skb is nonlinear, then its buffer must contain
+			 * only header and nothing more. Data is stored in
+			 * the fragged part.
+			 */
+			WARN_ON_ONCE(skb_headroom(skb) != sizeof(*virtio_vsock_hdr(skb)));
+
+			si = skb_shinfo(skb);
+
+			for (i = 0; i < si->nr_frags; i++) {
+				skb_frag_t *skb_frag = &si->frags[i];
+				void *va;
+
+				/* We will use 'page_to_virt()' for the userspace page
+				 * here, because virtio or dma-mapping layers will call
+				 * 'virt_to_phys()' later to fill the buffer descriptor.
+				 * We don't touch memory at "virtual" address of this page.
+				 */
+				va = page_to_virt(skb_frag->bv_page);
+				sg_init_one(sgs[out_sg],
+					    va + skb_frag->bv_offset,
+					    skb_frag->bv_len);
+				out_sg++;
+			}
 		}
 
 		ret = virtqueue_add_sgs(vq, sgs, out_sg, in_sg, skb, GFP_KERNEL);
@@ -221,7 +263,7 @@ out_rcu:
 
 static void virtio_vsock_rx_fill(struct virtio_vsock *vsock)
 {
-	int total_len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE + VIRTIO_VSOCK_SKB_HEADROOM;
+	int total_len = VIRTIO_VSOCK_DEFAULT_RX_BUF_SIZE;
 	struct scatterlist pkt, *p;
 	struct virtqueue *vq;
 	struct sk_buff *skb;
@@ -230,7 +272,7 @@ static void virtio_vsock_rx_fill(struct virtio_vsock *vsock)
 	vq = vsock->vqs[VSOCK_VQ_RX];
 
 	do {
-		skb = virtio_vsock_alloc_skb(total_len, GFP_KERNEL);
+		skb = virtio_vsock_alloc_linear_skb(total_len, GFP_KERNEL);
 		if (!skb)
 			break;
 
@@ -497,8 +539,9 @@ static void virtio_transport_rx_work(struct work_struct *work)
 	do {
 		virtqueue_disable_cb(vq);
 		for (;;) {
+			unsigned int len, payload_len;
+			struct virtio_vsock_hdr *hdr;
 			struct sk_buff *skb;
-			unsigned int len;
 
 			if (!virtio_transport_more_replies(vsock)) {
 				/* Stop rx until the device processes already
@@ -515,13 +558,22 @@ static void virtio_transport_rx_work(struct work_struct *work)
 			vsock->rx_buf_nr--;
 
 			/* Drop short/long packets */
-			if (unlikely(len < sizeof(struct virtio_vsock_hdr) ||
+			if (unlikely(len < sizeof(*hdr) ||
 				     len > virtio_vsock_skb_len(skb))) {
 				kfree_skb(skb);
 				continue;
 			}
 
-			virtio_vsock_skb_rx_put(skb);
+			hdr = virtio_vsock_hdr(skb);
+			payload_len = le32_to_cpu(hdr->len);
+			if (unlikely(payload_len > len - sizeof(*hdr))) {
+				kfree_skb(skb);
+				continue;
+			}
+
+			if (payload_len)
+				virtio_vsock_skb_put(skb, payload_len);
+
 			virtio_transport_deliver_tap_pkt(skb);
 			virtio_transport_recv_pkt(&virtio_transport, skb);
 		}
@@ -637,6 +689,7 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
 {
 	struct virtio_vsock *vsock = NULL;
 	int ret;
+	int i;
 
 	ret = mutex_lock_interruptible(&the_virtio_vsock_mutex);
 	if (ret)
@@ -678,6 +731,9 @@ static int virtio_vsock_probe(struct virtio_device *vdev)
 	ret = virtio_vsock_vqs_init(vsock);
 	if (ret < 0)
 		goto out;
+
+	for (i = 0; i < ARRAY_SIZE(vsock->out_sgs); i++)
+		vsock->out_sgs[i] = &vsock->out_bufs[i];
 
 	rcu_assign_pointer(the_virtio_vsock, vsock);
 	virtio_vsock_vqs_start(vsock);

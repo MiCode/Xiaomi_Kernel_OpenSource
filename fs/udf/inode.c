@@ -814,6 +814,7 @@ static int inode_getblk(struct inode *inode, struct udf_map_rq *map)
 		}
 		map->oflags = UDF_BLK_MAPPED;
 		map->pblk = udf_get_lb_pblock(inode->i_sb, &eloc, offset);
+		ret = 0;
 		goto out_free;
 	}
 
@@ -2263,6 +2264,9 @@ int udf_current_aext(struct inode *inode, struct extent_position *epos,
 		ptr = epos->bh->b_data + epos->offset;
 		if (check_add_overflow(sizeof(struct allocExtDesc),
 				le32_to_cpu(header->lengthAllocDescs), &alen))
+			return -1;
+
+		if (alen > epos->bh->b_size)
 			return -1;
 	}
 

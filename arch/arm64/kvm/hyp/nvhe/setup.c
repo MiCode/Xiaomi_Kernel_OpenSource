@@ -29,6 +29,8 @@ phys_addr_t pvmfw_size;
 #define hyp_percpu_size ((unsigned long)__per_cpu_end - \
 			 (unsigned long)__per_cpu_start)
 
+u64 hyp_lm_size_mb;
+
 static void *vmemmap_base;
 static void *vm_table_base;
 static void *hyp_pgt_base;
@@ -196,6 +198,16 @@ static void hpool_get_page(void *addr)
 static void hpool_put_page(void *addr)
 {
 	hyp_put_page(&hpool, addr);
+}
+
+u64 hpool_get_free_pages(void)
+{
+	return hyp_pool_free_pages(&hpool);
+}
+
+u64 hpool_get_min_free_pages(void)
+{
+	return hyp_pool_min_free_pages(&hpool);
 }
 
 static int fix_host_ownership_walker(const struct kvm_pgtable_visit_ctx *ctx,

@@ -13,10 +13,11 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <dt-bindings/sound/qcom,lpass.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
 #include "lpass-hdmi.h"
 
 #define LPASS_AHBIX_CLOCK_FREQUENCY		131072000
-#define LPASS_MAX_PORTS			(LPASS_CDC_DMA_VA_TX8 + 1)
+#define LPASS_MAX_PORTS			(DISPLAY_PORT_RX_7 + 1)
 #define LPASS_MAX_MI2S_PORTS			(8)
 #define LPASS_MAX_DMA_CHANNELS			(8)
 #define LPASS_MAX_HDMI_DMA_CHANNELS		(4)
@@ -398,8 +399,8 @@ struct lpass_pcm_data {
 };
 
 /* register the platform driver from the CPU DAI driver */
-int asoc_qcom_lpass_platform_register(struct platform_device *);
-int asoc_qcom_lpass_cpu_platform_remove(struct platform_device *pdev);
+int asoc_qcom_lpass_platform_register(struct platform_device *pdev);
+void asoc_qcom_lpass_cpu_platform_remove(struct platform_device *pdev);
 void asoc_qcom_lpass_cpu_platform_shutdown(struct platform_device *pdev);
 int asoc_qcom_lpass_cpu_platform_probe(struct platform_device *pdev);
 extern const struct snd_soc_dai_ops asoc_qcom_lpass_cpu_dai_ops;

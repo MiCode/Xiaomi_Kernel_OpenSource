@@ -13,6 +13,7 @@
   blk_stat_enable_accounting
   __brelse
   class_find_device
+  clk_set_duty_cycle
   cpufreq_unregister_notifier
   crypto_register_alg
   crypto_unregister_alg
@@ -84,6 +85,8 @@
   timer_reduce
   __traceiter_android_rvh_alloc_and_link_pwqs
   __traceiter_android_rvh_bpf_skb_load_bytes
+  __traceiter_android_rvh_balance_fair
+  __traceiter_android_rvh_before_pick_task_fair
   __traceiter_android_rvh_check_preempt_wakeup
   __traceiter_android_rvh_cpufreq_transition
   __traceiter_android_rvh_create_worker
@@ -107,9 +110,11 @@
   __traceiter_android_vh_account_process_tick_gran
   __traceiter_android_vh_adjust_kvmalloc_flags
   __traceiter_android_vh_alloc_pages_adjust_wmark
+  __traceiter_android_rvh_alloc_pages_adjust_wmark
   __traceiter_android_vh_alloc_pages_failure_bypass
   __traceiter_android_vh_alloc_pages_reclaim_bypass
   __traceiter_android_vh_alloc_pages_reset_wmark
+  __traceiter_android_rvh_alloc_pages_reset_wmark
   __traceiter_android_vh_alter_mutex_list_add
   __traceiter_android_vh_alter_rwsem_list_add
   __traceiter_android_vh_bd_link_disk_holder
@@ -122,6 +127,8 @@
   __traceiter_android_vh_blk_mq_kick_requeue_list
   __traceiter_android_vh_build_skb_around
   __traceiter_android_vh_cgroup_attach
+  __traceiter_android_vh_cpuset_attach_task
+  __traceiter_android_vh_cpuset_css_online
   __traceiter_android_vh_check_folio_look_around_ref
   __traceiter_android_vh_check_nanosleep_syscall
   __traceiter_android_vh_clear_rwsem_reader_owned
@@ -137,7 +144,11 @@
   __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_f2fs_file_open
   __traceiter_android_vh_f2fs_ra_op_flags
+  __traceiter_android_vh_fas_gpu_qos_update_tracer
+  __traceiter_android_vh_filemap_fault_folio_locked
+  __traceiter_android_vh_filemap_read_end
   __traceiter_android_vh_filemap_update_page
+  __traceiter_android_vh_force_page_cache_ra
   __traceiter_android_vh_free_unref_page_list_bypass
   __traceiter_android_vh_free_task
   __traceiter_android_vh_free_unref_page_bypass
@@ -153,6 +164,17 @@
   __traceiter_android_vh_look_around_migrate_folio
   __traceiter_android_vh_lruvec_add_folio
   __traceiter_android_vh_lruvec_del_folio
+  __traceiter_android_vh_mempool_alloc_skip_wait
+  __traceiter_android_vh_mm_customize_ac
+  __traceiter_android_vh_mm_customize_file_is_tiny
+  __traceiter_android_vh_mm_customize_lru_add_dst
+  __traceiter_android_vh_mm_customize_pgdat_balanced
+  __traceiter_android_vh_mm_customize_rmqueue
+  __traceiter_android_vh_mm_customize_suitable_zone
+  __traceiter_android_vh_mm_customize_zone_pageset
+  __traceiter_android_vh_mm_customize_zone_max_order
+  __traceiter_android_vh_mm_free_page
+  __traceiter_android_vh_mm_isolate_priv_lru
   __traceiter_android_vh_mmap_region
   __traceiter_android_vh_mutex_init
   __traceiter_android_vh_mutex_unlock_slowpath
@@ -161,6 +183,7 @@
   __traceiter_android_vh_mutex_wait_start
   __traceiter_android_vh_oom_swapmem_gather_finish
   __traceiter_android_vh_oom_swapmem_gather_init
+  __traceiter_android_vh_page_cache_ra_unbounded
   __traceiter_android_vh_percpu_rwsem_down_read
   __traceiter_android_vh_percpu_rwsem_up_write
   __traceiter_android_vh_percpu_rwsem_wq_add
@@ -215,6 +238,8 @@
   __traceiter_workqueue_execute_start
   __tracepoint_android_rvh_alloc_and_link_pwqs
   __tracepoint_android_rvh_bpf_skb_load_bytes
+  __tracepoint_android_rvh_balance_fair
+  __tracepoint_android_rvh_before_pick_task_fair
   __tracepoint_android_rvh_check_preempt_wakeup
   __tracepoint_android_rvh_cpufreq_transition
   __tracepoint_android_rvh_create_worker
@@ -238,9 +263,11 @@
   __tracepoint_android_vh_account_process_tick_gran
   __tracepoint_android_vh_adjust_kvmalloc_flags
   __tracepoint_android_vh_alloc_pages_adjust_wmark
+  __tracepoint_android_rvh_alloc_pages_adjust_wmark
   __tracepoint_android_vh_alloc_pages_failure_bypass
   __tracepoint_android_vh_alloc_pages_reclaim_bypass
   __tracepoint_android_vh_alloc_pages_reset_wmark
+  __tracepoint_android_rvh_alloc_pages_reset_wmark
   __tracepoint_android_vh_alter_mutex_list_add
   __tracepoint_android_vh_alter_rwsem_list_add
   __tracepoint_android_vh_bd_link_disk_holder
@@ -253,6 +280,8 @@
   __tracepoint_android_vh_blk_mq_kick_requeue_list
   __tracepoint_android_vh_build_skb_around
   __tracepoint_android_vh_cgroup_attach
+  __tracepoint_android_vh_cpuset_attach_task
+  __tracepoint_android_vh_cpuset_css_online
   __tracepoint_android_vh_check_folio_look_around_ref
   __tracepoint_android_vh_check_nanosleep_syscall
   __tracepoint_android_vh_clear_rwsem_reader_owned
@@ -268,7 +297,11 @@
   __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_f2fs_file_open
   __tracepoint_android_vh_f2fs_ra_op_flags
+  __tracepoint_android_vh_fas_gpu_qos_update_tracer
+  __tracepoint_android_vh_filemap_fault_folio_locked
+  __tracepoint_android_vh_filemap_read_end
   __tracepoint_android_vh_filemap_update_page
+  __tracepoint_android_vh_force_page_cache_ra
   __tracepoint_android_vh_free_task
   __tracepoint_android_vh_free_unref_page_bypass
   __tracepoint_android_vh_fuse_request_end
@@ -283,6 +316,17 @@
   __tracepoint_android_vh_look_around_migrate_folio
   __tracepoint_android_vh_lruvec_add_folio
   __tracepoint_android_vh_lruvec_del_folio
+  __tracepoint_android_vh_mempool_alloc_skip_wait
+  __tracepoint_android_vh_mm_customize_ac
+  __tracepoint_android_vh_mm_customize_file_is_tiny
+  __tracepoint_android_vh_mm_customize_lru_add_dst
+  __tracepoint_android_vh_mm_customize_pgdat_balanced
+  __tracepoint_android_vh_mm_customize_rmqueue
+  __tracepoint_android_vh_mm_customize_suitable_zone
+  __tracepoint_android_vh_mm_customize_zone_pageset
+  __tracepoint_android_vh_mm_customize_zone_max_order
+  __tracepoint_android_vh_mm_free_page
+  __tracepoint_android_vh_mm_isolate_priv_lru
   __tracepoint_android_vh_mmap_region
   __tracepoint_android_vh_mutex_init
   __tracepoint_android_vh_mutex_unlock_slowpath
@@ -291,6 +335,7 @@
   __tracepoint_android_vh_mutex_wait_start
   __tracepoint_android_vh_oom_swapmem_gather_finish
   __tracepoint_android_vh_oom_swapmem_gather_init
+  __tracepoint_android_vh_page_cache_ra_unbounded
   __tracepoint_android_vh_percpu_rwsem_down_read
   __tracepoint_android_vh_percpu_rwsem_up_write
   __tracepoint_android_vh_percpu_rwsem_wq_add

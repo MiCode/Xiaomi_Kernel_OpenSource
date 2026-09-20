@@ -3748,8 +3748,14 @@ static ssize_t qm_get_qos_value(struct hisi_qm *qm, const char *buf,
 	}
 
 	pdev = container_of(dev, struct pci_dev, dev);
+	if (pci_physfn(pdev) != qm->pdev) {
+		pci_err(qm->pdev, "the pdev input does not match the pf!\n");
+		put_device(dev);
+		return -EINVAL;
+	}
 
 	*fun_index = pdev->devfn;
+	put_device(dev);
 
 	return 0;
 }
@@ -4362,9 +4368,6 @@ static int qm_dev_hw_init(struct hisi_qm *qm)
 static void qm_restart_prepare(struct hisi_qm *qm)
 {
 	u32 value;
-
-	if (qm->err_ini->open_sva_prefetch)
-		qm->err_ini->open_sva_prefetch(qm);
 
 	if (qm->ver >= QM_HW_V3)
 		return;

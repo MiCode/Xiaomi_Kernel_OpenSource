@@ -485,7 +485,6 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 		goto out;
 
 	trace_android_vh_cma_alloc_set_max_retries(&max_retries);
-	trace_cma_alloc_start(cma->name, count, align);
 
 	mask = cma_bitmap_aligned_mask(cma, align);
 	offset = cma_bitmap_aligned_offset(cma, align);
@@ -495,6 +494,7 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 	if (bitmap_count > bitmap_maxno)
 		goto out;
 
+	trace_cma_alloc_start(cma->name, count, align);
 	trace_android_vh_cma_alloc_retry(cma->name, &max_retries);
 	for (;;) {
 		spin_lock_irq(&cma->lock);
@@ -569,7 +569,6 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 	}
 
 	if (ret && !(gfp_mask & __GFP_NOWARN)) {
-		trace_android_vh_cma_alloc_fail(cma->name, cma->count, count);
 		pr_err_ratelimited("%s: %s: alloc failed, req-size: %lu pages, ret: %d\n",
 				   __func__, cma->name, count, ret);
 		cma_debug_show_areas(cma);

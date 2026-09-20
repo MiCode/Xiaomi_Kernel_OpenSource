@@ -4,6 +4,7 @@
  * Author: Quentin Perret <qperret@google.com>
  */
 
+#include <linux/debugfs.h>
 #include <linux/init.h>
 #include <linux/initrd.h>
 #include <linux/io.h>
@@ -65,12 +66,34 @@ static void __init sort_memblock_regions(void)
 static int __init register_memblock_regions(void)
 {
 	struct memblock_region *reg;
+	bool pvmfw_in_mem = false;
 
 	for_each_mem_region(reg) {
 		if (*hyp_memblock_nr_ptr >= HYP_MEMBLOCK_REGIONS)
 			return -ENOMEM;
 
 		hyp_memory[*hyp_memblock_nr_ptr] = *reg;
+		(*hyp_memblock_nr_ptr)++;
+
+		if (!*pvmfw_size || pvmfw_in_mem ||
+			!memblock_addrs_overlap(reg->base, reg->size, *pvmfw_base, *pvmfw_size))
+			continue;
+		/* If the pvmfw region overlaps a memblock, it must be a subset */
+		if (*pvmfw_base < reg->base ||
+				(*pvmfw_base + *pvmfw_size) > (reg->base + reg->size))
+			return -EINVAL;
+		pvmfw_in_mem = true;
+	}
+
+	if (*pvmfw_size && !pvmfw_in_mem) {
+		if (*hyp_memblock_nr_ptr >= HYP_MEMBLOCK_REGIONS)
+			return -ENOMEM;
+
+		hyp_memory[*hyp_memblock_nr_ptr] = (struct memblock_region) {
+			.base   = *pvmfw_base,
+			.size   = *pvmfw_size,
+			.flags  = MEMBLOCK_NOMAP,
+		};
 		(*hyp_memblock_nr_ptr)++;
 	}
 	sort_memblock_regions();
@@ -151,6 +174,12 @@ static int __init register_moveable_regions(void)
 
 	return 0;
 }
+
+static int __init early_hyp_lm_size_mb_cfg(char *arg)
+{
+	return kstrtoull(arg, 10, &kvm_nvhe_sym(hyp_lm_size_mb));
+}
+early_param("kvm-arm.hyp_lm_size_mb", early_hyp_lm_size_mb_cfg);
 
 void __init kvm_hyp_reserve(void)
 {
@@ -519,6 +548,7 @@ static int __init finalize_pkvm(void)
 	kmemleak_free_part_phys(hyp_mem_base, hyp_mem_size);
 
 	kvm_ptdump_host_register();
+	kvm_hyp_s1_pool_debugfs();
 
 	ret = pkvm_drop_host_privileges();
 	if (ret) {
@@ -1022,8 +1052,13 @@ EXPORT_SYMBOL(__pkvm_register_el2_call);
 
 int __pkvm_topup_hyp_alloc_mgt_mc(unsigned long id, struct kvm_hyp_memcache *mc)
 {
-	return kvm_call_hyp_nvhe(__pkvm_hyp_alloc_mgt_refill, id, mc->head,
-				 mc->nr_pages);
+	struct arm_smccc_res res;
+
+	res = kvm_call_hyp_nvhe_smccc(__pkvm_hyp_alloc_mgt_refill,
+				      id, mc->head, mc->nr_pages);
+	mc->head = res.a2;
+	mc->nr_pages = res.a3;
+	return res.a1;
 }
 EXPORT_SYMBOL(__pkvm_topup_hyp_alloc_mgt_mc);
 
@@ -1040,8 +1075,11 @@ int __pkvm_topup_hyp_alloc_mgt_gfp(unsigned long id, unsigned long nr_pages,
 		return ret;
 
 	ret = __pkvm_topup_hyp_alloc_mgt_mc(id, &mc);
-	if (ret)
+	if (ret) {
+		kvm_err("Failed topup %ld pages = %ld, size = %ld err = %d, freeing %ld pages\n",
+			id, nr_pages, sz_alloc, ret, mc.nr_pages);
 		free_hyp_memcache(&mc);
+	}
 
 	return ret;
 }
@@ -1086,3 +1124,47 @@ unsigned long __pkvm_reclaim_hyp_alloc_mgt(unsigned long nr_pages)
 
 	return reclaimed;
 }
+
+#ifdef CONFIG_DEBUG_FS
+static int pool_free_get(void *data, u64 *val)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_1_1_hvc(KVM_HOST_SMCCC_FUNC(__pkvm_hyp_pool_report_free_pages), &res);
+	if (WARN_ON(res.a0 != SMCCC_RET_SUCCESS))
+		return -EINVAL;
+
+	*val = res.a1 * PAGE_SIZE;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(pool_free_fops, pool_free_get, NULL, "%llu\n");
+
+static int pool_min_free_get(void *data, u64 *val)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_1_1_hvc(KVM_HOST_SMCCC_FUNC(__pkvm_hyp_pool_report_min_free_pages), &res);
+	if (WARN_ON(res.a0 != SMCCC_RET_SUCCESS))
+		return -EINVAL;
+
+	*val = res.a1 * PAGE_SIZE;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(pool_min_free_fops, pool_min_free_get, NULL, "%llu\n");
+
+void kvm_hyp_s1_pool_debugfs(void)
+{
+	static u64 pool_size;
+
+	if (!is_protected_kvm_enabled())
+		return;
+
+	pool_size = hyp_s1_pgtable_pages() * PAGE_SIZE;
+	debugfs_create_u64("hyp_s1_pool_size", 0400, kvm_debugfs_dir, &pool_size);
+	debugfs_create_file("hyp_s1_pool_free", 0400, kvm_debugfs_dir, NULL, &pool_free_fops);
+	debugfs_create_file("hyp_s1_pool_min_free", 0400, kvm_debugfs_dir, NULL,
+			    &pool_min_free_fops);
+}
+#endif /* CONFIG_DEBUG_FS */

@@ -187,3 +187,13 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(kernel_read_file_from_fd);
+
+ssize_t read_comp_algo_dictionary(void **dict, const char *dict_path)
+{
+	return kernel_read_file_from_path(dict_path, 0,
+					  dict,
+					  INT_MAX,
+					  NULL,
+					  READING_POLICY);
+}
+EXPORT_SYMBOL_GPL(read_comp_algo_dictionary);

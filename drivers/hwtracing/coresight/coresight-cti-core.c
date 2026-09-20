@@ -345,6 +345,9 @@ int cti_add_default_connection(struct device *dev, struct cti_drvdata *drvdata)
 	if (!tc)
 		return -ENOMEM;
 
+	if (n_trigs > CTIINOUTEN_MAX)
+		return -EINVAL;
+
 	bitmap_fill(tc->con_in->used_mask, n_trigs);
 	bitmap_fill(tc->con_out->used_mask, n_trigs);
 	ret = cti_add_connection_entry(dev, drvdata, tc, NULL, "default");

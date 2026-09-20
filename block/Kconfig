@@ -209,6 +209,7 @@ config BLK_INLINE_ENCRYPTION_FALLBACK
 	  encryption hardware is not present.
 
 source "block/partitions/Kconfig"
+source "block/cpq/Kconfig"
 
 config BLK_MQ_PCI
 	def_bool PCI

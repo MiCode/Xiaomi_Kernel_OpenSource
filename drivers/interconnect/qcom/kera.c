@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2024-2025, Qualcomm Innovation Center, Inc. All rights reserved.
- *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <dt-bindings/interconnect/qcom,kera.h>
@@ -325,7 +324,7 @@ static struct qcom_icc_node qsm_cfg = {
 	.channels = 1,
 	.buswidth = 4,
 	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 29,
+	.num_links = 30,
 	.links = { SLAVE_AHB2PHY_SOUTH, SLAVE_AHB2PHY_NORTH,
 		   SLAVE_CAMERA_CFG, SLAVE_CLK_CTL,
 		   SLAVE_CRYPTO_0_CFG, SLAVE_DISPLAY_CFG,
@@ -334,13 +333,13 @@ static struct qcom_icc_node qsm_cfg = {
 		   SLAVE_CNOC_MSS, SLAVE_PCIE_0_CFG,
 		   SLAVE_PRNG, SLAVE_QDSS_CFG,
 		   SLAVE_QSPI_0, SLAVE_QUP_1,
-		   SLAVE_QUP_2, SLAVE_SDCC_2,
-		   SLAVE_TCSR, SLAVE_TLMM,
-		   SLAVE_UFS_MEM_CFG, SLAVE_USB3_0,
-		   SLAVE_VENUS_CFG, SLAVE_VSENSE_CTRL_CFG,
-		   SLAVE_CNOC_MNOC_HF_CFG, SLAVE_CNOC_MNOC_SF_CFG,
-		   SLAVE_PCIE_ANOC_CFG, SLAVE_QDSS_STM,
-		   SLAVE_TCU },
+		   SLAVE_QUP_2, SLAVE_SDCC_1,
+		   SLAVE_SDCC_2, SLAVE_TCSR,
+		   SLAVE_TLMM, SLAVE_UFS_MEM_CFG,
+		   SLAVE_USB3_0, SLAVE_VENUS_CFG,
+		   SLAVE_VSENSE_CTRL_CFG, SLAVE_CNOC_MNOC_HF_CFG,
+		   SLAVE_CNOC_MNOC_SF_CFG, SLAVE_PCIE_ANOC_CFG,
+		   SLAVE_QDSS_STM, SLAVE_TCU },
 };
 
 static struct qcom_icc_node qnm_gemnoc_cnoc = {
@@ -1485,6 +1484,15 @@ static struct qcom_icc_node qhs_qup1 = {
 static struct qcom_icc_node qhs_qup2 = {
 	.name = "qhs_qup2",
 	.id = SLAVE_QUP_2,
+	.channels = 1,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.num_links = 0,
+};
+
+static struct qcom_icc_node qhs_sdc1 = {
+	.name = "qhs_sdc1",
+	.id = SLAVE_SDCC_1,
 	.channels = 1,
 	.buswidth = 4,
 	.noc_ops = &qcom_qnoc4_ops,
@@ -2737,6 +2745,7 @@ static struct qcom_icc_node *cnoc_cfg_nodes[] = {
 	[SLAVE_QSPI_0] = &qhs_qspi,
 	[SLAVE_QUP_1] = &qhs_qup1,
 	[SLAVE_QUP_2] = &qhs_qup2,
+	[SLAVE_SDCC_1] = &qhs_sdc1,
 	[SLAVE_SDCC_2] = &qhs_sdc2,
 	[SLAVE_TCSR] = &qhs_tcsr,
 	[SLAVE_TLMM] = &qhs_tlmm,

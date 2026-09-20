@@ -9,6 +9,9 @@
 #include <linux/sched/autogroup.h>
 #include <linux/sched/cpufreq.h>
 #include <linux/sched/deadline.h>
+// MIUI ADD: Performance_TurboSched
+#include <linux/sched/cputime.h>
+// END Performance_TurboSched
 #include <linux/sched.h>
 #include <linux/sched/loadavg.h>
 #include <linux/sched/mm.h>
@@ -3506,11 +3509,9 @@ end:
 static inline int mm_cid_get(struct rq *rq, struct mm_struct *mm)
 {
 	struct mm_cid __percpu *pcpu_cid = mm->pcpu_cid;
-	struct cpumask *cpumask;
 	int cid;
 
 	lockdep_assert_rq_held(rq);
-	cpumask = mm_cidmask(mm);
 	cid = __this_cpu_read(pcpu_cid->cid);
 	if (mm_cid_is_valid(cid)) {
 		mm_cid_snapshot_time(rq, mm);

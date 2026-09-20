@@ -140,6 +140,20 @@ static void limit_mt_destroy(const struct xt_mtdtor_param *par)
 	kfree(info->master);
 }
 
+#define DEFINE_LIMIT_MT_REG(compat)					\
+	{								\
+		.name             = "limit",				\
+		.revision         = 0,					\
+		.family           = NFPROTO_UNSPEC,			\
+		.match            = limit_mt,				\
+		.checkentry       = limit_mt_check,			\
+		.destroy          = limit_mt_destroy,			\
+		.matchsize        = sizeof(struct xt_rateinfo),		\
+		.usersize         = offsetof(struct xt_rateinfo, prev),	\
+		.me               = THIS_MODULE,			\
+		.has_compat_metadata = compat,				\
+	}
+
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
 struct compat_xt_rateinfo {
 	u_int32_t avg;
@@ -182,24 +196,18 @@ static int limit_mt_compat_to_user(void __user *dst, const void *src)
 	};
 	return copy_to_user(dst, &cm, sizeof(cm)) ? -EFAULT : 0;
 }
-#endif /* CONFIG_NETFILTER_XTABLES_COMPAT */
 
-static struct xt_match limit_mt_reg __read_mostly = {
-	.name             = "limit",
-	.revision         = 0,
-	.family           = NFPROTO_UNSPEC,
-	.match            = limit_mt,
-	.checkentry       = limit_mt_check,
-	.destroy          = limit_mt_destroy,
-	.matchsize        = sizeof(struct xt_rateinfo),
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+static struct compat_xt_match_ext limit_mt_reg_ext __read_mostly = {
 	.compatsize       = sizeof(struct compat_xt_rateinfo),
 	.compat_from_user = limit_mt_compat_from_user,
 	.compat_to_user   = limit_mt_compat_to_user,
-#endif
-	.usersize         = offsetof(struct xt_rateinfo, prev),
-	.me               = THIS_MODULE,
+	.match            = DEFINE_LIMIT_MT_REG(true),
 };
+
+#define limit_mt_reg (limit_mt_reg_ext.match)
+#else
+static struct xt_match limit_mt_reg __read_mostly = DEFINE_LIMIT_MT_REG(false);
+#endif /* CONFIG_NETFILTER_XTABLES_COMPAT */
 
 static int __init limit_mt_init(void)
 {

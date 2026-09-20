@@ -200,6 +200,7 @@ l2cap_chan_close
 l2cap_chan_connect
 l2cap_chan_create
 l2cap_chan_del
+l2cap_chan_hold
 l2cap_chan_list
 l2cap_chan_put
 l2cap_chan_send

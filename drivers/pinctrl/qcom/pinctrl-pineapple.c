@@ -2529,7 +2529,7 @@ static struct platform_driver pineapple_pinctrl_driver = {
 		.pm = &noirq_msm_pinctrl_dev_pm_ops,
 	},
 	.probe = pineapple_pinctrl_probe,
-	.remove = msm_pinctrl_remove,
+	.remove_new = msm_pinctrl_remove,
 };
 
 static int __init pineapple_pinctrl_init(void)

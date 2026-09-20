@@ -364,8 +364,10 @@ struct uffdio_move {
 	 * in swap-cache. Also, to avoid livelock when multiple threads try
 	 * to move same src folio. It's a KMI workaround and cannot be relied
 	 * upon by userspace.
+	 *
+	 * 61: confirm if anon_vma lock has been removed from MOVE ioctl.
 	 */
-#define UFFDIO_MOVE_MODE_CONFIRM_FIXED		((__u64)1<<63)
+#define UFFDIO_MOVE_MODE_CONFIRM_FIXED		((__u64)1<<61)
 	__u64 mode;
 	/*
 	 * "move" is written by the ioctl and must be at the end: the

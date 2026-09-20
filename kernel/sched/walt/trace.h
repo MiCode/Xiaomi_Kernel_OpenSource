@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #undef TRACE_SYSTEM
@@ -1230,6 +1230,10 @@ TRACE_EVENT(sched_task_util,
 		__field(bool,		sync_state)
 		__field(int,		pipeline_cpu)
 		__field(int,		yield_cnt)
+		__field(int,		event_win)
+		__field(u32,		activity_cnt)
+		__field(bool,		lst)
+		__field(int,		demand)
 	),
 
 	TP_fast_assign(
@@ -1261,9 +1265,19 @@ TRACE_EVENT(sched_task_util,
 		__entry->pipeline_cpu		=
 			((struct walt_task_struct *) p->android_vendor_data1)->pipeline_cpu;
 		__entry->yield_cnt		= yield_cnt;
+		__entry->event_win		=
+			atomic_read(&(((struct walt_task_struct *)
+				       p->android_vendor_data1)->event_windows));
+		__entry->activity_cnt		=
+			((struct walt_task_struct *)
+				p->android_vendor_data1)->pipeline_activity_cnt;
+		__entry->lst			=
+			((struct walt_task_struct *) p->android_vendor_data1)->lst;
+		__entry->demand			=
+			scale_time_to_util(((struct walt_task_struct *) p)->coloc_demand);
 	),
 
-	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affinity=%lx task_boost=%d low_latency=%d iowaited=%d load_boost=%d sync_state=%d pipeline_cpu=%d yield_cnt=%d",
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affinity=%lx task_boost=%d low_latency=%d iowaited=%d load_boost=%d sync_state=%d pipeline_cpu=%d yield_cnt=%d event_cnt=%d activity_cnt=%u lst=%d pipeline_demand=%d",
 		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
 		__entry->candidates, __entry->best_energy_cpu, __entry->sync,
 		__entry->need_idle, __entry->fastpath, __entry->placement_boost,
@@ -1271,7 +1285,8 @@ TRACE_EVENT(sched_task_util,
 		__entry->is_rtg, __entry->rtg_skip_min, __entry->start_cpu,
 		__entry->unfilter, __entry->cpus_allowed, __entry->task_boost,
 		__entry->low_latency, __entry->iowaited, __entry->load_boost,
-		__entry->sync_state, __entry->pipeline_cpu, __entry->yield_cnt)
+		__entry->sync_state, __entry->pipeline_cpu, __entry->yield_cnt,
+		__entry->event_win, __entry->activity_cnt, __entry->lst, __entry->demand)
 );
 
 /*

@@ -94,11 +94,19 @@
   bio_crypt_set_ctx
   zero_fill_bio_iter
   percpu_ref_is_zero
+  vm_normal_folio_pmd
+  folios_put_refs
   __trace_bputs
+  __traceiter_android_vh_folio_add_lru
+  __tracepoint_android_vh_folio_add_lru
   __traceiter_android_vh_proactive_compact_wmark_high
   __tracepoint_android_vh_proactive_compact_wmark_high
   __traceiter_android_vh_killed_process
   __tracepoint_android_vh_killed_process
+  __traceiter_android_vh_oom_reaper_delay_bypass
+  __tracepoint_android_vh_oom_reaper_delay_bypass
+  __traceiter_android_vh_thaw_killed_process
+  __tracepoint_android_vh_thaw_killed_process
   __traceiter_android_vh_rwsem_write_wait_finish
   __tracepoint_android_vh_rwsem_write_wait_finish
   __tracepoint_android_rvh_cpuinfo_c_show

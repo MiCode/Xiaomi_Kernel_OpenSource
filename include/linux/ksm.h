@@ -59,6 +59,12 @@ static inline int ksm_fork(struct mm_struct *mm, struct mm_struct *oldmm)
 	int ret;
 
 	if (test_bit(MMF_VM_MERGEABLE, &oldmm->flags)) {
+		long nr_ksm_zero_pages = atomic_long_read(&mm->ksm_zero_pages);
+
+		mm->ksm_merging_pages = 0;
+		mm->ksm_rmap_items = 0;
+		atomic_long_add(nr_ksm_zero_pages, &ksm_zero_pages);
+
 		ret = __ksm_enter(mm);
 		if (ret)
 			return ret;

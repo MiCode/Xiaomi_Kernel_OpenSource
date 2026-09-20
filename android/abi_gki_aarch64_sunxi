@@ -91,3 +91,11 @@
   __tracepoint_dwc3_readl
   __tracepoint_dwc3_writel
   pinctrl_gpio_set_config
+  drm_is_panel_follower
+  drm_panel_add_follower
+  drm_panel_remove_follower
+  hid_driver_reset_resume
+  hid_driver_suspend
+  devm_power_supply_register_no_ws
+  __tracepoint_android_vh_bio_add_page_merge_bypass
+  __traceiter_android_vh_bio_add_page_merge_bypass

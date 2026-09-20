@@ -12,6 +12,7 @@
   __arch_copy_to_user
   arm64_use_ng_mappings
   bcmp
+  bpf_redirect_info
   bpf_trace_run1
   bpf_trace_run2
   bpf_trace_run3
@@ -50,6 +51,7 @@
   debugfs_create_file
   debugfs_create_u32
   debugfs_create_u8
+  debugfs_lookup_and_remove
   debugfs_remove
   default_llseek
   delayed_work_timer_fn

@@ -60,7 +60,7 @@ static struct platform_driver parrot_tlmm_driver = {
 		.of_match_table = parrot_tlmm_of_match,
 	},
 	.probe = parrot_tlmm_probe,
-	.remove = msm_pinctrl_remove,
+	.remove_new = msm_pinctrl_remove,
 };
 
 static int __init parrot_tlmm_init(void)

@@ -31,8 +31,8 @@ int mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 	int ret;
 
 	for (i = 0; i < img_info->entries - 1; i++, mhi_buf++, bhi_vec++) {
-		bhi_vec->dma_addr = mhi_buf->dma_addr;
-		bhi_vec->size = mhi_buf->len;
+		bhi_vec->dma_addr = cpu_to_le64(mhi_buf->dma_addr);
+		bhi_vec->size = cpu_to_le64(mhi_buf->len);
 	}
 
 	MHI_VERB(dev, "BHIe programming for RDDM\n");
@@ -404,8 +404,8 @@ static void mhi_firmware_copy(struct mhi_controller *mhi_cntrl,
 	while (remainder) {
 		to_cpy = min(remainder, mhi_buf->len);
 		memcpy(mhi_buf->buf, buf, to_cpy);
-		bhi_vec->dma_addr = mhi_buf->dma_addr;
-		bhi_vec->size = to_cpy;
+		bhi_vec->dma_addr = cpu_to_le64(mhi_buf->dma_addr);
+		bhi_vec->size = cpu_to_le64(to_cpy);
 
 		buf += to_cpy;
 		remainder -= to_cpy;
@@ -527,7 +527,7 @@ skip_req_fw:
 		MHI_LOG(dev, "tme_supported_image:%s\n",
 				(mhi_cntrl->tme_supported_image ? "True" : "False"));
 		if (mhi_cntrl->tme_supported_image) {
-			fw_data = firmware->data + mhi_cntrl->sbl_size;
+			fw_data = fw_data + mhi_cntrl->sbl_size;
 			fw_sz = fw_sz - mhi_cntrl->sbl_size;
 		}
 

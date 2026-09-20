@@ -126,6 +126,12 @@ type 'struct io_ring_ctx' changed
   28 members ('struct wait_queue_head poll_wq' .. 'struct page** sqe_pages') changed
     offset changed by -64
 
+1 function symbol(s) removed
+  'int __traceiter_android_vh_filemap_fault_before_folio_locked(void*, struct folio*)'
+
+1 variable symbol(s) removed
+  'struct tracepoint __tracepoint_android_vh_filemap_fault_before_folio_locked'
+
 type 'struct kvm_protected_vm' changed
   member 'struct maple_tree pinned_pages' was removed
   member 'union { struct rb_root_cached pinned_pages; struct { struct maple_tree __unused; }; union { }; }' was added
@@ -206,4 +212,66 @@ type 'struct scm_stat' changed
 
 type 'struct scm_fp_list' changed
   member 'bool dead' was added
+
+type 'struct kvm_iommu_ops' changed
+  member 'u64 android_kabi_reserved1' was removed
+  member 'union { int(* iotlb_sync_map)(struct kvm_hyp_iommu_domain*, unsigned long, size_t); struct { u64 android_kabi_reserved1; }; union { }; }' was added
+
+type 'struct prefix_info' changed
+  member changed from 'union { __u8 flags; struct { __u8 reserved:6; __u8 autoconf:1; __u8 onlink:1; }; }' to 'union { __u8 flags; struct { __u8 reserved:4; __u8 preferpd:1; __u8 routeraddr:1; __u8 autoconf:1; __u8 onlink:1; }; }'
+    type changed from 'union { __u8 flags; struct { __u8 reserved:6; __u8 autoconf:1; __u8 onlink:1; }; }' to 'union { __u8 flags; struct { __u8 reserved:4; __u8 preferpd:1; __u8 routeraddr:1; __u8 autoconf:1; __u8 onlink:1; }; }'
+      member changed from 'struct { __u8 reserved:6; __u8 autoconf:1; __u8 onlink:1; }' to 'struct { __u8 reserved:4; __u8 preferpd:1; __u8 routeraddr:1; __u8 autoconf:1; __u8 onlink:1; }'
+        type changed from 'struct { __u8 reserved:6; __u8 autoconf:1; __u8 onlink:1; }' to 'struct { __u8 reserved:4; __u8 preferpd:1; __u8 routeraddr:1; __u8 autoconf:1; __u8 onlink:1; }'
+          member changed from '__u8 reserved:6' to '__u8 reserved:4'
+            bit-field size changed from 6 to 4
+          member '__u8 preferpd:1' was added
+          member '__u8 routeraddr:1' was added
+
+type 'struct ipv6_devconf' changed
+  member 'u64 android_kabi_reserved4' was removed
+  member 'union { struct { __u8 ra_honor_pio_pflag; __u8 padding4[7]; }; struct { u64 android_kabi_reserved4; }; union { }; }' was added
+
+type 'struct task_struct' changed
+  member 'u64 android_kabi_reserved1' was removed
+  member 'union { struct task_dma_buf_info* dmabuf_info; struct { u64 android_kabi_reserved1; }; union { }; }' was added
+
+type 'struct dma_buf' changed
+  member 'u64 android_kabi_reserved1' was removed
+  member 'union { atomic64_t nr_task_refs; struct { u64 android_kabi_reserved1; }; union { }; }' was added
+
+type 'struct xt_match' changed
+  member 'bool has_compat_metadata' was added
+
+type 'struct xt_target' changed
+  member 'bool has_compat_metadata' was added
+
+type 'struct drm_framebuffer' changed
+  member 'unsigned int internal_flags' was added
+
+type 'struct cgroup' changed
+  member 'u64 android_backport_reserved1' was removed
+  member 'union { struct cgroup_kmi_ext_info* kmi_ext_info; struct { u64 android_backport_reserved1; }; union { }; }' was added
+
+type 'struct io_ring_ctx' changed
+  member changed from 'struct { struct llist_head work_llist; unsigned long check_cq; atomic_t cq_wait_nr; atomic_t cq_timeouts; struct wait_queue_head cq_wait; }' to 'struct { struct llist_head work_llist; unsigned long check_cq; atomic_t cq_wait_nr; atomic_t cq_timeouts; struct wait_queue_head cq_wait; struct llist_head retry_llist; }'
+    type changed from 'struct { struct llist_head work_llist; unsigned long check_cq; atomic_t cq_wait_nr; atomic_t cq_timeouts; struct wait_queue_head cq_wait; }' to 'struct { struct llist_head work_llist; unsigned long check_cq; atomic_t cq_wait_nr; atomic_t cq_timeouts; struct wait_queue_head cq_wait; struct llist_head retry_llist; }'
+      member 'struct llist_head retry_llist' was added
+
+type 'enum bpf_reg_type' changed
+  enumerator '__BPF_REG_TYPE_LIMIT' value changed from 33554431 to 67108863
+
+type 'enum bpf_return_type' changed
+  enumerator '__BPF_RET_TYPE_LIMIT' value changed from 33554431 to 67108863
+
+type 'enum bpf_arg_type' changed
+  enumerator '__BPF_ARG_TYPE_LIMIT' value changed from 33554431 to 67108863
+
+type 'struct mm_struct' changed
+  member changed from 'struct { struct { atomic_t mm_count; }; struct maple_tree mm_mt; unsigned long(* get_unmapped_area)(struct file*, unsigned long, unsigned long, unsigned long, unsigned long); unsigned long mmap_base; unsigned long mmap_legacy_base; unsigned long task_size; pgd_t* pgd; atomic_t membarrier_state; atomic_t mm_users; atomic_long_t pgtables_bytes; int map_count; spinlock_t page_table_lock; struct rw_semaphore mmap_lock; struct list_head mmlist; int mm_lock_seq; unsigned long hiwater_rss; unsigned long hiwater_vm; unsigned long total_vm; unsigned long locked_vm; atomic64_t pinned_vm; unsigned long data_vm; unsigned long exec_vm; unsigned long stack_vm; unsigned long def_flags; seqcount_t write_protect_seq; spinlock_t arg_lock; unsigned long start_code; unsigned long end_code; unsigned long start_data; unsigned long end_data; unsigned long start_brk; unsigned long brk; unsigned long start_stack; unsigned long arg_start; unsigned long arg_end; unsigned long env_start; unsigned long env_end; unsigned long saved_auxv[50]; struct percpu_counter rss_stat[4]; struct linux_binfmt* binfmt; mm_context_t context; unsigned long flags; spinlock_t ioctx_lock; struct kioctx_table* ioctx_table; struct task_struct* owner; struct user_namespace* user_ns; struct file* exe_file; struct mmu_notifier_subscriptions* notifier_subscriptions; atomic_t tlb_flush_pending; atomic_t tlb_flush_batched; struct uprobes_state uprobes_state; struct work_struct async_put_work; struct { struct list_head list; unsigned long bitmap; struct mem_cgroup* memcg; } lru_gen; u64 android_kabi_reserved1; u64 android_backport_reserved1; }' to 'struct { struct { atomic_t mm_count; }; struct maple_tree mm_mt; unsigned long(* get_unmapped_area)(struct file*, unsigned long, unsigned long, unsigned long, unsigned long); unsigned long mmap_base; unsigned long mmap_legacy_base; unsigned long task_size; pgd_t* pgd; atomic_t membarrier_state; atomic_t mm_users; atomic_long_t pgtables_bytes; int map_count; spinlock_t page_table_lock; struct rw_semaphore mmap_lock; struct list_head mmlist; int mm_lock_seq; unsigned long hiwater_rss; unsigned long hiwater_vm; unsigned long total_vm; unsigned long locked_vm; atomic64_t pinned_vm; unsigned long data_vm; unsigned long exec_vm; unsigned long stack_vm; unsigned long def_flags; seqcount_t write_protect_seq; spinlock_t arg_lock; unsigned long start_code; unsigned long end_code; unsigned long start_data; unsigned long end_data; unsigned long start_brk; unsigned long brk; unsigned long start_stack; unsigned long arg_start; unsigned long arg_end; unsigned long env_start; unsigned long env_end; unsigned long saved_auxv[50]; struct percpu_counter rss_stat[4]; struct linux_binfmt* binfmt; mm_context_t context; unsigned long flags; spinlock_t ioctx_lock; struct kioctx_table* ioctx_table; struct task_struct* owner; struct user_namespace* user_ns; struct file* exe_file; struct mmu_notifier_subscriptions* notifier_subscriptions; atomic_t tlb_flush_pending; atomic_t tlb_flush_batched; struct uprobes_state uprobes_state; struct work_struct async_put_work; struct { struct list_head list; unsigned long bitmap; struct mem_cgroup* memcg; } lru_gen; u64 android_kabi_reserved1; union { struct task_dma_buf_info* dmabuf_info; struct { u64 android_backport_reserved1; }; union { }; }; }'
+    type changed from 'struct { struct { atomic_t mm_count; }; struct maple_tree mm_mt; unsigned long(* get_unmapped_area)(struct file*, unsigned long, unsigned long, unsigned long, unsigned long); unsigned long mmap_base; unsigned long mmap_legacy_base; unsigned long task_size; pgd_t* pgd; atomic_t membarrier_state; atomic_t mm_users; atomic_long_t pgtables_bytes; int map_count; spinlock_t page_table_lock; struct rw_semaphore mmap_lock; struct list_head mmlist; int mm_lock_seq; unsigned long hiwater_rss; unsigned long hiwater_vm; unsigned long total_vm; unsigned long locked_vm; atomic64_t pinned_vm; unsigned long data_vm; unsigned long exec_vm; unsigned long stack_vm; unsigned long def_flags; seqcount_t write_protect_seq; spinlock_t arg_lock; unsigned long start_code; unsigned long end_code; unsigned long start_data; unsigned long end_data; unsigned long start_brk; unsigned long brk; unsigned long start_stack; unsigned long arg_start; unsigned long arg_end; unsigned long env_start; unsigned long env_end; unsigned long saved_auxv[50]; struct percpu_counter rss_stat[4]; struct linux_binfmt* binfmt; mm_context_t context; unsigned long flags; spinlock_t ioctx_lock; struct kioctx_table* ioctx_table; struct task_struct* owner; struct user_namespace* user_ns; struct file* exe_file; struct mmu_notifier_subscriptions* notifier_subscriptions; atomic_t tlb_flush_pending; atomic_t tlb_flush_batched; struct uprobes_state uprobes_state; struct work_struct async_put_work; struct { struct list_head list; unsigned long bitmap; struct mem_cgroup* memcg; } lru_gen; u64 android_kabi_reserved1; u64 android_backport_reserved1; }' to 'struct { struct { atomic_t mm_count; }; struct maple_tree mm_mt; unsigned long(* get_unmapped_area)(struct file*, unsigned long, unsigned long, unsigned long, unsigned long); unsigned long mmap_base; unsigned long mmap_legacy_base; unsigned long task_size; pgd_t* pgd; atomic_t membarrier_state; atomic_t mm_users; atomic_long_t pgtables_bytes; int map_count; spinlock_t page_table_lock; struct rw_semaphore mmap_lock; struct list_head mmlist; int mm_lock_seq; unsigned long hiwater_rss; unsigned long hiwater_vm; unsigned long total_vm; unsigned long locked_vm; atomic64_t pinned_vm; unsigned long data_vm; unsigned long exec_vm; unsigned long stack_vm; unsigned long def_flags; seqcount_t write_protect_seq; spinlock_t arg_lock; unsigned long start_code; unsigned long end_code; unsigned long start_data; unsigned long end_data; unsigned long start_brk; unsigned long brk; unsigned long start_stack; unsigned long arg_start; unsigned long arg_end; unsigned long env_start; unsigned long env_end; unsigned long saved_auxv[50]; struct percpu_counter rss_stat[4]; struct linux_binfmt* binfmt; mm_context_t context; unsigned long flags; spinlock_t ioctx_lock; struct kioctx_table* ioctx_table; struct task_struct* owner; struct user_namespace* user_ns; struct file* exe_file; struct mmu_notifier_subscriptions* notifier_subscriptions; atomic_t tlb_flush_pending; atomic_t tlb_flush_batched; struct uprobes_state uprobes_state; struct work_struct async_put_work; struct { struct list_head list; unsigned long bitmap; struct mem_cgroup* memcg; } lru_gen; u64 android_kabi_reserved1; union { struct task_dma_buf_info* dmabuf_info; struct { u64 android_backport_reserved1; }; union { }; }; }'
+      member 'u64 android_backport_reserved1' was removed
+      member 'union { struct task_dma_buf_info* dmabuf_info; struct { u64 android_backport_reserved1; }; union { }; }' was added
+
+type 'struct files_struct' changed
+  member 'struct task_dma_buf_info* dmabuf_info' was added
 

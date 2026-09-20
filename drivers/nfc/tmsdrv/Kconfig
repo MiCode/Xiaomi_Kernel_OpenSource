@@ -1,0 +1,25 @@
+#
+# TMS devices
+#
+
+menu "TMS devices support"
+
+config TMS_NFC_DEVICE
+    tristate "TMS NFC Driver"
+    depends on I2C
+    help
+        Say Y here if you have I2C device.
+
+config TMS_GUIDE_DEVICE
+    tristate "TMS Guide Driver"
+    depends on I2C && TMS_NFC_DEVICE
+    help
+        Say Y here to compile guidev for guide device register.
+
+config TMS_ESE_DEVICE
+    tristate "TMS ESE Driver"
+    depends on SPI
+    help
+        Say Y here if you have SPI device.
+
+endmenu

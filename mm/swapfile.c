@@ -1531,6 +1531,7 @@ put_out:
 	percpu_ref_put(&si->users);
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(get_swap_device);
 
 static unsigned char __swap_entry_free(struct swap_info_struct *p,
 				       swp_entry_t entry)

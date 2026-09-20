@@ -81,7 +81,7 @@ __xhci_sideband_remove_endpoint(struct xhci_sideband *sb, struct xhci_virt_ep *e
 	 * The stop ep cmd handler will handle the ring cleanup.
 	 */
 
-	if (!ep || ep->sideband != sb)
+	if (!ep || ep->sideband != sb || !sb || !sb->xhci || !ep->vdev)
 		return;
 
 	xhci_stop_endpoint_sync(sb->xhci, ep, 0, GFP_KERNEL);

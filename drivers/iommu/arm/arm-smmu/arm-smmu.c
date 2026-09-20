@@ -14,7 +14,7 @@
  *	- Context fault reporting
  *	- Extended Stream ID (16 bit)
  *
- * Copyright (c) 2021-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define pr_fmt(fmt) "arm-smmu: " fmt
@@ -2006,6 +2006,7 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 
 	if (!strcmp(str, "bypass")) {
 		smmu_domain->mapping_cfg.s1_bypass = 1;
+		smmu_domain->mapping_cfg.atomic = 1;
 	} else if (!strcmp(str, "fastmap")) {
 		/*
 		 * Fallback to the upstream dma-allocator if fastmap is not enabled.
@@ -3085,6 +3086,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 	struct arm_smmu_smr	*handoff_smrs;
 	int num_handoff_smrs;
 	const __be32 *cell;
+	int count = 0;
 
 	cell = of_get_property(smmu->dev->of_node, "qcom,handoff-smrs", NULL);
 	if (!cell)
@@ -3162,6 +3164,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 				smmu->s2crs[i].pinned = true;
 				bitmap_set(smmu->context_map, smmu->s2crs[i].cbndx, 1);
+				count++;
 
 				if (!(smmu->options & ARM_SMMU_OPT_MULTI_MATCH_HANDOFF_SMR)) {
 					handoff_smrs[index].valid = false;
@@ -3176,7 +3179,9 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 			}
 		}
 	}
-
+	dev_notice(smmu->dev,
+			"\tpreserved %d qcom,handoff-smrs boot mapping%s\n",
+			count, count == 1 ? "" : "s");
 	kfree(handoff_smrs);
 
 	return 0;

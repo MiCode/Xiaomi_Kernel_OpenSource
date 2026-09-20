@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <trace/hooks/cpufreq.h>
@@ -227,7 +227,7 @@ static void inject_sleep(struct walt_task_struct *wts)
 		frame = frame_from_ravg_window();
 		delta = current_ts - wts->yield_ts;
 		wts->yield_total_sleep_usec = 0;
-		if (frame > delta) {
+		if (frame > delta + YIELD_SLEEP_HEADROOM) {
 			sleep_nsec = (frame - delta) - YIELD_SLEEP_HEADROOM;
 			wts->yield_total_sleep_usec = sleep_nsec /
 				NSEC_PER_USEC;

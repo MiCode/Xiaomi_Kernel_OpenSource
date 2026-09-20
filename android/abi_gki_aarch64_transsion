@@ -1,6 +1,7 @@
 [abi_symbol_list]
 # commonly used symbols
   register_tracepoint_module_notifier
+  cgroup_add_dfl_cftypes
 
 # required by tran block module
   __percpu_counter_init_many

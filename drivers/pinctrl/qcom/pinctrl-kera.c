@@ -2310,7 +2310,7 @@ static struct platform_driver kera_pinctrl_driver = {
 		.of_match_table = kera_pinctrl_of_match,
 	},
 	.probe = kera_pinctrl_probe,
-	.remove = msm_pinctrl_remove,
+	.remove_new = msm_pinctrl_remove,
 };
 
 static int __init kera_pinctrl_init(void)

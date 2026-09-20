@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/idr.h>
@@ -2574,8 +2574,6 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	int cid;
 	int ret;
 
-	qcom_glink_cancel_rx_work(glink);
-
 	/* Fail all attempts at sending messages */
 	spin_lock_irqsave(&glink->tx_lock, flags);
 	glink->abort_tx = true;
@@ -2587,6 +2585,8 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	idr_for_each_entry(&glink->lcids, channel, cid)
 		qcom_glink_intent_req_abort(channel);
 	spin_unlock_irqrestore(&glink->idr_lock, flags);
+
+	qcom_glink_cancel_rx_work(glink);
 
 	ret = device_for_each_child(glink->dev, NULL, qcom_glink_remove_device);
 	if (ret)

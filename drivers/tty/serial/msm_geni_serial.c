@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/bitmap.h>
@@ -783,6 +783,7 @@ static void msm_geni_enable_disable_se_clk(struct uart_port *uport, bool enable)
 	geni_read_reg(membase, GENI_SER_M_CLK_CFG);
 }
 
+#ifdef CONFIG_SMP
 /*
  * The below API is required to check if uport->lock (spinlock)
  * is taken by the serial layer or not. If the lock is not taken
@@ -803,6 +804,21 @@ static bool msm_geni_serial_spinlocked(struct uart_port *uport)
 
 	return !locked;
 }
+#else
+/*
+ * msm_geni_serial_spinlocked - Always return true on uniprocessor systems
+ * @uport: Pointer to the UART port structure
+ *
+ * On uniprocessor systems, concurrency is not present, so we assume the lock
+ * is always held and polling is required.
+ *
+ * Return: true
+ */
+static bool msm_geni_serial_spinlocked(struct uart_port *uport)
+{
+	return true;
+}
+#endif
 
 /*
  * We are enabling the interrupts once the polling operations
@@ -3181,8 +3197,9 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 		return 0;
 	}
 
-	/* Check RX buffer data for faulty pattern*/
-	check_rx_buf((char *)port->rx_buf, uport, rx_bytes);
+	if (port->wakeup_byte)
+		/* Check RX buffer data for faulty pattern */
+		check_rx_buf((char *)port->rx_buf, uport, rx_bytes);
 
 	if (drop_rx)
 		return 0;

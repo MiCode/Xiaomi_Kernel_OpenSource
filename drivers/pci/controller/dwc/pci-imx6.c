@@ -1043,7 +1043,10 @@ static const struct pci_epc_features imx8m_pcie_epc_features = {
 	.linkup_notifier = false,
 	.msi_capable = true,
 	.msix_capable = false,
-	.reserved_bar = 1 << BAR_1 | 1 << BAR_3,
+	.reserved_bar = 1 << BAR_1 | 1 << BAR_3 | 1 << BAR_5,
+	.bar_fixed_size = {
+		[BAR_4] = SZ_256,
+	},
 	.align = SZ_64K,
 };
 
@@ -1098,8 +1101,6 @@ static int imx6_add_pcie_ep(struct imx6_pcie *imx6_pcie,
 		dev_err(dev, "failed to initialize endpoint\n");
 		return ret;
 	}
-	/* Start LTSSM. */
-	imx6_pcie_ltssm_enable(dev);
 
 	return 0;
 }
@@ -1283,7 +1284,8 @@ static int imx6_pcie_probe(struct platform_device *pdev)
 	case IMX8MQ_EP:
 		if (dbi_base->start == IMX8MQ_PCIE2_BASE_ADDR)
 			imx6_pcie->controller_id = 1;
-
+		fallthrough;
+	case IMX7D:
 		imx6_pcie->pciephy_reset = devm_reset_control_get_exclusive(dev,
 									    "pciephy");
 		if (IS_ERR(imx6_pcie->pciephy_reset)) {

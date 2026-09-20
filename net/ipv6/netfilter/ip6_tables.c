@@ -1811,18 +1811,29 @@ void ip6t_unregister_table_exit(struct net *net, const char *name)
 		__ip6t_unregister_table(net, table);
 }
 
+#define DEFINE_IP6T_STANDARD_TARGET(compat)		\
+	{						\
+		.name             = XT_STANDARD_TARGET,	\
+		.targetsize       = sizeof(int),	\
+		.family           = NFPROTO_IPV6,	\
+		.has_compat_metadata = compat		\
+	}
+
 /* The built-in targets: standard (NULL) and error. */
-static struct xt_target ip6t_builtin_tg[] __read_mostly = {
-	{
-		.name             = XT_STANDARD_TARGET,
-		.targetsize       = sizeof(int),
-		.family           = NFPROTO_IPV6,
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
-		.compatsize       = sizeof(compat_int_t),
-		.compat_from_user = compat_standard_from_user,
-		.compat_to_user   = compat_standard_to_user,
+static struct compat_xt_target_ext ip6t_std_tg_ext = {
+	.compatsize       = sizeof(compat_int_t),
+	.compat_from_user = compat_standard_from_user,
+	.compat_to_user   = compat_standard_to_user,
+	.target           = DEFINE_IP6T_STANDARD_TARGET(true),
+};
+
+#define ip6t_std_tg (ip6t_std_tg_ext.target)
+#else
+static struct xt_target ip6t_std_tg __read_mostly = DEFINE_IP6T_STANDARD_TARGET(false);
 #endif
-	},
+
+static struct xt_target ip6t_builtin_tg[] __read_mostly = {
 	{
 		.name             = XT_ERROR_TARGET,
 		.target           = ip6t_error,
@@ -1866,19 +1877,25 @@ static int __init ip6_tables_init(void)
 		goto err1;
 
 	/* No one else will be downing sem now, so we won't sleep */
+	ret = xt_register_target(&ip6t_std_tg);
+	if (ret)
+		goto err2;
+
 	ret = xt_register_targets(ip6t_builtin_tg, ARRAY_SIZE(ip6t_builtin_tg));
 	if (ret < 0)
-		goto err2;
+		goto err4;
 
 	/* Register setsockopt */
 	ret = nf_register_sockopt(&ip6t_sockopts);
 	if (ret < 0)
-		goto err4;
+		goto err8;
 
 	return 0;
 
-err4:
+err8:
 	xt_unregister_targets(ip6t_builtin_tg, ARRAY_SIZE(ip6t_builtin_tg));
+err4:
+	xt_unregister_target(&ip6t_std_tg);
 err2:
 	unregister_pernet_subsys(&ip6_tables_net_ops);
 err1:
@@ -1890,6 +1907,7 @@ static void __exit ip6_tables_fini(void)
 	nf_unregister_sockopt(&ip6t_sockopts);
 
 	xt_unregister_targets(ip6t_builtin_tg, ARRAY_SIZE(ip6t_builtin_tg));
+	xt_unregister_target(&ip6t_std_tg);
 	unregister_pernet_subsys(&ip6_tables_net_ops);
 }
 

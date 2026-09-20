@@ -38,6 +38,43 @@ static struct poweroff_reason reasons[] = {
 	{}
 };
 
+#define RESTART_REASON_PANIC  6
+#define RESTART_REASON_NORMAL 7
+static struct qcom_reboot_reason *ffu_reboot = NULL;
+
+int ufs_ffu_reboot_reason_reboot(void *ptr)
+{
+	char *cmd = ptr;
+	struct qcom_reboot_reason *reboot = ffu_reboot;
+	struct poweroff_reason *reason;
+
+	if(!ffu_reboot)
+		return NOTIFY_BAD;
+
+	if (!cmd) {
+		nvmem_cell_write(reboot->nvmem_cell,
+				 &reasons[RESTART_REASON_NORMAL].pon_reason,
+				 sizeof(reasons[RESTART_REASON_NORMAL].pon_reason));
+		return NOTIFY_OK;
+	}
+
+	for (reason = reasons; reason->cmd; reason++) {
+		if (!strcmp(cmd, reason->cmd)) {
+			nvmem_cell_write(reboot->nvmem_cell,
+					 &reason->pon_reason,
+					 sizeof(reason->pon_reason));
+			return NOTIFY_OK;
+		}
+	}
+
+	nvmem_cell_write(reboot->nvmem_cell,
+			&reason->pon_reason,
+			sizeof(reason->pon_reason));
+
+	return NOTIFY_OK;
+}
+EXPORT_SYMBOL(ufs_ffu_reboot_reason_reboot);
+
 static int qcom_reboot_reason_reboot(struct notifier_block *this,
 				     unsigned long event, void *ptr)
 {
@@ -87,7 +124,7 @@ static int qcom_reboot_reason_probe(struct platform_device *pdev)
 	register_reboot_notifier(&reboot->reboot_nb);
 
 	platform_set_drvdata(pdev, reboot);
-
+	ffu_reboot = reboot;
 	return 0;
 }
 

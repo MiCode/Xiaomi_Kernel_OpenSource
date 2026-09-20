@@ -197,5 +197,9 @@ obj-$(CONFIG_PECI)		+= peci/
 obj-$(CONFIG_HTE)		+= hte/
 obj-$(CONFIG_DRM_ACCEL)		+= accel/
 obj-$(CONFIG_CDX_BUS)		+= cdx/
-
+obj-$(CONFIG_LX_THERMAL_INTERFACE)	        += mist_factory_temp/
 obj-$(CONFIG_S390)		+= s390/
+# MIUI ADD: TURBOSCHED PERFORMANCE
+obj-$(CONFIG_MIHW)		+= mihw/
+# MIUI END: TURBOSCHED PERFORMANCE
+

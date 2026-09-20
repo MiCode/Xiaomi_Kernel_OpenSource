@@ -86,6 +86,7 @@
 #define PCIE20_PARF_PM_STTS (0x24)
 #define PCIE20_PARF_PHY_CTRL (0x40)
 #define PCIE20_PARF_TEST_BUS (0xe4)
+#define PCIE20_PARF_VERSION (0x170)
 #define PCIE20_PARF_MHI_CLOCK_RESET_CTRL (0x174)
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT (0x1a8)
 
@@ -279,6 +280,7 @@
 #define PCIE_CONF_SPACE_DW (1024)
 #define PCIE_CLEAR (0xdeadbeef)
 #define PCIE_LINK_DOWN (0xffffffff)
+#define PARF_VER_WITH_NO_LANE_UPCONFIG_BIT (0x1470)
 
 #define MSM_PCIE_MAX_RESET (5)
 #define MSM_PCIE_MAX_PIPE_RESET (1)
@@ -1149,6 +1151,7 @@ struct msm_pcie_dev_t {
 	uint32_t perst_delay_us_max;
 	uint32_t tlp_rd_size;
 	uint32_t aux_clk_freq;
+	uint32_t parf_ver;
 	bool linkdown_panic;
 	uint32_t boot_option;
 	uint32_t link_speed_override;
@@ -6023,6 +6026,9 @@ static int msm_pcie_enable_link(struct msm_pcie_dev_t *dev)
 	uint32_t val;
 	unsigned long ep_up_timeout = 0;
 
+	if (!dev->parf_ver)
+		dev->parf_ver = readl_relaxed(dev->parf + PCIE20_PARF_VERSION);
+
 	/* configure PCIe to RC mode */
 	msm_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x4);
 
@@ -6107,8 +6113,18 @@ static int msm_pcie_enable_link(struct msm_pcie_dev_t *dev)
 	/**
 	 * configure LANE_SKEW_OFF BIT-5 and PARF_CFG_BITS_3 BIT-8 to support
 	 * dynamic link width upscaling.
+	 *
+	 * Although the HPG suggests setting the PARF_CFG_BITS_3 BIT-8 as well, the design team
+	 * has confirmed this is handled in the latest Synopsys IP rendering this bit
+	 * non-functional. Therefore, it does not need to be updated. Design team couldn't confirm
+	 * from which PARF version it has been taken care of.
+	 *
+	 * Moreover, on latest targets (seraph onwards), the aforementioned bit has been repurposed
+	 * entirely. We can avoid setting this altogether, just to maintain backward compatibility
+	 * with older targets, set this bit only if it exists.
 	 */
-	msm_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS_3, 0, BIT(8));
+	if (dev->parf_ver < PARF_VER_WITH_NO_LANE_UPCONFIG_BIT)
+		msm_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS_3, 0, BIT(8));
 	msm_pcie_write_mask(dev->dm_core + PCIE20_LANE_SKEW_OFF, 0, BIT(5));
 
 	/* de-assert PCIe reset link to bring EP out of reset */
@@ -6611,8 +6627,10 @@ int msm_pcie_enumerate(u32 rc_idx)
 	pci_save_state(pcidev);
 	dev->default_state = pci_store_saved_state(pcidev);
 
-	if (dev->boot_option & MSM_PCIE_NO_PROBE_ENUMERATION)
+	if (dev->boot_option & MSM_PCIE_NO_PROBE_ENUMERATION) {
 		dev_pm_syscore_device(&pcidev->dev, true);
+		dev_pm_syscore_device(&dev->pdev->dev, true);
+	}
 out:
 	mutex_unlock(&dev->enumerate_lock);
 
@@ -9206,12 +9224,20 @@ static const struct of_device_id msm_pcie_match[] = {
 	{}
 };
 
+static int msm_pcie_pm_suspend_noirq(struct device *dev);
+static int msm_pcie_pm_resume_noirq(struct device *dev);
+
+static DEFINE_NOIRQ_DEV_PM_OPS(qcom_pcie_pm_ops,
+			msm_pcie_pm_suspend_noirq,
+			msm_pcie_pm_resume_noirq);
+
 static struct platform_driver msm_pcie_driver = {
 	.probe	= msm_pcie_probe,
 	.remove	= msm_pcie_remove,
 	.driver	= {
 		.name		= "pci-msm",
 		.of_match_table	= msm_pcie_match,
+		.pm		= pm_sleep_ptr(&qcom_pcie_pm_ops),
 	},
 };
 
@@ -9817,6 +9843,28 @@ static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 				 msm_pcie_fixup_resume_early);
+
+static int msm_pcie_pm_suspend_noirq(struct device *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)
+					dev_get_drvdata(dev);
+
+	if (pcie_dev->enumerated && pcie_dev->power_on)
+		msm_pcie_fixup_suspend(pcie_dev->dev);
+
+	return 0;
+}
+
+static int msm_pcie_pm_resume_noirq(struct device *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)
+					dev_get_drvdata(dev);
+
+	if (pcie_dev->enumerated && !pcie_dev->power_on)
+		msm_pcie_fixup_resume(pcie_dev->dev);
+
+	return 0;
+}
 
 static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 				   struct msm_pcie_drv_msg *msg)

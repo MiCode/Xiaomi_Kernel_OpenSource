@@ -8,6 +8,7 @@
 #include <linux/gunyah.h>
 #include <linux/uuid.h>
 
+#define GUNYAH_VCPU_RUN_STATE_PSCI_SYSTEM_RESET		256
 /* {c1d58fcd-a453-5fdb-9265-ce36673d5f14} */
 static const uuid_t GUNYAH_UUID = UUID_INIT(0xc1d58fcd, 0xa453, 0x5fdb, 0x92,
 					    0x65, 0xce, 0x36, 0x67, 0x3d, 0x5f,
@@ -270,6 +271,14 @@ gunyah_hypercall_vcpu_run(u64 capid, unsigned long *resume_data,
 		resp->state_data[1] = res.a3;
 		resp->state_data[2] = res.a4;
 	}
+
+	/*
+	 * PSCI_SYSTEM_RESET is also a state where VM is shutdown
+	 * Translate it to GUNYAH_VCPU_STATE_SYSTEM_OFF as VMM will
+	 * be able to take the action based on the exit_info.
+	 */
+	if (resp->sized_state == GUNYAH_VCPU_RUN_STATE_PSCI_SYSTEM_RESET)
+		resp->sized_state = GUNYAH_VCPU_STATE_SYSTEM_OFF;
 
 	return res.a0;
 }

@@ -1348,7 +1348,6 @@ static void wx_configure_rx_ring(struct wx *wx,
 				 struct wx_ring *ring)
 {
 	u16 reg_idx = ring->reg_idx;
-	union wx_rx_desc *rx_desc;
 	u64 rdba = ring->dma;
 	u32 rxdctl;
 
@@ -1378,9 +1377,9 @@ static void wx_configure_rx_ring(struct wx *wx,
 	memset(ring->rx_buffer_info, 0,
 	       sizeof(struct wx_rx_buffer) * ring->count);
 
-	/* initialize Rx descriptor 0 */
-	rx_desc = WX_RX_DESC(ring, 0);
-	rx_desc->wb.upper.length = 0;
+	/* reset ntu and ntc to place SW in sync with hardware */
+	ring->next_to_clean = 0;
+	ring->next_to_use = 0;
 
 	/* enable receive descriptor ring */
 	wr32m(wx, WX_PX_RR_CFG(reg_idx),
@@ -1668,7 +1667,8 @@ int wx_sw_init(struct wx *wx)
 	wx->oem_svid = pdev->subsystem_vendor;
 	wx->oem_ssid = pdev->subsystem_device;
 	wx->bus.device = PCI_SLOT(pdev->devfn);
-	wx->bus.func = PCI_FUNC(pdev->devfn);
+	wx->bus.func = FIELD_GET(WX_CFG_PORT_ST_LANID,
+				 rd32(wx, WX_CFG_PORT_ST));
 
 	if (wx->oem_svid == PCI_VENDOR_ID_WANGXUN) {
 		wx->subsystem_vendor_id = pdev->subsystem_vendor;

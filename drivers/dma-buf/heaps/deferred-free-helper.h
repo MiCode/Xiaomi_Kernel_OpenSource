@@ -24,6 +24,8 @@ enum df_reason {
 	DF_UNDER_PRESSURE,
 };
 
+extern struct task_struct *freelist_task;
+
 /**
  * deferred_freelist_item - item structure for deferred freelist
  *

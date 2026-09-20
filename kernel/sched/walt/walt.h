@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef _WALT_H
@@ -91,6 +91,12 @@ enum freq_caps {
 #define SOC_ENABLE_COLOCATION_PLACEMENT_BOOST_BIT	BIT(7)
 #define SOC_ENABLE_FT_BOOST_TO_ALL			BIT(8)
 #define SOC_ENABLE_EXPERIMENT3						BIT(9)
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+#define FLW_CPUFREQ			BIT(16)
+#define OEM_CPUFREQ_FLT		(1U << 9)
+#endif
+// END Performance_TurboSched
 #define SOC_ENABLE_PIPELINE_SWAPPING_BIT		BIT(10)
 #define SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT		BIT(11)
 #define SOC_ENABLE_FORCE_SPECIAL_PIPELINE_PINNING	BIT(12)
@@ -534,6 +540,12 @@ extern unsigned int pipeline_swap_util_th;
 #define CPUFREQ_REASON_IPC_SMART_FREQ_BIT	BIT(18)
 #define CPUFREQ_REASON_UCLAMP_BIT		BIT(19)
 #define CPUFREQ_REASON_PIPELINE_BUSY_BIT	BIT(20)
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+#define OEM_CPUFREQ_UPDATE      (1U << 6)
+#endif
+// END Performance_TurboSched
 
 enum sched_boost_policy {
 	SCHED_BOOST_NONE,
@@ -1291,6 +1303,11 @@ static inline bool task_reject_partialhalt_cpu(struct task_struct *p, int cpu)
  * Returns -1 if packing_cpu if not found or is unsuitable to be packed on  to
  * Returns a valid cpu number if packing_cpu is found and is usable
  */
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern void metis_wakeup_cold_start_skip_ui_cpumask(struct task_struct *tsk, struct cpumask *lowest_mask);
+#endif
+// END Performance_TurboSched
 static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct task_struct *p)
 {
 	struct walt_rq *wrq = &per_cpu(walt_rq, start_cpu);
@@ -1314,6 +1331,11 @@ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct
 		/* try to find a packing cpu within 32 bit subset */
 		cpumask_and(&unhalted_cpus, &unhalted_cpus, system_32bit_el0_cpumask());
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_wakeup_cold_start_skip_ui_cpumask(p, &unhalted_cpus);
+#endif
+// END Performance_TurboSched
 	/* return the first found unhalted, active cpu, in this cluster */
 	packing_cpu = cpumask_first(&unhalted_cpus);
 
@@ -1570,6 +1592,7 @@ extern unsigned int sysctl_pipeline_non_special_task_util_thres;
 extern unsigned int sysctl_pipeline_pin_thres_low_pct;
 extern unsigned int sysctl_pipeline_pin_thres_high_pct;
 extern unsigned int sysctl_pipeline_rearrange_delay_ms[2];
+extern unsigned int min_demand_for_activity_cnt;
 DECLARE_PER_CPU(unsigned int, walt_yield_to_sleep);
 extern unsigned int walt_sched_yield_counter;
 extern unsigned int sysctl_force_frequent_yielder;

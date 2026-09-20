@@ -23,7 +23,9 @@
 
 #include <linux/random.h>
 
+#include "gt/intel_gt.h"
 #include "gt/intel_gt_pm.h"
+#include "gt/intel_gt_regs.h"
 #include "gt/uc/intel_gsc_fw.h"
 
 #include "i915_driver.h"
@@ -154,6 +156,30 @@ __wait_gsc_proxy_completed(struct drm_i915_private *i915)
 		pr_warn(DRIVER_NAME "Timed out waiting for gsc_proxy_completion!\n");
 }
 
+static void
+__wait_gsc_huc_load_completed(struct drm_i915_private *i915)
+{
+	/* this only applies to DG2, so we only care about GT0 */
+	struct intel_huc *huc = &to_gt(i915)->uc.huc;
+	bool need_to_wait = (IS_ENABLED(CONFIG_INTEL_MEI_PXP) &&
+			     intel_huc_wait_required(huc));
+	/*
+	 * The GSC and PXP mei bringup depends on the kernel boot ordering, so
+	 * to account for the worst case scenario the HuC code waits for up to
+	 * 10s for the GSC driver to load and then another 5s for the PXP
+	 * component to bind before giving up, even though those steps normally
+	 * complete in less than a second from the i915 load. We match that
+	 * timeout here, but we expect to bail early due to the fence being
+	 * signalled even in a failure case, as it is extremely unlikely that
+	 * both components will use their full timeout.
+	 */
+	unsigned long timeout_ms = 15000;
+
+	if (need_to_wait &&
+	    wait_for(i915_sw_fence_done(&huc->delayed_load.fence), timeout_ms))
+		pr_warn(DRIVER_NAME "Timed out waiting for huc load via GSC!\n");
+}
+
 static int __run_selftests(const char *name,
 			   struct selftest *st,
 			   unsigned int count,
@@ -228,14 +254,32 @@ int i915_mock_selftests(void)
 
 int i915_live_selftests(struct pci_dev *pdev)
 {
+	struct drm_i915_private *i915 = pdev_to_i915(pdev);
+	struct intel_uncore *uncore = &i915->uncore;
 	int err;
+	u32 pg_enable;
+	intel_wakeref_t wakeref;
 
 	if (!i915_selftest.live)
 		return 0;
 
-	__wait_gsc_proxy_completed(pdev_to_i915(pdev));
+	/*
+	 * FIXME Disable render powergating, this is temporary wa and should be removed
+	 * after fixing real cause of forcewake timeouts.
+	 */
+	with_intel_runtime_pm(uncore->rpm, wakeref) {
+		if (IS_GFX_GT_IP_RANGE(to_gt(i915), IP_VER(12, 00), IP_VER(12, 74))) {
+			pg_enable = intel_uncore_read(uncore, GEN9_PG_ENABLE);
+			if (pg_enable & GEN9_RENDER_PG_ENABLE)
+				intel_uncore_write_fw(uncore, GEN9_PG_ENABLE,
+						      pg_enable & ~GEN9_RENDER_PG_ENABLE);
+		}
+	}
 
-	err = run_selftests(live, pdev_to_i915(pdev));
+	__wait_gsc_proxy_completed(i915);
+	__wait_gsc_huc_load_completed(i915);
+
+	err = run_selftests(live, i915);
 	if (err) {
 		i915_selftest.live = err;
 		return err;
@@ -251,14 +295,16 @@ int i915_live_selftests(struct pci_dev *pdev)
 
 int i915_perf_selftests(struct pci_dev *pdev)
 {
+	struct drm_i915_private *i915 = pdev_to_i915(pdev);
 	int err;
 
 	if (!i915_selftest.perf)
 		return 0;
 
-	__wait_gsc_proxy_completed(pdev_to_i915(pdev));
+	__wait_gsc_proxy_completed(i915);
+	__wait_gsc_huc_load_completed(i915);
 
-	err = run_selftests(perf, pdev_to_i915(pdev));
+	err = run_selftests(perf, i915);
 	if (err) {
 		i915_selftest.perf = err;
 		return err;

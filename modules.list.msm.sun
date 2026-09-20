@@ -117,3 +117,5 @@ qcom-cpufreq-thermal.ko
 gh_virt_wdt.ko
 bcl_pmic5.ko
 qcom-cpufreq-hw.ko
+nvmem_qfprom.ko
+qfprom-sys.ko

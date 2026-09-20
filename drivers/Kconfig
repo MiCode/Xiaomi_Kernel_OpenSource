@@ -219,6 +219,8 @@ source "drivers/hwtracing/Kconfig"
 
 source "drivers/fpga/Kconfig"
 
+source "drivers/mist_factory_temp/Kconfig"
+
 source "drivers/fsi/Kconfig"
 
 source "drivers/tee/Kconfig"
@@ -242,5 +244,9 @@ source "drivers/peci/Kconfig"
 source "drivers/hte/Kconfig"
 
 source "drivers/cdx/Kconfig"
+
+source "drivers/mihw/Kconfig"
+
+source "drivers/nfc/Kconfig"
 
 endmenu

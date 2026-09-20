@@ -80,6 +80,7 @@ u32 optee_supp_thrd_req(struct tee_context *ctx, u32 func, size_t num_params,
 	struct optee *optee = tee_get_drvdata(ctx->teedev);
 	struct optee_supp *supp = &optee->supp;
 	struct optee_supp_req *req;
+	bool interruptable;
 	u32 ret;
 
 	/*
@@ -110,18 +111,36 @@ u32 optee_supp_thrd_req(struct tee_context *ctx, u32 func, size_t num_params,
 	/*
 	 * Wait for supplicant to process and return result, once we've
 	 * returned from wait_for_completion(&req->c) successfully we have
-	 * exclusive access again. Allow the wait to be killable such that
-	 * the wait doesn't turn into an indefinite state if the supplicant
-	 * gets hung for some reason.
+	 * exclusive access again.
 	 */
-	if (wait_for_completion_killable(&req->c)) {
+	while (wait_for_completion_interruptible(&req->c)) {
 		mutex_lock(&supp->mutex);
-		if (req->in_queue) {
-			list_del(&req->link);
-			req->in_queue = false;
+		interruptable = !supp->ctx;
+		if (interruptable) {
+			/*
+			 * There's no supplicant available and since the
+			 * supp->mutex currently is held none can
+			 * become available until the mutex released
+			 * again.
+			 *
+			 * Interrupting an RPC to supplicant is only
+			 * allowed as a way of slightly improving the user
+			 * experience in case the supplicant hasn't been
+			 * started yet. During normal operation the supplicant
+			 * will serve all requests in a timely manner and
+			 * interrupting then wouldn't make sense.
+			 */
+			if (req->in_queue) {
+				list_del(&req->link);
+				req->in_queue = false;
+			}
 		}
 		mutex_unlock(&supp->mutex);
-		req->ret = TEEC_ERROR_COMMUNICATION;
+
+		if (interruptable) {
+			req->ret = TEEC_ERROR_COMMUNICATION;
+			break;
+		}
 	}
 
 	ret = req->ret;

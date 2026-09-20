@@ -129,6 +129,7 @@ filegroup(
         "android/abi_gki_aarch64_mtk",
         "android/abi_gki_aarch64_mtktv",
         "android/abi_gki_aarch64_nothing",
+        "android/abi_gki_aarch64_nvidia",
         "android/abi_gki_aarch64_oplus",
         "android/abi_gki_aarch64_paragon",
         "android/abi_gki_aarch64_pixel",
@@ -143,7 +144,8 @@ filegroup(
         "android/abi_gki_aarch64_virtual_device",
         "android/abi_gki_aarch64_vivo",
         "android/abi_gki_aarch64_xiaomi",
-        "android/abi_gki_aarch64_xiaomi2",
+        "android/abi_gki_aarch64_xiaomi_wear",
+        "android/abi_gki_aarch64_xiaomi_xring",
     ],
     visibility = ["//visibility:public"],
 )
@@ -176,7 +178,7 @@ define_common_kernels(target_configs = {
         "ddk_headers_archive": ":kernel_aarch64_ddk_headers_archive",
         "extra_dist": [
             ":test_mappings_zip",
-            ":tests_zip_arm64",
+            ":tests_zip_arm64_16k",
         ],
     },
     "kernel_aarch64_autofdo": {
@@ -636,6 +638,7 @@ copy_to_dist_dir(
         ":kernel_aarch64",
         ":kernel_aarch64_modules",
         ":kernel_aarch64_additional_artifacts",
+        ":tests_zip_arm64",
     ],
     dist_dir = "out/db845/dist",
     flat = True,
@@ -897,6 +900,16 @@ pkg_files(
 )
 
 pkg_files(
+    name = "kunit_modules_arm64_16k",
+    srcs = [
+        ":kernel_aarch64_16k/" + e
+        for e in get_kunit_modules_list("arm64")
+    ],
+    prefix = _KUNIT_DIR + "/arm64",
+    visibility = ["//visibility:private"],
+)
+
+pkg_files(
     name = "kunit_modules_x86_64",
     srcs = [
         ":kernel_x86_64/" + e
@@ -910,6 +923,15 @@ pkg_filegroup(
     name = "kunit_tests_arm64_pkg_files",
     srcs = [
         ":kunit_modules_arm64",
+        ":kunit_tests_config_arm64",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+pkg_filegroup(
+    name = "kunit_tests_arm64_16k_pkg_files",
+    srcs = [
+        ":kunit_modules_arm64_16k",
         ":kunit_tests_config_arm64",
     ],
     visibility = ["//visibility:private"],
@@ -930,6 +952,14 @@ pkg_install(
     name = "kunit_tests_arm64",
     srcs = [
         ":kunit_tests_arm64_pkg_files",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+pkg_install(
+    name = "kunit_tests_arm64_16k",
+    srcs = [
+        ":kunit_tests_arm64_16k_pkg_files",
     ],
     visibility = ["//visibility:private"],
 )
@@ -1032,10 +1062,14 @@ ddk_headers(
     name = "all_headers_allowlist_aarch64",
     hdrs = [
         "drivers/dma-buf/heaps/deferred-free-helper.h",
+        "drivers/dma/dmaengine.h",
         "drivers/extcon/extcon.h",
         "drivers/pci/controller/dwc/pcie-designware.h",
         "drivers/thermal/thermal_core.h",
         "drivers/thermal/thermal_netlink.h",
+        "drivers/ufs/core/ufshcd-crypto.h",
+        "drivers/ufs/core/ufshcd-priv.h",
+        "drivers/ufs/host/ufshcd-pltfrm.h",
         "drivers/usb/dwc3/core.h",
         "sound/usb/card.h",
         "sound/usb/usbaudio.h",
@@ -1050,9 +1084,11 @@ ddk_headers(
         "arch/arm64/include",
         "arch/arm64/include/uapi",
         "drivers/dma-buf",
+        "drivers/dma",
         "drivers/extcon",
         "drivers/pci/controller/dwc",
         "drivers/thermal",
+        "drivers/ufs",
         "drivers/usb",
         "sound/usb",
         "include",
@@ -2482,6 +2518,16 @@ pkg_zip(
         ":kunit_tests_arm64_pkg_files",
     ],
     out = "arm64/tests.zip",
+    visibility = ["//visibility:public"],
+)
+
+pkg_zip(
+    name = "tests_zip_arm64_16k",
+    srcs = [
+        ":kselftest_tests_arm64_pkg_files",
+        ":kunit_tests_arm64_16k_pkg_files",
+    ],
+    out = "arm64_16k/tests.zip",
     visibility = ["//visibility:public"],
 )
 

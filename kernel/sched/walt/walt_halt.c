@@ -22,6 +22,12 @@ enum pause_type {
 struct cpumask __cpu_halt_mask;
 struct cpumask __cpu_partial_halt_mask;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern struct cpumask *metis_lb_cpu_halt_mask;
+#endif
+// END Performance_TurboSched
+
 /* spin lock to allow calling from non-preemptible context */
 static DEFINE_RAW_SPINLOCK(halt_lock);
 
@@ -36,6 +42,12 @@ static DEFINE_RAW_SPINLOCK(walt_drain_pending_lock);
  * just after a halt operation.
  */
 #define WALT_HALT_CHECK_THRESHOLD_NS 400000
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern void metis_wakeup_cold_start_skip_ui_cpumask(struct task_struct *tsk, struct cpumask *lowest_mask);
+#endif
+// END Performance_TurboSched
 
 /*
  * Remove a task from the runqueue and pretend that it's migrating. This
@@ -634,6 +646,11 @@ static void android_rvh_rto_next_cpu(void *unused, int rto_cpu, struct cpumask *
 	if (cpu_halted(*cpu)) {
 		/* remove halted cpus from the valid mask, and store locally */
 		cpumask_andnot(&allowed_cpus, rto_mask, cpu_halt_mask);
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+		metis_wakeup_cold_start_skip_ui_cpumask(NULL, &allowed_cpus);
+#endif
+// END Performance_TurboSched
 		*cpu = cpumask_next(rto_cpu, &allowed_cpus);
 	}
 }
@@ -702,6 +719,11 @@ void walt_halt_init(void)
 
 	sched_setscheduler_nocheck(walt_drain_thread, SCHED_FIFO, &param);
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_lb_cpu_halt_mask = &__cpu_halt_mask;
+#endif
+// END Performance_TurboSched
 	register_trace_android_rvh_get_nohz_timer_target(android_rvh_get_nohz_timer_target, NULL);
 	register_trace_android_rvh_set_cpus_allowed_by_task(
 						android_rvh_set_cpus_allowed_by_task, NULL);

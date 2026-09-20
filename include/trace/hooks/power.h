@@ -12,6 +12,10 @@ DECLARE_HOOK(android_vh_try_to_freeze_todo,
 	TP_PROTO(unsigned int todo, unsigned int elapsed_msecs, bool wq_busy),
 	TP_ARGS(todo, elapsed_msecs, wq_busy));
 
+DECLARE_HOOK(android_vh_try_to_freeze_todo_logging,
+	TP_PROTO(bool *logging_on),
+	TP_ARGS(logging_on));
+
 DECLARE_HOOK(android_vh_try_to_freeze_todo_unfrozen,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p));
@@ -32,6 +36,10 @@ DECLARE_HOOK(android_vh_freq_qos_update_request,
 DECLARE_HOOK(android_vh_freq_qos_remove_request,
 		TP_PROTO(struct freq_qos_request *req),
 		TP_ARGS(req));
+
+DECLARE_HOOK(android_vh_fas_gpu_qos_update_tracer,
+		TP_PROTO(struct freq_qos_request *req, s32 *value),
+		TP_ARGS(req, value));
 
 #endif /* _TRACE_HOOK_POWER_H */
 /* This part must be outside protection */

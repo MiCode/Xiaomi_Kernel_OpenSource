@@ -519,6 +519,7 @@
   devres_remove_group
   dev_set_name
   _dev_warn
+  disable_hardirq
   disable_irq
   disable_irq_nosync
   disable_percpu_irq
@@ -852,6 +853,7 @@
   drm_vblank_init
   drop_reasons_register_subsys
   drop_reasons_unregister_subsys
+  dummy_irq_chip
   dump_stack
   dw_pcie_ep_init
   dw_pcie_ep_raise_legacy_irq
@@ -1190,6 +1192,8 @@
   irq_dispose_mapping
   __irq_domain_add
   irq_domain_add_legacy
+  __irq_domain_alloc_fwnode
+  irq_domain_free_fwnode
   irq_domain_get_irq_data
   irq_domain_remove
   irq_domain_set_info
@@ -1723,6 +1727,7 @@
   phy_ethtool_set_link_ksettings
   phy_ethtool_set_wol
   phy_exit
+  phy_get_pause
   phy_init
   phy_init_eee
   phy_init_hw
@@ -1833,6 +1838,7 @@
   __platform_driver_probe
   __platform_driver_register
   platform_driver_unregister
+  platform_get_ethdev_address
   platform_get_irq
   platform_get_irq_byname
   platform_get_irq_byname_optional
@@ -2610,6 +2616,26 @@
   usb_hcd_map_urb_for_dma
   usb_hcd_unmap_urb_for_dma
   usb_initialize_gadget
+  usbnet_change_mtu
+  usbnet_defer_kevent
+  usbnet_disconnect
+  usbnet_get_drvinfo
+  usbnet_get_endpoints
+  usbnet_get_msglevel
+  usbnet_open
+  usbnet_probe
+  usbnet_read_cmd
+  usbnet_read_cmd_nopm
+  usbnet_resume
+  usbnet_set_msglevel
+  usbnet_skb_return
+  usbnet_start_xmit
+  usbnet_stop
+  usbnet_suspend
+  usbnet_tx_timeout
+  usbnet_write_cmd
+  usbnet_write_cmd_async
+  usbnet_write_cmd_nopm
   usb_phy_set_charger_current
   usb_phy_set_charger_state
   usb_phy_set_event

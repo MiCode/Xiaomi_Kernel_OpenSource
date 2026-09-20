@@ -23,6 +23,11 @@
 #include "gdsc-debug.h"
 
 static struct clk_hw *measure;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+static struct clk_hw *mc_cc;
+#endif
+// END Performance_TurboSched
 static bool debug_suspend;
 static bool debug_suspend_atomic;
 static bool qcom_clk_debug_inited;
@@ -496,6 +501,55 @@ exit:
 
 DEFINE_DEBUGFS_ATTRIBUTE(clk_measure_fops, clk_debug_measure_get,
 			 clk_debug_measure_set, "%lld\n");
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+int clk_debug_mc_cc_get(void *data, u64 *val)
+{
+	struct clk_debug_mux *meas = to_clk_measure(measure);
+	struct clk_debug_mux *mux = NULL;
+	struct clk_hw *parent;
+	int ret = -EINVAL;
+	u32 regval;
+
+	if (unlikely(IS_ERR_OR_NULL(mc_cc)))
+		return ret;
+
+	ret = clk_runtime_get_debug_mux(meas);
+	if (ret)
+		return ret;
+
+	mutex_lock(&clk_debug_lock);
+/*
+	ret = clk_find_and_set_parent(measure, hw);
+	if (ret) {
+		pr_err("Failed to set the debug mux's parent.\n");
+		goto exit;
+	}
+	parent = clk_hw_get_parent(measure);
+*/
+	parent = mc_cc;
+	if (parent && clk_is_debug_mux(parent))
+		mux = to_clk_measure(parent);
+
+	if (mux && !mux->mux_sels) {
+		regmap_read(mux->regmap, mux->period_offset, &regval);
+		if (!regval) {
+			pr_err("Error reading mccc period register\n");
+			goto exit;
+		}
+		*val = 1000000000000UL;
+		do_div(*val, regval);
+	}
+
+exit:
+	mutex_unlock(&clk_debug_lock);
+	clk_runtime_put_debug_mux(meas);
+	return ret;
+}
+EXPORT_SYMBOL(clk_debug_mc_cc_get);
+#endif
+// END Performance_TurboSched
 
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 {

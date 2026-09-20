@@ -6,13 +6,15 @@
 #include "fw_reset.h"
 #include "diag/fw_tracer.h"
 #include "lib/tout.h"
+#include "sf/sf.h"
 
 enum {
 	MLX5_FW_RESET_FLAGS_RESET_REQUESTED,
 	MLX5_FW_RESET_FLAGS_NACK_RESET_REQUEST,
 	MLX5_FW_RESET_FLAGS_PENDING_COMP,
 	MLX5_FW_RESET_FLAGS_DROP_NEW_REQUESTS,
-	MLX5_FW_RESET_FLAGS_RELOAD_REQUIRED
+	MLX5_FW_RESET_FLAGS_RELOAD_REQUIRED,
+	MLX5_FW_RESET_FLAGS_UNLOAD_EVENT,
 };
 
 struct mlx5_fw_reset {
@@ -25,7 +27,9 @@ struct mlx5_fw_reset {
 	struct work_struct reset_reload_work;
 	struct work_struct reset_now_work;
 	struct work_struct reset_abort_work;
+	struct delayed_work reset_timeout_work;
 	unsigned long reset_flags;
+	u8 reset_method;
 	struct timer_list timer;
 	struct completion done;
 	int ret;
@@ -94,7 +98,7 @@ static int mlx5_reg_mfrl_set(struct mlx5_core_dev *dev, u8 reset_level,
 }
 
 static int mlx5_reg_mfrl_query(struct mlx5_core_dev *dev, u8 *reset_level,
-			       u8 *reset_type, u8 *reset_state)
+			       u8 *reset_type, u8 *reset_state, u8 *reset_method)
 {
 	u32 out[MLX5_ST_SZ_DW(mfrl_reg)] = {};
 	u32 in[MLX5_ST_SZ_DW(mfrl_reg)] = {};
@@ -110,13 +114,26 @@ static int mlx5_reg_mfrl_query(struct mlx5_core_dev *dev, u8 *reset_level,
 		*reset_type = MLX5_GET(mfrl_reg, out, reset_type);
 	if (reset_state)
 		*reset_state = MLX5_GET(mfrl_reg, out, reset_state);
+	if (reset_method)
+		*reset_method = MLX5_GET(mfrl_reg, out, pci_reset_req_method);
 
 	return 0;
 }
 
 int mlx5_fw_reset_query(struct mlx5_core_dev *dev, u8 *reset_level, u8 *reset_type)
 {
-	return mlx5_reg_mfrl_query(dev, reset_level, reset_type, NULL);
+	return mlx5_reg_mfrl_query(dev, reset_level, reset_type, NULL, NULL);
+}
+
+static int mlx5_fw_reset_get_reset_method(struct mlx5_core_dev *dev,
+					  u8 *reset_method)
+{
+	if (!MLX5_CAP_GEN(dev, pcie_reset_using_hotreset_method)) {
+		*reset_method = MLX5_MFRL_REG_PCI_RESET_METHOD_LINK_TOGGLE;
+		return 0;
+	}
+
+	return mlx5_reg_mfrl_query(dev, NULL, NULL, NULL, reset_method);
 }
 
 static int mlx5_fw_reset_get_reset_state_err(struct mlx5_core_dev *dev,
@@ -124,7 +141,7 @@ static int mlx5_fw_reset_get_reset_state_err(struct mlx5_core_dev *dev,
 {
 	u8 reset_state;
 
-	if (mlx5_reg_mfrl_query(dev, NULL, NULL, &reset_state))
+	if (mlx5_reg_mfrl_query(dev, NULL, NULL, &reset_state, NULL))
 		goto out;
 
 	if (!reset_state)
@@ -203,7 +220,7 @@ int mlx5_fw_reset_set_live_patch(struct mlx5_core_dev *dev)
 	return mlx5_reg_mfrl_set(dev, MLX5_MFRL_REG_RESET_LEVEL0, 0, 0, false);
 }
 
-static void mlx5_fw_reset_complete_reload(struct mlx5_core_dev *dev, bool unloaded)
+static void mlx5_fw_reset_complete_reload(struct mlx5_core_dev *dev)
 {
 	struct mlx5_fw_reset *fw_reset = dev->priv.fw_reset;
 	struct devlink *devlink = priv_to_devlink(dev);
@@ -212,8 +229,7 @@ static void mlx5_fw_reset_complete_reload(struct mlx5_core_dev *dev, bool unload
 	if (test_bit(MLX5_FW_RESET_FLAGS_PENDING_COMP, &fw_reset->reset_flags)) {
 		complete(&fw_reset->done);
 	} else {
-		if (!unloaded)
-			mlx5_unload_one(dev, false);
+		mlx5_sync_reset_unload_flow(dev, false);
 		if (mlx5_health_wait_pci_up(dev))
 			mlx5_core_err(dev, "reset reload flow aborted, PCI reads still not working\n");
 		else
@@ -242,6 +258,8 @@ static int mlx5_sync_reset_clear_reset_requested(struct mlx5_core_dev *dev, bool
 		return -EALREADY;
 	}
 
+	if (current_work() != &fw_reset->reset_timeout_work.work)
+		cancel_delayed_work(&fw_reset->reset_timeout_work);
 	mlx5_stop_sync_reset_poll(dev);
 	if (poll_health)
 		mlx5_start_health_poll(dev);
@@ -256,7 +274,7 @@ static void mlx5_sync_reset_reload_work(struct work_struct *work)
 
 	mlx5_sync_reset_clear_reset_requested(dev, false);
 	mlx5_enter_error_state(dev, true);
-	mlx5_fw_reset_complete_reload(dev, false);
+	mlx5_fw_reset_complete_reload(dev);
 }
 
 #define MLX5_RESET_POLL_INTERVAL	(HZ / 10)
@@ -312,6 +330,11 @@ static int mlx5_sync_reset_set_reset_requested(struct mlx5_core_dev *dev)
 	}
 	mlx5_stop_health_poll(dev, true);
 	mlx5_start_sync_reset_poll(dev);
+
+	if (!test_bit(MLX5_FW_RESET_FLAGS_DROP_NEW_REQUESTS,
+		      &fw_reset->reset_flags))
+		schedule_delayed_work(&fw_reset->reset_timeout_work,
+			msecs_to_jiffies(mlx5_tout_ms(dev, PCI_SYNC_UPDATE)));
 	return 0;
 }
 
@@ -383,6 +406,11 @@ static bool mlx5_is_reset_now_capable(struct mlx5_core_dev *dev)
 		return false;
 	}
 
+	if (!mlx5_core_is_ecpf(dev) && !mlx5_sf_table_empty(dev)) {
+		mlx5_core_warn(dev, "SFs should be removed before reset\n");
+		return false;
+	}
+
 #if IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE)
 	err = mlx5_check_hotplug_interrupt(dev);
 	if (err)
@@ -402,7 +430,11 @@ static void mlx5_sync_reset_request_event(struct work_struct *work)
 	struct mlx5_core_dev *dev = fw_reset->dev;
 	int err;
 
-	if (test_bit(MLX5_FW_RESET_FLAGS_NACK_RESET_REQUEST, &fw_reset->reset_flags) ||
+	err = mlx5_fw_reset_get_reset_method(dev, &fw_reset->reset_method);
+	if (err)
+		mlx5_core_warn(dev, "Failed reading MFRL, err %d\n", err);
+
+	if (err || test_bit(MLX5_FW_RESET_FLAGS_NACK_RESET_REQUEST, &fw_reset->reset_flags) ||
 	    !mlx5_is_reset_now_capable(dev)) {
 		err = mlx5_fw_reset_set_reset_sync_nack(dev);
 		mlx5_core_warn(dev, "PCI Sync FW Update Reset Nack %s",
@@ -419,21 +451,15 @@ static void mlx5_sync_reset_request_event(struct work_struct *work)
 		mlx5_core_warn(dev, "PCI Sync FW Update Reset Ack. Device reset is expected.\n");
 }
 
-static int mlx5_pci_link_toggle(struct mlx5_core_dev *dev)
+static int mlx5_pci_link_toggle(struct mlx5_core_dev *dev, u16 dev_id)
 {
 	struct pci_bus *bridge_bus = dev->pdev->bus;
 	struct pci_dev *bridge = bridge_bus->self;
 	unsigned long timeout;
 	struct pci_dev *sdev;
-	u16 reg16, dev_id;
 	int cap, err;
+	u16 reg16;
 
-	err = pci_read_config_word(dev->pdev, PCI_DEVICE_ID, &dev_id);
-	if (err)
-		return pcibios_err_to_errno(err);
-	err = mlx5_check_dev_ids(dev, dev_id);
-	if (err)
-		return err;
 	cap = pci_find_capability(bridge, PCI_CAP_ID_EXP);
 	if (!cap)
 		return -EOPNOTSUPP;
@@ -503,63 +529,59 @@ restore:
 	return err;
 }
 
-static void mlx5_sync_reset_now_event(struct work_struct *work)
+static int mlx5_pci_reset_bus(struct mlx5_core_dev *dev)
 {
-	struct mlx5_fw_reset *fw_reset = container_of(work, struct mlx5_fw_reset,
-						      reset_now_work);
-	struct mlx5_core_dev *dev = fw_reset->dev;
-	int err;
+	if (!MLX5_CAP_GEN(dev, pcie_reset_using_hotreset_method))
+		return -EOPNOTSUPP;
 
-	if (mlx5_sync_reset_clear_reset_requested(dev, false))
-		return;
-
-	mlx5_core_warn(dev, "Sync Reset now. Device is going to reset.\n");
-
-	err = mlx5_cmd_fast_teardown_hca(dev);
-	if (err) {
-		mlx5_core_warn(dev, "Fast teardown failed, no reset done, err %d\n", err);
-		goto done;
-	}
-
-	err = mlx5_pci_link_toggle(dev);
-	if (err) {
-		mlx5_core_warn(dev, "mlx5_pci_link_toggle failed, no reset done, err %d\n", err);
-		set_bit(MLX5_FW_RESET_FLAGS_RELOAD_REQUIRED, &fw_reset->reset_flags);
-	}
-
-	mlx5_enter_error_state(dev, true);
-done:
-	fw_reset->ret = err;
-	mlx5_fw_reset_complete_reload(dev, false);
+	return pci_reset_bus(dev->pdev);
 }
 
-static void mlx5_sync_reset_unload_event(struct work_struct *work)
+static int mlx5_sync_pci_reset(struct mlx5_core_dev *dev, u8 reset_method)
 {
-	struct mlx5_fw_reset *fw_reset;
-	struct mlx5_core_dev *dev;
+	u16 dev_id;
+	int err;
+
+	err = pci_read_config_word(dev->pdev, PCI_DEVICE_ID, &dev_id);
+	if (err)
+		return pcibios_err_to_errno(err);
+	err = mlx5_check_dev_ids(dev, dev_id);
+	if (err)
+		return err;
+
+	switch (reset_method) {
+	case MLX5_MFRL_REG_PCI_RESET_METHOD_LINK_TOGGLE:
+		err = mlx5_pci_link_toggle(dev, dev_id);
+		if (err)
+			mlx5_core_warn(dev, "mlx5_pci_link_toggle failed\n");
+		break;
+	case MLX5_MFRL_REG_PCI_RESET_METHOD_HOT_RESET:
+		err = mlx5_pci_reset_bus(dev);
+		if (err)
+			mlx5_core_warn(dev, "mlx5_pci_reset_bus failed\n");
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return err;
+}
+
+void mlx5_sync_reset_unload_flow(struct mlx5_core_dev *dev, bool locked)
+{
+	struct mlx5_fw_reset *fw_reset = dev->priv.fw_reset;
 	unsigned long timeout;
 	bool reset_action;
 	u8 rst_state;
 	int err;
 
-	fw_reset = container_of(work, struct mlx5_fw_reset, reset_unload_work);
-	dev = fw_reset->dev;
-
-	if (mlx5_sync_reset_clear_reset_requested(dev, false))
-		return;
-
-	mlx5_core_warn(dev, "Sync Reset Unload. Function is forced down.\n");
-
-	err = mlx5_cmd_fast_teardown_hca(dev);
-	if (err)
-		mlx5_core_warn(dev, "Fast teardown failed, unloading, err %d\n", err);
-	else
-		mlx5_enter_error_state(dev, true);
-
-	if (test_bit(MLX5_FW_RESET_FLAGS_PENDING_COMP, &fw_reset->reset_flags))
+	if (locked)
 		mlx5_unload_one_devl_locked(dev, false);
 	else
 		mlx5_unload_one(dev, false);
+
+	if (!test_bit(MLX5_FW_RESET_FLAGS_UNLOAD_EVENT, &fw_reset->reset_flags))
+		return;
 
 	mlx5_set_fw_rst_ack(dev);
 	mlx5_core_warn(dev, "Sync Reset Unload done, device reset expected\n");
@@ -583,17 +605,73 @@ static void mlx5_sync_reset_unload_event(struct work_struct *work)
 		goto done;
 	}
 
-	mlx5_core_warn(dev, "Sync Reset, got reset action. rst_state = %u\n", rst_state);
+	mlx5_core_warn(dev, "Sync Reset, got reset action. rst_state = %u\n",
+		       rst_state);
 	if (rst_state == MLX5_FW_RST_STATE_TOGGLE_REQ) {
-		err = mlx5_pci_link_toggle(dev);
+		err = mlx5_sync_pci_reset(dev, fw_reset->reset_method);
 		if (err) {
-			mlx5_core_warn(dev, "mlx5_pci_link_toggle failed, err %d\n", err);
+			mlx5_core_warn(dev, "mlx5_sync_pci_reset failed, err %d\n",
+				       err);
 			fw_reset->ret = err;
 		}
 	}
 
 done:
-	mlx5_fw_reset_complete_reload(dev, true);
+	clear_bit(MLX5_FW_RESET_FLAGS_UNLOAD_EVENT, &fw_reset->reset_flags);
+}
+
+static void mlx5_sync_reset_now_event(struct work_struct *work)
+{
+	struct mlx5_fw_reset *fw_reset = container_of(work, struct mlx5_fw_reset,
+						      reset_now_work);
+	struct mlx5_core_dev *dev = fw_reset->dev;
+	int err;
+
+	if (mlx5_sync_reset_clear_reset_requested(dev, false))
+		return;
+
+	mlx5_core_warn(dev, "Sync Reset now. Device is going to reset.\n");
+
+	err = mlx5_cmd_fast_teardown_hca(dev);
+	if (err) {
+		mlx5_core_warn(dev, "Fast teardown failed, no reset done, err %d\n", err);
+		goto done;
+	}
+
+	err = mlx5_sync_pci_reset(dev, fw_reset->reset_method);
+	if (err) {
+		mlx5_core_warn(dev, "mlx5_sync_pci_reset failed, no reset done, err %d\n", err);
+		set_bit(MLX5_FW_RESET_FLAGS_RELOAD_REQUIRED, &fw_reset->reset_flags);
+	}
+
+	mlx5_enter_error_state(dev, true);
+done:
+	fw_reset->ret = err;
+	mlx5_fw_reset_complete_reload(dev);
+}
+
+static void mlx5_sync_reset_unload_event(struct work_struct *work)
+{
+	struct mlx5_fw_reset *fw_reset;
+	struct mlx5_core_dev *dev;
+	int err;
+
+	fw_reset = container_of(work, struct mlx5_fw_reset, reset_unload_work);
+	dev = fw_reset->dev;
+
+	if (mlx5_sync_reset_clear_reset_requested(dev, false))
+		return;
+
+	set_bit(MLX5_FW_RESET_FLAGS_UNLOAD_EVENT, &fw_reset->reset_flags);
+	mlx5_core_warn(dev, "Sync Reset Unload. Function is forced down.\n");
+
+	err = mlx5_cmd_fast_teardown_hca(dev);
+	if (err)
+		mlx5_core_warn(dev, "Fast teardown failed, unloading, err %d\n", err);
+	else
+		mlx5_enter_error_state(dev, true);
+
+	mlx5_fw_reset_complete_reload(dev);
 }
 
 static void mlx5_sync_reset_abort_event(struct work_struct *work)
@@ -628,6 +706,19 @@ static void mlx5_sync_reset_events_handle(struct mlx5_fw_reset *fw_reset, struct
 		queue_work(fw_reset->wq, &fw_reset->reset_abort_work);
 		break;
 	}
+}
+
+static void mlx5_sync_reset_timeout_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = container_of(work, struct delayed_work,
+						  work);
+	struct mlx5_fw_reset *fw_reset =
+		container_of(dwork, struct mlx5_fw_reset, reset_timeout_work);
+	struct mlx5_core_dev *dev = fw_reset->dev;
+
+	if (mlx5_sync_reset_clear_reset_requested(dev, true))
+		return;
+	mlx5_core_warn(dev, "PCI Sync FW Update Reset Timeout.\n");
 }
 
 static int fw_reset_event_notifier(struct notifier_block *nb, unsigned long action, void *data)
@@ -713,6 +804,7 @@ void mlx5_drain_fw_reset(struct mlx5_core_dev *dev)
 	cancel_work_sync(&fw_reset->reset_reload_work);
 	cancel_work_sync(&fw_reset->reset_now_work);
 	cancel_work_sync(&fw_reset->reset_abort_work);
+	cancel_delayed_work(&fw_reset->reset_timeout_work);
 }
 
 static const struct devlink_param mlx5_fw_reset_devlink_params[] = {
@@ -756,6 +848,8 @@ int mlx5_fw_reset_init(struct mlx5_core_dev *dev)
 	INIT_WORK(&fw_reset->reset_reload_work, mlx5_sync_reset_reload_work);
 	INIT_WORK(&fw_reset->reset_now_work, mlx5_sync_reset_now_event);
 	INIT_WORK(&fw_reset->reset_abort_work, mlx5_sync_reset_abort_event);
+	INIT_DELAYED_WORK(&fw_reset->reset_timeout_work,
+			  mlx5_sync_reset_timeout_work);
 
 	init_completion(&fw_reset->done);
 	return 0;

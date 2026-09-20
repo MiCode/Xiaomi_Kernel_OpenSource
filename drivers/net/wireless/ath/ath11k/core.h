@@ -365,6 +365,8 @@ struct ath11k_vif {
 	struct ieee80211_chanctx_conf chanctx;
 	struct ath11k_arp_ns_offload arp_ns_offload;
 	struct ath11k_rekey_data rekey_data;
+	u32 num_stations;
+	bool reinstall_group_keys;
 
 #ifdef CONFIG_ATH11K_DEBUGFS
 	struct dentry *debugfs_twt;
@@ -550,6 +552,8 @@ struct ath11k_fw_stats {
 	struct list_head pdevs;
 	struct list_head vdevs;
 	struct list_head bcn;
+	u32 num_vdev_recvd;
+	u32 num_bcn_recvd;
 };
 
 struct ath11k_dbg_htt_stats {
@@ -732,7 +736,7 @@ struct ath11k {
 	u8 alpha2[REG_ALPHA2_LEN + 1];
 	struct ath11k_fw_stats fw_stats;
 	struct completion fw_stats_complete;
-	bool fw_stats_done;
+	struct completion fw_stats_done;
 
 	/* protected by conf_mutex */
 	bool ps_state_enable;
@@ -838,6 +842,11 @@ struct ath11k_msi_config {
 	int total_users;
 	struct ath11k_msi_user *users;
 	u16 hw_rev;
+};
+
+enum ath11k_pm_policy {
+	ATH11K_PM_DEFAULT,
+	ATH11K_PM_WOW,
 };
 
 /* Master structure to hold the hw data which may be used in core module */
@@ -991,6 +1000,8 @@ struct ath11k_base {
 		u8 *eventdata;
 	} testmode;
 #endif
+
+	enum ath11k_pm_policy pm_policy;
 
 	/* must be last */
 	u8 drv_priv[] __aligned(sizeof(void *));
@@ -1223,6 +1234,11 @@ static inline struct ath11k_skb_rxcb *ATH11K_SKB_RXCB(struct sk_buff *skb)
 static inline struct ath11k_vif *ath11k_vif_to_arvif(struct ieee80211_vif *vif)
 {
 	return (struct ath11k_vif *)vif->drv_priv;
+}
+
+static inline struct ath11k_sta *ath11k_sta_to_arsta(struct ieee80211_sta *sta)
+{
+	return (struct ath11k_sta *)sta->drv_priv;
 }
 
 static inline struct ath11k *ath11k_ab_to_ar(struct ath11k_base *ab,

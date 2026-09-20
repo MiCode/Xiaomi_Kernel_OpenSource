@@ -4073,6 +4073,11 @@ bool cpus_share_cache(int this_cpu, int that_cpu)
 
 static inline bool ttwu_queue_cond(struct task_struct *p, int cpu)
 {
+#ifdef CONFIG_SMP
+	if (p->sched_class == &stop_sched_class)
+		return false;
+#endif
+
 	/*
 	 * Do not complicate things with the async wake_list while the CPU is
 	 * in hotplug state.
@@ -6165,6 +6170,8 @@ __pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		if (unlikely(p == RETRY_TASK))
 			goto restart;
 
+		trace_android_vh_chk_task(&p, rq);
+
 		/* Assume the next prioritized class is idle_sched_class */
 		if (!p) {
 			put_prev_task(rq, prev);
@@ -6179,6 +6186,7 @@ restart:
 
 	for_each_class(class) {
 		p = class->pick_next_task(rq);
+		trace_android_vh_chk_task(&p, rq);
 		if (p)
 			return p;
 	}

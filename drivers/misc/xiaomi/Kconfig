@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Misc memory devices
+#
+
+menu "Xiaomi Misc devices"
+source "$(KCONFIG_EXT_PREFIX)drivers/misc/xiaomi/iorap2/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/misc/xiaomi/mi_wq_dynamic_priority/Kconfig"
+endmenu

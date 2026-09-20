@@ -28,6 +28,7 @@
   amba_driver_register
   amba_driver_unregister
   android_rvh_probe_register
+  anon_inode_getfd
   anon_inode_getfile
   __arch_copy_from_user
   __arch_copy_to_user
@@ -286,8 +287,10 @@
   default_llseek
   deferred_free
   delayed_work_timer_fn
+  desc_to_gpio
   destroy_workqueue
   dev_addr_mod
+  _dev_alert
   dev_alloc_name
   __dev_change_net_namespace
   dev_close
@@ -406,6 +409,7 @@
   devm_power_supply_register
   devm_pwm_get
   devm_qcom_smem_state_get
+  devm_register_sys_off_handler
   devm_regmap_add_irq_chip
   devm_regmap_del_irq_chip
   devm_regmap_field_alloc
@@ -486,6 +490,7 @@
   divider_ro_round_rate_parent
   divider_round_rate_parent
   dma_alloc_attrs
+  dma_alloc_noncontiguous
   dma_alloc_pages
   dma_async_device_register
   dma_async_device_unregister
@@ -521,6 +526,7 @@
   dma_fence_signal_timestamp_locked
   dma_fence_wait_timeout
   dma_free_attrs
+  dma_free_noncontiguous
   dma_free_pages
   dma_get_sgtable_attrs
   dma_get_slave_channel
@@ -552,6 +558,8 @@
   dma_sync_single_for_device
   dma_unmap_page_attrs
   dma_unmap_sg_attrs
+  dma_vmap_noncontiguous
+  dma_vunmap_noncontiguous
   do_trace_netlink_extack
   double_rq_lock
   do_wait_intr
@@ -631,8 +639,10 @@
   drm_crtc_init_with_planes
   drm_crtc_send_vblank_event
   drm_crtc_set_max_vblank_count
+  drm_crtc_vblank_get
   drm_crtc_vblank_off
   drm_crtc_vblank_on
+  drm_crtc_vblank_put
   drm_crtc_vblank_reset
   drm_crtc_wait_one_vblank
   ___drm_dbg
@@ -864,11 +874,14 @@
   gpiod_direction_input
   gpiod_direction_output
   gpiod_direction_output_raw
+  gpiod_get
   gpiod_get_array_value
   gpiod_get_optional
   gpiod_get_raw_value
   gpiod_get_raw_value_cansleep
   gpiod_get_value
+  gpiod_is_active_low
+  gpiod_put
   gpiod_set_raw_value
   gpiod_set_value
   gpiod_set_value_cansleep
@@ -1702,6 +1715,7 @@
   remap_pfn_range
   remove_cpu
   remove_proc_entry
+  remove_proc_subtree
   remove_wait_queue
   report_iommu_fault
   request_firmware
@@ -2091,6 +2105,7 @@
   tick_nohz_get_sleep_length
   timer_delete
   timer_delete_sync
+  timer_shutdown_sync
   topology_clear_scale_freq_source
   topology_update_done
   topology_update_thermal_pressure
@@ -2171,6 +2186,10 @@
   __traceiter_mmap_lock_acquire_returned
   __traceiter_mmap_lock_released
   __traceiter_mmap_lock_start_locking
+  __traceiter_rwmmio_post_read
+  __traceiter_rwmmio_post_write
+  __traceiter_rwmmio_read
+  __traceiter_rwmmio_write
   __traceiter_sched_overutilized_tp
   __traceiter_sched_switch
   __traceiter_sk_data_ready
@@ -2246,6 +2265,10 @@
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
+  __tracepoint_rwmmio_post_read
+  __tracepoint_rwmmio_post_write
+  __tracepoint_rwmmio_read
+  __tracepoint_rwmmio_write
   __tracepoint_sched_overutilized_tp
   __tracepoint_sched_switch
   __tracepoint_sk_data_ready
@@ -2429,6 +2452,7 @@
   __xa_alloc
   __xa_alloc_cyclic
   xa_destroy
+  __xa_erase
   xa_erase
   xa_find
   xa_find_after

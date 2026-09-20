@@ -320,6 +320,8 @@ static int gunyah_vcpu_run(struct gunyah_vcpu *vcpu)
 					schedule();
 				break;
 			case GUNYAH_VCPU_STATE_POWERED_OFF:
+				fallthrough;
+			case GUNYAH_VCPU_STATE_SYSTEM_OFF:
 				/**
 				 * vcpu might be off because the VM is shut down
 				 * If so, it won't ever run again
@@ -369,8 +371,8 @@ static int gunyah_vcpu_run(struct gunyah_vcpu *vcpu)
 				pr_warn_ratelimited(
 					"Unknown vCPU state: %llx\n",
 					vcpu_run_resp.sized_state);
-				schedule();
-				break;
+				ret = -EINVAL;
+				goto out;
 			}
 		} else if (gunyah_error == GUNYAH_ERROR_RETRY) {
 			schedule();

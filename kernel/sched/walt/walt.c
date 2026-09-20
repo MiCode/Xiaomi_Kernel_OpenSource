@@ -23,6 +23,66 @@
 #include <trace/events/power.h>
 #include "walt.h"
 #include "trace.h"
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SCHED_WALT
+#include <linux/pkg_stat.h>
+#endif
+// END Performance_TurboSched
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+extern void mi_wake_up_new_task_hook(struct task_struct *new);
+#endif
+// END Performance_TurboSched
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SOC_DFLT
+extern void trigger_mist_load_tracking(struct workqueue_struct *migt_wq);	
+#endif
+// END Performance_TurboSched
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+mi_update_fravg_hooks mi_update_fravg_f;
+void register_mi_update_fravg(mi_update_fravg_hooks f)
+{
+	pr_info("%s now\n", __FUNCTION__);
+	mi_update_fravg_f = f;
+}
+EXPORT_SYMBOL_GPL(register_mi_update_fravg);
+void unregister_mi_update_fravg(void)
+{
+	mi_update_fravg_f = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_mi_update_fravg);
+walt_window_update_f walt_window_update_hooks;
+void register_walt_update_hooks(walt_window_update_f f)
+{
+	pr_info("%s now\n", __FUNCTION__);
+	walt_window_update_hooks = f;
+}
+EXPORT_SYMBOL_GPL(register_walt_update_hooks);
+void unregister_walt_update_hooks(void)
+{
+	walt_window_update_hooks = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_walt_update_hooks);
+typedef void (*oem_get_ravg_window_f)(unsigned int);
+static oem_get_ravg_window_f oem_get_ravg_window_hook = NULL;
+void register_game_ravg_window(oem_get_ravg_window_f f){
+	if (likely(f))
+		oem_get_ravg_window_hook = f;
+}
+EXPORT_SYMBOL_GPL(register_game_ravg_window);
+void unregister_game_ravg_window(void){
+	oem_get_ravg_window_hook = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_game_ravg_window);
+#endif
+
+#ifdef CONFIG_MI_SOC_DFLT
+extern void mi_dflt_schedule_hook(void);
+#endif
+// END Performance_TurboSched
 
 const char *task_event_names[] = {
 	"PUT_PREV_TASK",
@@ -57,6 +117,43 @@ DEFINE_SPINLOCK(enforce_high_irq_cpu_lock);
 DEFINE_PER_CPU(int, enforce_high_irq_cpus_refcount);
 
 DEFINE_PER_CPU(struct walt_rq, walt_rq);
+// MIUI ADD: Performance_TurboSched
+EXPORT_PER_CPU_SYMBOL_GPL(walt_rq);
+// END Performance_TurboSched
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SCHED_WALT
+extern void update_pkg_load(struct task_struct *tsk, int cpu, int flag,
+                u64 wallclock, u64 delta);
+extern bool pkg_enable(void);
+extern void mi_task_fork(void *nouse, struct task_struct *tsk);
+#endif
+// END Performance_TurboSched
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern struct enqueue_task_fair_hooks mi_enqueue_task_fair_func[MI_SCHED_TYPE];
+extern struct dequeue_task_fair_hooks mi_dequeue_task_fair_func[MI_SCHED_TYPE];
+extern bool oem_rvh_try_to_wake_up_success(struct task_struct *p);
+extern void mi_schedule_hook(struct task_struct *prev,
+        struct task_struct *next, struct rq *rq);
+extern void metis_update_top_task_info(struct task_struct *p, struct rq *rq, bool busy,
+                        u64 wallclock, u64 mark_start);
+extern void mi_scheduler_tick_hook(struct rq *rq);
+extern struct mi_try_to_wake_up_hooks mi_try_to_wake_up_func[MI_SCHED_TYPE];
+extern void metis_tp_fixup_cumulative_runnable_avg_hook(struct rq *rq, struct task_struct *p,
+		s64 demand_scaled_delta, s64 pred_demand_scaled_delta, int cmd,
+		u64 raw_cumulative_runnable_avg_scaled, u64 raw_pred_demands_sum_scaled);
+extern cpumask_t __read_mostly **metis_lb_cpu_array;
+extern int metis_lb_min_possible_cluster_id;
+extern void metis_schlat_schedule_hook(struct task_struct *prev, struct task_struct *next, int cpu);
+#endif
+
+#ifdef CONFIG_MI_SCHED_WALT
+extern void oem_update_num_sched_clusters(int clusters);
+#endif
+// END Performance_TurboSched
+
 unsigned int sysctl_sched_user_hint;
 static u64 sched_clock_last;
 static bool walt_clock_suspended;
@@ -85,6 +182,20 @@ unsigned int __read_mostly sched_init_task_load_windows;
  */
 unsigned int __read_mostly sched_load_granule;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+typedef void (*oem_update_f)(struct task_struct *p, struct rq *rq, u32 fstat, u64 wallclock,
+		       u64 irqtime, int event);
+static oem_update_f oem_update_frame_load_hook = NULL;
+typedef int (*oem_flt_enable_f)(void);
+static oem_flt_enable_f oem_flt_enable_hook = NULL;
+#endif
+// END Performance_TurboSched
+static struct walt_related_thread_group
+			*related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
+static LIST_HEAD(active_related_thread_groups);
+static DEFINE_RWLOCK(related_thread_group_lock);
+
 bool walt_is_idle_task(struct task_struct *p)
 {
 	return walt_flag_test(p, WALT_IDLE_TASK_BIT);
@@ -96,6 +207,11 @@ u64 walt_sched_clock(void)
 		return sched_clock_last;
 	return sched_clock();
 }
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(walt_sched_clock);
+#endif
+// END Performance_TurboSched
 
 static void walt_resume(void)
 {
@@ -367,6 +483,15 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 
 	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats, task_load_delta,
 				      pred_demand_delta);
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_tp_fixup_cumulative_runnable_avg_hook(rq, p, task_load_delta,
+				pred_demand_delta, LAYERED_LOAD_UPDATE,
+				wrq->walt_stats.cumulative_runnable_avg_scaled,
+				wrq->walt_stats.pred_demands_sum_scaled);
+#endif
+// END Performance_TurboSched
 }
 
 static void rollover_cpu_window(struct rq *rq, bool full_window);
@@ -525,8 +650,15 @@ static bool is_ed_task_present(struct rq *rq, u64 wallclock, struct task_struct 
 	return false;
 }
 
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+extern void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
+						u64 wallclock, u64 irqtime);
+#else
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+#endif
+// END Game_TurboSched
 /*
  * Return total number of tasks "eligible" to run on higher capacity cpus
  */
@@ -1143,12 +1275,24 @@ static void migrate_top_tasks_addition(struct task_struct *p, struct rq *rq)
 	}
 }
 
+// MIUI MOD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+bool is_new_task(struct task_struct *p)
+#else
 static inline bool is_new_task(struct task_struct *p)
+#endif
+// END Performance_TurboSched
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	return wts->active_time < NEW_TASK_ACTIVE_TIME;
 }
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(is_new_task);
+#endif
+// END Performance_TurboSched
+
 static inline int run_walt_irq_work_rollover(u64 old_window_start, struct rq *rq);
 
 static void migrate_busy_time_subtraction(struct task_struct *p, int new_cpu)
@@ -1208,8 +1352,15 @@ static void migrate_busy_time_subtraction(struct task_struct *p, int new_cpu)
 	 * load has to reported on a single CPU regardless.
 	 */
 	if (grp) {
-		struct group_cpu_time *cpu_time = &src_wrq->grp_time;
+		struct group_cpu_time *cpu_time;
 
+		if (grp != related_thread_groups[DEFAULT_CGROUP_COLOC_ID])
+			WALT_BUG(WALT_BUG_WALT, p,
+				"CPU%d: %s task %s(%d)'s grp=%p not equal to rtg[1]=%p'",
+				raw_smp_processor_id(), __func__, p->comm, p->pid,
+				grp, related_thread_groups[DEFAULT_CGROUP_COLOC_ID]);
+
+		cpu_time = &src_wrq->grp_time;
 		src_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		src_prev_runnable_sum = &cpu_time->prev_runnable_sum;
 		src_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
@@ -1274,8 +1425,15 @@ static void migrate_busy_time_addition(struct task_struct *p, int new_cpu, u64 w
 	 * load has to reported on a single CPU regardless.
 	 */
 	if (grp) {
-		struct group_cpu_time *cpu_time = &dest_wrq->grp_time;
+		struct group_cpu_time *cpu_time;
 
+		if (grp != related_thread_groups[DEFAULT_CGROUP_COLOC_ID])
+			WALT_BUG(WALT_BUG_WALT, p,
+				"CPU%d: %s task %s(%d)'s grp=%p not equal to rtg[1]=%p'",
+				raw_smp_processor_id(), __func__, p->comm, p->pid,
+				grp, related_thread_groups[DEFAULT_CGROUP_COLOC_ID]);
+
+		cpu_time = &dest_wrq->grp_time;
 		dst_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		dst_prev_runnable_sum = &cpu_time->prev_runnable_sum;
 		dst_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
@@ -1652,13 +1810,24 @@ static void rollover_task_window(struct task_struct *p, bool full_window)
 		wts->active_time += wrq->prev_window_size;
 }
 
+// MIUI MOD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+int cpu_is_waiting_on_io(struct rq *rq)
+#else
 static inline int cpu_is_waiting_on_io(struct rq *rq)
+#endif
+// END Performance_TurboSched
 {
 	if (!sched_io_is_busy)
 		return 0;
 
 	return atomic_read(&rq->nr_iowait);
 }
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(cpu_is_waiting_on_io);
+#endif
+// END Performance_TurboSched
 
 static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 				     u64 irqtime, int event)
@@ -1706,6 +1875,20 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq, struct walt_task_str
 
 	return delta;
 }
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+u64 get_scale_exec_time(u64 delta, int cpu, struct walt_task_struct *wts)
+{
+	struct walt_rq *wrq = &per_cpu(walt_rq, cpu);
+
+	delta = (delta * wrq->task_exec_scale) >> SCHED_CAPACITY_SHIFT;
+	//del rtg boost influence
+	return delta;
+}
+EXPORT_SYMBOL_GPL(get_scale_exec_time);
+#endif
+// END Game_TurboSched
 
 /* Convert busy time to frequency equivalent
  * Assumes load is scaled to 1024
@@ -2204,23 +2387,10 @@ static void update_lst(struct walt_task_struct *wts, u64 wallclock,
 		/* target time after which task will come out of LST state */
 		wts->lst_tgt_ns = wallclock +
 			(LST_ACTIVATION_TIMEOUT * MSEC_TO_NSEC * lst_delay_factor);
-		wts->continuous_active = 0;
-	} else {
-		if (wts->lst_tgt_ns && (wts->lst_tgt_ns < wallclock)) {
-			wts->lst = false;
-			wts->lst_tgt_ns = 0;
-		}
-
-		wts->continuous_active++;
-
-		/*
-		 * reduce lst_state_counter for active task if task is active, this in-turn
-		 * influences calculation for LST delay.
-		 */
-		if (wts->continuous_active > 10) {
-			wts->lst_state_counter = max_t(s64, wts->lst_state_counter - 10, 0);
-			wts->continuous_active = 0;
-		}
+	} else if (wts->lst_tgt_ns && (wts->lst_tgt_ns < wallclock)) {
+		wts->lst = false;
+		wts->lst_tgt_ns = 0;
+		wts->lst_state_counter = 0;
 	}
 
 	/* tracking the number of windows where a task has encountered an event. */
@@ -2228,6 +2398,61 @@ static void update_lst(struct walt_task_struct *wts, u64 wallclock,
 		atomic_inc(&wts->event_windows);
 
 }
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SCHED_WALT
+static int
+__account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event, bool account_wait_time)
+{
+	/*
+	 * No need to bother updating task demand for the idle task.
+	 */
+	if (is_idle_task(p))
+		return 0;
+
+	/*
+	 * When a task is waking up it is completing a segment of non-busy
+	 * time. Likewise, if wait time is not treated as busy time, then
+	 * when a task begins to run or is migrated, it is not running and
+	 * is completing a segment of non-busy time.
+	 */
+	if (event == TASK_WAKE || (!account_wait_time &&
+			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
+		return 0;
+
+	/*
+	 * The idle exit time is not accounted for the first task _picked_ up to
+	 * run on the idle CPU.
+	 */
+	if (event == PICK_NEXT_TASK && rq->curr == rq->idle)
+		return 0;
+
+	/*
+	 * TASK_UPDATE can be called on sleeping task, when its moved between
+	 * related groups
+	 */
+	if (event == TASK_UPDATE) {
+		if (rq->curr == p)
+			return 1;
+
+		return p->on_rq ? account_wait_time : 0;
+	}
+
+	return 1;
+}
+
+static int 
+account_pkg_busy_time(struct rq *rq, struct task_struct *p, int event)
+{
+	if (is_idle_task(p)) {
+		if (event == PICK_NEXT_TASK)
+			return 0;
+		return 1;
+        }
+        return __account_busy_for_task_demand(rq, p, event, false);
+}
+#endif
+// END Performance_TurboSched
 
 /*
  * Called when new window is starting for a task, to record cpu usage over
@@ -2737,9 +2962,46 @@ out:
 			wallclock, next_ms_boundary, no_boost_reason);
 }
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+void register_oem_update_frame_load_hook(oem_update_f f)
+{
+	if (likely(f))
+		oem_update_frame_load_hook = f;
+}
+EXPORT_SYMBOL_GPL(register_oem_update_frame_load_hook);
+
+void unregister_oem_update_frame_load_hook(void)
+{
+	oem_update_frame_load_hook = NULL;
+}
+EXPORT_SYMBOL(unregister_oem_update_frame_load_hook);
+
+void register_oem_flt_enable_hook(oem_flt_enable_f f)
+{
+	if (likely(f))
+		oem_flt_enable_hook = f;
+}
+EXPORT_SYMBOL_GPL(register_oem_flt_enable_hook);
+
+void unregister_oem_flt_enable_hook(void)
+{
+	oem_flt_enable_hook = NULL;
+}
+EXPORT_SYMBOL(unregister_oem_flt_enable_hook);
+#endif
+// END Performance_TurboSched
+
 /* Reflect task activity on its demand and cpu's busy time statistics */
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
+						u64 wallclock, u64 irqtime)
+#else
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
+#endif
+// END Game_TurboSched
 {
 	u64 old_window_start;
 	int this_cpu_runs_window_rollover;
@@ -2777,6 +3039,58 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
 	update_busy_bitmap(p, rq, event, wallclock);
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SCHED_WALT
+	if (pkg_enable()) {
+		int fstat = 0;
+		u64 delta = 0;
+		int pkg_task_busy = account_pkg_busy_time(rq, p, event);
+
+		if (pkg_task_busy) {
+			fstat |= PKG_TASK_BUSY;
+			if (is_idle_task(p))
+				delta = irqtime;
+			else
+				delta = wallclock - wts->mark_start;
+			delta = scale_exec_time(delta, rq, wts);
+			update_pkg_load(p, rq->cpu, fstat, wallclock, delta);
+		}
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+		fstat = 0;
+		if (account_pkg_busy_time(rq, p, event))
+			fstat |= PKG_TASK_BUSY;
+		if (account_busy_for_cpu_time(rq, p, irqtime, event))
+			fstat |= FRAME_STAT_CPUBUSY;
+		if (account_busy_for_task_demand(rq, p, event))
+			fstat |= FRAME_STAT_TASKBUSY;
+		if (mi_update_fravg_f)
+			mi_update_fravg_f(p, rq, fstat, wallclock, irqtime,
+						event);
+
+		if (oem_update_frame_load_hook) {
+			fstat = 0;
+
+			if (account_busy_for_task_demand(rq, p, event))
+				fstat |=  FRAME_STAT_TASKBUSY;
+			if (account_busy_for_cpu_time(rq, p, irqtime, event))
+				fstat |= FRAME_STAT_CPUBUSY;
+			if (cpu_is_waiting_on_io(rq))
+				fstat |= FRAME_STAT_WAITONIO;
+
+            oem_update_frame_load_hook(p, rq, fstat, wallclock, irqtime, event);
+        }
+#endif
+// END Performance_TurboSched
+	}
+
+#ifdef CONFIG_METIS_WALT
+    metis_update_top_task_info(p, rq, account_pkg_busy_time(rq, p, event),
+            wallclock, wts->mark_start);
+#endif
+#endif
+// END Performance_TurboSched
+
 	if (event == PUT_PREV_TASK && READ_ONCE(p->__state))
 		wts->iowaited = p->in_iowait;
 
@@ -2804,6 +3118,12 @@ done:
 	}
 }
 
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(walt_update_task_ravg);
+#endif
+// END Game_TurboSched
+
 static inline void __sched_fork_init(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
@@ -2821,7 +3141,6 @@ static inline void __sched_fork_init(struct task_struct *p)
 	wts->lst		= false;
 	wts->lst_tgt_ns		= 0;
 	wts->lst_state_counter	= 0;
-	wts->continuous_active	= 0;
 	wts->pipeline_activity_cnt = 0;
 	atomic_set(&wts->event_windows, 0);
 }
@@ -2898,11 +3217,12 @@ static void init_new_task_load(struct task_struct *p)
 }
 
 int remove_heavy(struct walt_task_struct *wts);
+static int __sched_set_group_id(struct task_struct *p, unsigned int group_id);
 static void walt_task_dead(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	sched_set_group_id(p, 0);
+	__sched_set_group_id(p, 0);
 
 	if (wts->low_latency & WALT_LOW_LATENCY_PIPELINE_BIT)
 		remove_pipeline(wts);
@@ -2957,6 +3277,12 @@ struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
 __read_mostly int num_sched_clusters;
 
 struct list_head cluster_head;
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(cluster_head);
+#endif
+// END Game_TurboSched
 
 static struct walt_sched_cluster init_cluster = {
 	.list			= LIST_HEAD_INIT(init_cluster.list),
@@ -3124,6 +3450,11 @@ static void update_all_clusters_stats(void)
 		if (mpc < lowest_mpc) {
 			lowest_mpc = mpc;
 			min_possible_cluster_id = cluster_id;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+			metis_lb_min_possible_cluster_id = cluster_id;
+#endif
+// END Performance_TurboSched
 		}
 	}
 	walt_update_group_thresholds();
@@ -3170,6 +3501,11 @@ static void init_cpu_array(void)
 		if (!cpu_array[i])
 			WALT_PANIC(1);
 	}
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_lb_cpu_array = cpu_array;
+#endif
+// END Performance_TurboSched
 }
 
 static void build_cpu_array(void)
@@ -3282,6 +3618,12 @@ static void walt_update_cluster_topology(void)
 		add_cluster(&cluster_cpus, &new_head);
 	}
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SCHED_WALT
+	oem_update_num_sched_clusters(num_sched_clusters);
+#endif
+// END Performance_TurboSched
+
 	align_clusters(&new_head);
 	assign_cluster_ids(&new_head);
 
@@ -3347,11 +3689,6 @@ static void transfer_busy_time(struct rq *rq,
  * Enable colocation and frequency aggregation for all threads in a process.
  * The children inherits the group id from the parent.
  */
-
-static struct walt_related_thread_group
-			*related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
-static LIST_HEAD(active_related_thread_groups);
-static DEFINE_RWLOCK(related_thread_group_lock);
 
 static inline
 void update_best_cluster(struct walt_related_thread_group *grp,
@@ -3692,7 +4029,7 @@ int sched_set_group_id(struct task_struct *p, unsigned int group_id)
 	if (group_id == DEFAULT_CGROUP_COLOC_ID)
 		return -EINVAL;
 
-	return __sched_set_group_id(p, group_id);
+	return 0;
 }
 
 unsigned int sched_get_group_id(struct task_struct *p)
@@ -4172,7 +4509,29 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 			} else {
 				wflag |= WALT_CPUFREQ_ROLLOVER_BIT;
 			}
-
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MIGT_WALT
+			if (walt_window_update_hooks) {
+				if (!is_migration && !is_asym_migration
+					&& walt_window_update_hooks(cpu)) {
+					waltgov_run_callback(cpu_rq(cpu), wflag |
+							WALT_CPUFREQ_CONTINUE_BIT);
+					i++;
+					if (!is_migration)
+						walt_update_irqload(rq);
+					continue;
+				} else if ((!is_migration && !is_asym_migration)
+				&& oem_flt_enable_hook && oem_flt_enable_hook()) {
+					waltgov_run_callback(cpu_rq(cpu), wflag |
+								WALT_CPUFREQ_CONTINUE_BIT);
+					i++;
+					if (!is_migration)
+						walt_update_irqload(rq);
+					continue;
+				}
+			}
+#endif
+// END Performance_TurboSched
 			if (i == num_cpus)
 				waltgov_run_callback(cpu_rq(cpu), wflag);
 			else
@@ -4184,7 +4543,13 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 				walt_update_irqload(rq);
 		}
 	}
-
+	// MIUI ADD: Performance_TurboSched
+	#ifdef CONFIG_MI_SOC_DFLT
+	if (!is_migration&&!is_asym_migration){
+		trigger_mist_load_tracking(NULL);
+	}
+	#endif
+	// END Performance_TurboSched
 	/*
 	 * If the window change request is in pending, good place to
 	 * change sched_ravg_window since all rq locks are acquired.
@@ -4206,6 +4571,12 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 					new_sched_ravg_window,
 					sched_ravg_window_change_time);
 			sched_ravg_window = new_sched_ravg_window;
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+			if (oem_get_ravg_window_hook)
+				oem_get_ravg_window_hook(sched_ravg_window);
+#endif
+//END Game_TurboSched	
 			walt_tunables_fixup();
 		}
 		spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
@@ -4672,6 +5043,15 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 
 	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats, wts->demand_scaled,
 					wts->pred_demand_scaled);
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_tp_fixup_cumulative_runnable_avg_hook(rq, p, wts->demand_scaled,
+				wts->pred_demand_scaled, LAYERED_LOAD_INC,
+				wrq->walt_stats.cumulative_runnable_avg_scaled,
+				wrq->walt_stats.pred_demands_sum_scaled);
+#endif
+// END Performance_TurboSched
 }
 
 static void
@@ -4683,6 +5063,15 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	fixup_cumulative_runnable_avg(rq, p, &wrq->walt_stats,
 				      -(s64)wts->demand_scaled,
 				      -(s64)wts->pred_demand_scaled);
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_tp_fixup_cumulative_runnable_avg_hook(rq, p, -(s64)wts->demand_scaled,
+				-(s64)wts->pred_demand_scaled, LAYERED_LOAD_DEC,
+				wrq->walt_stats.cumulative_runnable_avg_scaled,
+				wrq->walt_stats.pred_demands_sum_scaled);
+#endif
+// END Performance_TurboSched
 }
 
 static void android_rvh_wake_up_new_task(void *unused, struct task_struct *new)
@@ -4793,6 +5182,15 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq,
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
 	bool double_enqueue = false;
 	int mid_cluster_cpu;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    int mod;
+    for (mod = 0; mod < MI_SCHED_TYPE; mod++) {
+        if (mi_enqueue_task_fair_func[mod].f)
+            mi_enqueue_task_fair_func[mod].f(rq, p, flags);
+    }
+#endif
+// END Performance_TurboSched
 
 	if (unlikely(walt_disabled))
 		return;
@@ -4839,8 +5237,19 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq,
 	if (!double_enqueue)
 		walt_inc_cumulative_runnable_avg(rq, p);
 
-
-
+// MIUI ADD: Performance_TurboSched
+#ifdef  CONFIG_METIS_WALT
+	if ((flags & ENQUEUE_WAKEUP) && oem_rvh_try_to_wake_up_success(p))
+        	waltgov_run_callback(rq, OEM_CPUFREQ_UPDATE);
+	else {
+		if ((flags & ENQUEUE_WAKEUP)) {
+			if (walt_flag_test(p, WALT_TRAILBLAZER_BIT))
+				waltgov_run_callback(rq, WALT_CPUFREQ_TRAILBLAZER_BIT);
+			else if (do_pl_notif(rq))
+				waltgov_run_callback(rq, WALT_CPUFREQ_PL_BIT);
+		}
+    }
+#else
 	if ((flags & ENQUEUE_WAKEUP) && walt_flag_test(p, WALT_TRAILBLAZER_BIT)) {
 		waltgov_run_callback(rq, WALT_CPUFREQ_TRAILBLAZER_BIT);
 	} else if (((flags & ENQUEUE_WAKEUP) ||
@@ -4858,6 +5267,8 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq,
 			waltgov_run_callback(rq, WALT_CPUFREQ_UCLAMP_BIT);
 		}
 	}
+#endif
+// END Performance_TurboSched
 
 	set_cpu_flag(cpu_of(rq), CPU_FIRST_ENQ_IN_WINDOW, 1);
 	if (num_sched_clusters >= 2) {
@@ -4881,6 +5292,16 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq,
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	bool double_dequeue = false;
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    int mod;
+    for (mod = 0; mod < MI_SCHED_TYPE; mod++) {
+        if (mi_dequeue_task_fair_func[mod].f)
+            mi_dequeue_task_fair_func[mod].f(rq, p, flags);
+    }
+#endif
+// END Performance_TurboSched
 
 	if (unlikely(walt_disabled))
 		return;
@@ -4983,6 +5404,16 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 	u64 wallclock;
 	unsigned int old_load;
 	struct walt_related_thread_group *grp = NULL;
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	int mod;
+	for (mod = 0; mod < MI_SCHED_TYPE; mod++) {
+		if (mi_try_to_wake_up_func[mod].f)
+			mi_try_to_wake_up_func[mod].f(NULL, p);
+	}
+#endif
+// END Performance_TurboSched
 
 	if (unlikely(walt_disabled))
 		return;
@@ -5161,8 +5592,10 @@ static void android_vh_scheduler_tick(void *unused, struct rq *rq)
 	/* IPC based smart FMAX */
 	cluster = cpu_cluster(cpu);
 	smart_freq_info = cluster->smart_freq_info;
+
 	if (smart_freq_init_done &&
-		smart_freq_info->smart_freq_ipc_participation_mask & IPC_PARTICIPATION) {
+		smart_freq_info->smart_freq_ipc_participation_mask & IPC_PARTICIPATION
+		&& IS_ENABLED(CONFIG_ARM64_AMU_EXTN)) {
 		last_ipc_level = per_cpu(ipc_level, cpu);
 		last_deactivate_ns = per_cpu(ipc_deactivate_ns, cpu);
 		ipc = calculate_ipc(cpu);
@@ -5197,6 +5630,11 @@ static void android_vh_scheduler_tick(void *unused, struct rq *rq)
 			waltgov_run_callback(rq, WALT_CPUFREQ_SMART_FREQ_BIT);
 		}
 	}
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    mi_scheduler_tick_hook(rq);
+#endif
+// END Performance_TurboSched
 }
 
 static void android_rvh_schedule(void *unused, struct task_struct *prev,
@@ -5227,6 +5665,16 @@ static void android_rvh_schedule(void *unused, struct task_struct *prev,
 	} else {
 		walt_update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 	}
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	mi_schedule_hook(prev, next, rq);
+	metis_schlat_schedule_hook(prev, next, rq->cpu);
+#endif
+
+#ifdef CONFIG_MI_SOC_DFLT
+	mi_dflt_schedule_hook();
+#endif
+// END Performance_TurboSched
 }
 
 static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
@@ -5234,6 +5682,11 @@ static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
 	if (unlikely(walt_disabled))
 		return;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_MI_SCHED_WALT
+	mi_task_fork(NULL, p);
+#endif
+// END Performance_TurboSched
 	__sched_fork_init(p);
 }
 

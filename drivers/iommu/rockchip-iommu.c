@@ -1177,7 +1177,6 @@ static int rk_iommu_of_xlate(struct device *dev,
 	iommu_dev = of_find_device_by_node(args->np);
 
 	data->iommu = platform_get_drvdata(iommu_dev);
-	data->iommu->domain = &rk_identity_domain;
 	dev_iommu_priv_set(dev, data);
 
 	platform_device_put(iommu_dev);
@@ -1216,6 +1215,8 @@ static int rk_iommu_probe(struct platform_device *pdev)
 	iommu = devm_kzalloc(dev, sizeof(*iommu), GFP_KERNEL);
 	if (!iommu)
 		return -ENOMEM;
+
+	iommu->domain = &rk_identity_domain;
 
 	platform_set_drvdata(pdev, iommu);
 	iommu->dev = dev;

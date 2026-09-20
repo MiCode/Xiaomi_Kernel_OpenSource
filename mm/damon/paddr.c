@@ -38,7 +38,6 @@ static void damon_pa_mkold(unsigned long paddr)
 		.rmap_one = __damon_pa_mkold,
 		.anon_lock = folio_lock_anon_vma_read,
 	};
-	bool need_lock;
 
 	if (!folio)
 		return;
@@ -48,14 +47,11 @@ static void damon_pa_mkold(unsigned long paddr)
 		goto out;
 	}
 
-	need_lock = !folio_test_anon(folio) || folio_test_ksm(folio);
-	if (need_lock && !folio_trylock(folio))
+	if (!folio_trylock(folio))
 		goto out;
 
 	rmap_walk(folio, &rwc);
-
-	if (need_lock)
-		folio_unlock(folio);
+	folio_unlock(folio);
 
 out:
 	folio_put(folio);
@@ -120,7 +116,6 @@ static bool damon_pa_young(unsigned long paddr, unsigned long *folio_sz)
 		.rmap_one = __damon_pa_young,
 		.anon_lock = folio_lock_anon_vma_read,
 	};
-	bool need_lock;
 
 	if (!folio)
 		return false;
@@ -133,14 +128,11 @@ static bool damon_pa_young(unsigned long paddr, unsigned long *folio_sz)
 		goto out;
 	}
 
-	need_lock = !folio_test_anon(folio) || folio_test_ksm(folio);
-	if (need_lock && !folio_trylock(folio))
+	if (!folio_trylock(folio))
 		goto out;
 
 	rmap_walk(folio, &rwc);
-
-	if (need_lock)
-		folio_unlock(folio);
+	folio_unlock(folio);
 
 out:
 	*folio_sz = folio_size(folio);

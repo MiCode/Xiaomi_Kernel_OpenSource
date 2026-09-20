@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -268,7 +268,8 @@ static void convert_ibat_to_adc_val(struct bcl_device *bcl_perph, int *val, int 
 	 * So the scaling factor is half in those cases.
 	 */
 	if (bcl_perph->ibat_use_qg_adc)
-		*val = (int)div_s64(*val * 2000 * 2, scaling_factor);
+		*val = (int)div_s64(*val * 2000 * 2 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
+				scaling_factor);
 	else if (bcl_perph->no_bit_shift)
 		*val = (int)div_s64(*val * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
 				scaling_factor);
@@ -282,7 +283,8 @@ static void convert_adc_to_ibat_val(struct bcl_device *bcl_perph, int *val, int 
 {
 	/* Scaling factor will be half if ibat_use_qg_adc is true */
 	if (bcl_perph->ibat_use_qg_adc)
-		*val = (int)div_s64(*val * scaling_factor, 2 * 1000);
+		*val = (int)div_s64(*val * scaling_factor,
+				2 * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);
 	else
 		*val = (int)div_s64(*val * scaling_factor,
 				1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);

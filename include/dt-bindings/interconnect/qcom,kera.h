@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /*
- * Copyright (c) 2024-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef __DT_BINDINGS_INTERCONNECT_QCOM_KERA_H
@@ -78,47 +78,48 @@
 #define SLAVE_QSPI_0				530
 #define SLAVE_QUP_1				531
 #define SLAVE_QUP_2				532
-#define SLAVE_SDCC_2				533
-#define SLAVE_SOCCP				534
-#define SLAVE_TCSR				535
-#define SLAVE_TLMM				536
-#define SLAVE_TME_CFG				537
-#define SLAVE_UFS_MEM_CFG				538
-#define SLAVE_USB3_0				539
-#define SLAVE_VENUS_CFG				540
-#define SLAVE_VSENSE_CTRL_CFG				541
-#define SLAVE_A1NOC_SNOC				542
-#define SLAVE_A2NOC_SNOC				543
-#define SLAVE_GEM_NOC_CNOC				544
-#define SLAVE_SNOC_GEM_NOC_SF				545
-#define SLAVE_LLCC				546
-#define SLAVE_LPASS_GEM_NOC				547
-#define SLAVE_LPIAON_NOC_LPASS_AG_NOC				548
-#define SLAVE_LPICX_NOC_LPIAON_NOC				549
-#define SLAVE_MNOC_HF_MEM_NOC				550
-#define SLAVE_MNOC_SF_MEM_NOC				551
-#define SLAVE_CDSP_MEM_NOC				552
-#define SLAVE_MEM_NOC_PCIE_SNOC				553
-#define SLAVE_ANOC_PCIE_GEM_NOC				554
-#define SLAVE_APPSS				555
-#define SLAVE_CNOC_CFG				556
-#define SLAVE_DDRSS_CFG				557
-#define SLAVE_CNOC_MNOC_HF_CFG				558
-#define SLAVE_CNOC_MNOC_SF_CFG				559
-#define SLAVE_PCIE_ANOC_CFG				560
-#define SLAVE_QUP_CORE_1				561
-#define SLAVE_QUP_CORE_2				562
-#define SLAVE_BOOT_IMEM				563
-#define SLAVE_IMEM				564
-#define SLAVE_BOOT_IMEM_2				565
-#define SLAVE_SERVICE_CNOC				566
-#define SLAVE_SERVICE_MNOC_HF				567
-#define SLAVE_SERVICE_MNOC_SF				568
-#define SLAVE_SERVICE_PCIE_ANOC				569
-#define SLAVE_PCIE_0				570
-#define SLAVE_PCIE_1				571
-#define SLAVE_QDSS_STM				572
-#define SLAVE_TCU				573
+#define SLAVE_SDCC_1				533
+#define SLAVE_SDCC_2				534
+#define SLAVE_SOCCP				535
+#define SLAVE_TCSR				536
+#define SLAVE_TLMM				537
+#define SLAVE_TME_CFG				538
+#define SLAVE_UFS_MEM_CFG				539
+#define SLAVE_USB3_0				540
+#define SLAVE_VENUS_CFG				541
+#define SLAVE_VSENSE_CTRL_CFG				542
+#define SLAVE_A1NOC_SNOC				543
+#define SLAVE_A2NOC_SNOC				544
+#define SLAVE_GEM_NOC_CNOC				545
+#define SLAVE_SNOC_GEM_NOC_SF				546
+#define SLAVE_LLCC				547
+#define SLAVE_LPASS_GEM_NOC				548
+#define SLAVE_LPIAON_NOC_LPASS_AG_NOC				549
+#define SLAVE_LPICX_NOC_LPIAON_NOC				550
+#define SLAVE_MNOC_HF_MEM_NOC				551
+#define SLAVE_MNOC_SF_MEM_NOC				552
+#define SLAVE_CDSP_MEM_NOC				553
+#define SLAVE_MEM_NOC_PCIE_SNOC				554
+#define SLAVE_ANOC_PCIE_GEM_NOC				555
+#define SLAVE_APPSS				556
+#define SLAVE_CNOC_CFG				557
+#define SLAVE_DDRSS_CFG				558
+#define SLAVE_CNOC_MNOC_HF_CFG				559
+#define SLAVE_CNOC_MNOC_SF_CFG				560
+#define SLAVE_PCIE_ANOC_CFG				561
+#define SLAVE_QUP_CORE_1				562
+#define SLAVE_QUP_CORE_2				563
+#define SLAVE_BOOT_IMEM				564
+#define SLAVE_IMEM				565
+#define SLAVE_BOOT_IMEM_2				566
+#define SLAVE_SERVICE_CNOC				567
+#define SLAVE_SERVICE_MNOC_HF				568
+#define SLAVE_SERVICE_MNOC_SF				569
+#define SLAVE_SERVICE_PCIE_ANOC				570
+#define SLAVE_PCIE_0				571
+#define SLAVE_PCIE_1				572
+#define SLAVE_QDSS_STM				573
+#define SLAVE_TCU				574
 #define MASTER_IPA_CORE_PCIE_CRM_HW_0				1000
 #define MASTER_LLCC_PCIE_CRM_HW_0				1001
 #define MASTER_ANOC_PCIE_GEM_NOC_PCIE_CRM_HW_0				1002

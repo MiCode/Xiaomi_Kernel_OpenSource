@@ -1196,9 +1196,14 @@
   hid_add_device
   hid_allocate_device
   hid_destroy_device
+  hid_field_extract
   hid_ignore
   hid_input_report
+  hid_is_usb
   hid_parse_report
+  hid_register_report
+  hid_report_raw_event
+  hid_validate_values
   housekeeping_cpumask
   housekeeping_overridden
   housekeeping_test_cpu
@@ -1322,6 +1327,7 @@
   input_alloc_absinfo
   input_allocate_device
   input_close_device
+  input_enable_softrepeat
   input_event
   input_free_device
   input_mt_destroy_slots
@@ -1778,6 +1784,8 @@
   net_selftest_get_strings
   nf_conntrack_destroy
   nf_register_net_hooks
+  nf_sk_lookup_slow_v4
+  nf_sk_lookup_slow_v6
   nf_unregister_net_hooks
   nla_find
   nla_memcpy
@@ -2215,6 +2223,7 @@
   power_supply_get_drvdata
   power_supply_get_property
   power_supply_is_system_supplied
+  power_supply_powers
   power_supply_put
   power_supply_register
   power_supply_reg_notifier
@@ -3801,6 +3810,7 @@
   zlib_deflateReset
   zlib_deflate_workspacesize
   zlib_inflate
+  zlib_inflateEnd
   zlib_inflateIncomp
   zlib_inflateInit2
   zlib_inflateReset

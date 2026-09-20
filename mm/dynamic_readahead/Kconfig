@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_DYNAMIC_READAHEAD
+	tristate "dynamic pagecache readahead"
+	default n
+	help
+	  This driver used for dynamically tuning filemap readahead for performance.

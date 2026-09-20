@@ -94,6 +94,8 @@
   kmalloc_trace
   kmemdup
   ktime_get
+  kvfree
+  kvmalloc_node
   __list_add_valid_or_report
   __list_del_entry_valid_or_report
   memcpy

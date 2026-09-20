@@ -238,6 +238,15 @@ static const char *pin_free(struct pinctrl_dev *pctldev, int pin,
 			if (desc->mux_usecount)
 				return NULL;
 		}
+
+		if (gpio_range) {
+			owner = desc->gpio_owner;
+			desc->gpio_owner = NULL;
+		} else {
+			owner = desc->mux_owner;
+			desc->mux_owner = NULL;
+			desc->mux_setting = NULL;
+		}
 	}
 
 	/*
@@ -248,17 +257,6 @@ static const char *pin_free(struct pinctrl_dev *pctldev, int pin,
 		ops->gpio_disable_free(pctldev, gpio_range, pin);
 	else if (ops->free)
 		ops->free(pctldev, pin);
-
-	scoped_guard(mutex, &desc->mux_lock) {
-		if (gpio_range) {
-			owner = desc->gpio_owner;
-			desc->gpio_owner = NULL;
-		} else {
-			owner = desc->mux_owner;
-			desc->mux_owner = NULL;
-			desc->mux_setting = NULL;
-		}
-	}
 
 	module_put(pctldev->owner);
 
@@ -341,7 +339,7 @@ static int pinmux_func_name_to_selector(struct pinctrl_dev *pctldev,
 	while (selector < nfuncs) {
 		const char *fname = ops->get_function_name(pctldev, selector);
 
-		if (!strcmp(function, fname))
+		if (fname && !strcmp(function, fname))
 			return selector;
 
 		selector++;

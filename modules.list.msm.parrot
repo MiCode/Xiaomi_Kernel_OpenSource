@@ -92,3 +92,4 @@ nvmem_qfprom.ko
 cqhci-crypto-qti.ko
 dcc_v2.ko
 memory_dump_v2.ko
+hardware_info.ko

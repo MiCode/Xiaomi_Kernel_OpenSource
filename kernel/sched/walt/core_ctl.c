@@ -21,6 +21,12 @@
 #include "walt.h"
 #include "trace.h"
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+#endif
+// END Performance_TurboSched
+
 /* mask of all CPUs with a fully pause claim outstanding */
 cpumask_t cpus_paused_by_us = { CPU_BITS_NONE };
 
@@ -32,6 +38,11 @@ cpumask_t cpus_for_sbt_pause = { CPU_BITS_NONE };
 
 struct cluster_data {
 	bool			inited;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    unsigned int        user_min_cpus;
+#endif
+// END Performance_TurboSched
 	unsigned int		min_cpus;
 	unsigned int		min_partial_cpus;
 	unsigned int		max_cpus;
@@ -104,6 +115,24 @@ static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
 static unsigned int get_assist_active_cpu_count(const struct cluster_data *cluster);
 static unsigned int active_cpu_count_from_mask(const cpumask_t *cpus);
 static void __ref do_core_ctl(void);
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern void register_corectl_boost_hook(oem_corectl_hook_f f);
+static void oem_corectl_boost_cpu(unsigned int cid, unsigned int val)
+{
+    struct cluster_data *cstate, *state;
+    if (cid < MAX_CLUSTERS) {
+        cstate = &cluster_state[cid];
+        state = &cluster_state[cid];
+        if (val)
+            cstate->min_cpus = min(val, cstate->num_cpus);
+        else
+            cstate->min_cpus = min(cstate->user_min_cpus, state->num_cpus);
+        sysfs_param_changed(cstate);
+    }
+}
+#endif
+// END Performance_TurboSched
 
 cpumask_t part_haltable_cpus = { CPU_BITS_NONE };
 /* ========================= sysfs interface =========================== */
@@ -117,6 +146,11 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 		return -EINVAL;
 
 	state->min_cpus = min(val, state->num_cpus);
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    state->user_min_cpus = state->min_cpus;
+#endif
+// END Performance_TurboSched
 	sysfs_param_changed(state);
 
 	return count;
@@ -1872,6 +1906,12 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->first_cpu = first_cpu;
 	cluster->min_cpus = 1;
 	cluster->min_partial_cpus = 0;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    cluster->user_min_cpus = 1;
+    register_corectl_boost_hook(oem_corectl_boost_cpu);
+#endif
+// END Performance_TurboSched
 	cluster->max_cpus = cluster->num_cpus;
 	cluster->need_cpus = cluster->num_cpus;
 	cluster->offline_delay_ms = 100;

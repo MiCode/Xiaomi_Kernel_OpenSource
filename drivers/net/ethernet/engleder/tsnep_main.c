@@ -51,12 +51,24 @@
 #define TSNEP_COALESCE_USECS_MAX     ((ECM_INT_DELAY_MASK >> ECM_INT_DELAY_SHIFT) * \
 				      ECM_INT_DELAY_BASE_US + ECM_INT_DELAY_BASE_US - 1)
 
-#define TSNEP_TX_TYPE_SKB	BIT(0)
-#define TSNEP_TX_TYPE_SKB_FRAG	BIT(1)
-#define TSNEP_TX_TYPE_XDP_TX	BIT(2)
-#define TSNEP_TX_TYPE_XDP_NDO	BIT(3)
-#define TSNEP_TX_TYPE_XDP	(TSNEP_TX_TYPE_XDP_TX | TSNEP_TX_TYPE_XDP_NDO)
-#define TSNEP_TX_TYPE_XSK	BIT(4)
+/* mapping type */
+#define TSNEP_TX_TYPE_MAP		BIT(0)
+#define TSNEP_TX_TYPE_MAP_PAGE		BIT(1)
+#define TSNEP_TX_TYPE_INLINE		BIT(2)
+/* buffer type */
+#define TSNEP_TX_TYPE_SKB		BIT(8)
+#define TSNEP_TX_TYPE_SKB_MAP		(TSNEP_TX_TYPE_SKB | TSNEP_TX_TYPE_MAP)
+#define TSNEP_TX_TYPE_SKB_INLINE	(TSNEP_TX_TYPE_SKB | TSNEP_TX_TYPE_INLINE)
+#define TSNEP_TX_TYPE_SKB_FRAG		BIT(9)
+#define TSNEP_TX_TYPE_SKB_FRAG_MAP_PAGE	(TSNEP_TX_TYPE_SKB_FRAG | TSNEP_TX_TYPE_MAP_PAGE)
+#define TSNEP_TX_TYPE_SKB_FRAG_INLINE	(TSNEP_TX_TYPE_SKB_FRAG | TSNEP_TX_TYPE_INLINE)
+#define TSNEP_TX_TYPE_XDP_TX		BIT(10)
+#define TSNEP_TX_TYPE_XDP_NDO		BIT(11)
+#define TSNEP_TX_TYPE_XDP_NDO_MAP_PAGE	(TSNEP_TX_TYPE_XDP_NDO | TSNEP_TX_TYPE_MAP_PAGE)
+#define TSNEP_TX_TYPE_XDP		(TSNEP_TX_TYPE_XDP_TX | TSNEP_TX_TYPE_XDP_NDO)
+#define TSNEP_TX_TYPE_XSK		BIT(12)
+#define TSNEP_TX_TYPE_TSTAMP		BIT(13)
+#define TSNEP_TX_TYPE_SKB_TSTAMP	(TSNEP_TX_TYPE_SKB | TSNEP_TX_TYPE_TSTAMP)
 
 #define TSNEP_XDP_TX		BIT(0)
 #define TSNEP_XDP_REDIRECT	BIT(1)
@@ -375,8 +387,7 @@ static void tsnep_tx_activate(struct tsnep_tx *tx, int index, int length,
 	if (entry->skb) {
 		entry->properties = length & TSNEP_DESC_LENGTH_MASK;
 		entry->properties |= TSNEP_DESC_INTERRUPT_FLAG;
-		if ((entry->type & TSNEP_TX_TYPE_SKB) &&
-		    (skb_shinfo(entry->skb)->tx_flags & SKBTX_IN_PROGRESS))
+		if ((entry->type & TSNEP_TX_TYPE_SKB_TSTAMP) == TSNEP_TX_TYPE_SKB_TSTAMP)
 			entry->properties |= TSNEP_DESC_EXTENDED_WRITEBACK_FLAG;
 
 		/* toggle user flag to prevent false acknowledge
@@ -416,6 +427,8 @@ static void tsnep_tx_activate(struct tsnep_tx *tx, int index, int length,
 		entry->properties |= TSNEP_TX_DESC_OWNER_USER_FLAG;
 	entry->desc->more_properties =
 		__cpu_to_le32(entry->len & TSNEP_DESC_LENGTH_MASK);
+	if (entry->type & TSNEP_TX_TYPE_INLINE)
+		entry->properties |= TSNEP_TX_DESC_DATA_AFTER_DESC_FLAG;
 
 	/* descriptor properties shall be written last, because valid data is
 	 * signaled there
@@ -433,39 +446,83 @@ static int tsnep_tx_desc_available(struct tsnep_tx *tx)
 		return tx->read - tx->write - 1;
 }
 
-static int tsnep_tx_map(struct sk_buff *skb, struct tsnep_tx *tx, int count)
+static int tsnep_tx_map_frag(skb_frag_t *frag, struct tsnep_tx_entry *entry,
+			     struct device *dmadev, dma_addr_t *dma)
+{
+	unsigned int len;
+	int mapped;
+
+	len = skb_frag_size(frag);
+	if (likely(len > TSNEP_DESC_SIZE_DATA_AFTER_INLINE)) {
+		*dma = skb_frag_dma_map(dmadev, frag, 0, len, DMA_TO_DEVICE);
+		if (dma_mapping_error(dmadev, *dma))
+			return -ENOMEM;
+		entry->type = TSNEP_TX_TYPE_SKB_FRAG_MAP_PAGE;
+		mapped = 1;
+	} else {
+		void *fragdata = skb_frag_address_safe(frag);
+
+		if (likely(fragdata)) {
+			memcpy(&entry->desc->tx, fragdata, len);
+		} else {
+			struct page *page = skb_frag_page(frag);
+
+			fragdata = kmap_local_page(page);
+			memcpy(&entry->desc->tx, fragdata + skb_frag_off(frag),
+			       len);
+			kunmap_local(fragdata);
+		}
+		entry->type = TSNEP_TX_TYPE_SKB_FRAG_INLINE;
+		mapped = 0;
+	}
+
+	return mapped;
+}
+
+static int tsnep_tx_map(struct sk_buff *skb, struct tsnep_tx *tx, int count,
+			bool do_tstamp)
 {
 	struct device *dmadev = tx->adapter->dmadev;
 	struct tsnep_tx_entry *entry;
 	unsigned int len;
-	dma_addr_t dma;
 	int map_len = 0;
-	int i;
+	dma_addr_t dma;
+	int i, mapped;
 
 	for (i = 0; i < count; i++) {
 		entry = &tx->entry[(tx->write + i) & TSNEP_RING_MASK];
 
 		if (!i) {
 			len = skb_headlen(skb);
-			dma = dma_map_single(dmadev, skb->data, len,
-					     DMA_TO_DEVICE);
+			if (likely(len > TSNEP_DESC_SIZE_DATA_AFTER_INLINE)) {
+				dma = dma_map_single(dmadev, skb->data, len,
+						     DMA_TO_DEVICE);
+				if (dma_mapping_error(dmadev, dma))
+					return -ENOMEM;
+				entry->type = TSNEP_TX_TYPE_SKB_MAP;
+				mapped = 1;
+			} else {
+				memcpy(&entry->desc->tx, skb->data, len);
+				entry->type = TSNEP_TX_TYPE_SKB_INLINE;
+				mapped = 0;
+			}
 
-			entry->type = TSNEP_TX_TYPE_SKB;
+			if (do_tstamp)
+				entry->type |= TSNEP_TX_TYPE_TSTAMP;
 		} else {
-			len = skb_frag_size(&skb_shinfo(skb)->frags[i - 1]);
-			dma = skb_frag_dma_map(dmadev,
-					       &skb_shinfo(skb)->frags[i - 1],
-					       0, len, DMA_TO_DEVICE);
+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i - 1];
 
-			entry->type = TSNEP_TX_TYPE_SKB_FRAG;
+			len = skb_frag_size(frag);
+			mapped = tsnep_tx_map_frag(frag, entry, dmadev, &dma);
+			if (mapped < 0)
+				return mapped;
 		}
-		if (dma_mapping_error(dmadev, dma))
-			return -ENOMEM;
 
 		entry->len = len;
-		dma_unmap_addr_set(entry, dma, dma);
-
-		entry->desc->tx = __cpu_to_le64(dma);
+		if (likely(mapped)) {
+			dma_unmap_addr_set(entry, dma, dma);
+			entry->desc->tx = __cpu_to_le64(dma);
+		}
 
 		map_len += len;
 	}
@@ -484,13 +541,12 @@ static int tsnep_tx_unmap(struct tsnep_tx *tx, int index, int count)
 		entry = &tx->entry[(index + i) & TSNEP_RING_MASK];
 
 		if (entry->len) {
-			if (entry->type & TSNEP_TX_TYPE_SKB)
+			if (entry->type & TSNEP_TX_TYPE_MAP)
 				dma_unmap_single(dmadev,
 						 dma_unmap_addr(entry, dma),
 						 dma_unmap_len(entry, len),
 						 DMA_TO_DEVICE);
-			else if (entry->type &
-				 (TSNEP_TX_TYPE_SKB_FRAG | TSNEP_TX_TYPE_XDP_NDO))
+			else if (entry->type & TSNEP_TX_TYPE_MAP_PAGE)
 				dma_unmap_page(dmadev,
 					       dma_unmap_addr(entry, dma),
 					       dma_unmap_len(entry, len),
@@ -506,11 +562,12 @@ static int tsnep_tx_unmap(struct tsnep_tx *tx, int index, int count)
 static netdev_tx_t tsnep_xmit_frame_ring(struct sk_buff *skb,
 					 struct tsnep_tx *tx)
 {
-	int count = 1;
 	struct tsnep_tx_entry *entry;
+	bool do_tstamp = false;
+	int count = 1;
 	int length;
-	int i;
 	int retval;
+	int i;
 
 	if (skb_shinfo(skb)->nr_frags > 0)
 		count += skb_shinfo(skb)->nr_frags;
@@ -527,7 +584,13 @@ static netdev_tx_t tsnep_xmit_frame_ring(struct sk_buff *skb,
 	entry = &tx->entry[tx->write];
 	entry->skb = skb;
 
-	retval = tsnep_tx_map(skb, tx, count);
+	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+	    tx->adapter->hwtstamp_config.tx_type == HWTSTAMP_TX_ON) {
+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+		do_tstamp = true;
+	}
+
+	retval = tsnep_tx_map(skb, tx, count, do_tstamp);
 	if (retval < 0) {
 		tsnep_tx_unmap(tx, tx->write, count);
 		dev_kfree_skb_any(entry->skb);
@@ -538,9 +601,6 @@ static netdev_tx_t tsnep_xmit_frame_ring(struct sk_buff *skb,
 		return NETDEV_TX_OK;
 	}
 	length = retval;
-
-	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)
-		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 
 	for (i = 0; i < count; i++)
 		tsnep_tx_activate(tx, (tx->write + i) & TSNEP_RING_MASK, length,
@@ -586,7 +646,7 @@ static int tsnep_xdp_tx_map(struct xdp_frame *xdpf, struct tsnep_tx *tx,
 			if (dma_mapping_error(dmadev, dma))
 				return -ENOMEM;
 
-			entry->type = TSNEP_TX_TYPE_XDP_NDO;
+			entry->type = TSNEP_TX_TYPE_XDP_NDO_MAP_PAGE;
 		} else {
 			page = unlikely(frag) ? skb_frag_page(frag) :
 						virt_to_page(xdpf->data);
@@ -792,8 +852,7 @@ static bool tsnep_tx_poll(struct tsnep_tx *tx, int napi_budget)
 
 		length = tsnep_tx_unmap(tx, tx->read, count);
 
-		if ((entry->type & TSNEP_TX_TYPE_SKB) &&
-		    (skb_shinfo(entry->skb)->tx_flags & SKBTX_IN_PROGRESS) &&
+		if (((entry->type & TSNEP_TX_TYPE_SKB_TSTAMP) == TSNEP_TX_TYPE_SKB_TSTAMP) &&
 		    (__le32_to_cpu(entry->desc_wb->properties) &
 		     TSNEP_DESC_EXTENDED_WRITEBACK_FLAG)) {
 			struct skb_shared_hwtstamps hwtstamps;

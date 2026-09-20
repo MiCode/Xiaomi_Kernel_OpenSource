@@ -39,6 +39,7 @@ static void inject_undef64(struct kvm_vcpu *vcpu)
 
 	*vcpu_pc(vcpu) = read_sysreg_el2(SYS_ELR);
 	*vcpu_cpsr(vcpu) = read_sysreg_el2(SYS_SPSR);
+	__vcpu_sys_reg(vcpu, VBAR_EL1) = read_sysreg_el1(SYS_VBAR);
 
 	kvm_pend_exception(vcpu, EXCEPT_AA64_EL1_SYNC);
 
@@ -465,6 +466,7 @@ static const struct sys_reg_desc pvm_sys_reg_descs[] = {
 
 	HOST_HANDLED(SYS_CCSIDR_EL1),
 	HOST_HANDLED(SYS_CLIDR_EL1),
+	RAZ_WI(SYS_AIDR_EL1),
 	HOST_HANDLED(SYS_CSSELR_EL1),
 	HOST_HANDLED(SYS_CTR_EL0),
 
@@ -528,7 +530,7 @@ static const struct sys_reg_desc_reset pvm_sys_reg_reset_vals[] = {
 	RESET_VAL(CPACR_EL1, 0),
 	RESET_VAL(ZCR_EL1, 0),
 	RESET_VAL(TCR_EL1, 0),
-	RESET_VAL(VBAR_EL1, 0),
+	RESET_VAL(VBAR_EL1, 0x1de7ec7edbadc000ULL),
 	RESET_VAL(CONTEXTIDR_EL1, 0),
 	RESET_FUNC(AMAIR_EL1, reset_amair_el1),
 	RESET_VAL(CNTKCTL_EL1, 0),

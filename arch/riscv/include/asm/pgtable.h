@@ -12,7 +12,7 @@
 #include <asm/pgtable-bits.h>
 
 #ifndef CONFIG_MMU
-#define KERNEL_LINK_ADDR	PAGE_OFFSET
+#define KERNEL_LINK_ADDR	_AC(CONFIG_PAGE_OFFSET, UL)
 #define KERN_VIRT_SIZE		(UL(-1))
 #else
 
@@ -619,6 +619,8 @@ static inline pgprot_t pgprot_writecombine(pgprot_t _prot)
 
 	return __pgprot(prot);
 }
+
+#define pgprot_dmacoherent pgprot_writecombine
 
 /*
  * THP functions

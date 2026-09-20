@@ -23,6 +23,7 @@
 #ifndef __DRM_FRAMEBUFFER_H__
 #define __DRM_FRAMEBUFFER_H__
 
+#include <linux/bits.h>
 #include <linux/ctype.h>
 #include <linux/list.h>
 #include <linux/sched.h>
@@ -99,6 +100,8 @@ struct drm_framebuffer_funcs {
 		     unsigned color, struct drm_clip_rect *clips,
 		     unsigned num_clips);
 };
+
+#define DRM_FRAMEBUFFER_HAS_HANDLE_REF(_i)	BIT(0u + (_i))
 
 /**
  * struct drm_framebuffer - frame buffer object
@@ -200,6 +203,12 @@ struct drm_framebuffer {
 	 * universal plane.
 	 */
 	int hot_y;
+#ifndef __GENKSYMS__  //Placing this in a hole in the structure
+	/**
+	 * @internal_flags: Framebuffer flags like DRM_FRAMEBUFFER_HAS_HANDLE_REF.
+	 */
+	unsigned int internal_flags;
+#endif
 	/**
 	 * @filp_head: Placed on &drm_file.fbs, protected by &drm_file.fbs_lock.
 	 */

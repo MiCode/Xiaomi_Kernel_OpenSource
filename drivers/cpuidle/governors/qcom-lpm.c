@@ -3,7 +3,7 @@
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/cpu.h>
@@ -241,6 +241,7 @@ static void cpu_predict(struct lpm_cpu *cpu_gov, u64 duration_ns)
 	struct cpuidle_state *min_state = &drv->states[0];
 	struct history_lpm *lpm_history = &cpu_gov->lpm_history;
 	struct history_ipi *ipi_history = &cpu_gov->ipi_history;
+	unsigned long flags;
 
 	if (prediction_disabled)
 		return;
@@ -313,10 +314,12 @@ static void cpu_predict(struct lpm_cpu *cpu_gov, u64 duration_ns)
 	if (cpu_gov->predicted)
 		return;
 
+	spin_lock_irqsave(&cpu_gov->lock, flags);
 	cpu_gov->predicted = find_deviation(cpu_gov, ipi_history->interval,
 					    duration_ns);
 	if (cpu_gov->predicted)
 		cpu_gov->pred_type = LPM_PRED_IPI_PATTERN;
+	spin_unlock_irqrestore(&cpu_gov->lock, flags);
 }
 
 /**
@@ -486,10 +489,11 @@ static void ipi_raise(void *ignore, const struct cpumask *mask, const char *unus
 		if (!cpu_gov->enable)
 			return;
 
-		spin_lock_irqsave(&cpu_gov->lock, flags);
-		cpu_gov->ipi_pending = true;
-		update_ipi_history(cpu, now);
-		spin_unlock_irqrestore(&cpu_gov->lock, flags);
+		if (spin_trylock_irqsave(&cpu_gov->lock, flags)) {
+			cpu_gov->ipi_pending = true;
+			update_ipi_history(cpu, now);
+			spin_unlock_irqrestore(&cpu_gov->lock, flags);
+		}
 	}
 }
 

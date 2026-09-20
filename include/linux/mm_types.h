@@ -1013,7 +1013,7 @@ struct mm_struct {
 #endif /* CONFIG_LRU_GEN */
 
 		ANDROID_KABI_RESERVE(1);
-		ANDROID_BACKPORT_RESERVE(1);
+		ANDROID_BACKPORT_USE(1, struct task_dma_buf_info *dmabuf_info);
 	} __randomize_layout;
 
 	/*

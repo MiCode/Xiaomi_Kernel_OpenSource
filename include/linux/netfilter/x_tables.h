@@ -144,6 +144,15 @@ struct xt_match {
 
 	const char name[XT_EXTENSION_MAXNAMELEN];
 	u_int8_t revision;
+#ifndef __GENKSYMS__
+	/*
+	 * ANDROID: Indicates that this structure is contained within a compat_xt_match_ext struct,
+	 * which contains the required metadata.
+	 *
+	 * Hide this from GENKSYMS to preserve the original CRC value of this struct.
+	 */
+	bool has_compat_metadata;
+#endif
 
 	/* Return true or false: return FALSE and set *hotdrop = 1 to
            force immediate packet drop. */
@@ -158,7 +167,13 @@ struct xt_match {
 
 	/* Called when entry of this type deleted. */
 	void (*destroy)(const struct xt_mtdtor_param *);
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+	/*
+	 * ANDROID: Adding these fields to this structure breaks the KMI, so do not allow them to
+	 * be added within this structure.
+	 *
+	 * Instead, see struct compat_xt_match_ext and its usage below.
+	 */
+#ifdef CONFIG_BROKEN
 	/* Called when userspace align differs from kernel space one */
 	void (*compat_from_user)(void *dst, const void *src);
 	int (*compat_to_user)(void __user *dst, const void *src);
@@ -169,7 +184,13 @@ struct xt_match {
 	const char *table;
 	unsigned int matchsize;
 	unsigned int usersize;
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+	/*
+	 * ANDROID: Adding this field to this structure breaks the KMI, so do not allow it to be
+	 * added within this structure.
+	 *
+	 * Instead, see struct compat_xt_match_ext and its usage below.
+	 */
+#ifdef CONFIG_BROKEN
 	unsigned int compatsize;
 #endif
 	unsigned int hooks;
@@ -184,6 +205,15 @@ struct xt_target {
 
 	const char name[XT_EXTENSION_MAXNAMELEN];
 	u_int8_t revision;
+#ifndef __GENKSYMS__
+	/*
+	 * ANDROID: Indicates that this structure is contained within a compat_xt_target_ext struct,
+	 * which contains the required metadata.
+	 *
+	 * Hide this from GENKSYMS to preserve the original CRC value of this struct.
+	 */
+	bool has_compat_metadata;
+#endif
 
 	/* Returns verdict. Argument order changed since 2.6.9, as this
 	   must now handle non-linear skbs, using skb_copy_bits and
@@ -199,7 +229,13 @@ struct xt_target {
 
 	/* Called when entry of this type deleted. */
 	void (*destroy)(const struct xt_tgdtor_param *);
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+	/*
+	 * ANDROID: Adding these fields to this structure breaks the KMI, so do not allow them to
+	 * be added within this structure.
+	 *
+	 * Instead, see struct compat_xt_target_ext and its usage below.
+	 */
+#ifdef CONFIG_BROKEN
 	/* Called when userspace align differs from kernel space one */
 	void (*compat_from_user)(void *dst, const void *src);
 	int (*compat_to_user)(void __user *dst, const void *src);
@@ -210,7 +246,13 @@ struct xt_target {
 	const char *table;
 	unsigned int targetsize;
 	unsigned int usersize;
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+	/*
+	 * ANDROID: Adding this field to this structure breaks the KMI, so do not allow it to be
+	 * added within this structure.
+	 *
+	 * Instead, see struct compat_xt_target_ext and its usage below.
+	 */
+#ifdef CONFIG_BROKEN
 	unsigned int compatsize;
 #endif
 	unsigned int hooks;
@@ -455,6 +497,51 @@ void xt_unregister_template(const struct xt_table *t);
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
 #include <net/compat.h>
 
+typedef void (*compat_from_user_fn_t)(void *dst, const void *src);
+typedef int (*compat_to_user_fn_t)(void __user *dst, const void *src);
+
+struct compat_xt_match_ext {
+	/* Called when userspace align differs from kernel space one */
+	compat_from_user_fn_t compat_from_user;
+	compat_to_user_fn_t compat_to_user;
+	unsigned int compatsize;
+	struct xt_match match;
+};
+
+#define DEFINE_COMPAT_XT_MATCH_GETTER(field, field_type, default_value)			\
+static inline field_type get_xt_match_##field(const struct xt_match *match)		\
+{											\
+	struct compat_xt_match_ext *match_ext;						\
+											\
+	if (match->has_compat_metadata) {						\
+		match_ext = container_of(match, struct compat_xt_match_ext, match);	\
+		return match_ext->field;						\
+	}										\
+											\
+	return default_value;								\
+}
+
+struct compat_xt_target_ext {
+	/* Called when userspace align differs from kernel space one */
+	void (*compat_from_user)(void *dst, const void *src);
+	int (*compat_to_user)(void __user *dst, const void *src);
+	unsigned int compatsize;
+	struct xt_target target;
+};
+
+#define DEFINE_COMPAT_XT_TARGET_GETTER(field, field_type, default_value)		\
+static inline field_type get_xt_target_##field(const struct xt_target *target)		\
+{											\
+	struct compat_xt_target_ext *target_ext;					\
+											\
+	if (target->has_compat_metadata) {						\
+		target_ext = container_of(target, struct compat_xt_target_ext, target);	\
+		return target_ext->field;						\
+	}										\
+											\
+	return default_value;								\
+}
+
 struct compat_xt_entry_match {
 	union {
 		struct {
@@ -509,6 +596,14 @@ struct _compat_xt_align {
 };
 
 #define COMPAT_XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _compat_xt_align))
+
+DEFINE_COMPAT_XT_MATCH_GETTER(compatsize, unsigned int, 0);
+DEFINE_COMPAT_XT_MATCH_GETTER(compat_from_user, compat_from_user_fn_t, NULL);
+DEFINE_COMPAT_XT_MATCH_GETTER(compat_to_user, compat_to_user_fn_t, NULL);
+
+DEFINE_COMPAT_XT_TARGET_GETTER(compatsize, unsigned int, 0);
+DEFINE_COMPAT_XT_TARGET_GETTER(compat_from_user, compat_from_user_fn_t, NULL);
+DEFINE_COMPAT_XT_TARGET_GETTER(compat_to_user, compat_to_user_fn_t, NULL);
 
 void xt_compat_lock(u_int8_t af);
 void xt_compat_unlock(u_int8_t af);

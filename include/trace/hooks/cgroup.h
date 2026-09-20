@@ -38,6 +38,14 @@ DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
 DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_online,
 	TP_PROTO(struct cgroup_subsys_state *css),
 	TP_ARGS(css), 1);
+
+DECLARE_HOOK(android_vh_cpuset_attach_task,
+	TP_PROTO(struct cgroup_subsys_state *css, struct task_struct *task),
+	TP_ARGS(css, task));
+
+DECLARE_HOOK(android_vh_cpuset_css_online,
+	TP_PROTO(struct cgroup_subsys_state *css),
+	TP_ARGS(css));
 #endif
 
 #include <trace/define_trace.h>

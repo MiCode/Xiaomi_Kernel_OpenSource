@@ -299,7 +299,7 @@ def _define_image_build(
     native.filegroup(
         name = "{}_system_dlkm_image_file".format(target),
         srcs = ["{}_images".format(base_kernel)],
-        output_group = "system_dlkm.flatten.ext4.img",
+        output_group = "system_dlkm.ext4.img",
     )
 
     native.filegroup(

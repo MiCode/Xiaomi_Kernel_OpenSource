@@ -1,0 +1,5 @@
+config MI_IORAP
+	tristate "app launch boost"
+	default n
+	help
+	  This driver used for preread io for app launch.

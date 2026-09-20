@@ -55,6 +55,9 @@ struct files_struct {
 
 	struct fdtable __rcu *fdt;
 	struct fdtable fdtab;
+#ifndef __GENKSYMS__
+	struct task_dma_buf_info *dmabuf_info;
+#endif
   /*
    * written part on a separate cache line in SMP
    */

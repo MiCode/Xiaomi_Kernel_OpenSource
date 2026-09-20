@@ -715,6 +715,17 @@ static bool ghes_do_proc(struct ghes *ghes,
 		}
 	}
 
+	/*
+	 * If no memory failure work is queued for abnormal synchronous
+	 * errors, do a force kill.
+	 */
+	if (sync && !queued) {
+		dev_err(ghes->dev,
+			HW_ERR GHES_PFX "%s:%d: synchronous unrecoverable error (SIGBUS)\n",
+			current->comm, task_pid_nr(current));
+		force_sig(SIGBUS);
+	}
+
 	return queued;
 }
 
@@ -900,6 +911,8 @@ static void __ghes_panic(struct ghes *ghes,
 	const char *msg = GHES_PFX "Fatal hardware error";
 
 	__ghes_print_estatus(KERN_EMERG, ghes->generic, estatus);
+
+	add_taint(TAINT_MACHINE_CHECK, LOCKDEP_STILL_OK);
 
 	ghes_clear_estatus(ghes, estatus, buf_paddr, fixmap_idx);
 
@@ -1523,7 +1536,7 @@ void __init acpi_ghes_init(void)
 {
 	int rc;
 
-	sdei_init();
+	acpi_sdei_init();
 
 	if (acpi_disabled)
 		return;

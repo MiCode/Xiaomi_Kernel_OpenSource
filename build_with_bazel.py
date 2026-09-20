@@ -393,6 +393,12 @@ class BazelBuilder:
             "--nozstd_dwarf_compression",
         ])
 
+        factory_build = os.environ.get('FACTORY_BUILD')
+        logging.info("--define=FACTORY_BUILD=%s", factory_build)
+        self.user_opts.extend([
+            "--define=FACTORY_BUILD={}".format(factory_build),
+        ])
+
         if self.dry_run:
             self.user_opts.append("--nobuild")
 

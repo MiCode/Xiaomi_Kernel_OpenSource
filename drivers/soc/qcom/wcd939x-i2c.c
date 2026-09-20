@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/usb/typec.h>
@@ -25,6 +25,16 @@
 #define MAX_SURGE_TIMER_PERIOD_SEC 20
 #define PM_RUNTIME_RESUME_CNT 8
 #define PM_RUNTIME_RESUME_WAIT_US_MIN  5000
+#define MG_BIAS_CURRENT 0xCF
+#define WCD_USBSS_TRIMCODE1_MASK_1 0x1F
+#define WCD_USBSS_TRIMCODE2_MASK_1 0x03
+#define WCD_USBSS_TRIMCODE2_MASK_2 0x7C
+#define WCD_USBSS_TRIMCODE1_MASK_2 0xE0
+#define BIT_MASK_4 4
+#define BIT_MASK_2 2
+#define BIT_MASK_F 0x0F
+
+
 
 enum {
 	WCD_USBSS_AUDIO_MANUAL,
@@ -461,28 +471,9 @@ static bool wcd_usbss_is_in_reset_state(void)
 	}
 
 	mutex_lock(&wcd_usbss_ctxt_->switch_update_lock);
-	if (!wcd_usbss_ctxt_->is_in_standby) {
-		/* Toggle WCD_USBSS_PMP_MISC1 bit<0>: 0 --> 1 --> 0 */
-		rc = rc | regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_MISC1,
-				0x1, 0x0);
-		rc = rc | regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_MISC1,
-				0x1, 0x1);
-		rc = rc | regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_MISC1,
-				0x1, 0x0);
-
-		/* Check 3: Read WCD_USBSS_PMP_MISC2 */
-		rc = rc | regmap_read(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_MISC2, &read_val);
-
-		if (rc != 0) {
-			mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
-			goto done;
-		}
-
-		if ((read_val & 0x1) == 0) {
-			dev_err(wcd_usbss_ctxt_->dev, "%s: Surge check #3 failed\n", __func__);
-			ret = true;
-		}
-	}
+	/* MG comparator bias current to 1uA */
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_MG1_BIAS, MG_BIAS_CURRENT);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_MG2_BIAS, MG_BIAS_CURRENT);
 	mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
 
 done:
@@ -1738,6 +1729,8 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 	struct device *dev = &i2c->dev;
 	int rc = 0, i;
 	unsigned int ver = 0;
+	unsigned int efuse_13, efuse_14;
+
 
 	priv = devm_kzalloc(&i2c->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -1824,6 +1817,40 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 	regmap_update_bits(priv->regmap, WCD_USBSS_DISP_AUXM_THRESH, 0xE0, 0xE0);
 	regmap_update_bits(priv->regmap, WCD_USBSS_MG1_EN, 0x0C, 0x0C);
 	regmap_update_bits(priv->regmap, WCD_USBSS_MG2_EN, 0x0C, 0x0C);
+	/* MG comparator bias current to 1uA */
+	regmap_write(priv->regmap, WCD_USBSS_MG1_BIAS, MG_BIAS_CURRENT);
+	regmap_write(priv->regmap, WCD_USBSS_MG2_BIAS, MG_BIAS_CURRENT);
+
+	/*
+	 * READ WCD_USBSS_EFUSE_REG_13<4:0> write to WCD_USBSS_DC_TRIMCODE_1 <4:0>
+	 * READ WCD_USBSS_EFUSE_REG_14<4:0> write its <1:0>
+	 * to WCD_USBSS_DC_TRIMCODE_2 <1:0> and its <4:2> to
+	 * WCD_USBSS_DC_TRIMCODE_1 <7:5>
+	 * To Avoid AUX issues.
+	 */
+
+	rc = regmap_read(priv->regmap, WCD_USBSS_EFUSE_REG_13, &efuse_13);
+
+	if (rc == 0) {
+		rc = regmap_read(priv->regmap, WCD_USBSS_EFUSE_REG_14, &efuse_14);
+		if (rc == 0) {
+			regmap_update_bits(priv->regmap,
+				WCD_USBSS_DC_TRIMCODE_1, WCD_USBSS_TRIMCODE1_MASK_1,
+					efuse_13 & WCD_USBSS_TRIMCODE1_MASK_1);
+			regmap_update_bits(priv->regmap,
+				WCD_USBSS_DC_TRIMCODE_2, WCD_USBSS_TRIMCODE2_MASK_1,
+					efuse_14 & WCD_USBSS_TRIMCODE2_MASK_1);
+			regmap_update_bits(priv->regmap,
+				WCD_USBSS_DC_TRIMCODE_1, WCD_USBSS_TRIMCODE1_MASK_2,
+					((efuse_14 & 0x1C) << BIT_MASK_4));
+			regmap_update_bits(priv->regmap,
+				WCD_USBSS_DC_TRIMCODE_2, WCD_USBSS_TRIMCODE2_MASK_2,
+					BIT_MASK_F << BIT_MASK_2);
+			regmap_update_bits(priv->regmap,
+				WCD_USBSS_DC_TRIMCODE_3, WCD_USBSS_TRIMCODE1_MASK_1,
+					BIT_MASK_F);
+		}
+	}
 
 	regmap_read(priv->regmap, WCD_USBSS_CHIP_ID1, &ver);
 	if (ver == 0x1) { /* Harmonium 2.0 */
@@ -1916,6 +1943,28 @@ static void wcd_usbss_remove(struct i2c_client *i2c)
 	wcd_usbss_ctxt_ = NULL;
 }
 
+static void wcd_usbss_shutdown(struct i2c_client *i2c)
+{
+	int error;
+	struct wcd_usbss_ctxt *priv =
+			(struct wcd_usbss_ctxt *)i2c_get_clientdata(i2c);
+
+	if (!priv)
+		return;
+
+	error = pm_runtime_resume_and_get(priv->dev);
+	if (error < 0)
+		dev_err(priv->dev, "%s: pm_runtime_resume_and_get failed: %i\n",
+				__func__, error);
+
+	wcd_usbss_disable_surge_kthread();
+	if (error >= 0)
+		pm_runtime_put_sync(priv->dev);
+	pm_runtime_dont_use_autosuspend(priv->dev);
+	pm_runtime_disable(priv->dev);
+	device_init_wakeup(priv->dev, false);
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int wcd_usbss_pm_suspend(struct device *dev)
 {
@@ -1971,8 +2020,8 @@ static const struct i2c_device_id wcd_usbss_id_i2c[] = {
 MODULE_DEVICE_TABLE(i2c, wcd_usbss_id_i2c);
 
 static const struct dev_pm_ops wcd_usbss_pm_ops = {
-	.suspend_late = wcd_usbss_pm_suspend,
-	.resume_early = wcd_usbss_pm_resume,
+	.suspend = wcd_usbss_pm_suspend,
+	.resume = wcd_usbss_pm_resume,
 };
 
 static struct i2c_driver wcd_usbss_i2c_driver = {
@@ -1987,6 +2036,7 @@ static struct i2c_driver wcd_usbss_i2c_driver = {
 	.id_table = wcd_usbss_id_i2c,
 	.probe = wcd_usbss_probe,
 	.remove = wcd_usbss_remove,
+	.shutdown = wcd_usbss_shutdown,
 };
 module_i2c_driver(wcd_usbss_i2c_driver);
 

@@ -9,6 +9,36 @@
 #include "walt.h"
 #include "trace.h"
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+extern struct walt_get_indicies_hooks mi_walt_get_indicies_func[MI_SCHED_TYPE];
+extern bool metis_tp_check_cpu_layered_load(int cpu, unsigned int *cpu_layered_load);
+extern bool metis_coldstart_spread_rt_task(struct task_struct *tsk);
+extern bool metis_coldstart_skip_thiscpu_rt(struct task_struct *tsk, int cpu);
+extern void metis_coldstart_rt_find_lowest_rq(struct task_struct *tsk,
+			struct cpumask *lowest_mask, int ret, int *best_cpu, int* fastpath);
+extern bool metis_wakeup_cold_start_skip_ui_cpu(struct task_struct *tsk, int cpu);
+extern void metis_wakeup_cold_start_skip_ui_cpumask(struct task_struct *tsk, struct cpumask *lowest_mask);
+#endif
+// END Performance_TurboSched
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+typedef bool (*oem_check_migt_rt_f)(struct task_struct *);
+static oem_check_migt_rt_f oem_check_migt_rt_hook = NULL;
+void register_migt_check_rt_hook(oem_check_migt_rt_f f) {
+	if (likely(f)) {
+		oem_check_migt_rt_hook = f;
+	}
+}
+EXPORT_SYMBOL_GPL(register_migt_check_rt_hook);
+void unregister_migt_check_rt_hook(void) {
+	oem_check_migt_rt_hook = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_migt_check_rt_hook);
+#endif
+// END Game_TurboSched
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 DEFINE_PER_CPU(u64, rt_task_arrival_time) = 0;
 static bool long_running_rt_task_trace_rgstrd;
@@ -107,6 +137,23 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	int end_index = 0;
 	bool best_cpu_lt = true;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	u64 best_cpu_layered_load = U64_MAX;
+	bool skip_walt_indicies = false;
+	bool energy_eval_needed = false;
+	int mod;
+
+	for (mod = 0; mod < MI_SCHED_TYPE; mod++) {
+		if (mi_walt_get_indicies_func[mod].f)
+			mi_walt_get_indicies_func[mod].f(task, &order_index, &end_index,
+                		num_sched_clusters, &skip_walt_indicies, &energy_eval_needed);
+
+            	if (skip_walt_indicies)
+                	break;
+	}
+#endif
+// END Performance_TurboSched
 
 	if (unlikely(walt_disabled))
 		return;
@@ -119,9 +166,23 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	if (soc_feat(SOC_ENABLE_SILVER_RT_SPREAD_BIT) && order_index == 0)
 		end_index = 1;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	if (metis_coldstart_spread_rt_task(task)) {
+		order_index = 0;
+		end_index = 1;
+	}
+#endif
+// END Performance_TurboSched
+
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
 			bool lt;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+			unsigned int cpu_layered_load = 0;
+#endif
+// END Performance_TurboSched
 
 			trace_sched_cpu_util(cpu, lowest_mask);
 
@@ -136,11 +197,31 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 
 			if (__cpu_overutilized(cpu, tutil))
 				continue;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+			if (metis_coldstart_skip_thiscpu_rt(task, cpu))
+				continue;
+#endif
+// END Performance_TurboSched
 
 			util = cpu_util(cpu);
 
 			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
 				walt_nr_rtg_high_prio(cpu));
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+			if (oem_check_migt_rt_hook) {
+				lt |= oem_check_migt_rt_hook(cpu_rq(cpu)->curr);
+			}
+#endif
+// END Game_TurboSched
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+			lt |= metis_tp_check_cpu_layered_load(cpu, &cpu_layered_load);
+#endif
+// END Performance_TurboSched
 
 			/*
 			 * When the best is suitable and the current is not,
@@ -155,6 +236,17 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			 */
 			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
 				continue;
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+			/*
+			 * Either both are sutilable or unsuitable, choose a
+			 * small number of vip tasks
+			 */
+			if (!(best_cpu_lt ^ lt) && (cpu_layered_load > best_cpu_layered_load))
+				continue;
+#endif
+// END Performance_TurboSched
 
 			/*
 			 * If the previous CPU has same load, keep it as
@@ -187,6 +279,11 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			best_cpu_util = util;
 			*best_cpu = cpu;
 			best_cpu_lt = lt;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+			best_cpu_layered_load = cpu_layered_load;
+#endif
+// END Performance_TurboSched
 		}
 		if (cluster < end_index) {
 			if (*best_cpu == -1 || !available_idle_cpu(*best_cpu))
@@ -233,11 +330,23 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern bool mi_select_task_rq_hook(struct task_struct *p, struct cpumask *halt_mask,
+	int prev_cpu, int sd_flag, int wake_flags, int *target_cpu);
+#endif
+// END Performance_TurboSched
+
 enum rt_fastpaths {
 	NONE = 0,
 	NON_WAKEUP,
 	SYNC_WAKEUP,
 	CLUSTER_PACKING_FASTPATH,
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	METIS_CHOOSE_CPU_FASTPATH,
+#endif
+// END Performance_TurboSched
 };
 
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
@@ -257,6 +366,14 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	if (unlikely(walt_disabled))
 		return;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+  	if (mi_select_task_rq_hook(task, cpu_halt_mask, cpu, sd_flag, wake_flags, new_cpu)) {
+		return;
+	}
+#endif
+// END Performance_TurboSched
+
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK) {
 		fastpath = NON_WAKEUP;
@@ -274,11 +391,23 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	    cpumask_test_cpu(this_cpu, task->cpus_ptr) &&
 	    cpumask_test_cpu(this_cpu, &wts->reduce_mask) &&
 	    walt_should_honor_rt_sync(this_cpu_rq, task, sync)) {
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+		if (metis_coldstart_skip_thiscpu_rt(task, this_cpu))
+			goto metis_skip;
+#endif
+// END Performance_TurboSched
 		fastpath = SYNC_WAKEUP;
 		*new_cpu = this_cpu;
 		goto out;
 	}
 
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+metis_skip:
+#endif
+// END Performance_TurboSched
 	*new_cpu = cpu; /* previous CPU as back up */
 	rq = cpu_rq(cpu);
 
@@ -313,6 +442,13 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 				lowest_mask, walt_rt_task_fits_capacity);
 
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(0, task);
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	if (metis_coldstart_skip_thiscpu_rt(task, packing_cpu)) {
+		packing_cpu = -1;
+	}
+#endif
+// END Performance_TurboSched
 	if (packing_cpu >= 0) {
 		while (packing_cpu < WALT_NR_CPUS) {
 			if (cpumask_test_cpu(packing_cpu, &wts->reduce_mask) &&
@@ -403,6 +539,11 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *task,
 	if (*best_cpu == -1)
 		walt_rt_energy_aware_wake_cpu(task, lowest_mask, ret, best_cpu);
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_coldstart_rt_find_lowest_rq(task, lowest_mask, ret, best_cpu, &fastpath);
+#endif
+// END Performance_TurboSched
 	/*
 	 * Walt was not able to find a non-halted best cpu. Ensure that
 	 * find_lowest_rq doesn't use a halted cpu going forward, but

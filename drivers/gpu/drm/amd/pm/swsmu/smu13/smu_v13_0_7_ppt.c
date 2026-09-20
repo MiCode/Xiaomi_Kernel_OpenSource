@@ -1674,7 +1674,10 @@ static int smu_v13_0_7_get_thermal_temperature_range(struct smu_context *smu,
 	return 0;
 }
 
+#ifndef MAX
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
+#endif
+
 static ssize_t smu_v13_0_7_get_gpu_metrics(struct smu_context *smu,
 					   void **table)
 {

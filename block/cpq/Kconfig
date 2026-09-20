@@ -1,0 +1,5 @@
+config CPQ_IOSCHED
+    tristate "cpq io scheduler"
+    default n
+    help
+      define this config to modify  io scheduler for gki.

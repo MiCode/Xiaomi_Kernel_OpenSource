@@ -17,6 +17,7 @@ load(":sun_le.bzl", "define_sun_le")
 load(":sun_oemvm.bzl", "define_sun_oemvm")
 load(":sun_tuivm.bzl", "define_sun_tuivm")
 load(":sun_vms.bzl", "define_sun_vms")
+load(":mist.bzl", "define_mist")
 
 def define_msm_platforms():
     define_top_level_rules()
@@ -38,3 +39,4 @@ def define_msm_platforms():
     define_parrot()
     define_parrot_tuivm()
     define_qcs610()
+    define_mist()

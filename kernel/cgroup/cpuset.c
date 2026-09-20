@@ -440,7 +440,7 @@ static inline void check_insane_mems_config(nodemask_t *nodes)
 {
 	if (!cpusets_insane_config() &&
 		movable_only_nodes(nodes)) {
-		static_branch_enable(&cpusets_insane_config_key);
+		static_branch_enable_cpuslocked(&cpusets_insane_config_key);
 		pr_info("Unsupported (movable nodes only) cpuset configuration detected (nmask=%*pbl)!\n"
 			"Cpuset allocations might fail even with a lot of memory available.\n",
 			nodemask_pr_args(nodes));
@@ -1250,9 +1250,11 @@ static void update_tasks_cpumask(struct cpuset *cs, struct cpumask *new_cpus)
 
 		if (top_cs) {
 			/*
-			 * Percpu kthreads in top_cpuset are ignored
+			 * PF_NO_SETAFFINITY tasks are ignored.
+			 * All per cpu kthreads should have PF_NO_SETAFFINITY
+			 * flag set, see kthread_set_per_cpu().
 			 */
-			if (kthread_is_per_cpu(task))
+			if (task->flags & PF_NO_SETAFFINITY)
 				continue;
 			cpumask_andnot(new_cpus, possible_mask, cs->subparts_cpus);
 		} else {
@@ -2679,6 +2681,8 @@ static void cpuset_attach_task(struct cpuset *cs, struct task_struct *task)
 
 	cpuset_change_task_nodemask(task, &cpuset_attach_nodemask_to);
 	cpuset_update_task_spread_flags(cs, task);
+
+	trace_android_vh_cpuset_attach_task(&cs->css, task);
 }
 
 static void cpuset_attach(struct cgroup_taskset *tset)
@@ -3352,6 +3356,7 @@ static int cpuset_css_online(struct cgroup_subsys_state *css)
 out_unlock:
 	mutex_unlock(&cpuset_mutex);
 	cpus_read_unlock();
+	trace_android_vh_cpuset_css_online(css);
 	return 0;
 }
 

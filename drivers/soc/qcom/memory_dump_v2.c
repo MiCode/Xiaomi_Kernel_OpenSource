@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2017, 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/slab.h>
@@ -1064,7 +1064,7 @@ static void mem_dump_parse_register_entry(struct memdump_info *dump_info)
 	struct msm_dump_entry dump_entry;
 	phys_addr_t phys_addr = dump_info->base;
 	void *dump_vaddr = dump_info->vbase;
-	int initialized;
+	int initialized = 0;
 
 	for_each_available_child_of_node(dump_info->dev_node, child_node) {
 		ret = of_property_read_u32(child_node, "qcom,dump-size", &size);

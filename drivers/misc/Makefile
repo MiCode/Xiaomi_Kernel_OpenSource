@@ -37,6 +37,7 @@ obj-$(CONFIG_C2PORT)		+= c2port/
 obj-$(CONFIG_HMC6352)		+= hmc6352.o
 obj-y				+= eeprom/
 obj-y				+= cb710/
+obj-y				+= xiaomi/
 obj-$(CONFIG_VMWARE_BALLOON)	+= vmw_balloon.o
 obj-$(CONFIG_PCH_PHUB)		+= pch_phub.o
 obj-y				+= ti-st/
@@ -70,3 +71,6 @@ obj-$(CONFIG_TPS6594_PFSM)	+= tps6594-pfsm.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-$(CONFIG_QSEECOM_PROXY) 	+= qseecom_proxy.o
 obj-$(CONFIG_PKVM_SMC_FILTER)  += pkvm-smc/
+obj-m	+= hardware_info.o
+# Modem.RF - 2025.4.18 - add radio cable detection
+obj-$(CONFIG_RFCABLE_DETECT)	+= radio_cable_det/

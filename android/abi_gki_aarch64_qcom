@@ -48,8 +48,12 @@
   __balance_callbacks
   balance_push_callback
   bcmp
+  __bio_add_page
+  bio_alloc_bioset
+  bio_chain
   bio_endio
   bio_end_io_acct_remapped
+  bio_init
   bio_start_io_acct
   bitmap_allocate_region
   __bitmap_andnot
@@ -63,6 +67,8 @@
   __bitmap_set
   bitmap_zalloc
   __blk_alloc_disk
+  blkdev_get_by_dev
+  blkdev_put
   blk_execute_rq_nowait
   blk_get_queue
   blk_mq_free_request
@@ -342,6 +348,7 @@
   device_match_fwnode
   device_match_name
   device_match_of_node
+  device_node_to_regmap
   device_property_present
   device_property_read_string
   device_property_read_u16_array
@@ -414,6 +421,7 @@
   devm_platform_ioremap_resource
   devm_power_supply_register
   devm_qcom_smem_state_get
+  devm_register_sys_off_handler
   devm_regmap_del_irq_chip
   devm_regmap_field_alloc
   devm_regmap_field_bulk_alloc
@@ -674,6 +682,9 @@
   __fdget
   fd_install
   fget
+  file_path
+  filp_close
+  filp_open_block
   _find_first_bit
   _find_next_bit
   _find_next_zero_bit
@@ -703,6 +714,7 @@
   freq_qos_add_request
   freq_qos_remove_request
   freq_qos_update_request
+  fs_bio_set
   fwnode_find_reference
   fwnode_get_name
   fwnode_get_next_child_node
@@ -1250,6 +1262,7 @@
   netlink_unregister_notifier
   net_ns_type_operations
   net_ratelimit
+  next_arg
   nla_find
   nla_memcpy
   __nla_parse
@@ -1916,6 +1929,7 @@
   sock_release
   sock_setsockopt
   sock_unregister
+  sort
   __spi_alloc_controller
   spi_register_controller
   spi_unregister_controller
@@ -1959,6 +1973,8 @@
   strscpy_pad
   strsep
   strstr
+  submit_bio
+  submit_bio_wait
   __sw_hweight16
   __sw_hweight32
   __sw_hweight64
@@ -2084,6 +2100,7 @@
   __traceiter_android_rvh_sched_newidle_balance
   __traceiter_android_rvh_sched_nohz_balancer_kick
   __traceiter_android_rvh_schedule
+  __traceiter_android_rvh_schedule_bug
   __traceiter_android_rvh_select_task_rq_fair
   __traceiter_android_rvh_select_task_rq_rt
   __traceiter_android_rvh_set_cpus_allowed_by_task
@@ -2196,6 +2213,7 @@
   __tracepoint_android_rvh_sched_newidle_balance
   __tracepoint_android_rvh_sched_nohz_balancer_kick
   __tracepoint_android_rvh_schedule
+  __tracepoint_android_rvh_schedule_bug
   __tracepoint_android_rvh_select_task_rq_fair
   __tracepoint_android_rvh_select_task_rq_rt
   __tracepoint_android_rvh_set_cpus_allowed_by_task

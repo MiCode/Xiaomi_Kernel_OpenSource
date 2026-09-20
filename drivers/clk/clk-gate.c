@@ -26,6 +26,9 @@
 
 static inline u32 clk_gate_readl(struct clk_gate *gate)
 {
+	if (!gate || !gate->reg)
+		return 0;
+
 	if (gate->flags & CLK_GATE_BIG_ENDIAN)
 		return ioread32be(gate->reg);
 

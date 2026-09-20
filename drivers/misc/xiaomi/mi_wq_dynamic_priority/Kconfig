@@ -1,0 +1,5 @@
+config MI_FEATURE_WQ_DYNPRIO
+    tristate "workqueue dynamic priority"
+    default n
+    help
+      define this config to modify workqueue priority for gki.

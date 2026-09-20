@@ -16,6 +16,21 @@ enum fsa_function {
 	FSA_EVENT_MAX,
 };
 
+#if IS_ENABLED(CONFIG_RUST_DETECTION)
+int rust_detection_workfunc_open(void);
+int rust_detection_workfunc_close(void);
+#else
+static inline int rust_detection_workfunc_open(void)
+{
+	return 0;
+}
+
+static inline int rust_detection_workfunc_close(void)
+{
+	return 0;
+}
+#endif
+
 #if IS_ENABLED(CONFIG_QCOM_FSA4480_I2C)
 int fsa4480_switch_event(struct device_node *node,
 			 enum fsa_function event);

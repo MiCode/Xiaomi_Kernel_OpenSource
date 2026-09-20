@@ -36,10 +36,22 @@ struct prefix_info {
 		struct __packed {
 #if defined(__BIG_ENDIAN_BITFIELD)
 			__u8	onlink : 1,
-			 	autoconf : 1,
+				autoconf : 1,
+# ifdef __GENKSYMS__
 				reserved : 6;
+# else
+				routeraddr : 1,
+				preferpd : 1,
+				reserved : 4;
+# endif
 #elif defined(__LITTLE_ENDIAN_BITFIELD)
+# ifdef __GENKSYMS__
 			__u8	reserved : 6,
+# else
+			__u8	reserved : 4,
+				preferpd : 1,
+				routeraddr : 1,
+# endif
 				autoconf : 1,
 				onlink : 1;
 #else

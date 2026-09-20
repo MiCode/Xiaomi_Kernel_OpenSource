@@ -197,6 +197,11 @@ out:
 EXPORT_SYMBOL_GPL(crypto_del_default_rng);
 #endif
 
+static void rng_default_set_ent(struct crypto_rng *tfm, const u8 *data,
+				unsigned int len)
+{
+}
+
 int crypto_register_rng(struct rng_alg *alg)
 {
 	struct crypto_istat_rng *istat = rng_get_stat(alg);
@@ -211,6 +216,9 @@ int crypto_register_rng(struct rng_alg *alg)
 
 	if (IS_ENABLED(CONFIG_CRYPTO_STATS))
 		memset(istat, 0, sizeof(*istat));
+
+	if (!alg->set_ent)
+		alg->set_ent = rng_default_set_ent;
 
 	return crypto_register_alg(base);
 }

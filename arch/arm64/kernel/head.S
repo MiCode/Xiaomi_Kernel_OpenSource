@@ -575,7 +575,7 @@ SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
 	msr	sctlr_el2, x0
 	isb
 0:
-	mov_q	x0, HCR_HOST_NVHE_FLAGS
+	mov_q	x0, HCR_HOST_NVHE_FLAGS | HCR_ATA
 	msr	hcr_el2, x0
 	isb
 

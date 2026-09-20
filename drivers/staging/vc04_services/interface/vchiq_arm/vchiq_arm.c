@@ -720,8 +720,7 @@ int vchiq_shutdown(struct vchiq_instance *instance)
 	int status = 0;
 	struct vchiq_state *state = instance->state;
 
-	if (mutex_lock_killable(&state->mutex))
-		return -EAGAIN;
+	mutex_lock(&state->mutex);
 
 	/* Remove all services */
 	vchiq_shutdown_internal(state, instance);

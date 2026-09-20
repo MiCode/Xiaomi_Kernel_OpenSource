@@ -540,6 +540,7 @@ struct amd_irte_ops;
 	container_of((x), struct amd_io_pgtable, pgtbl_cfg)
 
 struct amd_io_pgtable {
+	seqcount_t		seqcount;	/* Protects root/mode update */
 	struct io_pgtable_cfg	pgtbl_cfg;
 	struct io_pgtable	iop;
 	int			mode;

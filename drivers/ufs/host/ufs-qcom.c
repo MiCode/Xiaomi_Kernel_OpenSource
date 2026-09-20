@@ -29,6 +29,10 @@
 #include <trace/hooks/ufshcd.h>
 #include <linux/ipc_logging.h>
 #include <soc/qcom/minidump.h>
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+#include <linux/crypto-qti-common.h>
+#include <linux/of_platform.h>
+#endif
 #if IS_ENABLED(CONFIG_SCHED_WALT)
 #include <linux/sched/walt.h>
 #endif
@@ -45,7 +49,6 @@
 #include <ufs/ufshci.h>
 #include <ufs/ufs_quirks.h>
 #include <ufs/ufshcd-crypto-qti.h>
-
 #define MCQ_QCFGPTR_MASK	GENMASK(7, 0)
 #define MCQ_QCFGPTR_UNIT	0x200
 #define MCQ_SQATTR_OFFSET(c) \
@@ -590,8 +593,19 @@ static int ufs_qcom_get_connected_rx_lanes(struct ufs_hba *hba, u32 *rx_lanes)
 
 static inline void ufs_qcom_ice_enable(struct ufs_qcom_host *host)
 {
-	if (host->hba->caps & UFSHCD_CAP_CRYPTO)
-		qcom_ice_enable(host->ice);
+	int err;
+
+	if (host->hba->caps & UFSHCD_CAP_CRYPTO) {
+		err = qcom_ice_enable(host->ice);
+
+		if (err) {
+			dev_warn(
+				host->hba->dev,
+				"ICE could not be enabled err=%d. Disabling inline encryption support.\n",
+				err);
+			host->hba->caps &= ~UFSHCD_CAP_CRYPTO;
+		}
+	}
 }
 
 static int ufs_qcom_ice_init(struct ufs_qcom_host *host)
@@ -600,7 +614,7 @@ static int ufs_qcom_ice_init(struct ufs_qcom_host *host)
 	struct device *dev = hba->dev;
 	struct qcom_ice *ice;
 
-	ice = of_qcom_ice_get(dev);
+	ice = devm_of_qcom_ice_get(dev);
 	if (ice == ERR_PTR(-EOPNOTSUPP)) {
 		dev_warn(dev, "Disabling inline encryption support\n");
 		ice = NULL;
@@ -617,9 +631,20 @@ static int ufs_qcom_ice_init(struct ufs_qcom_host *host)
 
 static inline int ufs_qcom_ice_resume(struct ufs_qcom_host *host)
 {
-	if (host->hba->caps & UFSHCD_CAP_CRYPTO)
-		return qcom_ice_resume(host->ice);
+	int err;
 
+	if (host->hba->caps & UFSHCD_CAP_CRYPTO) {
+		err = qcom_ice_resume(host->ice);
+
+		if (err) {
+			dev_warn(
+				host->hba->dev,
+				"ICE could not be resumed err=%d. Disabling inline encryption support.\n",
+				err);
+			host->hba->caps &= ~UFSHCD_CAP_CRYPTO;
+		}
+		return err;
+	}
 	return 0;
 }
 
@@ -6246,6 +6271,30 @@ ret:
 	return is_bootdevice_ufs;
 }
 
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+static int ufs_crypto_probe_check(struct device *dev)
+{
+	struct platform_device *dep_pdev;
+	struct device_node *dep_dev;
+
+	dep_dev = of_parse_phandle(dev->of_node, "ufs-qcom-crypto", 0);
+	if (dep_dev) {
+		dep_pdev = of_find_device_by_node(dep_dev);
+		if (!dep_pdev || !dep_pdev->dev.driver) {
+			of_node_put(dep_dev);
+			dev_warn(dev, "Failed to create ufs-ice data structures\n");
+			if (dep_pdev)
+				platform_device_put(dep_pdev);
+			return -EPROBE_DEFER;
+		}
+		platform_device_put(dep_pdev);
+		of_node_put(dep_dev);
+		dev_dbg(dev, "ufs-ice probe successfully\n");
+	}
+	return 0;
+}
+#endif
+
 /**
  * ufs_qcom_probe - probe routine of the driver
  * @pdev: pointer to Platform device handle
@@ -6262,6 +6311,11 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 		dev_err(dev, "UFS is not boot dev.\n");
 		return err;
 	}
+
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
+	if (ufs_crypto_probe_check(dev))
+		return -EPROBE_DEFER;
+#endif
 
 	/**
 	 * CPUFreq driver is needed for performance reasons.

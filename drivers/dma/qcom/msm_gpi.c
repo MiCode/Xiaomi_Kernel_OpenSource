@@ -1686,7 +1686,7 @@ static int gpi_send_cmd(struct gpii *gpii,
 			enum gpi_cmd gpi_cmd)
 {
 	u32 chid = MAX_CHANNELS_PER_GPII;
-	u32 cmd, state;
+	u32 cmd, state = MAX_CH_STATES;
 	u32 irq_stat, offset, ch_irq;
 	unsigned long timeout;
 	void __iomem *cmd_reg;
@@ -1715,7 +1715,8 @@ static int gpi_send_cmd(struct gpii *gpii,
 	if (!timeout) {
 		offset = GPI_GPII_n_CNTXT_TYPE_IRQ_OFFS(gpii->gpii_id);
 		irq_stat = gpi_read_reg(gpii, gpii->regs + offset);
-		state = gpi_read_ch_state(gpii_chan);
+		if (gpii_chan)
+			state = gpi_read_ch_state(gpii_chan);
 		/* Fallback mechanism for verifying the state of the register */
 		if (irq_stat & GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_CH_CTRL) {
 			offset = GPI_GPII_n_CNTXT_SRC_GPII_CH_IRQ_OFFS(gpii->gpii_id);

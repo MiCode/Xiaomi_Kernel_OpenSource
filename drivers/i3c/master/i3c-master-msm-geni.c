@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/clk.h>
@@ -3464,14 +3464,9 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 				"geni_se_common_resources_init Failed:%d\n", ret);
 		return ret;
 	}
-	I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
-		"%s: GENI_TO_CORE:%d CPU_TO_GENI:%d GENI_TO_DDR:%d\n", __func__,
-		gi3c->se.icc_paths[GENI_TO_CORE].avg_bw,
-		gi3c->se.icc_paths[CPU_TO_GENI].avg_bw,
-		gi3c->se.icc_paths[GENI_TO_DDR].avg_bw);
 
 	 /* call set_bw for once, then do icc_enable/disable */
-	ret = geni_icc_set_bw(&gi3c->se);
+	ret = geni_common_icc_set_bw(&gi3c->se, gi3c->ipcl);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: icc set bw failed ret:%d\n",
 							__func__, ret);

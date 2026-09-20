@@ -53,6 +53,19 @@ static int ebt_mark_tg_check(const struct xt_tgchk_param *par)
 		return -EINVAL;
 	return 0;
 }
+
+#define DEFINE_EBT_MARK_TG_REG(compat)					\
+	{								\
+		.name		= "mark",				\
+		.revision	= 0,					\
+		.family		= NFPROTO_BRIDGE,			\
+		.target		= ebt_mark_tg,				\
+		.checkentry	= ebt_mark_tg_check,			\
+		.targetsize	= sizeof(struct ebt_mark_t_info),	\
+		.me		= THIS_MODULE,				\
+		.has_compat_metadata = compat				\
+	}
+
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
 struct compat_ebt_mark_t_info {
 	compat_ulong_t mark;
@@ -78,22 +91,18 @@ static int mark_tg_compat_to_user(void __user *dst, const void *src)
 		return -EFAULT;
 	return 0;
 }
-#endif
 
-static struct xt_target ebt_mark_tg_reg __read_mostly = {
-	.name		= "mark",
-	.revision	= 0,
-	.family		= NFPROTO_BRIDGE,
-	.target		= ebt_mark_tg,
-	.checkentry	= ebt_mark_tg_check,
-	.targetsize	= sizeof(struct ebt_mark_t_info),
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+static struct compat_xt_target_ext ebt_mark_tg_reg_ext __read_mostly = {
 	.compatsize	= sizeof(struct compat_ebt_mark_t_info),
 	.compat_from_user = mark_tg_compat_from_user,
 	.compat_to_user	= mark_tg_compat_to_user,
-#endif
-	.me		= THIS_MODULE,
+	.target = DEFINE_EBT_MARK_TG_REG(true),
 };
+
+#define ebt_mark_tg_reg (ebt_mark_tg_reg_ext.target)
+#else
+static struct xt_target ebt_mark_tg_reg __read_mostly = DEFINE_EBT_MARK_TG_REG(false);
+#endif
 
 static int __init ebt_mark_init(void)
 {

@@ -104,7 +104,7 @@ static irqreturn_t gh_msgq_rx_isr(int irq, void *dev)
 	cap_table_entry->rx_empty = false;
 	spin_unlock(&cap_table_entry->rx_lock);
 
-	wake_up_interruptible(&cap_table_entry->rx_wq);
+	wake_up(&cap_table_entry->rx_wq);
 
 	return IRQ_HANDLED;
 }
@@ -575,7 +575,7 @@ int gh_msgq_populate_cap_info(int label, u64 cap_id, int direction, int irq)
 		cap_table_entry->rx_irq = irq;
 		spin_unlock(&cap_table_entry->cap_entry_lock);
 
-		wake_up_interruptible(&cap_table_entry->rx_wq);
+		wake_up(&cap_table_entry->rx_wq);
 	} else {
 		pr_err("%s: Invalid direction passed\n", __func__);
 		ret = -EINVAL;

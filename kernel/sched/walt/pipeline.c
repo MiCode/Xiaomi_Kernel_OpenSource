@@ -3,6 +3,7 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
+#include <linux/sort.h>
 #include "walt.h"
 #include "trace.h"
 
@@ -237,11 +238,31 @@ static inline bool should_pipeline_pin_special(void)
 	return true;
 }
 
+static int load_cmp_func(const void *tsk1, const void *tsk2)
+{
+	struct walt_task_struct **wts1 = (struct walt_task_struct **)tsk1;
+	struct walt_task_struct **wts2 = (struct walt_task_struct **)tsk2;
+	int demand1, demand2;
+
+	if (unlikely(!wts1 || !wts2 || !*wts1 || !*wts2))
+		return -1;
+
+	demand1 = pipeline_demand(*wts1);
+	demand2 = pipeline_demand(*wts2);
+
+	return demand2 - (demand1 + pipeline_swap_util_th);
+}
+
 cpumask_t last_available_big_cpus = CPU_MASK_NONE;
 int have_heavy_list;
 u32 total_util;
 u32 least_pipeline_demand;
-#define REARRANGE_HYST_MS	100ULL
+#define REARRANGE_HYST_MS		100ULL
+#define DEFAULT_PENALTY			10
+#define DEFAULT_BONUS			5
+#define LST_LOW_DEMAND_PENALTY		5
+#define MAX_ACTIVITY_CNT		250
+#define LST_PIPELINE_SKIP_THRESHOLD	25
 bool find_heaviest_topapp(u64 window_start)
 {
 	struct walt_related_thread_group *grp;
@@ -250,6 +271,8 @@ bool find_heaviest_topapp(u64 window_start)
 	static u64 last_rearrange_ns;
 	u64 rearrange_target_ns = 0;
 	int i, j, start, delta = 0;
+	int nr_pipeline_cnt = 0;
+	int nr_prime_cpu = cpumask_weight(&sched_cluster[num_sched_clusters - 1]->cpus);
 	struct walt_task_struct *heavy_wts_to_drop[MAX_NR_PIPELINE];
 
 	if (num_sched_clusters < 2)
@@ -320,16 +343,24 @@ bool find_heaviest_topapp(u64 window_start)
 
 		atomic_set(&to_be_placed_wts->event_windows, 0);
 
-		to_be_placed_wts->pipeline_activity_cnt =
-					max((int)to_be_placed_wts->pipeline_activity_cnt - 1, 0);
+		/*
+		 * Apply a penalty of DEFAULT_PENALTY to "to_be_placed_wts", assuming it won't
+		 * be selected as a pipeline task.
+		 * If it is later selected as a pipeline task, this penalty will be removed.
+		 */
+		if (to_be_placed_wts->pipeline_cpu == -1)
+			to_be_placed_wts->pipeline_activity_cnt =
+				max(to_be_placed_wts->pipeline_activity_cnt - DEFAULT_PENALTY, 0);
 
 		/*
-		 * Penalty is applied on the tasks which have less demand(less than 50) and
-		 * were active for less than 4 windows.
+		 * Penalty is applied on the tasks which have less demand and were active for
+		 * less than 4 windows.
 		 */
-		if ((pipeline_demand(to_be_placed_wts) < 50) && (win_cnt < 4)) {
+		if ((pipeline_demand(to_be_placed_wts) < min_demand_for_activity_cnt) &&
+			(win_cnt < 4)) {
 			to_be_placed_wts->pipeline_activity_cnt =
-					max((int)to_be_placed_wts->pipeline_activity_cnt - 10, 0);
+					max(to_be_placed_wts->pipeline_activity_cnt -
+									DEFAULT_PENALTY, 0);
 
 			if (to_be_placed_wts->pipeline_cpu == -1)
 				continue;
@@ -344,33 +375,36 @@ bool find_heaviest_topapp(u64 window_start)
 		 * window count is added to improve it's pipeline selection chances.
 		 *
 		 * If task is small in demand than the least heavy pipeline tasks then
-		 * appply penalty of 5.
+		 * apply penalty of LST_LOW_DEMAND_PENALTY.
 		 *
-		 * If task is marked as LST add 10 more to penalty.
+		 * If task is marked as LST add LST_LOW_DEMAND_PENALTY more to penalty.
 		 */
 		delta = pipeline_demand(to_be_placed_wts) - least_pipeline_demand;
-		if (delta >= 0)
-			to_be_placed_wts->pipeline_activity_cnt += win_cnt;
-		else
-			penalty = 5;
+		if (delta >= 0) {
+			if (pipeline_demand(to_be_placed_wts) >= min_demand_for_activity_cnt)
+				to_be_placed_wts->pipeline_activity_cnt += win_cnt;
+		} else {
+			penalty += LST_LOW_DEMAND_PENALTY;
+		}
 
 		if (to_be_placed_wts->lst)
-			penalty += 10;
+			penalty += LST_LOW_DEMAND_PENALTY;
 
 		to_be_placed_wts->pipeline_activity_cnt =
-				max((int)to_be_placed_wts->pipeline_activity_cnt - penalty, 0);
+				max(to_be_placed_wts->pipeline_activity_cnt - penalty, 0);
 
 		/*
 		 * Ignore any LST task with either small pipeline count or task is not
 		 * a pipeline task.
 		 */
-		if (to_be_placed_wts->lst && ((to_be_placed_wts->pipeline_activity_cnt < 50) ||
-							(to_be_placed_wts->pipeline_cpu == -1)))
+		if (to_be_placed_wts->lst &&
+		    ((to_be_placed_wts->pipeline_activity_cnt < LST_PIPELINE_SKIP_THRESHOLD) ||
+			(to_be_placed_wts->pipeline_cpu == -1)))
 			continue;
 
-		/* saturate pipeline count to 250 so that we have deterministic decay */
-		if (to_be_placed_wts->pipeline_activity_cnt > 250)
-			to_be_placed_wts->pipeline_activity_cnt = 250;
+		/* saturate pipeline count so that we have deterministic decay */
+		if (to_be_placed_wts->pipeline_activity_cnt > MAX_ACTIVITY_CNT)
+			to_be_placed_wts->pipeline_activity_cnt = MAX_ACTIVITY_CNT;
 
 		/* skip user defined task as it's already part of the list */
 		if (pipeline_special_task && (to_be_placed_wts == heavy_wts[0]))
@@ -451,6 +485,9 @@ bool find_heaviest_topapp(u64 window_start)
 		if (reset) {
 			heavy_wts_to_drop[i]->low_latency &= ~WALT_LOW_LATENCY_HEAVY_BIT;
 			heavy_wts_to_drop[i]->pipeline_cpu = -1;
+			heavy_wts_to_drop[i]->pipeline_activity_cnt =
+				max(heavy_wts_to_drop[i]->pipeline_activity_cnt -
+									DEFAULT_PENALTY, 0);
 		}
 
 	}
@@ -462,15 +499,22 @@ bool find_heaviest_topapp(u64 window_start)
 	 */
 	least_pipeline_demand = INT_MAX;
 	for (i = 0; i < MAX_NR_PIPELINE; i++) {
+		int demand;
+
 		if (heavy_wts[i]) {
+			demand = pipeline_demand(heavy_wts[i]);
+			nr_pipeline_cnt++;
 			heavy_wts[i]->low_latency |= WALT_LOW_LATENCY_HEAVY_BIT;
-			heavy_wts[i]->pipeline_activity_cnt += 3;
+
+			/* pipeline selection count is only applied if task is big enough */
+			if (demand > min_demand_for_activity_cnt)
+				heavy_wts[i]->pipeline_activity_cnt += DEFAULT_BONUS;
 
 			/*
 			 * least_pipeline_demand: tracks smallest pipeline task, this is used
 			 * for calculation of penalty during pipeline task selection.
 			 */
-			if (pipeline_demand(heavy_wts[i]) <= least_pipeline_demand)
+			if (demand <= least_pipeline_demand)
 				least_pipeline_demand = pipeline_demand(heavy_wts[i]);
 		}
 	}
@@ -480,6 +524,11 @@ bool find_heaviest_topapp(u64 window_start)
 		pipeline_set_unisolation(true, AUTO_PIPELINE);
 	else
 		pipeline_set_unisolation(false, AUTO_PIPELINE);
+
+	/* sort heavy list based on demand */
+	if (((nr_pipeline_cnt - start) > 1) && (!start || (nr_prime_cpu > 1)))
+		sort(&heavy_wts[start], start ? nr_pipeline_cnt - 1 : nr_pipeline_cnt,
+		     sizeof(heavy_wts[0]), load_cmp_func, NULL);
 
 	raw_spin_unlock(&heavy_lock);
 	raw_spin_unlock_irqrestore(&grp->lock, flags);

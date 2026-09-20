@@ -1911,6 +1911,7 @@
   scsi_report_bus_reset
   scsi_scan_host
   scsi_unblock_requests
+  scsi_host_busy
   sdev_prefix_printk
   security_file_ioctl
   select_fallback_rq

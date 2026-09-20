@@ -23,7 +23,7 @@
 #include "extent-tree.h"
 
 #ifdef CONFIG_BTRFS_DEBUG
-int btrfs_should_fragment_free_space(struct btrfs_block_group *block_group)
+int btrfs_should_fragment_free_space(const struct btrfs_block_group *block_group)
 {
 	struct btrfs_fs_info *fs_info = block_group->fs_info;
 
@@ -34,15 +34,28 @@ int btrfs_should_fragment_free_space(struct btrfs_block_group *block_group)
 }
 #endif
 
+static inline bool has_unwritten_metadata(struct btrfs_block_group *block_group)
+{
+	/* The meta_write_pointer is available only on the zoned setup. */
+	if (!btrfs_is_zoned(block_group->fs_info))
+		return false;
+
+	if (block_group->flags & BTRFS_BLOCK_GROUP_DATA)
+		return false;
+
+	return block_group->start + block_group->alloc_offset >
+		block_group->meta_write_pointer;
+}
+
 /*
  * Return target flags in extended format or 0 if restripe for this chunk_type
  * is not in progress
  *
  * Should be called with balance_lock held
  */
-static u64 get_restripe_target(struct btrfs_fs_info *fs_info, u64 flags)
+static u64 get_restripe_target(const struct btrfs_fs_info *fs_info, u64 flags)
 {
-	struct btrfs_balance_control *bctl = fs_info->balance_ctl;
+	const struct btrfs_balance_control *bctl = fs_info->balance_ctl;
 	u64 target = 0;
 
 	if (!bctl)
@@ -1240,6 +1253,15 @@ int btrfs_remove_block_group(struct btrfs_trans_handle *trans,
 		goto out;
 
 	spin_lock(&block_group->lock);
+	/*
+	 * Hitting this WARN means we removed a block group with an unwritten
+	 * region. It will cause "unable to find chunk map for logical" errors.
+	 */
+	if (WARN_ON(has_unwritten_metadata(block_group)))
+		btrfs_warn(fs_info,
+			   "block group %llu is removed before metadata write out",
+			   block_group->start);
+
 	set_bit(BLOCK_GROUP_FLAG_REMOVED, &block_group->runtime_flags);
 
 	/*
@@ -1418,9 +1440,9 @@ out:
 }
 
 static bool clean_pinned_extents(struct btrfs_trans_handle *trans,
-				 struct btrfs_block_group *bg)
+				 const struct btrfs_block_group *bg)
 {
-	struct btrfs_fs_info *fs_info = bg->fs_info;
+	struct btrfs_fs_info *fs_info = trans->fs_info;
 	struct btrfs_transaction *prev_trans = NULL;
 	const u64 start = bg->start;
 	const u64 end = start + bg->length - 1;
@@ -1563,8 +1585,9 @@ void btrfs_delete_unused_bgs(struct btrfs_fs_info *fs_info)
 		 * needing to allocate extents from the block group.
 		 */
 		used = btrfs_space_info_used(space_info, true);
-		if (space_info->total_bytes - block_group->length < used &&
-		    block_group->zone_unusable < block_group->length) {
+		if ((space_info->total_bytes - block_group->length < used &&
+		     block_group->zone_unusable < block_group->length) ||
+		    has_unwritten_metadata(block_group)) {
 			/*
 			 * Add a reference for the list, compensate for the ref
 			 * drop under the "next" label for the
@@ -1752,14 +1775,14 @@ static int reclaim_bgs_cmp(void *unused, const struct list_head *a,
 	return bg1->used > bg2->used;
 }
 
-static inline bool btrfs_should_reclaim(struct btrfs_fs_info *fs_info)
+static inline bool btrfs_should_reclaim(const struct btrfs_fs_info *fs_info)
 {
 	if (btrfs_is_zoned(fs_info))
 		return btrfs_zoned_should_reclaim(fs_info);
 	return true;
 }
 
-static bool should_reclaim_block_group(struct btrfs_block_group *bg, u64 bytes_freed)
+static bool should_reclaim_block_group(const struct btrfs_block_group *bg, u64 bytes_freed)
 {
 	const struct btrfs_space_info *space_info = bg->space_info;
 	const int reclaim_thresh = READ_ONCE(space_info->bg_reclaim_threshold);
@@ -1885,6 +1908,17 @@ void btrfs_reclaim_bgs_work(struct work_struct *work)
 			up_write(&space_info->groups_sem);
 			goto next;
 		}
+
+		/*
+		 * Cache the zone_unusable value before turning the block group
+		 * to read only. As soon as the block group is read only it's
+		 * zone_unusable value gets moved to the block group's read-only
+		 * bytes and isn't available for calculations anymore. We also
+		 * cache it before unlocking the block group, to prevent races
+		 * (reports from KCSAN and such tools) with tasks updating it.
+		 */
+		zone_unusable = bg->zone_unusable;
+
 		spin_unlock(&bg->lock);
 
 		/*
@@ -1900,13 +1934,6 @@ void btrfs_reclaim_bgs_work(struct work_struct *work)
 			goto next;
 		}
 
-		/*
-		 * Cache the zone_unusable value before turning the block group
-		 * to read only. As soon as the blog group is read only it's
-		 * zone_unusable value gets moved to the block group's read-only
-		 * bytes and isn't available for calculations anymore.
-		 */
-		zone_unusable = bg->zone_unusable;
 		ret = inc_block_group_ro(bg, 0);
 		up_write(&space_info->groups_sem);
 		if (ret < 0)
@@ -1987,8 +2014,8 @@ void btrfs_mark_bg_to_reclaim(struct btrfs_block_group *bg)
 	spin_unlock(&fs_info->unused_bgs_lock);
 }
 
-static int read_bg_from_eb(struct btrfs_fs_info *fs_info, struct btrfs_key *key,
-			   struct btrfs_path *path)
+static int read_bg_from_eb(struct btrfs_fs_info *fs_info, const struct btrfs_key *key,
+			   const struct btrfs_path *path)
 {
 	struct extent_map_tree *em_tree;
 	struct extent_map *em;
@@ -2040,7 +2067,7 @@ out_free_em:
 
 static int find_first_block_group(struct btrfs_fs_info *fs_info,
 				  struct btrfs_path *path,
-				  struct btrfs_key *key)
+				  const struct btrfs_key *key)
 {
 	struct btrfs_root *root = btrfs_block_group_root(fs_info);
 	int ret;
@@ -2632,8 +2659,8 @@ static int insert_block_group_item(struct btrfs_trans_handle *trans,
 }
 
 static int insert_dev_extent(struct btrfs_trans_handle *trans,
-			    struct btrfs_device *device, u64 chunk_offset,
-			    u64 start, u64 num_bytes)
+			     const struct btrfs_device *device, u64 chunk_offset,
+			     u64 start, u64 num_bytes)
 {
 	struct btrfs_fs_info *fs_info = device->fs_info;
 	struct btrfs_root *root = fs_info->dev_root;
@@ -2783,7 +2810,7 @@ next:
  * For extent tree v2 we use the block_group_item->chunk_offset to point at our
  * global root id.  For v1 it's always set to BTRFS_FIRST_CHUNK_TREE_OBJECTID.
  */
-static u64 calculate_global_root_id(struct btrfs_fs_info *fs_info, u64 offset)
+static u64 calculate_global_root_id(const struct btrfs_fs_info *fs_info, u64 offset)
 {
 	u64 div = SZ_1G;
 	u64 index;
@@ -3819,8 +3846,8 @@ static void force_metadata_allocation(struct btrfs_fs_info *info)
 	}
 }
 
-static int should_alloc_chunk(struct btrfs_fs_info *fs_info,
-			      struct btrfs_space_info *sinfo, int force)
+static int should_alloc_chunk(const struct btrfs_fs_info *fs_info,
+			      const struct btrfs_space_info *sinfo, int force)
 {
 	u64 bytes_used = btrfs_space_info_used(sinfo, false);
 	u64 thresh;
@@ -4195,7 +4222,7 @@ out:
 	return ret;
 }
 
-static u64 get_profile_num_devs(struct btrfs_fs_info *fs_info, u64 type)
+static u64 get_profile_num_devs(const struct btrfs_fs_info *fs_info, u64 type)
 {
 	u64 num_dev;
 
@@ -4602,7 +4629,7 @@ int btrfs_use_block_group_size_class(struct btrfs_block_group *bg,
 	return 0;
 }
 
-bool btrfs_block_group_should_use_size_class(struct btrfs_block_group *bg)
+bool btrfs_block_group_should_use_size_class(const struct btrfs_block_group *bg)
 {
 	if (btrfs_is_zoned(bg->fs_info))
 		return false;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/delay.h>
@@ -451,7 +451,6 @@ static void cqhci_prep_task_desc(struct mmc_request *mrq,
 		CQHCI_DATA_DIR(!!(req_flags & MMC_DATA_READ)) |
 		CQHCI_PRIORITY(!!(req_flags & MMC_DATA_PRIO)) |
 		CQHCI_QBAR(!!(req_flags & MMC_DATA_QBR)) |
-		CQHCI_REL_WRITE(!!(req_flags & MMC_DATA_REL_WR)) |
 		CQHCI_BLK_COUNT(mrq->data->blocks) |
 		CQHCI_BLK_ADDR((u64)mrq->data->blk_addr);
 

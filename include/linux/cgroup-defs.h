@@ -41,6 +41,24 @@ struct poll_table_struct;
 
 /* define the enumeration of all cgroup subsystems */
 #define SUBSYS(_x) _x ## _cgrp_id,
+
+#define CSS_COUNTERS_SIZE (CGROUP_SUBSYS_COUNT * sizeof(atomic_t))
+
+/*
+ * This should just use max(), but max() doesn't work in struct definitions.
+ *
+ * Originally, the space was reserved for per cgroup subsystem counters, where each counter was
+ * the size of an atomic_t variable. However, it was later reused to fit a struct rcu_head
+ * which is why the calculation considers the size of struct rcu_head.
+ *
+ * This macro is provided to ANDROID_BACKPORT_USE_ARRAY() which needs to reserve at least
+ * enough memory to accommodate struct rcu_head. However, if we only reserve CSS_COUNTERS_SIZE,
+ * that may not be enough space on kernels with a small amount of cgroup subsystems enabled. So,
+ * we take the max between the two values to use in ANDROID_BACKPORT_USE_ARRAY().
+ */
+#define CGROUP_ROOT_BACKPORT_PADDING_SIZE \
+	(CSS_COUNTERS_SIZE > sizeof(struct rcu_head) ? CSS_COUNTERS_SIZE : sizeof(struct rcu_head))
+
 enum cgroup_subsys_id {
 #include <linux/cgroup_subsys.h>
 	CGROUP_SUBSYS_COUNT,
@@ -388,7 +406,45 @@ struct cgroup_freezer_state {
 	 * frozen, SIGSTOPped, and PTRACEd.
 	 */
 	int nr_frozen_tasks;
+
 };
+
+/**
+ * struct cgroup_kmi_ext_info is meant to hold extensions to struct cgroup while
+ * maintaining KMI stability.
+ *
+ * Hide the definition of struct cgroup_kmi_ext_info from MODVERSIONS so that it
+ * can be modified to accommodate additional backports in the future. This type
+ * is meant to be opaque to vendor modules.
+ */
+#ifdef __GENKSYMS__
+struct cgroup_kmi_ext_info;
+#else
+struct cgroup_kmi_ext_info {
+	/*
+	 * Metadata for cgroup v2 freeze time. Writes protected
+	 * by css_set_lock.
+	 */
+	struct {
+		/* Freeze time data consistency protection */
+		seqcount_t freeze_seq;
+
+		/*
+		 * Most recent time the cgroup was requested to freeze.
+		 * Accesses guarded by freeze_seq counter. Writes serialized
+		 * by css_set_lock.
+		 */
+		u64 freeze_start_nsec;
+
+		/*
+		 * Total duration the cgroup has spent freezing.
+		 * Accesses guarded by freeze_seq counter. Writes serialized
+		 * by css_set_lock.
+		 */
+		u64 frozen_nsec;
+	} freezer;
+};
+#endif /* __GENKSYMS__ */
 
 struct cgroup {
 	/* self css with NULL ->ss, points back to this cgroup */
@@ -540,7 +596,12 @@ struct cgroup {
 	struct bpf_local_storage __rcu  *bpf_cgrp_storage;
 #endif
 
-	ANDROID_BACKPORT_RESERVE(1);
+	/*
+	 * Used to store KMI-compliant extensions to struct cgroup.
+	 * For further additions, modify the definition for struct
+	 * cgroup_kmi_ext_info.
+	 */
+	ANDROID_BACKPORT_USE(1, struct cgroup_kmi_ext_info *kmi_ext_info);
 
 	/* All ancestors including self */
 	struct cgroup *ancestors[];
@@ -585,8 +646,12 @@ struct cgroup_root {
 	/* The name for this hierarchy - may be empty */
 	char name[MAX_CGROUP_ROOT_NAMELEN];
 
-	ANDROID_BACKPORT_USE_ARRAY(1, CGROUP_SUBSYS_COUNT * sizeof(atomic_t),
-				   struct rcu_head rcu);
+	/* Use the original calculation to preserve the CRC value for the ABI. */
+#ifndef __GENKSYMS__
+	ANDROID_BACKPORT_USE_ARRAY(1, CGROUP_ROOT_BACKPORT_PADDING_SIZE, struct rcu_head rcu);
+#else
+	ANDROID_BACKPORT_USE_ARRAY(1, CGROUP_SUBSYS_COUNT * sizeof(atomic_t), struct rcu_head rcu);
+#endif
 };
 
 /*

@@ -86,6 +86,17 @@ static int ebt_limit_mt_check(const struct xt_mtchk_param *par)
 	return 0;
 }
 
+#define DEFINE_EBT_LIMIT_MT_REG(compat)						\
+	{									\
+		.name		= "limit",					\
+		.revision	= 0,						\
+		.family		= NFPROTO_BRIDGE,				\
+		.match		= ebt_limit_mt,					\
+		.checkentry	= ebt_limit_mt_check,				\
+		.matchsize	= sizeof(struct ebt_limit_info),		\
+		.usersize	= offsetof(struct ebt_limit_info, prev),	\
+		.has_compat_metadata = compat,					\
+	}
 
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
 /*
@@ -97,21 +108,16 @@ struct ebt_compat_limit_info {
 	compat_ulong_t prev;
 	compat_uint_t credit, credit_cap, cost;
 };
-#endif
 
-static struct xt_match ebt_limit_mt_reg __read_mostly = {
-	.name		= "limit",
-	.revision	= 0,
-	.family		= NFPROTO_BRIDGE,
-	.match		= ebt_limit_mt,
-	.checkentry	= ebt_limit_mt_check,
-	.matchsize	= sizeof(struct ebt_limit_info),
-	.usersize	= offsetof(struct ebt_limit_info, prev),
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+static struct compat_xt_match_ext ebt_limit_mt_reg_ext __read_mostly = {
 	.compatsize	= sizeof(struct ebt_compat_limit_info),
-#endif
-	.me		= THIS_MODULE,
+	.match = DEFINE_EBT_LIMIT_MT_REG(true),
 };
+
+#define ebt_limit_mt_reg (ebt_limit_mt_reg_ext.match)
+#else
+static struct xt_match ebt_limit_mt_reg __read_mostly = DEFINE_EBT_LIMIT_MT_REG(false);
+#endif
 
 static int __init ebt_limit_init(void)
 {

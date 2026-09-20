@@ -56,6 +56,15 @@ static unsigned int ebt_pernet_id __read_mostly;
 static LIST_HEAD(template_tables);
 static DEFINE_MUTEX(ebt_mutex);
 
+#define DEFINE_EBT_STANDARD_TARGET(compat)		\
+	{						\
+		.name       = "standard",		\
+		.revision   = 0,			\
+		.family     = NFPROTO_BRIDGE,		\
+		.targetsize = sizeof(int),		\
+		.has_compat_metadata = compat,		\
+	}
+
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
 static void ebt_standard_compat_from_user(void *dst, const void *src)
 {
@@ -74,20 +83,19 @@ static int ebt_standard_compat_to_user(void __user *dst, const void *src)
 		cv -= xt_compat_calc_jump(NFPROTO_BRIDGE, cv);
 	return copy_to_user(dst, &cv, sizeof(cv)) ? -EFAULT : 0;
 }
-#endif
 
-
-static struct xt_target ebt_standard_target = {
-	.name       = "standard",
-	.revision   = 0,
-	.family     = NFPROTO_BRIDGE,
-	.targetsize = sizeof(int),
-#ifdef CONFIG_NETFILTER_XTABLES_COMPAT
+static struct compat_xt_target_ext ebt_standard_target_ext = {
 	.compatsize = sizeof(compat_int_t),
 	.compat_from_user = ebt_standard_compat_from_user,
 	.compat_to_user =  ebt_standard_compat_to_user,
-#endif
+	.target = DEFINE_EBT_STANDARD_TARGET(true),
 };
+
+static struct xt_target *ebt_standard_target_ptr = &ebt_standard_target_ext.target;
+#else
+static struct xt_target ebt_standard_target = DEFINE_EBT_STANDARD_TARGET(false);
+static struct xt_target *ebt_standard_target_ptr = &ebt_standard_target;
+#endif
 
 static inline int
 ebt_do_watcher(const struct ebt_entry_watcher *w, struct sk_buff *skb,
@@ -760,7 +768,7 @@ ebt_check_entry(struct ebt_entry *e, struct net *net,
 	}
 
 	t->u.target = target;
-	if (t->u.target == &ebt_standard_target) {
+	if (t->u.target == ebt_standard_target_ptr) {
 		if (gap < sizeof(struct ebt_standard_target)) {
 			ret = -EFAULT;
 			goto cleanup_watchers;
@@ -1641,6 +1649,7 @@ static int compat_match_to_user(struct ebt_entry_match *m, void __user **dstptr,
 				unsigned int *size)
 {
 	const struct xt_match *match = m->u.match;
+	compat_to_user_fn_t compat_to_user = get_xt_match_compat_to_user(match);
 	struct compat_ebt_entry_mwt __user *cm = *dstptr;
 	int off = ebt_compat_match_offset(match, m->match_size);
 	compat_uint_t msize = m->match_size - off;
@@ -1653,8 +1662,8 @@ static int compat_match_to_user(struct ebt_entry_match *m, void __user **dstptr,
 	    put_user(msize, &cm->match_size))
 		return -EFAULT;
 
-	if (match->compat_to_user) {
-		if (match->compat_to_user(cm->data, m->data))
+	if (compat_to_user) {
+		if (compat_to_user(cm->data, m->data))
 			return -EFAULT;
 	} else {
 		if (xt_data_to_user(cm->data, m->data, match->usersize, msize,
@@ -1673,6 +1682,7 @@ static int compat_target_to_user(struct ebt_entry_target *t,
 				 unsigned int *size)
 {
 	const struct xt_target *target = t->u.target;
+	compat_to_user_fn_t compat_to_user = get_xt_target_compat_to_user(target);
 	struct compat_ebt_entry_mwt __user *cm = *dstptr;
 	int off = xt_compat_target_offset(target);
 	compat_uint_t tsize = t->target_size - off;
@@ -1685,8 +1695,8 @@ static int compat_target_to_user(struct ebt_entry_target *t,
 	    put_user(tsize, &cm->match_size))
 		return -EFAULT;
 
-	if (target->compat_to_user) {
-		if (target->compat_to_user(cm->data, t->data))
+	if (compat_to_user) {
+		if (compat_to_user(cm->data, t->data))
 			return -EFAULT;
 	} else {
 		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize,
@@ -1960,6 +1970,8 @@ static int compat_mtw_from_user(const struct compat_ebt_entry_mwt *mwt,
 	char name[EBT_EXTENSION_MAXNAMELEN];
 	struct xt_match *match;
 	struct xt_target *wt;
+	compat_from_user_fn_t match_compat_from_user;
+	compat_from_user_fn_t wt_compat_from_user;
 	void *dst = NULL;
 	int off, pad = 0;
 	unsigned int size_kern, match_size = mwt->match_size;
@@ -1979,8 +1991,10 @@ static int compat_mtw_from_user(const struct compat_ebt_entry_mwt *mwt,
 
 		off = ebt_compat_match_offset(match, match_size);
 		if (dst) {
-			if (match->compat_from_user)
-				match->compat_from_user(dst, mwt->data);
+			match_compat_from_user = get_xt_match_compat_from_user(match);
+
+			if (match_compat_from_user)
+				match_compat_from_user(dst, mwt->data);
 			else
 				memcpy(dst, mwt->data, match_size);
 		}
@@ -1999,8 +2013,10 @@ static int compat_mtw_from_user(const struct compat_ebt_entry_mwt *mwt,
 		off = xt_compat_target_offset(wt);
 
 		if (dst) {
-			if (wt->compat_from_user)
-				wt->compat_from_user(dst, mwt->data);
+			wt_compat_from_user = get_xt_target_compat_from_user(wt);
+
+			if (wt_compat_from_user)
+				wt_compat_from_user(dst, mwt->data);
 			else
 				memcpy(dst, mwt->data, match_size);
 		}
@@ -2569,19 +2585,19 @@ static int __init ebtables_init(void)
 {
 	int ret;
 
-	ret = xt_register_target(&ebt_standard_target);
+	ret = xt_register_target(ebt_standard_target_ptr);
 	if (ret < 0)
 		return ret;
 	ret = nf_register_sockopt(&ebt_sockopts);
 	if (ret < 0) {
-		xt_unregister_target(&ebt_standard_target);
+		xt_unregister_target(ebt_standard_target_ptr);
 		return ret;
 	}
 
 	ret = register_pernet_subsys(&ebt_net_ops);
 	if (ret < 0) {
 		nf_unregister_sockopt(&ebt_sockopts);
-		xt_unregister_target(&ebt_standard_target);
+		xt_unregister_target(ebt_standard_target_ptr);
 		return ret;
 	}
 
@@ -2591,7 +2607,7 @@ static int __init ebtables_init(void)
 static void ebtables_fini(void)
 {
 	nf_unregister_sockopt(&ebt_sockopts);
-	xt_unregister_target(&ebt_standard_target);
+	xt_unregister_target(ebt_standard_target_ptr);
 	unregister_pernet_subsys(&ebt_net_ops);
 }
 

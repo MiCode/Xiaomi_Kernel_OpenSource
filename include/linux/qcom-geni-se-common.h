@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef _LINUX_QCOM_GENI_SE_COMMON
@@ -134,6 +134,10 @@ if (print) { \
 #define IO_MACRO_IO2_SEL	BIT(5)
 #define IO_MACRO_IO0_SEL_BIT	BIT(0)
 
+#define GENI_BW_SCALING_FACTOR	(100)
+
+static const char * const icc_path_names[] = {"qup-core", "qup-config", "qup-memory"};
+
 /**
  * struct kpi_time - Help to capture KPI information
  * @len: length of the request
@@ -161,6 +165,32 @@ static inline int geni_se_common_resources_init(struct geni_se *se, u32 geni_to_
 	se->icc_paths[GENI_TO_DDR].avg_bw = geni_to_ddr;
 
 	return ret;
+}
+
+static inline int geni_common_icc_set_bw(struct geni_se *se, void *ipcl)
+{
+	int i, ret;
+	u32 avg_bw, peak_bw;
+
+	for (i = 0; i < ARRAY_SIZE(se->icc_paths); i++) {
+		avg_bw = se->icc_paths[i].avg_bw;
+		peak_bw = se->icc_paths[i].avg_bw;
+
+		if (i == 0)
+			avg_bw = se->icc_paths[i].avg_bw / GENI_BW_SCALING_FACTOR;
+
+		ret = icc_set_bw(se->icc_paths[i].path, avg_bw, peak_bw);
+		if (ret) {
+			dev_err_ratelimited(se->dev, "ICC BW voting failed on path '%s': %d\n",
+					    icc_path_names[i], ret);
+			return ret;
+		}
+
+		ipc_log_string(ipcl, "ICC BW voting on path: %s, avg_bw: %u, peak_bw: %u\n",
+			       icc_path_names[i], avg_bw, peak_bw);
+	}
+
+	return 0;
 }
 
 static inline int geni_se_common_get_proto(void __iomem *base)

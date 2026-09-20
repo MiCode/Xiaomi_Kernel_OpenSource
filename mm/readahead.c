@@ -251,6 +251,10 @@ void page_cache_ra_unbounded(struct readahead_control *ractl,
 			read_pages(ractl);
 			ractl->_index++;
 			i = ractl->_index + ractl->_nr_pages - index - 1;
+#ifdef CONFIG_ANDROID_VENDOR_OEM_DATA
+			trace_android_vh_page_cache_ra_unbounded(mapping, folio,
+					&ractl->android_oem_data1);
+#endif
 			continue;
 		}
 
@@ -270,6 +274,10 @@ void page_cache_ra_unbounded(struct readahead_control *ractl,
 			folio_set_readahead(folio);
 		ractl->_workingset |= folio_test_workingset(folio);
 		ractl->_nr_pages++;
+#ifdef CONFIG_ANDROID_VENDOR_OEM_DATA
+		trace_android_vh_page_cache_ra_unbounded(mapping, folio,
+				&ractl->android_oem_data1);
+#endif
 	}
 
 	/*
@@ -332,6 +340,9 @@ void force_page_cache_ra(struct readahead_control *ractl,
 	index = readahead_index(ractl);
 	max_pages = max_t(unsigned long, bdi->io_pages, ra->ra_pages);
 	nr_to_read = min_t(unsigned long, nr_to_read, max_pages);
+#ifdef CONFIG_ANDROID_VENDOR_OEM_DATA
+	trace_android_vh_force_page_cache_ra(mapping, &ractl->android_oem_data1);
+#endif
 	while (nr_to_read) {
 		unsigned long this_chunk = (2 * 1024 * 1024) / PAGE_SIZE;
 
@@ -504,8 +515,14 @@ void page_cache_ra_order(struct readahead_control *ractl,
 	unsigned int nofs;
 	int err = 0;
 	gfp_t gfp = readahead_gfp_mask(mapping);
+	bool bypass = false;
 
 	if (!mapping_large_folio_support(mapping) || ra->size < 4)
+		goto fallback;
+
+	trace_android_vh_page_cache_ra_order_bypass(ractl, ra, new_order, &gfp,
+						    &bypass);
+	if (bypass)
 		goto fallback;
 
 	limit = min(limit, index + ra->size - 1);

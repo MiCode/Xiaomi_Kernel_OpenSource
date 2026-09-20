@@ -1,0 +1,6 @@
+config LX_THERMAL_INTERFACE
+	tristate "lx factory thermal NTC GET TEMP"
+	depends on THERMAL
+	default n
+	help
+	  This is lx factory thermal NTC GET TEMP.

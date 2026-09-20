@@ -604,4 +604,7 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/uacce/Kconfig"
 source "drivers/misc/pvpanic/Kconfig"
 source "drivers/misc/mchp_pci1xxxx/Kconfig"
+source "drivers/misc/xiaomi/Kconfig"
+# Modem.RF - 2025.4.18 - add radio cable detection
+source "drivers/misc/radio_cable_det/Kconfig"
 endmenu

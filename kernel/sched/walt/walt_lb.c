@@ -9,6 +9,16 @@
 #include "walt.h"
 #include "trace.h"
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern bool (*metis_lb_cpu_overutilized)(int cpu);
+extern bool (*metis_lb_check_for_higher_capacity)(int cpu1, int cpu2);
+extern int metis_lb_find_busiest_cpu(int dst_cpu, int order_index, int *path);
+extern int metis_lb_pull_tasks(int dst_cpu, int src_cpu, struct task_struct *pulled_task, int *path);
+extern bool metis_coldstart_skip_lb(struct task_struct *tsk, int src_cpu, int dst_cpu, int up);
+#endif
+// END Performance_TurboSched
+
 inline unsigned long walt_lb_cpu_util(int cpu)
 {
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu);
@@ -784,6 +794,13 @@ static bool walt_balance_rt(struct rq *this_rq)
 	if (sched_rt_runnable(this_rq))
 		return false;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	if (metis_coldstart_skip_lb(NULL, -1, this_cpu, 0))
+		return false;
+#endif
+// END Performance_TurboSched
+
 	/* check if any CPU has a pushable RT task */
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
@@ -869,6 +886,11 @@ static void walt_newidle_balance(struct rq *this_rq,
 	int has_misfit = 0;
 	int i;
 	struct task_struct *pulled_task_struct = NULL;
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	int metis_lb_path = 0;
+#endif
+// END Performance_TurboSched
 
 	if (unlikely(walt_disabled))
 		return;
@@ -921,6 +943,16 @@ static void walt_newidle_balance(struct rq *this_rq,
 
 	help_min_cap = should_help_min_cap(this_cpu);
 	raw_spin_unlock(&this_rq->__lock);
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	order_index = wrq->cluster->id;
+	busy_cpu = metis_lb_find_busiest_cpu(this_cpu, order_index, &metis_lb_path);
+	if (busy_cpu >= 0)
+		goto found_busy_cpu;
+metis_lb_retry:
+#endif
+// END Performance_TurboSched
 
 	/*
 	 * careful, we dropped the lock, and has to be acquired
@@ -978,6 +1010,20 @@ found_busy_cpu:
 	if (this_rq->nr_running > 0 || (busy_cpu == this_cpu))
 		goto unlock;
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	if (metis_lb_path) {
+		*pulled_task = metis_lb_pull_tasks(this_cpu,
+			busy_cpu, pulled_task_struct, &metis_lb_path);
+		if (*pulled_task)
+			goto unlock;
+
+		busy_cpu = -1;
+		metis_lb_path = 0;
+		goto metis_lb_retry;
+	}
+#endif
+// END Performance_TurboSched
 	*pulled_task = walt_lb_pull_tasks(this_cpu, busy_cpu, &pulled_task_struct);
 
 unlock:
@@ -1250,6 +1296,13 @@ void walt_lb_init(void)
 	register_trace_android_rvh_find_busiest_queue(walt_find_busiest_queue, NULL);
 	register_trace_android_rvh_sched_newidle_balance(walt_sched_newidle_balance, NULL);
 	register_trace_android_rvh_find_new_ilb(walt_find_new_ilb, NULL);
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+	metis_lb_cpu_overutilized = cpu_overutilized;
+	metis_lb_check_for_higher_capacity = check_for_higher_capacity;
+#endif
+// END Performance_TurboSched
 
 	for_each_cpu(cpu, cpu_possible_mask) {
 		call_single_data_t *csd;

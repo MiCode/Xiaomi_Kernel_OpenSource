@@ -16,6 +16,7 @@ struct hyp_pool {
 	phys_addr_t range_start;
 	phys_addr_t range_end;
 	u64 free_pages;
+	u64 min_free_pages;
 	u8 max_order;
 };
 
@@ -26,6 +27,7 @@ void hyp_get_page(struct hyp_pool *pool, void *addr);
 void hyp_put_page(struct hyp_pool *pool, void *addr);
 
 u64 hyp_pool_free_pages(struct hyp_pool *pool);
+u64 hyp_pool_min_free_pages(struct hyp_pool *pool);
 
 /* Used pages cannot be freed */
 int hyp_pool_init(struct hyp_pool *pool, u64 pfn, unsigned int nr_pages,

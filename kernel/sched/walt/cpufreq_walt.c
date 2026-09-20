@@ -94,8 +94,30 @@ struct waltgov_cpu {
 };
 
 DEFINE_PER_CPU(struct waltgov_callback *, waltgov_cb_data);
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+EXPORT_PER_CPU_SYMBOL_GPL(waltgov_cb_data);
+#endif
+// END Game_TurboSched
 static DEFINE_PER_CPU(struct waltgov_cpu, waltgov_cpu);
 static DEFINE_PER_CPU(struct waltgov_tunables *, cached_tunables);
+
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+extern bool (oem_should_update_freq)(struct cpufreq_policy *policy, u64 time);
+#endif
+// END Performance_TurboSched
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+typedef void (*oem_freq_f)(void *, unsigned long, unsigned long,
+		unsigned long, unsigned long *,
+		struct cpufreq_policy *, bool *,
+		unsigned int, unsigned int, unsigned int);
+
+static oem_freq_f oem_set_freq_hook = NULL;
+#endif
+// END Game_TurboSched
 
 /************************ Governor internals ***********************/
 
@@ -109,6 +131,12 @@ static bool waltgov_should_update_freq(struct waltgov_policy *wg_policy, u64 tim
 		return true;
 	}
 
+// MIUI ADD: Performance_TurboSched
+#ifdef CONFIG_METIS_WALT
+    if (unlikely(oem_should_update_freq(wg_policy->policy, time)))
+        return true;
+#endif
+// END Performance_TurboSched
 	/*
 	 * No need to recalculate next freq for min_rate_limit_us
 	 * at least. However we might still decide to further rate
@@ -273,6 +301,23 @@ static inline unsigned long walt_map_util_freq(unsigned long util,
 	return (util_boost_factor * util/cap);
 }
 
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+void register_oem_freq_hook(oem_freq_f f)
+{
+	if (likely(f))
+		oem_set_freq_hook = f;
+}
+EXPORT_SYMBOL_GPL(register_oem_freq_hook);
+
+void unregister_oem_freq_hook(void)
+{
+	oem_set_freq_hook = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_oem_freq_hook);
+#endif
+// END Game_TurboSched
+
 static inline unsigned int get_adaptive_level_1(struct waltgov_policy *wg_policy)
 {
 	return(max(wg_policy->tunables->adaptive_level_1,
@@ -362,6 +407,13 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 			wg_policy->policy->related_cpus, PAUSE_THERMAL);
 	bool reset_need_freq_update = false;
 	unsigned int j;
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+	unsigned long glk_freq;
+	unsigned int adaptive_low_freq = 0, adaptive_high_freq = 0;
+#endif
+// END Game_TurboSched
 
 	if (soc_feat(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT)) {
 		if (thermal_isolated_now) {
@@ -459,6 +511,12 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 			freq = get_adaptive_high_freq(wg_policy);
 			wg_driv_cpu->reasons |= CPUFREQ_REASON_ADAPTIVE_HIGH_BIT;
 		}
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+		adaptive_low_freq = get_adaptive_low_freq(wg_policy);
+		adaptive_high_freq = get_adaptive_high_freq(wg_policy);
+#endif
+// END Game_TurboSched
 	}
 
 	freq = get_smart_freq_limit(freq, wg_policy, wg_driv_cpu);
@@ -472,6 +530,17 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 		freq = freq_cap[PARTIAL_HALT_CAP][cluster->id];
 		wg_driv_cpu->reasons |= CPUFREQ_REASON_PARTIAL_HALT_CAP_BIT;
 	}
+
+// MIUI ADD: Game_TurboSched
+#ifdef CONFIG_MIGT_WALT
+	glk_freq = freq;
+	if (oem_set_freq_hook)
+		oem_set_freq_hook(NULL, util, policy->cpuinfo.max_freq, max,
+			&glk_freq, policy, &wg_policy->need_freq_update,
+			adaptive_low_freq, adaptive_high_freq, wg_driv_cpu->reasons);
+	freq = glk_freq;
+#endif
+// END Game_TurboSched
 
 	if ((wg_driv_cpu->flags & WALT_CPUFREQ_UCLAMP_BIT) &&
 		((wrq->uclamp_limit[UCLAMP_MIN] != 0) ||

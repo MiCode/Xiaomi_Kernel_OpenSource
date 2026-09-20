@@ -87,11 +87,6 @@ static const struct mpr_func_spec mpr_func_spec[] = {
 	[MPR_FUNCTION_C] = {.output_min = 3355443, .output_max = 13421773},
 };
 
-struct mpr_chan {
-	s32			pres;		/* pressure value */
-	s64			ts;		/* timestamp */
-};
-
 struct mpr_data {
 	struct i2c_client	*client;
 	struct mutex		lock;		/*
@@ -120,7 +115,10 @@ struct mpr_data {
 						 * loop until data is ready
 						 */
 	struct completion	completion;	/* handshake from irq to read */
-	struct mpr_chan		chan;		/*
+	struct {
+		s32 pres;			/* pressure value */
+		aligned_s64 ts;			/* timestamp */
+	} chan;				/*
 						 * channel values for buffered
 						 * mode
 						 */

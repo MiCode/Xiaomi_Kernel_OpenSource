@@ -219,7 +219,7 @@ static void *guest_s2_zalloc_pages_exact(size_t size)
 {
 	void *addr = hyp_alloc_pages(&current_vm->pool, get_order(size));
 
-	WARN_ON(size != (PAGE_SIZE << get_order(size)));
+	WARN_ON(!addr || size != (PAGE_SIZE << get_order(size)));
 	hyp_split_page(hyp_virt_to_page(addr));
 
 	return addr;
@@ -398,11 +398,6 @@ static int relinquish_walker(const struct kvm_pgtable_visit_ctx *ctx,
 	phys = kvm_pte_to_phys(pte);
 	phys += ctx->addr - addr;
 
-	if (state == PKVM_PAGE_OWNED) {
-		hyp_poison_page(phys, PAGE_SIZE);
-		psci_mem_protect_dec(1);
-	}
-
 	data->pa = phys;
 
 	return 0;
@@ -441,7 +436,16 @@ int __pkvm_guest_relinquish_to_host(struct pkvm_hyp_vcpu *vcpu,
 	if (ret)
 		goto end;
 
+	if (pkvm_hyp_vcpu_is_protected(vcpu)) {
+		hyp_poison_page(data.pa, PAGE_SIZE);
+		psci_mem_protect_dec(1);
+	}
+
 	WARN_ON(host_stage2_set_owner_locked(data.pa, PAGE_SIZE, PKVM_ID_HOST));
+
+	if (pkvm_ipa_range_has_pvmfw(vm, ipa, ipa + PAGE_SIZE))
+		vm->kvm.arch.pkvm.pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+
 end:
 	guest_unlock_component(vm);
 	host_unlock_component();
@@ -491,17 +495,9 @@ int __pkvm_prot_finalize(void)
 
 int host_stage2_unmap_reg_locked(phys_addr_t start, u64 size)
 {
-	int ret;
-
 	hyp_assert_lock_held(&host_mmu.lock);
 
-	ret = kvm_pgtable_stage2_reclaim_leaves(&host_mmu.pgt, start, size);
-	if (ret)
-		return ret;
-
-	kvm_iommu_host_stage2_idmap(start, start + size, 0);
-
-	return 0;
+	return kvm_pgtable_stage2_reclaim_leaves(&host_mmu.pgt, start, size);
 }
 
 static int host_stage2_unmap_unmoveable_regs(void)
@@ -1057,7 +1053,10 @@ static int ___host_check_page_state_range(u64 addr, u64 size,
 		.desired	= state,
 		.get_page_state	= host_get_mmio_page_state,
 	};
-	u64 end = addr + size;
+	u64 end;
+
+	if (check_add_overflow(addr, size, &end))
+		return -EINVAL;
 
 	hyp_assert_lock_held(&host_mmu.lock);
 
@@ -1087,7 +1086,10 @@ static int __host_check_page_state_range(u64 addr, u64 size,
 {
 	struct memblock_region *reg;
 	struct kvm_mem_range range;
-	u64 end = addr + size;
+	u64 end;
+
+	if (check_add_overflow(addr, size, &end))
+		return -EINVAL;
 
 	/* Can't check the state of both MMIO and memory regions at once */
 	reg = find_mem_range(addr, &range);
@@ -1100,6 +1102,14 @@ static int __host_check_page_state_range(u64 addr, u64 size,
 static int __host_set_page_state_range(u64 addr, u64 size,
 				       enum pkvm_page_state state)
 {
+	u64 end;
+
+	if (check_add_overflow(addr, size, &end))
+		return -EINVAL;
+
+	if (!range_is_memory(addr, end))
+		return -EPERM;
+
 	if (hyp_phys_to_page(addr)->host_state & PKVM_NOPAGE) {
 		int ret = host_stage2_idmap_locked(addr, size, PKVM_HOST_MEM_PROT, true);
 
@@ -1398,6 +1408,10 @@ static int __guest_check_page_state_range(struct pkvm_hyp_vm *vm, u64 addr,
 		.desired	= state,
 		.get_page_state	= guest_get_page_state,
 	};
+	u64 end;
+
+	if (check_add_overflow(addr, size, &end))
+		return -EINVAL;
 
 	hyp_assert_lock_held(&vm->pgtable_lock);
 	return check_page_state_range(&vm->pgt, addr, size, &d);
@@ -1746,6 +1760,11 @@ static int __do_share(struct pkvm_mem_transition *tx,
 		break;
 	case PKVM_ID_HYP:
 		ret = hyp_complete_share(checked_tx, tx->completer.prot);
+		if (ret == -ENOMEM) {
+			WARN_ON(tx->initiator.id != PKVM_ID_HOST);
+			WARN_ON(host_initiate_unshare(checked_tx));
+			return ret;
+		}
 		break;
 	case PKVM_ID_FFA:
 		/*
@@ -1761,7 +1780,7 @@ static int __do_share(struct pkvm_mem_transition *tx,
 		ret = -EINVAL;
 	}
 
-	return ret;
+	return WARN_ON(ret);
 }
 
 /*
@@ -1787,7 +1806,7 @@ static int do_share(struct pkvm_mem_transition *share,
 		return ret;
 
 	ret = __do_share(share, &checked_tx);
-	if (WARN_ON(ret))
+	if (ret)
 		return ret;
 
 	*nr_shared = checked_tx.nr_pages;
@@ -1970,6 +1989,16 @@ static int __do_donate(struct pkvm_mem_transition *tx)
 		break;
 	case PKVM_ID_HYP:
 		ret = hyp_complete_donation(completer_addr, tx);
+		if (ret == -ENOMEM) {
+			struct pkvm_mem_transition abort = {
+				.nr_pages = tx->nr_pages,
+				.completer.id = PKVM_ID_HOST,
+			};
+
+			WARN_ON(tx->initiator.id != PKVM_ID_HOST);
+			WARN_ON(host_complete_donation(completer_addr, &abort));
+			return -ENOMEM;
+		}
 		break;
 	case PKVM_ID_GUEST:
 		ret = guest_complete_donation(completer_addr, tx);
@@ -1978,7 +2007,7 @@ static int __do_donate(struct pkvm_mem_transition *tx)
 		ret = -EINVAL;
 	}
 
-	return ret;
+	return WARN_ON(ret);
 }
 
 /*
@@ -1998,7 +2027,7 @@ static int do_donate(struct pkvm_mem_transition *donation)
 	if (ret)
 		return ret;
 
-	return WARN_ON(__do_donate(donation));
+	return __do_donate(donation);
 }
 
 int __pkvm_host_share_hyp(u64 pfn)
@@ -2600,8 +2629,12 @@ static int guest_get_valid_pte(struct pkvm_hyp_vm *vm, u64 pfn, u64 ipa,
 	size_t size = PAGE_SIZE << order;
 	u64 phys = hyp_pfn_to_phys(pfn);
 	u32 level;
+	u64 end;
 
 	if (order && size != PMD_SIZE)
+		return -EINVAL;
+
+	if (check_add_overflow(phys, size, &end))
 		return -EINVAL;
 
 	WARN_ON(kvm_pgtable_get_leaf(&vm->pgt, ipa, pte, &level));

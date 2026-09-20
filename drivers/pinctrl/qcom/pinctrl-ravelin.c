@@ -59,7 +59,7 @@ static struct platform_driver ravelin_tlmm_driver = {
 		.of_match_table = ravelin_tlmm_of_match,
 	},
 	.probe = ravelin_tlmm_probe,
-	.remove = msm_pinctrl_remove,
+	.remove_new = msm_pinctrl_remove,
 };
 
 static int __init ravelin_tlmm_init(void)

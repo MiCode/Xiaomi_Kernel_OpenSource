@@ -354,6 +354,8 @@ void gzvm_vm_irqfd_release(struct gzvm *gzvm)
 	 * Block until we know all outstanding shutdown jobs have completed.
 	 */
 	flush_workqueue(irqfd_cleanup_wq);
+
+	cleanup_srcu_struct(&gzvm->irq_srcu);
 }
 
 /**

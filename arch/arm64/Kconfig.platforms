@@ -293,6 +293,15 @@ config ARCH_KERA
 	  chipset. If you do not wish to build a kernel that runs on this
 	  chipset or if you are unsure, say 'N' here.
 
+config ARCH_KERA_LE
+	bool "Enable support for Qualcomm Technologies, Inc. Kera-le"
+	depends on ARCH_KERA
+	help
+	  This enables support for Qualcomm Technologies, Inc. Kera
+	  chipset LE platform. If you do not wish to build a kernel
+	  that runs on this chipset and this platform or if you are
+	  unsure, say 'N' here.
+
 config ARCH_PINEAPPLE
 	bool "Enable support for Qualcomm Technologies, Inc. Pineapple"
 	depends on ARCH_QCOM

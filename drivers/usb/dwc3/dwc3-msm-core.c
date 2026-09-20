@@ -134,6 +134,9 @@
 #define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
 #define LANE0_PWR_PRESENT	BIT(24)
 
+#define USB_STS_REG		(QSCRATCH_REG_OFFSET + 0xF8)
+#define USB_UTMI_SUSPEND_N	BIT(4)
+
 /* USB DBM Hardware registers */
 #define DBM_REG_OFFSET		0xF8000
 
@@ -401,6 +404,13 @@ enum msm_usb_irq {
 	USB_MAX_IRQ
 };
 
+enum icc_paths {
+	USB_DDR,
+	USB_IPA,
+	DDR_USB,
+	USB_MAX_PATH
+};
+
 enum bus_vote {
 	BUS_VOTE_NONE,
 	BUS_VOTE_NOMINAL,
@@ -413,7 +423,7 @@ static const char * const icc_path_names[] = {
 	"usb-ddr", "usb-ipa", "ddr-usb",
 };
 
-static const struct {
+static struct {
 	u32 avg, peak;
 } bus_vote_values[BUS_VOTE_MAX][3] = {
 	/* usb_ddr avg/peak, usb_ipa avg/peak, apps_usb avg/peak */
@@ -3203,7 +3213,7 @@ static void *gadget_get_drvdata(struct usb_gadget *g)
 {
 	return g->ep0->driver_data;
 }
-
+/*
 static int is_diag_enabled(struct usb_composite_dev *cdev)
 {
 	struct usb_configuration	*c;
@@ -3218,7 +3228,7 @@ static int is_diag_enabled(struct usb_composite_dev *cdev)
 
 	return 0;
 }
-
+*/
 static void dwc3_msm_update_imem_pid(struct dwc3 *dwc)
 {
 	struct usb_composite_dev	*cdev = NULL;
@@ -3231,12 +3241,12 @@ static void dwc3_msm_update_imem_pid(struct dwc3 *dwc)
 
 	cdev = gadget_get_drvdata(dwc->gadget);
 
-	if (cdev->desc.idVendor == 0x05c6 && is_diag_enabled(cdev)) {
+	if (1) {
 		struct usb_gadget_string_container *uc;
 		struct usb_string *s;
 
 		local_diag_dload.pid = cdev->desc.idProduct;
-		local_diag_dload.pid_magic = PID_MAGIC_ID;
+		//local_diag_dload.pid_magic = PID_MAGIC_ID;
 		local_diag_dload.serial_magic = SERIAL_NUM_MAGIC_ID;
 
 		list_for_each_entry(uc, &cdev->gstrings, list) {
@@ -3256,6 +3266,7 @@ static void dwc3_msm_update_imem_pid(struct dwc3 *dwc)
 				}
 			}
 		}
+		pr_err("DWC3 update IMEM serial number：%s\n", local_diag_dload.serial_number);
 		memcpy_toio(diag_dload, &local_diag_dload, sizeof(local_diag_dload));
 	}
 }
@@ -3701,6 +3712,13 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 	/* Prepare SSPHY for suspend */
 	dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 					DWC3_GUSB3PIPECTL_SUSPHY, 1);
+
+	/* Read USB_STS register to get UTMI Suspend status */
+	reg = dwc3_msm_read_reg(mdwc->base, USB_STS_REG);
+
+	/* when this bit is low the HSPHY is in suspend, return from here */
+	if (!(reg & USB_UTMI_SUSPEND_N))
+		return 0;
 
 	/* Clear previous L2 events */
 	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
@@ -6007,11 +6025,75 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 	return ret;
 }
 
+static int dwc3_msm_interconnect_vote_populate(struct dwc3_msm *mdwc)
+{
+	int ret_nom = 0, i = 0, j = 0, count = 0;
+	int ret_svs = 0, ret = 0;
+	u32 *vv_nom, *vv_svs;
+
+	count = of_property_count_strings(mdwc->dev->of_node,
+						"interconnect-names");
+	if (count < 0) {
+		dev_err(mdwc->dev, "No interconnects found.\n");
+		return -EINVAL;
+	}
+
+	/* 2 signifies the two types of values avg & peak */
+	vv_nom = kzalloc(count * 2 * sizeof(*vv_nom), GFP_KERNEL);
+	if (!vv_nom)
+		return -ENOMEM;
+
+	vv_svs = kzalloc(count * 2 * sizeof(*vv_svs), GFP_KERNEL);
+	if (!vv_svs) {
+		kfree(vv_nom);
+		return -ENOMEM;
+	}
+
+	/* of_property_read_u32_array returns 0 on success */
+	ret_nom = of_property_read_u32_array(mdwc->dev->of_node,
+				"qcom,interconnect-values-nom",
+					vv_nom, count * 2);
+	if (ret_nom) {
+		dev_err(mdwc->dev, "Nominal values not found.\n");
+		ret = ret_nom;
+		goto icc_err;
+	}
+
+	ret_svs = of_property_read_u32_array(mdwc->dev->of_node,
+				"qcom,interconnect-values-svs",
+					vv_svs, count * 2);
+	if (ret_svs) {
+		dev_err(mdwc->dev, "Svs values not found.\n");
+		ret = ret_svs;
+		goto icc_err;
+	}
+
+	for (i = USB_DDR; i < count && i < USB_MAX_PATH; i++) {
+		/* Updating votes NOMINAL */
+		bus_vote_values[BUS_VOTE_NOMINAL][i].avg
+						= vv_nom[j];
+		bus_vote_values[BUS_VOTE_NOMINAL][i].peak
+						= vv_nom[j+1];
+		/* Updating votes SVS */
+		bus_vote_values[BUS_VOTE_SVS][i].avg
+						= vv_svs[j];
+		bus_vote_values[BUS_VOTE_SVS][i].peak
+						= vv_svs[j+1];
+		j += 2;
+	}
+icc_err:
+	/* freeing the temporary resource */
+	kfree(vv_nom);
+	kfree(vv_svs);
+
+	return ret;
+}
+
 static int dwc3_msm_parse_params(struct dwc3_msm *mdwc, struct device_node *node)
 {
 	struct device_node *diag_node, *wcd_node;
 	struct device	*dev = mdwc->dev;
-	int size = 0, i;
+	int size = 0, i, ret = 0;
 
 	of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
@@ -6051,6 +6133,10 @@ static int dwc3_msm_parse_params(struct dwc3_msm *mdwc, struct device_node *node
 
 	mdwc->enable_host_slow_suspend = of_property_read_bool(node,
 				"qcom,enable_host_slow_suspend");
+
+	ret = dwc3_msm_interconnect_vote_populate(mdwc);
+	if (ret)
+		dev_err(dev, "Using default bus votes\n");
 
 	/* use default as nominal bus voting */
 	mdwc->default_bus_vote = BUS_VOTE_NOMINAL;

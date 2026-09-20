@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include "walt.h"
@@ -17,7 +17,7 @@ int soc_sched_lib_name_capacity;
 #define PIPELINE_BUSY_THRESH_8MS_WINDOW 7
 #define PIPELINE_BUSY_THRESH_12MS_WINDOW 11
 #define PIPELINE_BUSY_THRESH_16MS_WINDOW 15
-
+unsigned int min_demand_for_activity_cnt;
 void walt_config(void)
 {
 	int i, j, cpu;
@@ -49,8 +49,10 @@ void walt_config(void)
 	sysctl_em_inflate_thres = 1024;
 	sysctl_max_freq_partial_halt = FREQ_QOS_MAX_DEFAULT_VALUE;
 	asym_cap_sibling_cpus = CPU_MASK_NONE;
-	pipeline_sync_cpus = CPU_MASK_NONE;
 	storage_boost_cpus = CPU_MASK_NONE;
+	/* pipeline defaults */
+	min_demand_for_activity_cnt = 50;
+
 	for_each_possible_cpu(cpu) {
 		for (i = 0; i < LEGACY_SMART_FREQ; i++) {
 			if (i)
@@ -117,7 +119,8 @@ void walt_config(void)
 	if (!name)
 		return;
 
-	if (!strcmp(name, "SUN") || !strcmp(name, "SUNP")) {
+	if (!strcmp(name, "SUN") || !strcmp(name, "SUNP") ||
+	!strcmp(name, "CQ8750S") || !strcmp(name, "CQ8725S")) {
 		sysctl_sched_suppress_region2		= 1;
 		soc_feat_unset(SOC_ENABLE_CONSERVATIVE_BOOST_TOPAPP_BIT);
 		soc_feat_unset(SOC_ENABLE_CONSERVATIVE_BOOST_FG_BIT);

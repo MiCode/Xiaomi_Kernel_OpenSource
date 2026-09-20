@@ -68,8 +68,7 @@ void __arm_lpae_sync_pte(arm_lpae_iopte *ptep, int num_entries,
 		kvm_flush_dcache_to_poc(ptep, sizeof(*ptep) * num_entries);
 }
 
-int kvm_arm_io_pgtable_init(struct io_pgtable_cfg *cfg,
-			    struct arm_lpae_io_pgtable *data)
+static int kvm_arm_io_pgtable_init(struct io_pgtable_cfg *cfg, struct arm_lpae_io_pgtable *data)
 {
 	int ret = -EINVAL;
 

@@ -336,5 +336,16 @@ static inline int pkvm_register_el2_mod_call(dyn_hcall_t hfn,
 									\
 		res.a1;							\
 	})
+
+#define pkvm_el2_mod_call_smccc(id, ...)				\
+	({								\
+		struct arm_smccc_res res;				\
+									\
+		arm_smccc_1_1_hvc(KVM_HOST_SMCCC_ID(id),		\
+				  ##__VA_ARGS__, &res);			\
+		WARN_ON(res.a0 != SMCCC_RET_SUCCESS);			\
+									\
+		res;							\
+	})
 #endif
 #endif
