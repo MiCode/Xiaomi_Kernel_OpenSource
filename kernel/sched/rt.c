@@ -1759,9 +1759,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1, start_cpu;
-	bool boost_on_big = sched_boost() == FULL_THROTTLE_BOOST ?
-				  (sched_boost_policy() == SCHED_BOOST_ON_BIG) :
-				  false;
+	bool boost_on_big = rt_boost_on_big();
 
 	rcu_read_lock();
 
