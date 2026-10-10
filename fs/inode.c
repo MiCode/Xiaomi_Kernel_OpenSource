@@ -23,6 +23,9 @@
 #include <trace/events/writeback.h>
 #include "internal.h"
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/vmscan.h>
+
 /*
  * Inode locking rules:
  *
@@ -808,6 +811,7 @@ static enum lru_status inode_lru_isolate(struct list_head *item,
 {
 	struct list_head *freeable = arg;
 	struct inode	*inode = container_of(item, struct inode, i_lru);
+	bool skip = false;
 
 	/*
 	 * we are inverting the lru lock/inode->i_lock here, so use a trylock.
@@ -815,6 +819,12 @@ static enum lru_status inode_lru_isolate(struct list_head *item,
 	 */
 	if (!spin_trylock(&inode->i_lock))
 		return LRU_SKIP;
+
+	trace_android_vh_inode_lru_isolate(inode, &skip);
+	if (skip) {
+		spin_unlock(&inode->i_lock);
+		return LRU_SKIP;
+	}
 
 	/*
 	 * Referenced or dirty inodes are still in use. Give them another pass

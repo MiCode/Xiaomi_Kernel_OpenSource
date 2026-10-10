@@ -236,4 +236,8 @@ source "drivers/interconnect/Kconfig"
 source "drivers/counter/Kconfig"
 
 source "drivers/most/Kconfig"
+
+source "drivers/infrared/Kconfig"
+
+source "drivers/nfc/Kconfig"
 endmenu

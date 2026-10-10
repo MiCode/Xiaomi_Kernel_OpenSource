@@ -271,6 +271,19 @@ config LEDS_NET48XX
 	  This option enables support for the Soekris net4801 and net4826 error
 	  LED.
 
+config LEDS_SUBPMIC_FLASH
+	tristate "Support for SUBPMIC Flash LEDs"
+	depends on LEDS_CLASS_FLASH
+	depends on MFD_SPMI_PMIC
+	select LEDS_TRIGGERS
+	help
+	  This driver supports flash LED peripheral that is present on SUBPMIC.
+          It can configure the flash LED target current for several independent
+	  channels. It also supports various over current and over
+	  temperature mitigation features.
+	  To compile this driver as a module, choose M here: the
+	  module will be called leds-subpmic-flash.
+
 config LEDS_QTI_FLASH
 	tristate "Support for QTI Flash LEDs"
 	depends on LEDS_CLASS_FLASH

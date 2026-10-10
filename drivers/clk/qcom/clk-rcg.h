@@ -9,6 +9,7 @@
 #include "clk-regmap.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
+#define F_DUTY(f, s, h, m, n, duty) { (f), (s), (2 * (h) - 1), (m), (n), (duty) }
 
 struct freq_tbl {
 	unsigned long freq;
@@ -16,6 +17,7 @@ struct freq_tbl {
 	u8 pre_div;
 	u16 m;
 	u16 n;
+	u32 duty;
 	unsigned long src_freq;
 #define FIXED_FREQ_SRC   0
 };

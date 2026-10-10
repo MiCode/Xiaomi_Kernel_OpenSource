@@ -113,6 +113,11 @@ struct thermal_instance {
 	unsigned int weight; /* The weight of the cooling device */
 };
 
+enum mi_thermal_notifier_events {
+	THERMAL_BOARD_TEMP = 0,
+	THERMAL_SCENE = 1,
+};
+
 #define to_thermal_zone(_dev) \
 	container_of(_dev, struct thermal_zone_device, device)
 
@@ -174,5 +179,14 @@ of_thermal_get_trip_points(struct thermal_zone_device *tz)
 #endif
 
 int thermal_zone_device_is_enabled(struct thermal_zone_device *tz);
+
+#if IS_ENABLED(CONFIG_XIAOMI_SMART_CHG)
+/*mi_thermal_notifier*/
+extern struct srcu_notifier_head mi_thermal_notifier;
+extern int mi_thermal_reg_notifier(struct notifier_block *nb);
+extern int mi_thermal_unreg_notifier(struct notifier_block *nb);
+extern int mi_thermal_notifier_call_chain(unsigned long event,int val);
+#endif
+
 
 #endif /* __THERMAL_CORE_H__ */

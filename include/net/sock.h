@@ -1472,11 +1472,21 @@ proto_memory_pressure(struct proto *prot)
 #ifdef CONFIG_PROC_FS
 /* Called with local bh disabled */
 void sock_prot_inuse_add(struct net *net, struct proto *prot, int inc);
+
+static inline void sock_inuse_add(const struct net *net, int val)
+{
+	this_cpu_add(*net->core.sock_inuse, val);
+}
+
 int sock_prot_inuse_get(struct net *net, struct proto *proto);
 int sock_inuse_get(struct net *net);
 #else
 static inline void sock_prot_inuse_add(struct net *net, struct proto *prot,
 		int inc)
+{
+}
+
+static inline void sock_inuse_add(const struct net *net, int val)
 {
 }
 #endif

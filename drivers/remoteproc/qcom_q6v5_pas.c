@@ -1008,6 +1008,8 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 
 	adsp->mem_phys = adsp->mem_reloc = r.start;
 	adsp->mem_size = resource_size(&r);
+	dev_warn(adsp->dev, "memory layout: %pa@%zx",
+			&adsp->mem_phys, adsp->mem_size);
 	adsp->mem_region = devm_ioremap_wc(adsp->dev, adsp->mem_phys, adsp->mem_size);
 	if (!adsp->mem_region) {
 		dev_err(adsp->dev, "unable to map memory region: %pa+%zx\n",

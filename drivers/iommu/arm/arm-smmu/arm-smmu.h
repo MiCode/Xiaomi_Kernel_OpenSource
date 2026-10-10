@@ -6,7 +6,7 @@
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #ifndef _ARM_SMMU_H
@@ -447,6 +447,9 @@ struct arm_smmu_device {
 
 	unsigned long			sync_timed_out;
 	enum tz_smmu_device_id		sec_id;
+
+	/* power ref count for the atomic clients. */
+	unsigned int			atomic_pwr_refcount;
 };
 
 enum arm_smmu_context_fmt {

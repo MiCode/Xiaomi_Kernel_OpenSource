@@ -306,5 +306,6 @@ struct plat_stmmacenet_data {
 	bool sph_disable;
 	void (*phy_irq_enable)(void *priv);
 	void (*phy_irq_disable)(void *priv);
+	int disable_pcs_ane;
 };
 #endif

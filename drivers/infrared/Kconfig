@@ -1,0 +1,8 @@
+config IR_PWM
+	tristate "PWM IR remote control"
+	depends on RC_CORE
+	help
+	    Say Y if you want to use PWM based IR.
+
+	    To compile this driver as a module, choose M here: the module will
+	    be called pwm-ir.

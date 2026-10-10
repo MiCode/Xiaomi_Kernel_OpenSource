@@ -27,6 +27,9 @@
 #include "hgsl_sysfs.h"
 #include "hgsl_debugfs.h"
 
+#define CREATE_TRACE_POINTS
+#include "hgsl_trace.h"
+
 #define HGSL_DEVICE_NAME "hgsl"
 #define HGSL_DEV_NUM 1
 
@@ -769,8 +772,10 @@ static void ts_retire_worker(struct work_struct *work)
 
 	spin_lock(&hgsl->active_wait_lock);
 	list_for_each_entry_safe(wait, w, &hgsl->active_wait_list, head) {
-		if (_timestamp_retired(wait->ctxt, wait->timestamp))
+		if (_timestamp_retired(wait->ctxt, wait->timestamp)) {
+			trace_retire_ts(wait->ctxt->context_id, wait->timestamp);
 			wake_up_all(&wait->ctxt->wait_q);
+		}
 	}
 	spin_unlock(&hgsl->active_wait_lock);
 
@@ -786,6 +791,7 @@ static irqreturn_t hgsl_tcsr_isr(struct device *dev, uint32_t status)
 		return IRQ_NONE;
 
 	queue_work(hgsl->wq, &hgsl->ts_retire_work);
+	trace_tcsr_isr(status);
 
 	return IRQ_HANDLED;
 }
@@ -1125,6 +1131,8 @@ static int hgsl_dbcq_issue_cmd(struct hgsl_priv  *priv,
 
 	if (ret == 0)
 		ctxt->queued_ts = *timestamp;
+
+	trace_issue_cmd(ctxt->context_id, *timestamp, ret, "db");
 out:
 	hgsl_free(cmds);
 	mutex_unlock(&ctxt->lock);
@@ -1246,6 +1254,7 @@ static int hgsl_db_issue_cmd(struct hgsl_priv  *priv,
 	if (ret == 0)
 		ctxt->queued_ts = *timestamp;
 
+	trace_issue_cmd(ctxt->context_id, *timestamp, ret, "db");
 err:
 	hgsl_free(cmds);
 	return ret;

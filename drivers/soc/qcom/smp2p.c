@@ -610,7 +610,9 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 	smp2p->mbox_client.knows_txdone = true;
 	smp2p->mbox_chan = mbox_request_channel(&smp2p->mbox_client, 0);
 	if (IS_ERR(smp2p->mbox_chan)) {
-		if (PTR_ERR(smp2p->mbox_chan) != -ENODEV)
+		if ((PTR_ERR(smp2p->mbox_chan) != -ENODEV) &&
+			(PTR_ERR(smp2p->mbox_chan) != -ENOENT) &&
+			(PTR_ERR(smp2p->mbox_chan) != -EINVAL))
 			return PTR_ERR(smp2p->mbox_chan);
 
 		smp2p->mbox_chan = NULL;

@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: GPL-2.0
+#charge_policy
+source "drivers/power/supply/lx_chg/charger_policy/Kconfig"
+
+#charger_ic
+source "drivers/power/supply/lx_chg/charger_ic/Kconfig"
+
+#protocol
+source "drivers/power/supply/lx_chg/charger_ic/protocol/Kconfig"
+
+#subpmic_sc6601a
+source "drivers/power/supply/lx_chg/charger_ic/subpmic_sc6601a/Kconfig"
+
+#subpmic_nu6601
+source "drivers/power/supply/lx_chg/charger_ic/subpmic_nu6601/Kconfig"
+
+#chargepump
+source "drivers/power/supply/lx_chg/charger_ic/chargepump/Kconfig"
+
+#fuelgauge
+source "drivers/power/supply/lx_chg/fuelgauge/Kconfig"
+
+config LX_CHARGER_IC
+	tristate "support lx charger ic"
+	default n
+	help
+		Say Y here to support lx charger ic.
+
+config LX_ADAPTER_CLASS
+	tristate "support lx charger adapter class"
+	default n
+	help
+		Say Y here to support lx charger adapter class.
+
+config LX_CHARGER_CLASS
+	tristate "support lx charger class"
+	default n
+	help
+		Say Y here to support lx charger class.
+
+config LX_CP_CLASS
+	tristate "support lx chager pump class"
+	default n
+	help
+		Say Y here to support lx chager pump class.
+
+config LX_LED_CLASS
+	tristate "support lx led calss"
+	default n
+	help
+		Say Y here to support lx led calss.
+
+config PD_BATTERY_SECRET
+	tristate "pd battery secret"
+	default n
+	help
+		Say Y here to support pd battery secret.
+
+config XIAOMI_SMART_CHG
+        tristate "support xiaomi smart charge"
+        default n
+        help
+                Say Y here to support xiaomi smart charge.
+
+config XM_CHG_ANIMATION
+        tristate "support xiaomi charge animation"
+        default n
+        help
+                Say Y here to support xiaomi charge animation.
+
+config XM_FG_I2C_ERR
+        tristate "support xiaomi fg i2c error"
+        default n
+        help
+                Say Y here to support xiaomi fg i2c error.
+
+config RUST_DETECTION
+        tristate "support lx charger manager"
+        default n
+        help
+                Say Y here to support lx charger class.
+
+config LX_ADAPTIVE_POWEROFF_VOLTAGE
+        tristate "support adaptive poweroff voltage strategy."
+        default n
+        help
+                Say Y here to adaptive poweroff voltage strategy.

@@ -102,4 +102,9 @@ source "drivers/staging/qlge/Kconfig"
 
 source "drivers/staging/wfx/Kconfig"
 
+
+source "drivers/staging/miev/Kconfig"
+
+source "drivers/staging/kshrink_slabd/Kconfig"
+source "drivers/staging/mi_rmap_efficiency/Kconfig"
 endif # STAGING

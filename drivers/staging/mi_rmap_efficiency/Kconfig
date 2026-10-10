@@ -1,0 +1,6 @@
+config MI_RMAP_EFFICIENCY
+    tristate "support MI_RMAP_EFFICIENCY module"
+    default n
+    help
+        protect high __mapcount pages to reduce CPU load caused by reverse mapping during mem recycling.
+

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/device.h>
@@ -2237,6 +2237,8 @@ inline int smblite_lib_get_usb_prop_typec_accessory_mode(struct smb_charger *chg
 		*val = TYPEC_ACCESSORY_NONE;
 		return 0;
 	}
+
+	chg->typec_mode = smblite_lib_get_prop_typec_mode(chg);
 
 	switch (chg->typec_mode) {
 	case QTI_POWER_SUPPLY_TYPEC_NONE:

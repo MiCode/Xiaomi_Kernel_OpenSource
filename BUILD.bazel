@@ -3,6 +3,16 @@
 
 load("//build/kernel/kleaf:common_kernels.bzl", "define_common_kernels", "define_db845c")
 load("//build/kernel/kleaf:constants.bzl", "aarch64_gz_outs")
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+     "checkpatch",
+     "ddk_headers",
+     "kernel_abi",
+     "kernel_build",
+     "kernel_images",
+     "kernel_modules_install",
+     "merged_kernel_uapi_headers",
+)
 
 package(
     default_visibility = [
@@ -83,6 +93,7 @@ define_db845c(
     ],
     module_outs = [
         # keep sorted
+	"drivers/staging/kshrink_slabd/kshrink_slabd.ko",
         "crypto/michael_mic.ko",
         "drivers/base/regmap/regmap-sdw.ko",
         "drivers/base/regmap/regmap-slimbus.ko",
@@ -137,6 +148,7 @@ define_db845c(
         "drivers/mfd/qcom-spmi-pmic.ko",
         "drivers/mfd/wcd934x.ko",
         "drivers/misc/fastrpc.ko",
+        "drivers/misc/hardware_info.ko",
         "drivers/mmc/host/cqhci.ko",
         "drivers/mmc/host/sdhci-msm.ko",
         "drivers/net/can/spi/mcp251xfd/mcp251xfd.ko",
@@ -205,7 +217,9 @@ define_db845c(
         "drivers/spi/spi-qcom-qspi.ko",
         "drivers/spi/spi-qup.ko",
         "drivers/spmi/spmi-pmic-arb.ko",
-        "drivers/thermal/qcom/lmh.ko",
+        "drivers/staging/miev/miev.ko",
+	"drivers/staging/mi_rmap_efficiency/mi_rmap_efficiency.ko",
+	"drivers/thermal/qcom/lmh.ko",
         "drivers/thermal/qcom/qcom-spmi-adc-tm5.ko",
         "drivers/thermal/qcom/qcom-spmi-temp-alarm.ko",
         "drivers/thermal/qcom/qcom_tsens.ko",
@@ -248,5 +262,15 @@ define_db845c(
         "sound/soc/qcom/snd-soc-qcom-common.ko",
         "sound/soc/qcom/snd-soc-sdm845.ko",
         "sound/soc/qcom/snd-soc-sm8250.ko",
+
     ],
+)
+
+ddk_headers(
+	name = "mi_irq_headers",
+	hdrs = native.glob(["kernel/irq/*.h"]),
+	includes = [
+		"kernel/irq",
+	],
+	visibility = ["//visibility:public"],
 )

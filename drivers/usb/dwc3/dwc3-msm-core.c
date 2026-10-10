@@ -510,6 +510,12 @@ struct dwc3_msm {
 	struct clk		*bus_aggr_clk;
 	struct clk		*noc_aggr_clk;
 	struct clk		*cfg_ahb_clk;
+	struct clk		*cfg_noc_clk;
+	struct clk		*noc_aggr_north_ahb_clk;
+	struct clk		*noc_aggr_south_ahb_clk;
+	struct clk		*noc_aggr_north_axi_clk;
+	struct clk		*noc_aggr_south_axi_clk;
+	struct clk		*noc_sys_clk;
 	struct reset_control	*core_reset;
 	struct regulator	*dwc3_gdsc;
 
@@ -2999,6 +3005,7 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 
 	if (assert) {
 		disable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
+		disable_irq_wake(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 		/* Using asynchronous block reset to the hardware */
 		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
 		clk_disable_unprepare(mdwc->utmi_clk);
@@ -3018,6 +3025,7 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
 		clk_prepare_enable(mdwc->utmi_clk);
+		enable_irq_wake(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 	}
 
@@ -3819,7 +3827,7 @@ static int dwc3_clk_enable_disable(struct dwc3_msm *mdwc, bool enable, bool togg
 	long core_clk_rate;
 
 	if (!enable)
-		goto disable_bus_aggr_clk;
+		goto disable_noc_sys_clk;
 
 	if (toggle_sleep) {
 		ret = clk_prepare_enable(mdwc->sleep_clk);
@@ -3870,9 +3878,56 @@ static int dwc3_clk_enable_disable(struct dwc3_msm *mdwc, bool enable, bool togg
 		goto disable_utmi_clk;
 	}
 
+	ret = clk_prepare_enable(mdwc->cfg_noc_clk);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "%s: cfg_noc_clk enable failed\n", __func__);
+		goto disable_bus_aggr_clk;
+	}
+
+	ret = clk_prepare_enable(mdwc->noc_aggr_north_ahb_clk);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "%s: noc_aggr_north_ahb_clk enable failed\n", __func__);
+		goto disable_cfg_noc_clk;
+	}
+
+	ret = clk_prepare_enable(mdwc->noc_aggr_south_ahb_clk);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "%s: noc_aggr_south_ahb_clk enable failed\n", __func__);
+		goto disable_noc_aggr_north_ahb_clk;
+	}
+
+	ret = clk_prepare_enable(mdwc->noc_aggr_north_axi_clk);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "%s: noc_aggr_north_axi_clk enable failed\n", __func__);
+		goto disable_noc_aggr_south_ahb_clk;
+	}
+
+	ret = clk_prepare_enable(mdwc->noc_aggr_south_axi_clk);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "%s: noc_aggr_south_axi_clk enable failed\n", __func__);
+		goto disable_noc_aggr_north_axi_clk;
+	}
+
+	ret = clk_prepare_enable(mdwc->noc_sys_clk);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "%s: noc_sys_clk enable failed\n", __func__);
+		goto disable_noc_aggr_south_axi_clk;
+	}
 	return 0;
 
 	/* Disable clocks */
+disable_noc_sys_clk:
+	clk_disable_unprepare(mdwc->noc_sys_clk);
+disable_noc_aggr_south_axi_clk:
+	clk_disable_unprepare(mdwc->noc_aggr_south_axi_clk);
+disable_noc_aggr_north_axi_clk:
+	clk_disable_unprepare(mdwc->noc_aggr_north_axi_clk);
+disable_noc_aggr_south_ahb_clk:
+	clk_disable_unprepare(mdwc->noc_aggr_south_ahb_clk);
+disable_noc_aggr_north_ahb_clk:
+	clk_disable_unprepare(mdwc->noc_aggr_north_ahb_clk);
+disable_cfg_noc_clk:
+	clk_disable_unprepare(mdwc->cfg_noc_clk);
 disable_bus_aggr_clk:
 	clk_disable_unprepare(mdwc->bus_aggr_clk);
 disable_utmi_clk:
@@ -3945,6 +4000,7 @@ static void dwc3_msm_suspend_phy(struct dwc3_msm *mdwc)
 
 	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP) {
 		dwc3_msm_set_pwr_events(mdwc, true);
+		enable_irq_wake(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 	}
 }
@@ -4087,8 +4143,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 	}
 
 	if (mdwc->use_pwr_event_for_wakeup &&
-			!(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) && enable_wakeup)
+			!(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) && enable_wakeup) {
+		enable_irq_wake(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
+	}
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	dbg_event(0xFF, "Ctl Sus", atomic_read(&mdwc->in_lpm));
@@ -4215,6 +4273,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	atomic_set(&mdwc->in_lpm, 0);
 
 	/* enable power evt irq for IN P3 detection */
+	enable_irq_wake(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 	enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 
 	/* Disable HSPHY auto suspend */
@@ -4687,6 +4746,30 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 		}
 	}
 
+	mdwc->cfg_noc_clk = devm_clk_get(mdwc->dev, "cfg_noc_clk");
+	if (IS_ERR(mdwc->cfg_noc_clk))
+		mdwc->cfg_noc_clk = NULL;
+
+	mdwc->noc_aggr_north_ahb_clk = devm_clk_get(mdwc->dev, "noc_aggr_north_ahb_clk");
+	if (IS_ERR(mdwc->noc_aggr_north_ahb_clk))
+		mdwc->noc_aggr_north_ahb_clk = NULL;
+
+	mdwc->noc_aggr_south_ahb_clk = devm_clk_get(mdwc->dev, "noc_aggr_south_ahb_clk");
+	if (IS_ERR(mdwc->noc_aggr_south_ahb_clk))
+		mdwc->noc_aggr_south_ahb_clk = NULL;
+
+	mdwc->noc_aggr_north_axi_clk = devm_clk_get(mdwc->dev, "noc_aggr_north_axi_clk");
+	if (IS_ERR(mdwc->noc_aggr_north_axi_clk))
+		mdwc->noc_aggr_north_axi_clk = NULL;
+
+	mdwc->noc_aggr_south_axi_clk = devm_clk_get(mdwc->dev, "noc_aggr_south_axi_clk");
+	if (IS_ERR(mdwc->noc_aggr_south_axi_clk))
+		mdwc->noc_aggr_south_axi_clk = NULL;
+
+	mdwc->noc_sys_clk = devm_clk_get(mdwc->dev, "noc_sys_clk");
+	if (IS_ERR(mdwc->noc_sys_clk))
+		mdwc->noc_sys_clk = NULL;
+
 	return 0;
 }
 
@@ -4783,9 +4866,9 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	 * and only when the vbus connect event is a valid one.
 	 */
 
-	if (get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
+	if (get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP &&
 			mdwc->vbus_active && !mdwc->check_eud_state) {
-		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
+		dev_err(mdwc->dev, "Connected to CDP, pull DP up\n");
 		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
 	}
 
@@ -6942,7 +7025,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->in_host_mode = true;
 		pm_runtime_use_autosuspend(&dwc->xhci->dev);
 		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 0);
-		pm_runtime_allow(&dwc->xhci->dev);
+		//pm_runtime_allow(&dwc->xhci->dev);
+		dev_err(mdwc->dev, "%s: disable pm runtime \n", __func__);
+		pm_runtime_disable(&dwc->xhci->dev);  //workaroud
 		pm_runtime_mark_last_busy(&dwc->xhci->dev);
 
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),

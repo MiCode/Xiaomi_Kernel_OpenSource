@@ -476,6 +476,8 @@ static int clk_rcg2_determine_floor_rate(struct clk_hw *hw,
 	return _freq_tbl_determine_rate(hw, rcg->freq_tbl, req, FLOOR);
 }
 
+static int clk_rcg2_set_duty_cycle(struct clk_hw *hw, struct clk_duty *duty);
+
 static int __clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 {
 	u32 cfg, mask, d_val, not2d_val, n_minus_m;
@@ -505,13 +507,28 @@ static int __clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 
 		d_val = clamp_t(u32, d_val, f->m, n_minus_m);
 		not2d_val = ~d_val & mask;
-
+#if 0
 		ret = regmap_update_bits(rcg->clkr.regmap,
 				RCG_D_OFFSET(rcg), mask, not2d_val);
 		if (ret)
 			return ret;
 	}
+#else
+		printk(KERN_INFO "[IR-PWM]: %s: f->freq:%d f->duty:%d\n", __func__, f->freq, f->duty);
+		if (f->duty) {
+			struct clk_duty duty;
+			duty.den = 100;
+			duty.num = f->duty;
+			clk_rcg2_set_duty_cycle(hw, &duty);
+		} else {
+			ret = regmap_update_bits(rcg->clkr.regmap,
+					RCG_D_OFFSET(rcg), mask, not2d_val);
+			if (ret)
+				return ret;
+		}
 
+	}
+#endif
 	mask = BIT(rcg->hid_width) - 1;
 	mask |= CFG_SRC_SEL_MASK | CFG_MODE_MASK | CFG_HW_CLK_CTRL_MASK;
 	cfg = f->pre_div << CFG_SRC_DIV_SHIFT;

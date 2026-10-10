@@ -68,6 +68,8 @@
   __traceiter_android_vh_slab_free
   __traceiter_android_rvh_hw_protection_shutdown
   __tracepoint_android_rvh_hw_protection_shutdown
+  __traceiter_android_vh_set_tsk_need_resched_lazy
+  __tracepoint_android_vh_set_tsk_need_resched_lazy
   __traceiter_rpm_idle
   __tracepoint_rpm_idle
   __traceiter_rpm_suspend

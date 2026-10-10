@@ -41,3 +41,8 @@ obj-$(CONFIG_XIL_AXIS_FIFO)	+= axis-fifo/
 obj-$(CONFIG_FIELDBUS_DEV)     += fieldbus/
 obj-$(CONFIG_QLGE)		+= qlge/
 obj-$(CONFIG_WFX)		+= wfx/
+obj-$(CONFIG_MIEV)              += miev/
+obj-y				+= kshrink_slabd/
+# MIUI ADD: LRU_RecyclingEnhance
+obj-$(CONFIG_MI_RMAP_EFFICIENCY)	+= mi_rmap_efficiency/
+# END LRU_RecyclingEnhance

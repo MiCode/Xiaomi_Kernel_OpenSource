@@ -31,13 +31,13 @@
 #include "ufshcd-pltfrm.h"
 #include "unipro.h"
 #include "ufs-qcom.h"
-
 #define CREATE_TRACE_POINTS
 #include "ufs-qcom-trace.h"
 
 #include "ufshci.h"
 #include "ufs_quirks.h"
 #include "ufshcd-crypto-qti.h"
+
 #if IS_ENABLED(CONFIG_QTI_CRYPTO_FDE)
 #include <linux/crypto-qti-common.h>
 #endif

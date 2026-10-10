@@ -11,6 +11,7 @@ qcom_smd.ko
 qcom_glink.ko
 qcom_wdt_core.ko
 qcom_soc_wdt.ko
+miev.ko
 minidump.ko
 qcom_logbuf_vh.ko
 qcom_cpu_vendor_hooks.ko
@@ -93,3 +94,5 @@ pdr_interface.ko
 qmi_helpers.ko
 slimbus.ko
 qcom-pmu-lib.ko
+hardware_info.ko
+radio_cable_det.ko

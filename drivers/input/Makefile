@@ -29,3 +29,6 @@ obj-$(CONFIG_INPUT_MISC)	+= misc/
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+
+$(warning wzq wzq 111 $(CONFIG_INPUT_FINGERPRINT))
+obj-$(CONFIG_INPUT_FINGERPRINT) += fingerprint/

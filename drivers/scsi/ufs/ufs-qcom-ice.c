@@ -9,7 +9,6 @@
 #include <linux/platform_device.h>
 #include <linux/qcom_scm.h>
 #include <linux/qtee_shmbridge.h>
-
 #include "ufshcd-crypto.h"
 #include <linux/crypto-qti-common.h>
 #include "ufs-qcom.h"

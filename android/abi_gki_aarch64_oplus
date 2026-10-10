@@ -336,6 +336,7 @@
   rtc_read_alarm
   __rtnl_link_register
   __rtnl_link_unregister
+  sbitmap_weight
   sched_clock
   sched_setscheduler_nocheck
   sched_show_task
@@ -561,6 +562,22 @@
   __traceiter_android_vh_binder_special_task
   __traceiter_android_vh_binder_free_buf
   __traceiter_android_vh_binder_buffer_release
+  __traceiter_android_vh_lru_gen_add_page_skip
+  __traceiter_android_vh_lru_gen_del_page_skip
+  __traceiter_android_vh_evict_pages_bypass
+  __traceiter_android_vh_keep_reclaimed_page
+  __traceiter_android_vh_clear_reclaimed_page
+  __traceiter_android_vh_pagecache_get_page
+  __traceiter_android_vh_filemap_pages
+  __traceiter_android_vh_mglru_should_abort_scan
+  __traceiter_android_vh_shrink_page_list
+  __traceiter_android_rvh_kswapd_shrink_node
+  __traceiter_android_rvh_perform_reclaim
+  __traceiter_android_vh_si_mem_available_adjust
+  __traceiter_android_vh_lru_cache_add_page_activate
+  __traceiter_android_vh_filemap_fault_pre_page_locked
+  __traceiter_android_vh_filemap_page_mapped
+  __traceiter_android_vh_zap_pte_range_page_remove_rmap
   __tracepoint_android_rvh_check_preempt_wakeup_ignore
   __tracepoint_android_rvh_do_serror
   __tracepoint_android_rvh_pick_next_entity
@@ -708,6 +725,22 @@
   __tracepoint_android_vh_binder_special_task
   __tracepoint_android_vh_binder_free_buf
   __tracepoint_android_vh_binder_buffer_release
+  __tracepoint_android_vh_lru_gen_add_page_skip
+  __tracepoint_android_vh_lru_gen_del_page_skip
+  __tracepoint_android_vh_evict_pages_bypass
+  __tracepoint_android_vh_keep_reclaimed_page
+  __tracepoint_android_vh_clear_reclaimed_page
+  __tracepoint_android_vh_pagecache_get_page
+  __tracepoint_android_vh_filemap_pages
+  __tracepoint_android_vh_mglru_should_abort_scan
+  __tracepoint_android_vh_shrink_page_list
+  __tracepoint_android_rvh_kswapd_shrink_node
+  __tracepoint_android_rvh_perform_reclaim
+  __tracepoint_android_vh_si_mem_available_adjust
+  __tracepoint_android_vh_lru_cache_add_page_activate
+  __tracepoint_android_vh_filemap_fault_pre_page_locked
+  __tracepoint_android_vh_filemap_page_mapped
+  __tracepoint_android_vh_zap_pte_range_page_remove_rmap
   try_to_free_mem_cgroup_pages
   __ubsan_handle_cfi_check_fail_abort
   unlock_page
@@ -743,3 +776,5 @@
   is_ashmem_file
   zero_pfn
   is_transparent_hugepage
+  isolate_page
+  reclaim_pages

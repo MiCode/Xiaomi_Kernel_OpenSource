@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SC853X_CHARGER
+	tristate "SC853X_CHARGER Driver"
+	help
+	  If you say yes here you will get support for the SC853x Charge Pump.
+	  This driver can give support for SC853x Interface.
+
+config BQ25960_CHARGER
+	tristate "BQ25960_CHARGER Driver"
+	help
+	  If you say yes here you will get support for the bq25960 Charge Pump.
+	  This driver can give support for bq25960 Interface.

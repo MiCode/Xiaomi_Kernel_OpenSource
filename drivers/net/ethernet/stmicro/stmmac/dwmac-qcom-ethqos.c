@@ -2,7 +2,7 @@
 
 // Copyright (c) 2018-19, Linaro Limited
 // Copyright (c) 2021, The Linux Foundation. All rights reserved.
-// Copyright (c) 2022-2024,2025 Qualcomm Innovation Center, Inc. All rights reserved.
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries
 
 #include <linux/module.h>
 #include <linux/of.h>
@@ -1084,26 +1084,29 @@ int ethqos_configure_sgmii_v3_1(struct qcom_ethqos *ethqos)
 		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
 			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG, RGMII_IO_MACRO_CONFIG2);
-		value = readl(priv->ioaddr + DWMAC4_PCS_BASE);
-		value &= ~GMAC_AN_CTRL_ANE;
-		writel(value, priv->ioaddr + DWMAC4_PCS_BASE);
+		if (priv->plat->disable_pcs_ane)
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 0, priv->hw->ps, 0);
+		else
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 1, priv->hw->ps, 0);
 	break;
 	case SPEED_1000:
 		value &= ~GMAC_CONFIG_PS;
 		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
 			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG, RGMII_IO_MACRO_CONFIG2);
-		value = readl(priv->ioaddr + DWMAC4_PCS_BASE);
-		value |= GMAC_AN_CTRL_RAN | GMAC_AN_CTRL_ANE;
-		writel(value, priv->ioaddr + DWMAC4_PCS_BASE);
+		/* If required to disable auto negotiate. */
+		if (priv->plat->disable_pcs_ane)
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 0, priv->hw->ps, 0);
+		else
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 1, priv->hw->ps, 0);
 	break;
-
 	case SPEED_100:
 		value |= GMAC_CONFIG_PS | GMAC_CONFIG_FES;
 		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
-		value = readl(priv->ioaddr + DWMAC4_PCS_BASE);
-		value |= GMAC_AN_CTRL_RAN | GMAC_AN_CTRL_ANE;
-		writel(value, priv->ioaddr + DWMAC4_PCS_BASE);
+		if (priv->plat->disable_pcs_ane)
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 0, priv->hw->ps, 0);
+		else
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 1, priv->hw->ps, 0);
 	break;
 	case SPEED_10:
 		value |= GMAC_CONFIG_PS;
@@ -1111,12 +1114,11 @@ int ethqos_configure_sgmii_v3_1(struct qcom_ethqos *ethqos)
 		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
 		rgmii_updatel(ethqos, RGMII_CONFIG_10M_CLK_DVD, BIT(10) |
 			      GENMASK(15, 14), RGMII_IO_MACRO_CONFIG);
-		value = readl(priv->ioaddr + DWMAC4_PCS_BASE);
-		value |= GMAC_AN_CTRL_RAN | GMAC_AN_CTRL_ANE;
-		writel(value, priv->ioaddr + DWMAC4_PCS_BASE);
-
+		if (priv->plat->disable_pcs_ane)
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 0, priv->hw->ps, 0);
+		else
+			stmmac_pcs_ctrl_ane(priv, priv->ioaddr, 1, priv->hw->ps, 0);
 	break;
-
 	default:
 		dev_err(&ethqos->pdev->dev,
 			"Invalid speed %d\n", ethqos->speed);
@@ -2864,6 +2866,17 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "dt configuration failed\n");
 		return PTR_ERR(plat_dat);
 	}
+
+	if (of_property_read_bool(pdev->dev.of_node,
+				  "disable_pcs_ane")) {
+		plat_dat->disable_pcs_ane = true;
+		ETHQOSDBG(":property disable_pcs_ane in dtsi\n");
+	} else {
+		plat_dat->disable_pcs_ane = false;
+		ETHQOSDBG(":property disable_pcs_ane not in dtsi\n");
+	}
+	ETHQOSDBG("disable_pcs_ane = %d\n",
+		  plat_dat->disable_pcs_ane);
 
 	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_base)) {

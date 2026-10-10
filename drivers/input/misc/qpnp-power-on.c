@@ -24,6 +24,8 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 #include <linux/suspend.h>
+#include <linux/nmi.h>
+#include <linux/sched/debug.h>
 #include <linux/input/qpnp-power-on.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -42,6 +44,8 @@
 #define PON_GEN2_SECONDARY			0x05
 #define PON_GEN3_PBS				0x08
 #define PON_GEN3_HLOS				0x09
+
+#define PMIC_PWRKEY_BARK_TRIGGER 1
 
 enum qpnp_pon_version {
 	QPNP_PON_GEN1_V1,
@@ -132,6 +136,8 @@ enum qpnp_pon_version {
 #define QPNP_PON_KPDPWR_RESIN_BARK_N_SET	BIT(5)
 #define QPNP_PON_GEN3_RESIN_N_SET		BIT(6)
 #define QPNP_PON_GEN3_KPDPWR_N_SET		BIT(7)
+#define QPNP_PON_KPDPWR_RESIN_N_SET		(QPNP_PON_KPDPWR_N_SET | \
+							QPNP_PON_RESIN_N_SET)
 
 #define QPNP_PON_WD_EN				BIT(7)
 #define QPNP_PON_RESET_EN			BIT(7)
@@ -167,6 +173,7 @@ enum qpnp_pon_version {
 #define QPNP_PON_BUFFER_SIZE			9
 
 #define QPNP_POFF_REASON_UVLO			13
+#define QPNP_PON_KPDPWR_RESIN_RESET_TIME		400
 
 enum pon_type {
 	PON_KPDPWR	 = PON_POWER_ON_TYPE_KPDPWR,
@@ -217,6 +224,8 @@ struct qpnp_pon {
 	struct list_head	list;
 	struct mutex		restore_lock;
 	struct delayed_work	bark_work;
+	struct delayed_work	collect_d_work;
+	bool			collect_d_in_progress;
 	struct dentry		*debugfs;
 	u16			base;
 	u16			pbs_base;
@@ -252,6 +261,8 @@ static struct qpnp_pon *sys_reset_dev;
 static struct qpnp_pon *modem_reset_dev;
 static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
+static u32 comb_reset_time;
+static bool comb_reset_enable;
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 	0, 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048, 3072, 4480,
@@ -318,6 +329,16 @@ static const char * const qpnp_poff_reason[] = {
 	[38] = "Triggered from S3_RESET_PBS_NACK",
 	[39] = "Triggered from S3_RESET_KPDPWR_ANDOR_RESIN",
 };
+
+typedef int (*mi_display_pwrkey_callback)(int);
+mi_display_pwrkey_callback mi_display_pwrkey_cb = NULL;
+void mi_display_pwrkey_callback_set(mi_display_pwrkey_callback cb)
+{
+	mi_display_pwrkey_cb = cb;
+	printk(KERN_INFO "%s: func %pF is set.\n", __func__, cb);
+	return;
+}
+EXPORT_SYMBOL(mi_display_pwrkey_callback_set);
 
 static int qpnp_pon_store_reg(struct qpnp_pon *pon, u16 addr)
 {
@@ -1030,6 +1051,20 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
+	if (comb_reset_enable == true) {
+	if (((pon_rt_sts & QPNP_PON_KPDPWR_RESIN_N_SET) == QPNP_PON_KPDPWR_RESIN_N_SET) && (pon->collect_d_in_progress == false) &&
+		(cfg->key_code == KEY_POWER || cfg->key_code == KEY_VOLUMEDOWN)) {
+		pon->collect_d_in_progress = true;
+		schedule_delayed_work(&pon->collect_d_work,
+						msecs_to_jiffies(comb_reset_time - QPNP_PON_KPDPWR_RESIN_RESET_TIME));
+	} else if ((pon->collect_d_in_progress == true) && ((pon_rt_sts & QPNP_PON_KPDPWR_RESIN_N_SET) != QPNP_PON_KPDPWR_RESIN_N_SET) &&
+		(cfg->key_code == KEY_POWER || cfg->key_code == KEY_VOLUMEDOWN)) {
+		cancel_delayed_work(&pon->collect_d_work);
+		pon->collect_d_in_progress = false;
+	    }
+    }
+
+
 	pr_debug("PMIC input: code=%d, status=0x%02X\n", cfg->key_code,
 		pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
@@ -1054,6 +1089,56 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	cfg->old_state = !!key_status;
 
 	return 0;
+}
+
+void show_state_filter_single(unsigned long state_filter)
+{
+	struct task_struct *g, *p;
+#if BITS_PER_LONG == 32
+	printk("  task 32 PC stack   pid father\n");
+#else
+	printk("  task PC stack   pid father\n");
+#endif
+	rcu_read_lock();
+	for_each_process_thread(g, p) {
+		/*
+		 * reset the NMI-timeout, listing all files on a slow
+		 * console might take a lot of time:
+		 * Also, reset softlockup watchdogs on all CPUs, because
+		 * another CPU might be blocked waiting for us to process
+		 * an IPI.
+		 */
+		touch_nmi_watchdog();
+		//touch_all_softlockup_watchdogs();
+		if (p->__state == state_filter)
+			sched_show_task(p);
+	}
+	rcu_read_unlock();
+}
+static void collect_d_work_func(struct work_struct *work)
+{
+	int rc;
+	int tmp_console = console_loglevel;
+	uint pon_rt_sts = 0;
+	struct qpnp_pon *pon =
+		container_of(work, struct qpnp_pon, collect_d_work.work);
+	/* check the RT status to get the current status of the line */
+	rc = regmap_read(pon->regmap, QPNP_PON_RT_STS(pon), &pon_rt_sts);
+	if (rc) {
+		dev_err(pon->dev, "Unable to read PON RT status\n");
+		goto err_return;
+	}
+	if ((pon_rt_sts & QPNP_PON_KPDPWR_RESIN_N_SET) == QPNP_PON_KPDPWR_RESIN_N_SET) {
+		console_verbose();
+		pr_info("------ collect D&R-state processes info before long comb key ------\n");
+		show_state_filter_single(TASK_UNINTERRUPTIBLE);
+		show_state_filter_single(TASK_RUNNING);
+		pr_info("------ end collecting D&R-state processes info ------\n");
+		console_loglevel = tmp_console;
+	}
+err_return:
+	pon->collect_d_in_progress = false;
+	return;
 }
 
 static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
@@ -1725,6 +1810,12 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon,
 		rc = qpnp_pon_config_parse_reset_info(pon, cfg, cfg_node);
 		if (rc)
 			return rc;
+
+		if (cfg->pon_type == PON_KPDPWR_RESIN) {
+		comb_reset_time = cfg->s1_timer + cfg->s2_timer;
+		comb_reset_enable = true;
+		}
+
 
 		/*
 		 * Get the standard key parameters. This might not be
@@ -2427,6 +2518,9 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
 
+	pon->collect_d_in_progress = false;
+	INIT_DELAYED_WORK(&pon->collect_d_work, collect_d_work_func);
+
 	rc = qpnp_pon_parse_dt_power_off_config(pon);
 	if (rc)
 		return rc;
@@ -2498,6 +2592,8 @@ static int qpnp_pon_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_debounce_us);
 
 	cancel_delayed_work_sync(&pon->bark_work);
+
+	cancel_delayed_work_sync(&pon->collect_d_work);
 
 	qpnp_pon_debugfs_remove(pon);
 	if (pon->is_spon) {

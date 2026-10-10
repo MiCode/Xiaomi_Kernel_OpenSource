@@ -488,8 +488,13 @@ void lru_cache_add(struct page *page)
 
 	/* see the comment in lru_gen_add_page() */
 	if (lru_gen_enabled() && !PageUnevictable(page) &&
-	    lru_gen_in_fault() && !(current->flags & PF_MEMALLOC))
-		SetPageActive(page);
+	    lru_gen_in_fault() && !(current->flags & PF_MEMALLOC)) {
+		bool bypass = false;
+
+		trace_android_vh_lru_cache_add_page_activate(page, &bypass);
+		if (!bypass)
+			SetPageActive(page);
+	}
 
 	get_page(page);
 	local_lock(&lru_pvecs.lock);

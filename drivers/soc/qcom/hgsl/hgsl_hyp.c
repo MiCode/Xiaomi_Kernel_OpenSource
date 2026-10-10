@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include "hgsl.h"
+#include "hgsl_trace.h"
 #include "hgsl_hyp.h"
 #include "hgsl_utils.h"
 #include <linux/delay.h>
@@ -1434,6 +1435,7 @@ int hgsl_hyp_issueib(struct hgsl_hyp_priv_t *priv,
 	}
 
 	LOGD("%d, %d, %d", hgsl_param->ctxthandle, hgsl_param->timestamp, ret);
+	trace_issue_cmd(hgsl_param->ctxthandle, hgsl_param->timestamp, ret, "hyp");
 
 out:
 	hgsl_hyp_channel_pool_put(hab_channel);
@@ -1558,6 +1560,7 @@ int hgsl_hyp_issueib_with_alloc_list(struct hgsl_hyp_priv_t *priv,
 	}
 
 	LOGD("%d, %d, %d", hgsl_param->ctxthandle, hgsl_param->timestamp, ret);
+	trace_issue_cmd(hgsl_param->ctxthandle, hgsl_param->timestamp, ret, "hyp");
 
 out:
 	hgsl_hyp_channel_pool_put(hab_channel);

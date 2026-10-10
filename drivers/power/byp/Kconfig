@@ -1,0 +1,6 @@
+config POWER_BYP
+	tristate "power byp support"
+	default n
+	help
+ 	  Say 'm' to compile as a module
+ 	  Say 'y' to build into the kernel

@@ -1,0 +1,26 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config CHARGEPUMP
+	tristate "support chargepump"
+	default n
+	help
+		Say Y here to support chargepump.
+
+config SUBPMIC_SC6601A_DRIVER
+	tristate "support subpmic sc6601a driver"
+	default n
+	help
+		Say Y here to support subpmic sc6601a driver.
+
+
+config SUBPMIC_NU6601_DRIVER
+	tristate "support subpmic nu6601 driver"
+	default n
+	help
+		Say Y here to support subpmic nu6601 driver.
+
+config XM_SUB_PMIC
+	tristate "support xm sub pmic"
+	default n
+	help
+		Say Y here to support xm sub pmic.

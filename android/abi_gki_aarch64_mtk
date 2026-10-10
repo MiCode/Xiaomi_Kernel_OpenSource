@@ -367,6 +367,7 @@
   devm_clk_bulk_get_all
   devm_clk_bulk_get_optional
   devm_clk_get
+  devm_clk_get_enabled
   devm_clk_get_optional
   devm_clk_get_optional_enabled
   devm_clk_put

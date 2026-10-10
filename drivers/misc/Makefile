@@ -66,3 +66,7 @@ obj-$(CONFIG_QPNP_MISC)		+= qpnp-misc.o
 obj-$(CONFIG_PROFILER)		+= profiler.o
 obj-$(CONFIG_QRC)		+= qrc/
 obj-$(CONFIG_HDMI_INPUT_MUX)	+= hdmi_input_mux.o
+
+# Modem.RF - 2025.9.11 - add radio cable detection
+obj-$(CONFIG_RFCABLE_DETECT)	+= radio_cable_det/
+obj-m	+= hardware_info.o

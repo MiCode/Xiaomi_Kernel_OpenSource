@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- */
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+*/
 
 #include <linux/module.h>
 #include <linux/shrinker.h>
@@ -142,7 +142,7 @@ int qcom_io_pgtable_allocator_register(u32 vmid)
 		goto out;
 	}
 
-	pool = kmalloc(sizeof(*pool), GFP_KERNEL);
+	pool = kmalloc(sizeof(*pool), GFP_ATOMIC);
 	if (!pool) {
 		ret = -ENOMEM;
 		goto out;
@@ -153,7 +153,7 @@ int qcom_io_pgtable_allocator_register(u32 vmid)
 	spin_lock_init(&pool->pool_lock);
 	INIT_LIST_HEAD(&pool->page_pool);
 
-	ret = xa_err(xa_store(&page_pool_xa, vmid, pool, GFP_KERNEL));
+	ret = xa_err(xa_store(&page_pool_xa, vmid, pool, GFP_ATOMIC));
 	if (ret < 0)
 		kfree(pool);
 out:
