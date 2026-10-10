@@ -1,0 +1,28 @@
+# Ignore generated kernel build output
+*.o
+*.ko
+*.mod.c
+*.mod
+*.symvers
+*.order
+.vmlinux
+.vmlinux.cmd
+Module.symvers
+modules.order
+
+# Ignore local build directories
+out/
+obj/
+build/
+
+# Ignore editor and OS metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Ignore common temporary files
+*.tmp
+*.log
+*.swp
+*.bak
