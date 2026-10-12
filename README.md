@@ -259,3 +259,4 @@
 | warsaw-w-oss | REDMI K90 Ultra | Android W | LA.VENDOR.15.4.0.r1-15000-r1.0.r1_00044.1 |[warsaw-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/warsaw-w-oss) |
 | arctic-w-oss | POCO C81 Pro / REDMI A7 Pro / POCO C81 | Android W | 4G_MODEM_22B_W24.52.2_P34 |[arctic-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/arctic-w-oss) |
 | mist-w-oss | REDMI Note 17 5G/REDMI Note 17/POCO M8 Power 5G | Android W | snapdragon-high-mid-2024-spf-2-0_amss_standard_oem r2.0.r1_00009.1 |[mist-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mist-w-oss) |
+| zephyr-w-oss | REDMI Note 17 | Android W | Snapdragon_Mid_2022.SPF.2.0.2 r2.0.2_00004.0.141968.3 |[zephyr-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zephyr-w-oss) |
