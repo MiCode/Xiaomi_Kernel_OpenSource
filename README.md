@@ -1,12 +1,12 @@
 # Xiaomi Kernel OpenSource
 
-This repository is a lightweight catalog for Xiaomi and Redmi kernel sources, organized by device codename and Android release. It is intended as a quick reference for developers, kernel researchers, and custom ROM builders who need a stable branch map and build guidance.
+This repository is a lightweight catalog for Xiaomi and Redmi kernel sources, organized by device codename and Android release. It is meant to be a fast-reference index for developers, kernel researchers, and custom ROM builders who need a stable branch map and build guidance.
 
 ## Repository purpose
 
 - Track Android/Linux kernel sources by device codename
 - Map device names to branch names and source tags
-- Provide a quick-start for inspecting or building device kernels
+- Provide a quick start for inspecting or building device kernels
 - Serve as a clean entry point for kernel research and device-specific maintenance
 
 ## Quick start
@@ -20,7 +20,7 @@ git branch -a
 git checkout alioth-r-oss
 ```
 
-## Common device branch examples
+## Common device branches
 
 | Device | Branch | Android | Notes |
 | --- | --- | --- | --- |
@@ -29,6 +29,32 @@ git checkout alioth-r-oss
 | Mi A2 | `jasmine-q-oss` | Android Q | Snapdragon 660 |
 | Redmi Note 7 Pro | `violet-q-oss` | Android Q | Snapdragon 675 |
 | Xiaomi 12 Lite | `taoyao-s-oss` | Android S | Qualcomm platform |
+| Redmi Note 11 Pro | `pissarro-r-oss` | Android R | MediaTek variant |
+| Mi 11 Lite | `courbet-r-oss` | Android R | Qualcomm branch |
+| Xiaomi Pad 6 | `pipa-t-oss` | Android T | Qualcomm branch |
+| Redmi 13C / POCO C65 | `gale-s-oss` | Android T | MTK / newer platform |
+| Xiaomi 15 / Xiaomi 15 Pro | `dada-v-oss` | Android V | newer Qualcomm platform |
+
+## Branch catalog
+
+The project index keeps a device-by-device branch map for Xiaomi and Redmi kernel sources. The table below preserves the original catalog style while allowing the repository to include contributor guidance and build documentation.
+
+| Branch | Device | Android version | Base tag | Link |
+| :-: | :-: | :-: | :-: | :-: |
+| `air-t-oss` | Redmi 13R 5G, Redmi 13C 5G | Android T | `alps-mp-t0.mp1.tc8sp2-V1.32` | [air-t-oss](https://github.com/MiCode/MTK_kernel_modules/tree/air-t-oss) |
+| `alioth-r-oss` | Mi 10S, Redmi K40 | Android R | `LA.UM.9.12.r1-08000-SMxx50.0` | [alioth-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/alioth-r-oss) |
+| `andromeda-p-oss` | Mi MIX 3 5G | Android P | `LA.UM.7.1.r1-13000-sm8150.0` | [andromeda-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/andromeda-p-oss) |
+| `apollo-q-oss` | Redmi K30S Ultra | Android Q | `LA.UM.8.12.r1-10600-sm8250.0` | [apollo-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/apollo-q-oss) |
+| `begonia-r-oss` | Redmi Note 8 Pro | Android R | `MTK` | [begonia-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/begonia-r-oss) |
+| `cmi-r-oss` | Redmi K30S Ultra, Mi 10 Ultra, Mi 10 Pro, Redmi K30 Pro, Mi 10 | Android R | `LA.UM.9.12.r1-08000-SMxx50.0` | [cmi-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cmi-r-oss) |
+| `daisy-q-oss` | Mi A2 Lite | Android Q | `LA.UM.8.6.r1-02600-89xx.0` | [daisy-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-q-oss) |
+| `jasmine-q-oss` | Mi A2 | Android Q | `LA.UM.8.2.r1-04300-sdm660.0` | [jasmine-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-q-oss) |
+| `pipa-t-oss` | Xiaomi Pad 6 | Android T | `LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1` | [pipa-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pipa-t-oss) |
+| `taoyao-s-oss` | Xiaomi 12 Lite | Android S | `LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1` | [taoyao-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/taoyao-s-oss) |
+| `violet-q-oss` | Redmi Note 7 Pro | Android Q | `LA.UM.8.9.r1-04400-SM6xx.0-1` | [violet-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violet-q-oss) |
+| `ya` | Placeholder to keep the catalog easy to extend | — | — | — |
+
+> The full catalog can be expanded with additional device entries as new Xiaomi kernel trees are added or corrected over time.
 
 ## Build note
 
@@ -52,3 +78,12 @@ This repository is distributed under the GNU General Public License v2.0 (`GPL-2
 ## Notes
 
 The repository is intentionally organized as a device index rather than a single monolithic kernel source tree. For each device, the relevant branch contains the actual kernel source tree and vendor-specific configuration required for the target platform.
+
+## Contribution guidance
+
+- Keep changes device-specific and clearly scoped.
+- Preserve the naming structure used by the upstream Xiaomi kernel repository.
+- Prefer small documentation or metadata updates when editing the branch index.
+- Cite the correct branch link or source tag when available.
+
+This merged README keeps the original branch-index structure, documents the project purpose, and preserves the new contributor/build guidance added by the PR.
