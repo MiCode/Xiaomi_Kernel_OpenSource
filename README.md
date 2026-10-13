@@ -5,7 +5,7 @@ This repository is a lightweight catalog for Xiaomi and Redmi kernel sources, or
 ## Repository purpose
 
 - Track Android/Linux kernel sources by device codename
-- Map device names to branch names and source tags
+- Map devices to branch names and source tags
 - Provide a quick start for inspecting or building device kernels
 - Serve as a clean entry point for kernel research and device-specific maintenance
 
@@ -25,23 +25,22 @@ git checkout alioth-r-oss
 | Device | Branch | Android | Notes |
 | --- | --- | --- | --- |
 | Redmi K40 | `alioth-r-oss` | Android R | Snapdragon-based branch |
-| Redmi Note 8 Pro | `begonia-r-oss` | Android R | MTK device branch |
+| Redmi Note 8 Pro | `begonia-r-oss` | Android R | MediaTek device branch |
 | Mi A2 | `jasmine-q-oss` | Android Q | Snapdragon 660 |
 | Redmi Note 7 Pro | `violet-q-oss` | Android Q | Snapdragon 675 |
 | Xiaomi 12 Lite | `taoyao-s-oss` | Android S | Qualcomm platform |
 | Redmi Note 11 Pro | `pissarro-r-oss` | Android R | MediaTek variant |
 | Mi 11 Lite | `courbet-r-oss` | Android R | Qualcomm branch |
 | Xiaomi Pad 6 | `pipa-t-oss` | Android T | Qualcomm branch |
-| Redmi 13C / POCO C65 | `gale-s-oss` | Android T | MTK / newer platform |
+| Redmi 13C / POCO C65 | `gale-s-oss` | Android T | MediaTek / newer platform |
 | Xiaomi 15 / Xiaomi 15 Pro | `dada-v-oss` | Android V | newer Qualcomm platform |
 
 ## Branch catalog
 
-The project index keeps a device-by-device branch map for Xiaomi and Redmi kernel sources. The table below preserves the original catalog style while allowing the repository to include contributor guidance and build documentation.
+The project keeps a device-by-device branch map for Xiaomi and Redmi kernel sources. The entries below are representative examples from the catalog and can be expanded over time as new branches are added or corrected.
 
 | Branch | Device | Android version | Base tag | Link |
 | :-: | :-: | :-: | :-: | :-: |
-| `air-t-oss` | Redmi 13R 5G, Redmi 13C 5G | Android T | `alps-mp-t0.mp1.tc8sp2-V1.32` | [air-t-oss](https://github.com/MiCode/MTK_kernel_modules/tree/air-t-oss) |
 | `alioth-r-oss` | Mi 10S, Redmi K40 | Android R | `LA.UM.9.12.r1-08000-SMxx50.0` | [alioth-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/alioth-r-oss) |
 | `andromeda-p-oss` | Mi MIX 3 5G | Android P | `LA.UM.7.1.r1-13000-sm8150.0` | [andromeda-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/andromeda-p-oss) |
 | `apollo-q-oss` | Redmi K30S Ultra | Android Q | `LA.UM.8.12.r1-10600-sm8250.0` | [apollo-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/apollo-q-oss) |
@@ -52,7 +51,8 @@ The project index keeps a device-by-device branch map for Xiaomi and Redmi kerne
 | `pipa-t-oss` | Xiaomi Pad 6 | Android T | `LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1` | [pipa-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pipa-t-oss) |
 | `taoyao-s-oss` | Xiaomi 12 Lite | Android S | `LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1` | [taoyao-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/taoyao-s-oss) |
 | `violet-q-oss` | Redmi Note 7 Pro | Android Q | `LA.UM.8.9.r1-04400-SM6xx.0-1` | [violet-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violet-q-oss) |
-| `ya` | Placeholder to keep the catalog easy to extend | — | — | — |
+| `gale-s-oss` | Redmi 13C / POCO C65 | Android T | `t-alps-release-s0.mp1.tc8sp-cs2-V1.31` | [gale-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gale-s-oss) |
+| `dada-v-oss` | Xiaomi 15 / Xiaomi 15 Pro | Android V | `qcom-LA.VENDOR.15.4.0.r1-08900-r1.0.r1_00022.1` | [dada-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dada-v-oss) |
 
 > The full catalog can be expanded with additional device entries as new Xiaomi kernel trees are added or corrected over time.
 
@@ -86,4 +86,4 @@ The repository is intentionally organized as a device index rather than a single
 - Prefer small documentation or metadata updates when editing the branch index.
 - Cite the correct branch link or source tag when available.
 
-This merged README keeps the original branch-index structure, documents the project purpose, and preserves the new contributor/build guidance added by the PR.
+This merged README keeps the original branch-index structure, documents the project purpose, and preserves the contributor/build guidance added in the PR.
