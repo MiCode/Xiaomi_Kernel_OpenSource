@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig QCOM_POWER_SUPPLY
+	bool "Support for Qualcomm Technologies, Inc. power supply"
+	depends on ARCH_QCOM
+	help
+	  Say Y here to enable Qualcomm Technologies, Inc. specific
+	  power supply drivers. This allows adding support for various
+	  charging peripherals and battery management features.
+	  (if selected below).
+
+if QCOM_POWER_SUPPLY
+
+config QPNP_SMB5
+	tristate "SMB5 Battery Charger"
+	depends on MFD_SPMI_PMIC && IIO && TYPEC
+	help
+	  Say Y to enables support for the SMB5 charging peripheral.
+	  The QPNP SMB5 charger driver supports the charger peripheral
+	  present in the chip.
+	  The power supply and iio frameworks are used to communicate battery
+	  and usb properties to userspace and other driver consumers such
+	  as fuel gauge, USB, and USB-PD.
+	  VBUS and VCONN regulators are registered for supporting OTG,
+	  and powered Type-C cables respectively.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qpnp-smb5-main.
+
+config QPNP_SMBLITE
+	tristate "SMBLITE Battery Charger"
+	depends on MFD_SPMI_PMIC
+	help
+	 Say Y to enable support for the SMBLITE charging peripheral.
+	 The QPNP SMBLITE charger driver supports the charger peripheral
+	 present in the chip.
+	 The power supply framework is used to communicate battery and
+	 usb properties to userspace and other driver consumers such
+	 as fuel gauge and USB.
+	 VBUS regulator is registered for supporting OTG.
+
+config QTI_QBG
+        tristate "QTI Battery Gauge"
+        depends on MFD_SPMI_PMIC && IIO
+        help
+          Say Y here to enable the Qualcomm Technologies, Inc. Battery Gauge
+          driver which uses the periodic samples of the battery voltage and
+          current to determine the battery state-of-charge (SOC) and supports
+          other battery management features.
+
+          To compile this driver as a module, choose M here: the
+          module will be called qti-qbg-main.
+endif
+

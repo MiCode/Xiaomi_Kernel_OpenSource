@@ -1,0 +1,5 @@
+config MI_SW_SYNC
+        tristate "mi sw sync"
+        default n
+        help
+          this module support some disp functions for performance.

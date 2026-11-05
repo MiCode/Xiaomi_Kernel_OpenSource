@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# QCOM MPAM drivers
+#
+
+config QTI_MPAM
+	tristate "Qualcomm Technologies Inc. MPAM Interface Driver"
+	depends on QTI_SCMI_VENDOR_PROTOCOL
+	default n
+	help
+	  This driver exports all the available APIs to config MPAM
+	  parameters. These APIs will relay the configurations to
+	  CPUCP via SCMI communication. It is intended to be used by
+	  clients familiar with modifying the MPAM configuration
+	  settings.
+
+config QTI_CPU_MPAM_INTERFACE
+	tristate "Enable QCOM CPU MPAM configfs support"
+	depends on QTI_MPAM && CONFIGFS_FS
+	default n
+	help
+	  This enables QCOM CPU MPAM configfs interface support. User
+	  can config CPU MPAM feature inlcuding CMAX, CPBM, PRIO and
+	  tasks in a partition. Monitors inlcuding CSU and MBWU are
+	  also available. Configfs interface allows user to create and
+	  remove MPAM partition according to use cases.
+
+config QTI_PLATFORM_MPAM_INTERFACE
+	tristate "Enable QCOM Platform MPAM configfs support"
+	depends on QTI_MPAM && CONFIGFS_FS
+	default n
+	help
+	  This enables QCOM Platform MPAM configfs interface support.
+	  User can config Platform MPAM gear for NOC bandwidth control.
+	  Byte count monitors are also available to help to the
+	  setting.
+
+config QTI_MPAM_MSC
+	tristate "Enable QCOM MSC parent driver"
+	depends on QTI_MPAM
+	default n
+	help
+	MSC parent driver to support generic API for MPAM functionality
+	to configure Gears, monitor the allocations, read misses etc.
+	Also enable abstraction of different MSC device and can child
+	nodes can use the top layer API abstraction to implement MAPM
+	functionality.
+
+config QTI_MPAM_MSC_SLC
+	tristate "Enable QCOM MSC SLC driver"
+	depends on QTI_MPAM && QTI_MPAM_MSC
+	default n
+	help
+	MSC driver support for SLC MPAM functionality. Enables SLC
+	gear configuration support and configuration support for
+	generic SLC cache monitors like Capacity, read miss, etc.
+	Also module take care of getting device SLC gear config
+	capability from device by querying and take care of reset
+	the settings on module removal.
+
+config QTI_SLC_MPAM_INTERFACE
+	tristate "Enable QCOM SLC MPAM configfs support"
+	depends on QTI_MPAM_MSC_SLC && CONFIGFS_FS
+	default n
+	help
+	  This enables QCOM SLC MPAM configfs interface support.
+	  User can config SLC MPAM gear for SLC size control.
+	  Miss count and capacity monitors are also available to
+	  help to the setting.

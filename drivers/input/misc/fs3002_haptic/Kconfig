@@ -1,0 +1,13 @@
+#
+# Foursemi fs3002 driver
+#
+config INPUT_FS3002_HAPTIC
+	tristate "Foursemi FS3002 HAPTIC"
+	depends on I2C
+	help
+	  Say Y here if you have Foursemi FS3002 haptic controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
