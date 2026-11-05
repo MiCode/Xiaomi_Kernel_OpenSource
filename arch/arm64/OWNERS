@@ -1,0 +1,5 @@
+per-file crypto/**=file:/crypto/OWNERS
+per-file {include,kernel,kvm,lib}/**=mzyngier@google.com,willdeacon@google.com
+per-file mm/**=file:/mm/OWNERS
+per-file net/**=file:/net/OWNERS
+per-file configs/vendor/**=jiangfei1@xiaomi.com,anxufeng@xiaomi.com,zhangnan5@xiaomi.com
