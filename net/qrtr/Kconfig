@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Qualcomm IPC Router configuration
+#
+
+config QRTR
+	tristate "Qualcomm IPC Router support"
+	help
+	  Say Y if you intend to use Qualcomm IPC router protocol.  The
+	  protocol is used to communicate with services provided by other
+	  hardware blocks in the system.
+
+	  In order to do service lookups, a userspace daemon is required to
+	  maintain a service listing.
+
+if QRTR
+
+config QRTR_NODE_ID
+	int "QRTR Local Node ID"
+	default 1
+	help
+	  This option is used to configure the QRTR Node ID for the local
+	  processor. The node ID published to other nodes within the system.
+	  This value can be overridden by the name service application. This
+	  option is for configurations where Node ID needs to be customized
+	  but the name service application is not priveleged enough to use
+	  netlink sockets.
+
+config QRTR_WAKEUP_MS
+	int "QRTR Wakeup timeout"
+	default 0
+	help
+	  This option is used to configure the wakesource timeout that QRTR
+	  should take when a packet is received. The qrtr driver can guarantee
+	  that the packet gets queued to the socket but cannot guarantee the
+	  client process will get time to run if auto sleep is enabled. This
+	  config will help mitigate missed packets on systems where auto sleep
+	  is aggressive.
+
+config QRTR_SMD
+	tristate "SMD IPC Router channels"
+	depends on RPMSG || (COMPILE_TEST && RPMSG=n)
+	help
+	  Say Y here to support SMD based ipcrouter channels.  SMD is the
+	  most common transport for IPC Router.
+
+config QRTR_TUN
+	tristate "TUN device for Qualcomm IPC Router"
+	help
+	  Say Y here to expose a character device that allows user space to
+	  implement endpoints of QRTR, for purpose of tunneling data to other
+	  hosts or testing purposes.
+
+config QRTR_MHI
+	tristate "MHI IPC Router channels"
+	depends on MHI_BUS
+	help
+	  Say Y here to support MHI based ipcrouter channels. MHI is the
+	  transport used for communicating to external modems.
+
+config QRTR_GUNYAH
+	tristate "Gunyah IPC Router channels"
+	help
+	  Say Y here to support a fifo based ipcrouter channel with gunyah
+	  hypervisor signaling. The gunyah transport layer enables IPC
+	  Router communication between two virtual machines. The transport
+	  uses dynamically shared memory and gunyah doorbells.
+
+config QRTR_GENPOOL
+	tristate "Genpool FIFO IPC Router channels"
+	help
+	  Say Y here to support a fifo based ipcrouter channel with genpool and
+	  IPCC signaling. The genpool fifo transport layer enables IPC Router
+	  communication between two endpoints. The transport utilizes a reserved
+	  memory created and owned by another device, which is shared through
+	  the genpool framework.
+
+endif # QRTR
