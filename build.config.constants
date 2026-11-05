@@ -1,0 +1,4 @@
+CLANG_VERSION=r510928
+AARCH64_NDK_TRIPLE=aarch64-linux-android31
+X86_64_NDK_TRIPLE=x86_64-linux-android31
+ARM_NDK_TRIPLE=arm-linux-androideabi31

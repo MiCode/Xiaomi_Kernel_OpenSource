@@ -1,0 +1,39 @@
+################################################################################
+## Inheriting configs from ACK
+. "${ROOT_DIR}"/common/build.config.common
+. "${ROOT_DIR}"/common/build.config.aarch64
+
+################################################################################
+## Variant setup
+MSM_ARCH=PARROT_tuivm
+VARIANTS=(defconfig debug_defconfig)
+[ -z "${VARIANT}" ] && VARIANT=debug_defconfig
+
+if [ -e "${ROOT_DIR}/msm-kernel" ] && [ "${KERNEL_DIR}" = "common" ]; then
+	KERNEL_DIR="msm-kernel"
+fi
+
+BOOT_IMAGE_HEADER_VERSION=3
+BASE_ADDRESS=0x80000000
+PAGE_SIZE=4096
+VM_DTB_IMG_CREATE=1
+PREFERRED_USERSPACE=vm
+
+declare -A MKDTIMGDTBS
+
+################################################################################
+## Define TUI VM parameters
+TUIVM_KERNEL_OFFSET=0xE0C00000
+TUIVM_DTB_OFFSET=0xE2C00000
+TUIVM_RAMDISK_OFFSET=0xE2F00000
+TUIVM_CMDLINE_CPIO_OFFSET=0x2100000
+
+MKDTIMGDTBS["parrot_tuivm"]="parrot-vm"
+
+################################################################################
+## Define OEM VM parameters
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+. ${KERNEL_DIR}/build.config.msm.vm

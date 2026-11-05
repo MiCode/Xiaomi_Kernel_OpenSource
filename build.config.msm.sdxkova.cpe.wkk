@@ -1,0 +1,28 @@
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/msm-kernel/build.config.msm.sdxkova.common
+
+################################################################################
+## Variant setup
+MSM_ARCH=sdxkova-cpe-wkk
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+
+DEFCONFIG="generic_le_min_defconfig"
+function build_defconfig_fragments() {
+	if [[ "${VARIANT}" =~ ^(perf_defconfig|debug_defconfig)$ ]]; then
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/sdxkova.config vendor/${MSM_ARCH}_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}.config vendor/${MSM_ARCH}_defconfig
+		if [ "${VARIANT}" = perf_defconfig ]; then
+			return
+		fi
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/sdxkova_debug.config vendor/${MSM_ARCH}_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_debug.config vendor/${MSM_ARCH}-debug_defconfig
+	else
+		echo "Variant '${VARIANT}' unsupported by mdm"
+		exit 1
+	fi
+}
+build_defconfig_fragments

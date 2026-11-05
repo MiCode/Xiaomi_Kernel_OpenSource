@@ -1,0 +1,29 @@
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+
+KMI_GENERATION=8
+
+BRANCH=android15-6.6
+LLVM=1
+DEPMOD=depmod
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-${CLANG_VERSION}/bin
+BUILDTOOLS_PREBUILT_BIN=build/kernel/build-tools/path/linux-x86
+
+# TODO(b/296265825): Turn this into a proper error
+DTC=$(command -v dtc || { echo "WARNING: $BUILD_CONFIG loaded without Kleaf hermetic tools.
+    This will become an error in the future." >&2;
+    echo "${ROOT_DIR}/${BUILDTOOLS_PREBUILT_BIN}/dtc";
+})
+
+if ! "$DTC" -Wno-interrupt_provider --version > /dev/null 2>&1; then
+    echo "WARNING: $("$DTC" --version) does not support -Wno-interrupt_provider" >&2
+    DTC="${ROOT_DIR}/${BUILDTOOLS_PREBUILT_BIN}/dtc"
+    echo "WARNING: Falling back to $DTC" >&2
+fi
+
+KCFLAGS="${KCFLAGS} -D__ANDROID_COMMON_KERNEL__"
+EXTRA_CMDS=''
+STOP_SHIP_TRACEPRINTK=1
+IN_KERNEL_MODULES=1
+DO_NOT_STRIP_MODULES=1
+
+HERMETIC_TOOLCHAIN=${HERMETIC_TOOLCHAIN:-1}

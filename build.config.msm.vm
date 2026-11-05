@@ -1,0 +1,19 @@
+################################################################################
+# Common configuration for building kernel for Virtual Machines
+DEFCONFIG="generic_vm_defconfig"
+
+function build_defconfig_fragments() {
+	if [[ "${VARIANT}" =~ ^(defconfig|debug_defconfig)$ ]]; then
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}.config vendor/${MSM_ARCH}_defconfig
+
+		if [ "${VARIANT}" = defconfig ]; then
+			return
+		fi
+
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_debug.config vendor/${MSM_ARCH}-debug_defconfig
+	else
+		echo "Variant '${VARIANT}' unsupported by gki"
+		exit 1
+	fi
+}
+build_defconfig_fragments

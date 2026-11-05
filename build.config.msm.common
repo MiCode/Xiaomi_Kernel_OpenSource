@@ -1,0 +1,289 @@
+# The following additional environment variables are considered when build.config.msm.common is
+# included:
+#
+#   DT_OVERLAY_SUPPORT
+#     If set, then create a dtbo.img
+#   BUILD_VENDOR_DLKM
+#     If set, then enables creation of vendor_dlkm.img using all modules
+#     not part of the first-stage ramdisk
+#   EXTRA_CONFIGS
+#     All files in this list are sourced
+
+CONFIG_DIR=arch/${ARCH}/configs
+
+CONFIG_TARGET=msm.${MSM_ARCH}
+
+################################################################################
+##
+function compile_external_dtc() {
+  (
+    # Bazel builds dtc with its own rule, so skip if building with Bazel
+    if [ -n "$BUILDING_WITH_BAZEL" ]; then
+        return
+    fi
+
+    OUT_DIR=${COMMON_OUT_DIR}/external/dtc
+    [ "${SKIP_MRPROPER}" != "1" ] && rm -rf ${OUT_DIR}
+    cd ${ROOT_DIR}/external/dtc
+    DTC_MAKE_ARGS=("CC=${HOSTCC}" "AR=${AR}")
+    DTC_MAKE_ARGS+=("LDFLAGS=${HOSTLDFLAGS} -fuse-ld=${LD##*.} --rtlib=compiler-rt")
+    DTC_MAKE_ARGS+=("EXTRA_CFLAGS=${HOSTCFLAGS}")
+    # PKG_CONFIG would pull from host environment to determine if libyaml and libpython are
+    # available. We want a hermetic build that doesn't rely on host tools, so make dtc build think
+    #  none of these libraries are installed.
+    DTC_MAKE_ARGS+=("PKG_CONFIG=false")
+    make all install "${DTC_MAKE_ARGS[@]}" NO_PYTHON=1 PREFIX=${COMMON_OUT_DIR}/host
+  )
+}
+append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
+
+################################################################################
+## DTB general support
+DTB_DIR=vendor/qcom
+DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
+# Force /__symbols__ generation for all DTB[O]s
+DTC_FLAGS="-@"
+MAKE_GOALS+=" dtbs"
+
+function install_dtbs() {
+  local INSTALL_DTBS_PATH="${COMMON_OUT_DIR}/dtb_staging"
+  local dtb_types="${MSM_ARCH}-"
+  if [ "${DT_OVERLAY_SUPPORT}" -eq "1" ]; then
+    dtb_types="${dtb_types}overlays-"
+  fi
+  # Staging directory required because arch/$ARCH/arm64/boot/dts/**/*.dtb structure copied and
+  # we want a flat directory with all the DTBs.
+  rm -rf "${INSTALL_DTBS_PATH}"
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" INSTALL_DTBS_PATH="${INSTALL_DTBS_PATH}" DTB_TYPES="${dtb_types}" dtbs_install)
+  cp $(find ${INSTALL_DTBS_PATH} -type f \( -name "*.dtb" -o -name "*.dtbo" \)) ${DIST_DIR}
+}
+append_cmd DIST_CMDS 'install_dtbs'
+ADDITIONAL_HOST_TOOLS+=" install"  # for scripts/Makefile.dtbinst
+
+FILES+="
+.config
+Module.symvers
+"
+
+################################################################################
+## Variant Selection
+if [ -z "${VARIANT}" ] || [ "${VARIANT}" == "default" ]; then
+  VARIANT="${VARIANTS[0]}"
+fi
+
+if ( for v in "${VARIANTS[@]}"; do if [ "${v}" = "${VARIANT}" ]; then exit 1; fi; done; exit 0 ) ; then
+  echo "Unsupported variant '${VARIANT}'"
+  exit 1
+fi
+
+################################################################################
+## defconfigs
+
+# Helper function to let build.config files merge config fragments
+# Usage: append_cmd PRE_DEFCONFIG_CMDS 'merge_defconfig_fragment ${DEFCONFIG} ${fragment_config}'
+DEFCONFIG_FRAGMENTS=""
+function merge_defconfig_fragments() {
+  if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
+     [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
+    echo "No defconfig fragments for ${DEFCONFIG}"
+    return
+  fi
+  local output=$(mktemp)
+  mkdir -p $(dirname ${OUT_DIR}/arch/${ARCH}/configs/${DEFCONFIG})
+  KCONFIG_CONFIG=${OUT_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
+    ${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
+    -m -r -y ${DEFCONFIG_FRAGMENTS} | tee $output
+  set +x
+  if grep -q -E -e "Previous value: [^=]+=[ym]" $output; then
+    echo "========================================================"
+    echo "ERROR! Detected overridden config!"
+    grep -C 1 -E -e "Previous value: [^=]+=[ym]" $output >&2
+    rm $output
+    exit 1
+  fi
+  local temp_config=$(mktemp)
+  (cd ${KERNEL_DIR} && KCONFIG_CONFIG=${temp_config} make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" ${DEFCONFIG}) 2>&1 | tee $output
+  if grep -q -e "warning:" $output; then
+    echo "========================================================"
+    echo "ERROR! Treating config warnings as errors"
+    grep -e "warning" $output >&2
+    rm $output $temp_config
+    exit 1
+  fi
+  rm $output $temp_config
+  set -x
+
+}
+append_cmd PRE_DEFCONFIG_CMDS "merge_defconfig_fragments"
+
+function check_merged_defconfig() {
+  if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
+     [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
+    return
+  fi
+  local output=$(mktemp)
+  ${KERNEL_DIR}/scripts/diffconfig "${OUT_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
+  set +x
+  # Allow CONFIG_CMDLINE changes
+  if grep -q -v -E -e "^\+" -e "^CMDLINE " $output; then
+    echo "========================================================"
+    echo "ERROR! Defconfig fragment did not apply as expected"
+    grep -v -E -e "^\+" -e "^CMDLINE " $output
+    rm $output
+    exit 1
+  fi
+  rm $output
+  set -x
+}
+append_cmd POST_DEFCONFIG_CMDS "check_merged_defconfig"
+
+# Wrapper function around merge_defconfig_fragment to reduce repeated logic
+# Usage: apply_defconfig_fragment ${KERNEL_DIR}/cuttlefish.fragment cuttlefish-gki_defconfig
+function apply_defconfig_fragment() {
+  FRAGMENT_CONFIG=$1
+  if [ -z "${DEFCONFIG_FRAGMENTS}" ]; then
+    DEFCONFIG_FRAGMENTS="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
+  fi
+  DEFCONFIG_FRAGMENTS="${DEFCONFIG_FRAGMENTS} $1"
+  DEFCONFIG="${2:-${DEFCONFIG}}"
+}
+
+################################################################################
+## DLKMs
+if [ -e "${KERNEL_DIR}/modules.list.${CONFIG_TARGET}" ]; then
+  MODULES_LIST=${KERNEL_DIR}/modules.list.${CONFIG_TARGET}
+fi
+if [ -e "${KERNEL_DIR}/modules.blocklist.${CONFIG_TARGET}" ]; then
+  MODULES_BLOCKLIST="${KERNEL_DIR}/modules.blocklist.${CONFIG_TARGET}"
+  VENDOR_DLKM_MODULES_BLOCKLIST="${KERNEL_DIR}/modules.blocklist.${CONFIG_TARGET}"
+fi
+
+if [ "${BUILD_VENDOR_DLKM}" == "1" ]; then
+  COMBINED_MODULE_LIST=$(mktemp)
+fi
+
+if [[ "${PREPARE_SYSTEM_DLKM}" == "1"  && ! -z "${SYSTEM_DLKM_MODULES_LIST}" ]]; then
+  {
+    awk -F'/' '{print $NF}' ${SYSTEM_DLKM_MODULES_LIST}
+    [ -f "${MODULES_LIST}" ] && cat "${MODULES_LIST}"
+  } | sed -e '/^$/d' > ${COMBINED_MODULE_LIST}
+fi
+
+function prepare_vendor_dlkm() {
+  if [ -z "${VENDOR_DLKM_MODULES_LIST}" ]; then
+    local module_list_flag=
+    if [ -s "${COMBINED_MODULE_LIST}" ]; then
+      module_list_flag="-f ${COMBINED_MODULE_LIST}"
+    elif [ -e "${MODULES_LIST}" ]; then
+      module_list_flag="-f ${MODULES_LIST}"
+    else
+      module_list_flag="-e ''"
+    fi
+    (cd "${MODULES_STAGING_DIR}/lib/modules/" && find -type f -name "*.ko" -printf "%f\n") | \
+      grep -w -v ${module_list_flag} - > ${MODULES_STAGING_DIR}/vendor_dlkm.modules.load
+
+    VENDOR_DLKM_MODULES_LIST="${MODULES_STAGING_DIR}/vendor_dlkm.modules.load"
+    if [[ ! -s ${VENDOR_DLKM_MODULES_LIST} ]]; then
+      echo "========================================================"
+      echo "WARNING: ${VENDOR_DLKM_MODULES_LIST} is empty file!"
+    fi
+  fi
+
+  SUPER_IMAGE_CONTENTS+=("${DIST_DIR}/vendor_dlkm.img")
+  rm ${COMBINED_MODULE_LIST}
+}
+
+if [ "${BUILD_VENDOR_DLKM}" == "1" ]; then
+  append_cmd DIST_CMDS 'prepare_vendor_dlkm'
+  if [ -e "${KERNEL_DIR}/modules.vendor_blocklist.${CONFIG_TARGET}" ]; then
+    VENDOR_DLKM_MODULES_BLOCKLIST="${KERNEL_DIR}/modules.vendor_blocklist.${CONFIG_TARGET}"
+  fi
+fi
+
+function prepare_system_dlkm() {
+  if [ "${PREPARE_SYSTEM_DLKM}" == "1" ]; then
+    if [ -e "${KERNEL_DIR}/modules.systemdlkm_blocklist.${CONFIG_TARGET}" ]; then
+      SYSTEM_DLKM_MODULES_BLOCKLIST="${KERNEL_DIR}/modules.systemdlkm_blocklist.${CONFIG_TARGET}"
+      cp $SYSTEM_DLKM_MODULES_BLOCKLIST ${DIST_DIR}/system_dlkm.modules.blocklist
+
+      if [ "${APPEND_SYSTEM_DLKM_BLOCKLIST_TO_VENDOR_RAMDISK}" == "1" ]; then
+        (cd ${DIST_DIR} && find -name system_dlkm.modules.blocklist | cpio -H newc -o) > ${DIST_DIR}/system_dlkm_blocklist.cpio
+        if [ -n "${TARGET_HAS_SEPARATE_RD}" ]; then
+          ${RAMDISK_COMPRESS} "${DIST_DIR}/system_dlkm_blocklist.cpio" >"${DIST_DIR}/system_dlkm_blocklist.${RAMDISK_EXT}"
+          cat "${DIST_DIR}/system_dlkm_blocklist.${RAMDISK_EXT}" >>"${VENDOR_RAMDISK_BINARY}"
+        else
+	  VENDOR_RAMDISK_BINARY+=" ${DIST_DIR}/system_dlkm_blocklist.cpio"
+        fi
+      fi
+
+    fi
+    SUPER_IMAGE_CONTENTS+=("${DIST_DIR}/system_dlkm.img")
+  fi
+}
+append_cmd DIST_CMDS 'prepare_system_dlkm'
+
+KERNEL_BINARY=Image
+
+################################################################################
+## DT Overlay
+LIBUFDT_PREBUILTS_BIN=tools/libufdt/utils/src
+function make_dtbo_img() {
+  mkdir -p ${DIST_DIR}/
+  mkdtboimg create ${DIST_DIR}/dtbo.img --page_size=${PAGE_SIZE} ${DIST_DIR}/*.dtbo
+}
+if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
+  append_cmd DIST_CMDS 'make_dtbo_img'
+fi
+
+################################################################################
+## Cating all the DTBs and create a dtb.img
+function make_dtb_img() {
+  mkdir -p ${DIST_DIR}/
+  mkdtboimg create ${DIST_DIR}/${MSM_ARCH}-dtb.img --page_size=${PAGE_SIZE} ${DIST_DIR}/*.dtb
+}
+if [ ! -z $DTB_IMG_CREATE ] && [ ! $DTB_IMG_CREATE -eq "0" ]; then
+  append_cmd DIST_CMDS 'make_dtb_img'
+fi
+
+################################################################################
+## Cating all the DTBs and create a dtb.img for a virtual machine
+function make_vm_dtb_img() {
+  mkdir -p ${DIST_DIR}/
+  for i in "${!MKDTIMGDTBS[@]}"; do
+    mkdtboimg create ${DIST_DIR}/${i}-dtb.img --page_size=${PAGE_SIZE} ${DIST_DIR}/${MKDTIMGDTBS[$i]}*.dtb
+  done
+}
+if [ -n "$VM_DTB_IMG_CREATE" ] && [ ! "$VM_DTB_IMG_CREATE" -eq "0" ]; then
+  append_cmd DIST_CMDS 'make_vm_dtb_img'
+fi
+
+################################################################################
+## Miscellaneous
+if [ -n "${EXTRA_CONFIGS}" ]; then
+  for extra_config in "${EXTRA_CONFIGS[@]}"
+  do
+    . ${extra_config}
+  done
+fi
+
+################################################################################
+## Copy prebuilt files to ${COMMON_OUT_DIR}/host/bin to be used by CI tools
+DIST_BINS="""
+build/android/merge_dtbs.py
+build/build-tools/path/linux-x86/ufdt_apply_overlay
+"""
+function copy_dist_bins() (
+  set +x
+  set -e
+  mkdir -p ${COMMON_OUT_DIR}/host/bin
+  echo "Copying binaries to host/bin"
+  for FILE in ${DIST_BINS}; do
+    if [ -f ${ROOT_DIR}/${FILE} ]; then
+      echo "  $FILE"
+      cp -p ${ROOT_DIR}/${FILE} ${COMMON_OUT_DIR}/host/bin/
+    else
+      echo "  $FILE is not a file, skipping"
+    fi
+  done
+)
+append_cmd DIST_CMDS 'copy_dist_bins'

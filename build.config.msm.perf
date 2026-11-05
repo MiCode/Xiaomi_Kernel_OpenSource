@@ -1,0 +1,69 @@
+################################################################################
+# Common MSM configuration for building GKI-based kernels
+DEFCONFIG="gki_defconfig"
+
+# Configuration options to build images for MSM targets
+# Must be included AFTER build.config.msm.<target>
+
+# boot image macros
+BUILD_BOOT_IMG=1
+BUILD_INITRAMFS=1
+
+KMI_SYMBOL_LIST_MODULE_GROUPING=0
+KMI_SYMBOL_LIST_ADD_ONLY=1
+KMI_ENFORCED=1
+
+MAKE_GOALS="modules dtbs"
+GKI_BUILD_CONFIG=common/build.config.gki.aarch64
+GKI_SKIP_CP_KERNEL_HDR=1
+
+# "Hacks" to enable symbol trimming on the common kernel from here (msm-kernel). To be removed once
+# we get a common kernel with symbol trimming.
+GKI_KMI_SYMBOL_LIST=../msm-kernel/android/abi_gki_aarch64_qcom
+KMI_SYMBOL_LIST=android/abi_gki_aarch64_qcom
+if [ "${VARIANT}" = perf ]; then
+	GKI_TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
+fi
+GKI_KMI_SYMBOL_LIST_STRICT_MODE=1
+GKI_KMI_ENFORCED=1
+KMI_ENFORCED=1
+
+function sanity_check_abi() {
+	if [ -z "${GKI_BUILD_CONFIG}" ]; then
+		# When running build_abi.sh, mixed build is explicitly disabled
+		# In that case, turn on some options for trimming and strict mode
+		# which would normally be disabled because they conflict with
+		# mixed build
+		PREPARE_SYSTEM_DLKM=0
+		if [ "${VARIANT}" = perf ]; then
+			TRIM_NONLISTED_KMI=1
+			KMI_SYMBOL_LIST_STRICT_MODE=1
+		fi
+		return
+	fi
+}
+append_cmd POST_DEFCONFIG_CMDS 'sanity_check_abi'
+
+function build_defconfig_fragments() {
+	if [[ "${VARIANT}" =~ ^(perf|consolidate)$ ]]; then
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_perf.config vendor/${MSM_ARCH}-perf_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_TARGET}_perf.config vendor/${MSM_TARGET}-perf_defconfig
+		if [ "${VARIANT}" = perf ]; then
+			return
+		fi
+		GKI_BUILD_CONFIG=common/build.config.gki-debug.aarch64
+		GKI_GKI_BUILD_CONFIG_FRAGMENT=msm-kernel/build.config.gki_consolidate.aarch64
+		# ABI comparison isn't applicable on consolidate variant
+		unset ABI_DEFINITION
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/consolidate.fragment consolidate_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
+        apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_TARGET}_consolidate.config vendor/${MSM_TARGET}-consolidate_defconfig
+	elif [ "${VARIANT}" = gki-ack ]; then
+		# In gki-only, then using ACK's GKI config directly
+		. ${KERNEL_DIR}/build.config.gki
+	else
+		echo "Variant '${VARIANT}' unsupported by gki"
+		exit 1
+	fi
+}
+build_defconfig_fragments

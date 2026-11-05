@@ -1,0 +1,32 @@
+# MIUI ADD: Stability_DebugEnhance
+boottime.ko
+# END Stability_DebugEnhance
+# MIUI ADD: Dynamic_Readahead
+dynamic_readahead.ko
+# END Dynamic_Readahead
+miev.ko
+zram.ko
+zsmalloc.ko
+mi_ubt.ko
+printk_enhance.ko
+mi_power.ko
+rt_mod.ko
+millet_core.ko
+millet_binder.ko
+binder_gki.ko
+millet_oem_cgroup.ko
+millet_hs.ko
+millet_sig.ko
+millet_pkg.ko
+xm_power.ko
+mi_rmap_efficiency.ko
+cpq.ko
+mi_wq_dynamic_priority.ko
+mi_schedule.ko
+metis.ko
+mi_sw_sync.ko
+speed_touch.ko
+mist.ko
+io_monitor.ko
+mem_fault_events.ko
+node_cache.ko
