@@ -1,0 +1,4 @@
+per-file include/linux/mi_sched.h=guchao1@xiaomi.com
+per-file include/linux/mi_soc.h=guchao1@xiaomi.com,shanghaoqiang@xiaomi.com
+per-file include/linux/pkg_stat.h=guchao1@xiaomi.com
+per-file include/trace/hooks/cgroup.h=guchao1@xiaomi.com
