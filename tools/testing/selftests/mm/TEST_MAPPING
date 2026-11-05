@@ -1,0 +1,18 @@
+{
+  "presubmit": [
+    {
+      "name": "selftests",
+      "options": [
+        {
+          "include-filter": "kselftest_mm_mremap_dontunmap"
+        },
+        {
+          "include-filter": "kselftest_mm_mremap_test"
+        },
+        {
+          "include-filter": "kselftest_mm_uffd_unit_tests"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+<configuration description="kunit">
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.KernelTestModuleController">
+        <option name="arch" value="x86_64" />
+    </object>
+
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer"/>
+
+    <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
+        <option name="cleanup" value="true" />
+        <option name="push-file" key="kunit" value="/data/kunit" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.InstallKernelModulePreparer">
+        <option name="module-path" value="/data/kunit/x86_64/kunit.ko" />
+        <option name="install-arg" value="enable=1" />
+   </target_preparer>
+
+    <!-- KUnit tests dependencies -->
+    <target_preparer class="com.android.tradefed.targetprep.InstallKernelModulePreparer">
+        <option name='module-path' key='drivers/base/regmap/regmap-ram' value='/data/kunit/x86_64/regmap-ram.ko' />
+        <option name='module-path' key='drivers/base/regmap/regmap-raw-ram' value='/data/kunit/x86_64/regmap-raw-ram.ko' />
+   </target_preparer>
+
+    <!-- Modules that leave the OS in an unstable state have been temporarily commented out. -->
+    <test class="com.android.tradefed.testtype.binary.KUnitModuleTest" >
+        <option name="skip-binary-check" value="true" />
+        <option name="ktap-result-parser-resolution" value="INDIVIDUAL_LEAVES" />
+        <option name='binary' key='drivers/base/regmap/regmap-kunit' value='/data/kunit/x86_64/regmap-kunit.ko' />
+        <option name='binary' key='drivers/hid/hid-uclogic-test' value='/data/kunit/x86_64/hid-uclogic-test.ko' />
+        <!-- <option name='binary' key='drivers/iio/test/iio-test-format' value='/data/kunit/x86_64/iio-test-format.ko' /> -->
+        <option name='binary' key='drivers/input/tests/input_test' value='/data/kunit/x86_64/input_test.ko' />
+        <option name='binary' key='drivers/rtc/lib_test' value='/data/kunit/x86_64/lib_test.ko' />
+        <option name='binary' key='fs/ext4/ext4-inode-test' value='/data/kunit/x86_64/ext4-inode-test.ko' />
+        <option name='binary' key='fs/fat/fat_test' value='/data/kunit/x86_64/fat_test.ko' />
+        <option name='binary' key='kernel/time/time_test' value='/data/kunit/x86_64/time_test.ko' />
+        <option name='binary' key='lib/kunit/kunit-example-test' value='/data/kunit/x86_64/kunit-example-test.ko' />
+        <!-- <option name='binary' key='lib/kunit/kunit-test' value='/data/kunit/x86_64/kunit-test.ko' /> -->
+        <!-- <option name='binary' key='mm/kfence/kfence_test' value='/data/kunit/x86_64/kfence_test.ko' /> -->
+        <option name='binary' key='net/core/dev_addr_lists_test' value='/data/kunit/x86_64/dev_addr_lists_test.ko' />
+        <!-- <option name='binary' key='sound/soc/soc-topology-test' value='/data/kunit/x86_64/soc-topology-test.ko' /> -->
+        <option name='binary' key='sound/soc/soc-utils-test' value='/data/kunit/x86_64/soc-utils-test.ko' />
+    </test>
+</configuration>

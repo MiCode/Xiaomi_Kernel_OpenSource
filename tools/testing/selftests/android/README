@@ -1,0 +1,18 @@
+HOW TO RUN SELFTESTS IN ANDROID
+=================================
+
+Run test with a single shell script command:
+  $ common/tools/testing/android/bin/kselftest.sh
+
+  By default, the script will build the kernel and launch an Android virtual
+  device and then run the tests. Additional options may be passed to change
+  the default behavior. The following are some examples on how to use it:
+
+  * Build kernel, launch a virtual device, run KUnit tests:
+  $ common/tools/testing/android/bin/kselftest.sh
+
+  * Run Selftests on a connected device directly:
+  $ common/tools/testing/android/bin/kselftest.sh -s 127.0.0.1:37693
+
+  * Check other available options:
+  $ common/tools/testing/android/bin/kselftest.sh -h
