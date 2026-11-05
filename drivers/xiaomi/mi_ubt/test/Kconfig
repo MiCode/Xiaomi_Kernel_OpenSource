@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_UBT_TEST
+	tristate "mi_ubt_test support"
+	default n
+	help
+		mi_ubt_test will show user that how to use mi_ubt.

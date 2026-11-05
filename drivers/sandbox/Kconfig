@@ -1,0 +1,5 @@
+config MI_RT_MONITOR
+	tristate "RT Monitor"
+	default n
+	help
+	  Real Time thread monitor to avoid abuse

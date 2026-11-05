@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Mi boot monitor
+#
+
+config MI_BOOT_MONITOR
+	tristate "boot monitor"
+	default n
+	help
+	This adds support for mi boot monitor.

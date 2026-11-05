@@ -1,0 +1,200 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config GUNYAH
+	tristate "Gunyah Virtualization drivers"
+	depends on ARM64
+	select GUNYAH_PLATFORM_HOOKS
+	select AUXILIARY_BUS
+	imply GUNYAH_QCOM_PLATFORM if ARCH_QCOM
+	help
+	  The Gunyah drivers are the helper interfaces that run in a guest VM
+	  such as basic inter-VM IPC and signaling mechanisms, and higher level
+	  services such as memory/device sharing, IRQ sharing, and so on.
+
+	  Say Y/M here to enable the drivers needed to interact in a Gunyah
+	  virtual environment.
+
+config GUNYAH_PLATFORM_HOOKS
+	tristate
+
+config GUNYAH_QCOM_PLATFORM
+	tristate "Support for Gunyah on Qualcomm platforms"
+	depends on GUNYAH
+	select GUNYAH_PLATFORM_HOOKS
+	select QCOM_SCM
+	help
+	  Enable support for interacting with Gunyah on Qualcomm
+	  platforms. Interaction with Qualcomm firmware requires
+	  extra platform-specific support.
+
+	  Say Y/M here to use Gunyah on Qualcomm platforms.
+
+config GUNYAH_IRQFD
+	tristate "Gunyah irqfd interface"
+	depends on GUNYAH
+	help
+	  Enable kernel support for creating irqfds which can raise an interrupt
+	  on Gunyah virtual machine.
+
+	  Say Y/M here if unsure and you want to support Gunyah VMMs.
+
+config GUNYAH_IOEVENTFD
+	tristate "Gunyah ioeventfd interface"
+	depends on GUNYAH
+	help
+	  Enable kernel support for creating ioeventfds which can alert userspace
+	  when a Gunyah virtual machine accesses a memory address.
+
+	  Say Y/M here if unsure and you want to support Gunyah VMMs.
+
+menuconfig GUNYAH_DRIVERS
+	bool "Gunyah Vendor Virtualization drivers"
+	depends on ARM64
+	depends on GUNYAH
+	help
+	  The Gunyah drivers are the helper interfaces that runs on the
+	  virtual machines that provides support such as memory/device
+	  sharing, IRQ sharing, IPC/signalling mechanisms, and so on.
+
+	  Say Y here to enable the drivers needed to work on Gunyah
+	  virtualization environment.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
+
+if GUNYAH_DRIVERS
+
+config GH_VIRT_WATCHDOG
+	tristate "Gunyah Virtual Watchdog Driver"
+	depends on QCOM_WDT_CORE
+	help
+	  This enables the Qualcomm Technologies, Inc. watchdog module for
+	  the Gunyah hypervisor. It provides an interface to perform watchdog
+	  actions such as setting the bark/bite time and also petting the
+	  watchdog in the hypervisor.
+
+config GH_CTRL
+	tristate "Create Gunyah entries under /sys/hypervisor"
+	depends on SYSFS
+	select SYS_HYPERVISOR
+	help
+	  Create entries under /sys/hypervisor for the Gunyah hypervisor.
+	  The driver also provides a facility for controlling
+	  hypervisor debug features.
+	  See Documentation/ABI/testing/sysfs-hypervisor-gunyah for more details.
+
+config GH_DBL
+	tristate "Gunyah Doorbell driver"
+	help
+	  Gunyah offers a simple inter VMs(Virtual Machines) communication
+	  through the use of doorbell interrupts. A single doorbell instance
+	  provides an unidirectional communication between two VMs and it acts
+	  like either a source(Tx) or generate(Rx). Individual VMs make use of
+	  these doorbells by calling send and/or a receive primitives exposed by
+	  driver and trigger an interrupt to each other and exchange the data.
+
+config GH_MSGQ
+	tristate "Gunyah Message Queue driver"
+	help
+	  Gunyah offers message-queues as one of the IPC mechanisms to
+	  communicate among the Virtual Machines. The message queue drivers
+	  runs on the Virtual machines to provide an interface to the clients
+	  who wish to communicate to other clients on a different VM. Currently,
+	  the services offered by the drivers is simply to send and receive
+	  messages in a blocking manner.
+
+config GH_RM_DRV
+	tristate "Gunyah Resource Manager driver"
+	help
+	  The Gunyah Resource Manager driver is used to communicate with the
+	  Resource Manager Virtual Machine (RM-VM). The RM-VM acts as a mediator
+	  and provides numerous services to the other VMs running in the system,
+	  such as notifying when a particular VM is up, resource (IRQ/device)
+	  sharing between VMs, information about the IPC mechanisms, and so on.
+
+	  The Resource Manager driver runs on the Virtual Machine and acts as an
+	  interface to other driver in order to obtain the services provided by
+	  the RM-VM.
+
+config GH_IRQ_LEND
+	tristate "Gunyah IRQ Lending Framework"
+	depends on GH_RM_DRV
+	help
+	  Gunyah Resource Manager permits interrupts to be shared between
+	  virtual machines. This config enables a framework which
+	  supports sharing these interrupts. The follows RM recommended
+	  protocol.
+
+config GH_RM_BOOSTER
+	tristate "Gunyah RM booster driver"
+	depends on GH_RM_DRV
+	help
+	  Optimize vm bootup time by boost the performance of Gunyah
+	  Resource Manager, this config enables the driver to change RM affinity
+	  and change cpu frequency. At the beginning of vm bootup, the driver will
+	  migrate RM to the more powerful core and boost the frequency of it, and
+	  resume the status at the end of bootup period.
+
+config GH_MEM_NOTIFIER
+	tristate "Gunyah Memory Resource Notification Framework"
+	depends on GH_RM_DRV
+	help
+	  The Gunyah Resource Manager allows for different memory resources
+	  to be transferred across virtual machines with different notification
+	  labels assigned to each resource to aid in distinguishing them.
+	  Enabling the Gunyah Memory Resource Notification Framework provides an
+	  interface for clients to transmit memory resources between virtual
+	  machines, and register callbacks that get invoked only when
+	  notifications pertaining to their memory resources arrive.
+
+config GH_SECURE_VM_LOADER
+	tristate "Gunyah Secure Virtual Machine Loader Driver"
+	depends on GUNYAH
+	select QCOM_MDT_LOADER
+	help
+	  This driver invokes mdt Loader to load images of
+	  any secure guest Virtual Machine (VM). The images are loaded
+	  in the carveout designated for the VM once the firmware name
+	  is validated.
+
+config GH_PROXY_SCHED
+	tristate "PROXY Scheduling for Secondary VMs"
+	depends on GUNYAH
+	help
+	  Gunyah Proxy Scheduler provides framework to schedule/run VCPUs
+	  of Secondary VMs by exposing required functionality which can be
+	  invoked by the Gunyah driver. Gunyah Proxy Scheduler communicates
+	  with Gunyah hypervisor to run the VCPUs as needed.
+
+config GH_PANIC_NOTIFIER
+	tristate "Nofity other VM to do error handle when Primary VM panic"
+	depends on GH_RM_DRV
+	help
+	  Through the use of a Gunyah doorbell object to notify other VM do error
+	  handle when Primary VM panic. After other VM received the doorbell, it
+	  can collect some debug information. This driver is to be enabled on both
+	  Primary VM and the other VM who need do error handle.
+
+config GH_RES_REQUEST
+	tristate "Gunyah resource request support for secondary virtual machine"
+	depends on GH_MSGQ
+	help
+	  Gunyah resource request driver provide a framework to start a lend
+	  resource request from secondary virtual machine. Secondary virtual
+	  machine client can use this driver to send the request, primary
+	  virtual machine (HOST) client can handle the request and lend resource
+	  to secondary virtual machine. Then primary virtual machine client send
+	  release request, secondary virtual machine client handle the request
+	  and release resource to primary virtual machine.
+
+config GH_GUEST_POPS
+	  tristate "Gunyah Guest Power-Operations driver"
+	  depends on GH_RM_DRV
+	  help
+	  The driver runs on guest VMs and is majorly responsible for coordinating
+	    the guest's power operations. This includes, setting the VM's status,
+	    such as OS_STATUS_* or APPS_STATUS_*. It also acts as an input power key
+	    driver. That is, it listens to the shutdown requests, and when it receives
+	    one, it'll emulate a power key press action by sending an input
+	    notification to user-space.
+
+endif

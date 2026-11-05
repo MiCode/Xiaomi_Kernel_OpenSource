@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config PRINTK_ENHANCE
+	tristate "printk_enhance support"
+	default n
+	help
+		printk enhance will add more additional information to the beginning of the log, improving troubleshooting efficiency.

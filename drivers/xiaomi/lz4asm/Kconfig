@@ -1,0 +1,6 @@
+config LZ4ASM
+       tristate "lz4asm support"
+       depends on ARM64 && KERNEL_MODE_NEON && CFI_CLANG
+       default n
+       help
+       LZ4 decompression optimization based on arm64 NEON instruction

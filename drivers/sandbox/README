@@ -1,0 +1,23 @@
+/*
+ * Rt-mod is based on a kernel kprobe/kretprobe hook, which could also be
+ * extended to sandbox, which acted as all syscall hooking mechanism.
+ *
+ * Development on going!
+ */
+ 
+/* The rt_load is used to get the number of rt processes per CPU
+ * The calculation method is to get all rt processes and determine their respective CPUs
+ * User process obtains results through ioctl.
+ */
+
+The user call ioctl to obtain the number of rt processes per CPU.
+As shown as the below:
+#define RTLOAD_IOCTL_MAGIC         'L'
+#define RTLOAD_IOCTL_LOAD_GET      _IO(RTLOAD_IOCTL_MAGIC,  1)
+
+The user use struct rtload_load_stat to get result:
+struct rtload_stat {
+	int topprio; /*rt process highest priority*/
+	int num;     /*number of rt processes*/
+};
+Notice:Each cpu core must define a struct rtload_load_stat.

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_TRACE
+	tristate "mi_trace support"
+	default n
+	help
+		mi trace will record irq and schedule trace log.

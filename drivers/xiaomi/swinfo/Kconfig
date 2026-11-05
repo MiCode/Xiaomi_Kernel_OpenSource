@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_SOFTWARE_INFO
+	tristate "export software information"
+	default n
+	help
+		swinfo provide the function of exported software information (such as .config).

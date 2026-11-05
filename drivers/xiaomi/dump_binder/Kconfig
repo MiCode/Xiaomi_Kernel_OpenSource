@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Mi dump binder
+#
+
+config MI_DUMP_BINDER_BUFFER
+	tristate "dump binder buffer"
+	default m
+	help
+	This adds support for mi dump binder.

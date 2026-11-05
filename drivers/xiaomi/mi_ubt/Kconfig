@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_UBT
+	tristate "mi_ubt support"
+	default n
+	help
+		mi_ubt provide dump_user_backtrace interface to show user stacktrace.
+
+source "drivers/xiaomi/mi_ubt/test/Kconfig"

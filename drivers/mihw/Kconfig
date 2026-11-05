@@ -1,0 +1,11 @@
+config CFS_BANDWIDTH_MI
+	tristate "cfs bandwidth by xiaomi"
+	default n
+
+config MI_DCVS_ARBI
+        tristate "mi dcvs arbi"
+        default n
+        depends on MIHW
+        help
+          The case is used to manager multi voter clients of dcvs
+

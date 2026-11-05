@@ -1,0 +1,5 @@
+config KSHRINK_SLABD
+       tristate "Allow asynchronous shrink slab"
+       default n
+       help
+         Asynchronous shrink slab memload optimization feature

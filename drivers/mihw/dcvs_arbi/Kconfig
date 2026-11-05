@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# MI DCVS ARBI configuration
+#
+
+config MI_DCVS_ARBI
+	bool "MI DCVS ARBI Support"
+	depends on QCOM_DCVS
+	help
+	  This option enables MI DCVS ARBI support for dynamic voltage
+	  and frequency scaling arbitration.
+
+	  This includes scheduler-based frequency control that adjusts
+	  CPU and DDR frequencies based on run queue occupancy.
+
+	  Features:
+	  - Real-time run queue monitoring
+	  - Cluster-based frequency control
+	  - DDR frequency synchronization
+	  - Fast switching between power modes

@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config QCOM_SI_CORE
+	tristate "Secure QTEE Communication Support"
+	depends on QCOM_SCM
+	help
+	  Enable SI-CORE driver which supports capability based secure
+	  communication between QTEE and VM. Using SI-CORE, kernel can
+	  issue	calls to QTEE or TAs to request a service or exposes services
+	  to QTEE and TAs. The SI-CORE implements the necessary marshaling of
+	  messages with QTEE.
+
+config QCOM_SI_CORE_WQ
+	bool "Use direct invocation for RELEASE requests"
+	depends on QCOM_SI_CORE
+	help
+	  Use a kernel thread to issue RELEASE request to QTEE and TAs
+	  instead of using asynchronous messages. It may slow down the system
+	  and prone to failure as it uses direct invocation which requires
+	  extra resources from QTEE.
+
+	  Enable if only QTEE does not support asynchronous message.
+
+config QCOM_SI_CORE_MEM_OBJECT
+	tristate "Add support for memory object"
+	depends on QCOM_SI_CORE
+	depends on QTEE_SHM_BRIDGE
+	help
+	  Enable support for memory object. This provide an interface
+	  to export or sharing memory with QTEE. It allows kernel clients
+	  to create memory object and do the necessary mapping and unmapping
+	  using QTEE shared memory bridge driver.
+

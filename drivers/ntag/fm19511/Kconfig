@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config FM_NTAG_I2C
+	tristate "I2C Slave Driver for NTAG chip"
+	depends on I2C
+	help
+	  This enables the NTAG driver for FM19511 based devices.
+
+	  If unsure, say N.
