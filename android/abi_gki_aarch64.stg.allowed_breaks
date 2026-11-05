@@ -1,0 +1,100 @@
+# How to use this file: http://go/approve-abi-break
+# ABI freeze commit: 666cbbfe5c567ca79da30dccad8b5257ca88f02c
+
+type 'struct shash_alg' changed
+  member 'u64 android_backport_reserved1' was removed
+  member 'u64 android_backport_reserved2' was removed
+  member 'union { int(* finup_mb)(struct shash_desc*, const u8* const*, unsigned int, u8* const*, unsigned int); struct { u64 android_backport_reserved1; }; union { }; }' was added
+  member 'union { unsigned int mb_max_msgs; struct { u64 android_backport_reserved2; }; union { }; }' was added
+
+type 'struct fsverity_info' changed
+  byte size changed from 272 to 264
+  member 'spinlock_t hash_page_init_lock' was removed
+
+type 'enum binder_work_type' changed
+  enumerator 'BINDER_WORK_FROZEN_BINDER' (10) was added
+  ... 1 other enumerator(s) added
+
+type 'struct ufs_clk_scaling' changed
+  member 'bool suspend_on_no_request' was added
+
+type 'struct tty_operations' changed
+  member 'u64 android_kabi_reserved1' was removed
+  member 'union { int(* ldisc_ok)(struct tty_struct*, int); struct { u64 android_kabi_reserved1; }; union { }; }' was added
+
+type 'struct kvm_hyp_iommu' changed
+  member changed from 'hyp_spinlock_t lock' to 'u32 lock'
+    type changed from 'hyp_spinlock_t' = 'union hyp_spinlock' to 'u32' = '__u32' = 'unsigned int'
+      resolved type changed from 'union hyp_spinlock' to 'unsigned int'
+
+type 'struct fsverity_hash_alg' changed
+  member 'int mb_max_msgs' was added
+
+type 'struct pkvm_module_ops' changed
+  member 'u64 android_kabi_reserved1' was removed
+  member 'u64 android_kabi_reserved2' was removed
+  member 'u64 android_kabi_reserved3' was removed
+  member 'union { void(* iommu_flush_unmap_cache)(struct kvm_iommu_paddr_cache*); struct { u64 android_kabi_reserved1; }; union { }; }' was added
+  member 'union { int(* host_stage2_enable_lazy_pte)(u64, u64); struct { u64 android_kabi_reserved2; }; union { }; }' was added
+  member 'union { int(* host_stage2_disable_lazy_pte)(u64, u64); struct { u64 android_kabi_reserved3; }; union { }; }' was added
+
+type 'struct kvm_hyp_iommu' changed
+  member 'u32 unused' was removed
+  member 'u32 lock' was added
+
+type 'struct pkvm_module_ops' changed
+  member 'u64 android_kabi_reserved2' was removed
+  member 'u64 android_kabi_reserved3' was removed
+  member 'union { int(* host_stage2_enable_lazy_pte)(u64, u64); struct { u64 android_kabi_reserved2; }; union { }; }' was added
+  member 'union { int(* host_stage2_disable_lazy_pte)(u64, u64); struct { u64 android_kabi_reserved3; }; union { }; }' was added
+
+11 function symbol(s) removed
+  'int __traceiter_android_rvh_ogki_hiview_hievent_create(void*, unsigned int, void**)'
+  'int __traceiter_android_rvh_ogki_hiview_hievent_destroy(void*, void*)'
+  'int __traceiter_android_rvh_ogki_hiview_hievent_put_integral(void*, void*, const char*, long long, int*)'
+  'int __traceiter_android_rvh_ogki_hiview_hievent_put_string(void*, void*, const char*, const char*, int*)'
+  'int __traceiter_android_rvh_ogki_hiview_hievent_report(void*, void*, int*)'
+  'int __traceiter_android_rvh_ogki_security_audit_log_module_sign(void*, int)'
+  'int __traceiter_android_rvh_ogki_security_audit_log_usercopy(void*, bool, const char*, unsigned long)'
+  'int __traceiter_android_vh_ogki_security_audit_log_cfi(void*, unsigned long, unsigned long*)'
+  'int __traceiter_android_vh_ogki_security_audit_log_setid(void*, u32, u32, u32)'
+  'int __traceiter_android_vh_ogki_tcp_rcv_established_fast_path(void*, struct sock*)'
+  'int __traceiter_android_vh_ogki_tcp_rcv_established_slow_path(void*, struct sock*)'
+
+11 variable symbol(s) removed
+  'struct tracepoint __tracepoint_android_rvh_ogki_hiview_hievent_create'
+  'struct tracepoint __tracepoint_android_rvh_ogki_hiview_hievent_destroy'
+  'struct tracepoint __tracepoint_android_rvh_ogki_hiview_hievent_put_integral'
+  'struct tracepoint __tracepoint_android_rvh_ogki_hiview_hievent_put_string'
+  'struct tracepoint __tracepoint_android_rvh_ogki_hiview_hievent_report'
+  'struct tracepoint __tracepoint_android_rvh_ogki_security_audit_log_module_sign'
+  'struct tracepoint __tracepoint_android_rvh_ogki_security_audit_log_usercopy'
+  'struct tracepoint __tracepoint_android_vh_ogki_security_audit_log_cfi'
+  'struct tracepoint __tracepoint_android_vh_ogki_security_audit_log_setid'
+  'struct tracepoint __tracepoint_android_vh_ogki_tcp_rcv_established_fast_path'
+  'struct tracepoint __tracepoint_android_vh_ogki_tcp_rcv_established_slow_path'
+
+type 'enum ftrace_dump_mode' changed
+  enumerator 'DUMP_PARAM' (3) was added
+
+1 function symbol(s) removed
+  'int __traceiter_android_vh_suitable_migration_target_bypass(void*, struct page*, bool*)'
+
+1 variable symbol(s) removed
+  'struct tracepoint __tracepoint_android_vh_suitable_migration_target_bypass'
+
+type 'struct cgroup_root' changed
+  member 'u8 android_backport_reserved1[28]' was removed
+  member 'union { struct callback_head rcu; struct { u8 android_backport_reserved1[28]; }; union { }; }' was added
+
+6 function symbol(s) removed
+  'int xhci_sideband_add_endpoint(struct xhci_sideband*, struct usb_host_endpoint*)'
+  'int xhci_sideband_create_interrupter(struct xhci_sideband*, int, int, bool)'
+  'struct xhci_sideband* xhci_sideband_register(struct usb_device*)'
+  'int xhci_sideband_remove_endpoint(struct xhci_sideband*, struct usb_host_endpoint*)'
+  'void xhci_sideband_remove_interrupter(struct xhci_sideband*)'
+  'void xhci_sideband_unregister(struct xhci_sideband*)'
+
+type 'struct xhci_sideband' changed
+  was fully defined, is now only declared
+

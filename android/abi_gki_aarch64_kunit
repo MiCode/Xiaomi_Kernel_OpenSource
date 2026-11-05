@@ -1,0 +1,38 @@
+[abi_symbol_list]
+# required by drivers
+  kunit_hooks
+  kunit_running
+
+# required by tests
+  __kunit_abort
+  __kunit_activate_static_stub
+  kunit_add_action
+  kunit_add_action_or_reset
+  __kunit_add_resource
+  kunit_assert_prologue
+  kunit_binary_assert_format
+  kunit_binary_ptr_assert_format
+  kunit_binary_str_assert_format
+  kunit_cleanup
+  kunit_deactivate_static_stub
+  kunit_destroy_resource
+  __kunit_do_failed_assertion
+  kunit_fail_assert_format
+  kunit_init_test
+  kunit_kfree
+  kunit_kmalloc_array
+  kunit_log_append
+  kunit_mem_assert_format
+  kunit_ptr_not_err_assert_format
+  kunit_release_action
+  kunit_remove_action
+  kunit_remove_resource
+  kunit_run_tests
+  kunit_suite_has_succeeded
+  kunit_suite_num_test_cases
+  kunit_test_case_num
+  __kunit_test_suites_exit
+  __kunit_test_suites_init
+  kunit_try_catch_run
+  kunit_try_catch_throw
+  kunit_unary_assert_format
