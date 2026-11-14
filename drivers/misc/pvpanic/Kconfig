@@ -18,6 +18,13 @@ config PVPANIC_MMIO
 	help
 	  This driver provides support for the MMIO pvpanic device.
 
+config FACTORY_BUILD
+	bool "distiguish factory version from dev version"
+	default n
+	help
+	  This macro will be defined when build factory version. It is used to
+	  distinguish factory and dev codes in kernel.
+
 config PVPANIC_PCI
 	tristate "pvpanic PCI device support"
 	depends on PCI && PVPANIC

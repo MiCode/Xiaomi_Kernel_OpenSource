@@ -1229,7 +1229,7 @@ static struct virtio_driver virtio_fs_driver = {
 #endif
 };
 
-static void virtio_fs_send_forget(struct fuse_iqueue *fiq, struct fuse_forget_link *link)
+static void virtio_fs_send_forget(struct fuse_iqueue *fiq, struct fuse_forget_link *link, bool sync)
 {
 	struct virtio_fs_forget *forget;
 	struct virtio_fs_forget_req *req;
@@ -1255,7 +1255,7 @@ static void virtio_fs_send_forget(struct fuse_iqueue *fiq, struct fuse_forget_li
 	kfree(link);
 }
 
-static void virtio_fs_send_interrupt(struct fuse_iqueue *fiq, struct fuse_req *req)
+static void virtio_fs_send_interrupt(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync)
 {
 	/*
 	 * TODO interrupts.
@@ -1468,7 +1468,7 @@ out:
 	return ret;
 }
 
-static void virtio_fs_send_req(struct fuse_iqueue *fiq, struct fuse_req *req)
+static void virtio_fs_send_req(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync)
 {
 	unsigned int queue_id;
 	struct virtio_fs *fs;
@@ -1662,6 +1662,9 @@ static int virtio_fs_get_tree(struct fs_context *fsc)
 	struct fuse_mount *fm;
 	unsigned int virtqueue_size;
 	int err = -EIO;
+
+	if (!fsc->source)
+		return invalf(fsc, "No source specified");
 
 	/* This gets a reference on virtio_fs object. This ptr gets installed
 	 * in fc->iq->priv. Once fuse_conn is going away, it calls ->put()

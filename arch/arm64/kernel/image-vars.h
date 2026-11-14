@@ -140,7 +140,7 @@ KVM_NVHE_ALIAS(__hyp_rodata_end);
 KVM_NVHE_ALIAS(__hyp_event_ids_start);
 KVM_NVHE_ALIAS(__hyp_event_ids_end);
 KVM_NVHE_ALIAS(__hyp_printk_fmts_start);
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 KVM_NVHE_ALIAS(__hyp_patchable_function_entries_start);
 KVM_NVHE_ALIAS(__hyp_patchable_function_entries_end);
 #endif
@@ -149,6 +149,7 @@ KVM_NVHE_ALIAS(__hyp_patchable_function_entries_end);
 /* pKVM static key */
 KVM_NVHE_ALIAS(kvm_protected_mode_initialized);
 
+KVM_NVHE_ALIAS(kvm_ffa_unmap_on_lend);
 #endif /* CONFIG_KVM */
 
 #ifdef CONFIG_EFI_ZBOOT

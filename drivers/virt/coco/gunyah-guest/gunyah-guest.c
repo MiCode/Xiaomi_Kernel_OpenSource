@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. */
 
 #include <linux/gunyah.h>
 #include <linux/init.h>
+#include <linux/io.h>
+#include <linux/pgtable.h>
 #include <linux/virtio_balloon.h>
 
 #include <asm/hypervisor.h>
@@ -15,6 +17,29 @@ struct addrspace_info_area_rootvm_addrspace_cap {
 };
 
 static u64 our_addrspace_capid;
+
+static int gunyah_mmio_guard_ioremap_hook(phys_addr_t phys, size_t size, pgprot_t *prot)
+{
+	pteval_t protval = pgprot_val(*prot);
+	int ret;
+
+	/*
+	 * We only expect MMIO emulation for regions mapped with device
+	 * attributes.
+	 */
+	if (protval != PROT_DEVICE_nGnRE && protval != PROT_DEVICE_nGnRnE)
+		return 0;
+
+	ret = gunyah_hypercall_addrspc_configure_vmmio_range(our_addrspace_capid,
+				phys, size, GUNYAH_ADDRSPACE_VMMIO_CONFIGURE_OP_ADD_RANGE);
+
+	if (ret == GUNYAH_ERROR_UNIMPLEMENTED || ret == GUNYAH_ERROR_BUSY
+			|| ret == GUNYAH_ERROR_CSPACE_INSUF_RIGHTS)
+		/* Gunyah would have configured VMMIO via DT */
+		ret = GUNYAH_ERROR_OK;
+
+	return gunyah_error_remap(ret);
+}
 
 #ifdef CONFIG_VIRTIO_BALLOON_HYP_OPS
 static void gunyah_page_relinquish(struct page *page,  unsigned int nr)
@@ -71,6 +96,7 @@ static int __init gunyah_guest_init(void)
 
 	our_addrspace_capid = info->addrspace_cap;
 
+	arm64_ioremap_prot_hook_register(&gunyah_mmio_guard_ioremap_hook);
 #ifdef CONFIG_VIRTIO_BALLOON_HYP_OPS
 	virtio_balloon_hyp_ops = &gunyah_virtio_balloon_hyp_ops;
 #endif

@@ -524,6 +524,8 @@ asmlinkage void __noreturn hyp_panic(void)
 	kvm_nvhe_prepare_backtrace((unsigned long)__builtin_frame_address(0),
 				   _THIS_IP_);
 
+	__pkvm_panic_tracing();
+
 	__hyp_do_panic(host_ctxt, spsr, elr, par);
 	unreachable();
 }

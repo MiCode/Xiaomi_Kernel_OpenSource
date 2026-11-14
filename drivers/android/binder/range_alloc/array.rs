@@ -141,7 +141,10 @@ impl<T> ArrayRangeAllocator<T> {
             state: DescriptorState::new(is_oneway, debug_id, pid),
         };
         // Insert the value at the given index to keep the array sorted.
-        self.ranges.insert_within_capacity(insert_at_idx, new_range).ok().unwrap();
+        self.ranges
+            .insert_within_capacity(insert_at_idx, new_range)
+            .ok()
+            .unwrap();
 
         Ok(insert_at_offset)
     }

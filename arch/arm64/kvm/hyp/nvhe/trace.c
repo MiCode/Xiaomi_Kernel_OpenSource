@@ -41,6 +41,7 @@ struct hyp_rb_per_cpu {
 #define HYP_RB_UNAVAILABLE	0
 #define HYP_RB_READY		1
 #define HYP_RB_WRITING		2
+#define HYP_RB_PANIC		3
 
 DEFINE_PER_CPU(struct hyp_rb_per_cpu, trace_rb);
 DEFINE_HYP_SPINLOCK(trace_rb_lock);
@@ -254,7 +255,7 @@ void *tracing_reserve_entry(unsigned long length)
 	struct ring_buffer_event *rb_event;
 
 	if (atomic_cmpxchg(&cpu_buffer->status, HYP_RB_READY, HYP_RB_WRITING)
-	    == HYP_RB_UNAVAILABLE)
+	    != HYP_RB_READY)
 		return NULL;
 
 	rb_event = rb_reserve_next(cpu_buffer, length);
@@ -321,12 +322,15 @@ static int rb_cpu_disable_writing(struct hyp_rb_per_cpu *cpu_buffer)
 
 static int rb_cpu_enable_writing(struct hyp_rb_per_cpu *cpu_buffer)
 {
+	int prev_status;
+
 	if (!rb_cpu_loaded(cpu_buffer))
 		return -ENODEV;
 
-	atomic_cmpxchg(&cpu_buffer->status, HYP_RB_UNAVAILABLE, HYP_RB_READY);
+	prev_status = atomic_cmpxchg(&cpu_buffer->status, HYP_RB_UNAVAILABLE,
+				     HYP_RB_READY);
 
-	return 0;
+	return prev_status == HYP_RB_UNAVAILABLE ? 0 : -ENODEV;
 }
 
 static int rb_cpu_reset(struct hyp_rb_per_cpu *cpu_buffer)
@@ -613,4 +617,50 @@ int __pkvm_reset_tracing(unsigned int cpu)
 	hyp_spin_unlock(&trace_rb_lock);
 
 	return ret;
+}
+
+void __pkvm_panic_tracing(void)
+{
+#ifdef CONFIG_PKVM_DUMP_TRACE_ON_PANIC
+	int cpu;
+
+	hyp_spin_lock(&trace_rb_lock);
+
+	for (cpu = 0; cpu < hyp_nr_cpus; cpu++) {
+		struct hyp_rb_per_cpu *cpu_buffer = per_cpu_ptr(&trace_rb, cpu);
+		int prev_status, skipped = 0;
+
+		if (!rb_cpu_loaded(cpu_buffer))
+			continue;
+
+		do {
+			prev_status = atomic_cmpxchg_acquire(&cpu_buffer->status, HYP_RB_READY,
+							     HYP_RB_PANIC);
+		} while (prev_status == HYP_RB_WRITING);
+
+		/* Allow the host to read the very last events */
+		while (cpu_buffer->tail_page != cpu_buffer->reader_page) {
+			struct hyp_buffer_page *prev_reader = cpu_buffer->reader_page;
+
+			if (rb_swap_reader_page(cpu_buffer))
+				break;
+
+			/*
+			 * The reader is still on the previous reader page and events there can
+			 * still be read.
+			 */
+			if (++skipped == 1)
+				continue;
+
+			WRITE_ONCE(cpu_buffer->meta->overrun,
+				   cpu_buffer->meta->overrun + prev_reader->entries);
+			cpu_buffer->meta->reader.lost_events = cpu_buffer->meta->overrun -
+								cpu_buffer->last_overrun;
+			WRITE_ONCE(meta_pages_lost(cpu_buffer->meta),
+				   meta_pages_lost(cpu_buffer->meta) + 1);
+		}
+	}
+
+	hyp_spin_unlock(&trace_rb_lock);
+#endif
 }

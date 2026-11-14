@@ -27,3 +27,4 @@
   remove_memory_subsection
   send_sig_mceerr
   smpboot_unregister_percpu_thread
+  vmap_pfn

@@ -1,0 +1,10 @@
+# CONFIG_ANDROID_KABI_RESERVE is not set
+# CONFIG_ANDROID_VENDOR_OEM_DATA is not set
+# CONFIG_BLK_DEV_NVME is not set
+# CONFIG_KVM is not set
+# CONFIG_KALLSYMS_ALL is not set
+# CONFIG_PAGE_OWNER is not set
+# CONFIG_PAGE_PINNER is not set
+# CONFIG_DEBUG_FS is not set
+# CONFIG_DEBUG_INFO_BTF is not set
+# CONFIG_SHADOW_CALL_STACK is not set

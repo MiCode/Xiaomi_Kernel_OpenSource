@@ -205,7 +205,7 @@ impl UnusedBufferSpace {
     /// into the buffer is returned.
     fn claim_next(&mut self, size: usize) -> Result<usize> {
         // We require every chunk to be aligned.
-        let size = ptr_align(size);
+        let size = ptr_align(size).ok_or(EINVAL)?;
         let new_offset = self.offset.checked_add(size).ok_or(EINVAL)?;
 
         if new_offset <= self.limit {
@@ -1066,15 +1066,15 @@ impl Thread {
         };
 
         let data_size = trd.data_size.try_into().map_err(|_| EINVAL)?;
-        let aligned_data_size = ptr_align(data_size);
+        let aligned_data_size = ptr_align(data_size).ok_or(EINVAL)?;
         let offsets_size = trd.offsets_size.try_into().map_err(|_| EINVAL)?;
-        let aligned_offsets_size = ptr_align(offsets_size);
+        let aligned_offsets_size = ptr_align(offsets_size).ok_or(EINVAL)?;
         let buffers_size = tr.buffers_size.try_into().map_err(|_| EINVAL)?;
-        let aligned_buffers_size = ptr_align(buffers_size);
-        let aligned_secctx_size = secctx
-            .as_ref()
-            .map(|(_, ctx)| ptr_align(ctx.len()))
-            .unwrap_or(0);
+        let aligned_buffers_size = ptr_align(buffers_size).ok_or(EINVAL)?;
+        let aligned_secctx_size = match secctx.as_ref() {
+            Some((_offset, ctx)) => ptr_align(ctx.len()).ok_or(EINVAL)?,
+            None => 0,
+        };
 
         // This guarantees that at least `sizeof(usize)` bytes will be allocated.
         let len = usize::max(
@@ -1482,6 +1482,9 @@ impl Thread {
                 }
                 BC_ENTER_LOOPER => self.inner.lock().looper_enter(),
                 BC_EXIT_LOOPER => self.inner.lock().looper_exit(),
+                BC_REQUEST_FREEZE_NOTIFICATION => self.process.request_freeze_notif(&mut reader)?,
+                BC_CLEAR_FREEZE_NOTIFICATION => self.process.clear_freeze_notif(&mut reader)?,
+                BC_FREEZE_NOTIFICATION_DONE => self.process.freeze_notif_done(&mut reader)?,
 
                 // Fail if given an unknown error code.
                 // BC_ATTEMPT_ACQUIRE and BC_ACQUIRE_RESULT are no longer supported.
@@ -1611,7 +1614,7 @@ impl Thread {
         ret
     }
 
-    pub(crate) fn poll(&self, file: &File, table: &mut PollTable) -> (bool, u32) {
+    pub(crate) fn poll(&self, file: &File, table: PollTable<'_>) -> (bool, u32) {
         table.register_wait(file, &self.work_condvar);
         let mut inner = self.inner.lock();
         (inner.should_use_process_work_queue(), inner.poll())

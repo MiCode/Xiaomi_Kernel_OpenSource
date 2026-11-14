@@ -1869,43 +1869,6 @@ static int ov08x40_stop_streaming(struct ov08x40 *ov08x)
 				 OV08X40_REG_VALUE_08BIT, OV08X40_MODE_STANDBY);
 }
 
-static int ov08x40_set_stream(struct v4l2_subdev *sd, int enable)
-{
-	struct ov08x40 *ov08x = to_ov08x40(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
-
-	mutex_lock(&ov08x->mutex);
-
-	if (enable) {
-		ret = pm_runtime_resume_and_get(&client->dev);
-		if (ret < 0)
-			goto err_unlock;
-
-		/*
-		 * Apply default & customized values
-		 * and then start streaming.
-		 */
-		ret = ov08x40_start_streaming(ov08x);
-		if (ret)
-			goto err_rpm_put;
-	} else {
-		ov08x40_stop_streaming(ov08x);
-		pm_runtime_put(&client->dev);
-	}
-
-	mutex_unlock(&ov08x->mutex);
-
-	return ret;
-
-err_rpm_put:
-	pm_runtime_put(&client->dev);
-err_unlock:
-	mutex_unlock(&ov08x->mutex);
-
-	return ret;
-}
-
 /* Verify chip ID */
 static int ov08x40_identify_module(struct ov08x40 *ov08x)
 {
@@ -1930,6 +1893,47 @@ static int ov08x40_identify_module(struct ov08x40 *ov08x)
 	ov08x->identified = true;
 
 	return 0;
+}
+
+static int ov08x40_set_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct ov08x40 *ov08x = to_ov08x40(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = 0;
+
+	mutex_lock(&ov08x->mutex);
+
+	if (enable) {
+		ret = pm_runtime_resume_and_get(&client->dev);
+		if (ret < 0)
+			goto err_unlock;
+
+		ret = ov08x40_identify_module(ov08x);
+		if (ret)
+			goto err_rpm_put;
+
+		/*
+		 * Apply default & customized values
+		 * and then start streaming.
+		 */
+		ret = ov08x40_start_streaming(ov08x);
+		if (ret)
+			goto err_rpm_put;
+	} else {
+		ov08x40_stop_streaming(ov08x);
+		pm_runtime_put(&client->dev);
+	}
+
+	mutex_unlock(&ov08x->mutex);
+
+	return ret;
+
+err_rpm_put:
+	pm_runtime_put(&client->dev);
+err_unlock:
+	mutex_unlock(&ov08x->mutex);
+
+	return ret;
 }
 
 static const struct v4l2_subdev_video_ops ov08x40_video_ops = {

@@ -36,6 +36,8 @@ pub_no_prefix!(
     BR_DECREFS,
     BR_DEAD_BINDER,
     BR_CLEAR_DEATH_NOTIFICATION_DONE,
+    BR_FROZEN_BINDER,
+    BR_CLEAR_FREEZE_NOTIFICATION_DONE,
 );
 
 pub_no_prefix!(
@@ -57,6 +59,9 @@ pub_no_prefix!(
     BC_REQUEST_DEATH_NOTIFICATION,
     BC_CLEAR_DEATH_NOTIFICATION,
     BC_DEAD_BINDER_DONE,
+    BC_REQUEST_FREEZE_NOTIFICATION,
+    BC_CLEAR_FREEZE_NOTIFICATION,
+    BC_FREEZE_NOTIFICATION_DONE,
 );
 
 pub_no_prefix!(
@@ -141,6 +146,8 @@ decl_wrapper!(BinderWriteRead, uapi::binder_write_read);
 decl_wrapper!(BinderVersion, uapi::binder_version);
 decl_wrapper!(BinderFrozenStatusInfo, uapi::binder_frozen_status_info);
 decl_wrapper!(BinderFreezeInfo, uapi::binder_freeze_info);
+decl_wrapper!(BinderFrozenStateInfo, uapi::binder_frozen_state_info);
+decl_wrapper!(BinderHandleCookie, uapi::binder_handle_cookie);
 decl_wrapper!(ExtendedError, uapi::binder_extended_error);
 
 impl BinderVersion {

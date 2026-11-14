@@ -105,7 +105,7 @@ static inline bool hyp_spin_is_locked(hyp_spinlock_t *lock)
 	return lockval.owner != lockval.next;
 }
 
-#ifdef CONFIG_NVHE_EL2_DEBUG
+#ifdef CONFIG_PKVM_STRICT_CHECKS
 static inline void hyp_assert_lock_held(hyp_spinlock_t *lock)
 {
 	/*

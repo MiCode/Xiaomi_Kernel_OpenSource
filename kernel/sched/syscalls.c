@@ -70,6 +70,7 @@ void set_user_nice(struct task_struct *p, long nice)
 	bool queued, running;
 	struct rq *rq;
 	int old_prio;
+	bool allowed = true;
 
 	trace_android_rvh_set_user_nice(p, &nice);
 	if (task_nice(p) == nice || nice < MIN_NICE || nice > MAX_NICE)
@@ -82,6 +83,10 @@ void set_user_nice(struct task_struct *p, long nice)
 	rq = rq_guard.rq;
 
 	update_rq_clock(rq);
+
+	trace_android_rvh_set_user_nice_locked(p, &nice, &allowed);
+	if (!allowed)
+		return;
 
 	/*
 	 * The RT priorities are set via sched_setscheduler(), but we still
@@ -358,6 +363,12 @@ static int uclamp_validate(struct task_struct *p,
 {
 	int util_min = p->uclamp_req[UCLAMP_MIN].value;
 	int util_max = p->uclamp_req[UCLAMP_MAX].value;
+	bool done = false;
+	int ret = 0;
+
+	trace_android_vh_uclamp_validate(p, attr, &ret, &done);
+	if (done)
+		return ret;
 
 	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MIN) {
 		util_min = attr->sched_util_min;

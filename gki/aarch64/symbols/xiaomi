@@ -8,6 +8,12 @@
   #required by perf_helper.ko
   __traceiter_android_rvh_dequeue_entity_delayed
   __tracepoint_android_rvh_dequeue_entity_delayed
+  __traceiter_f2fs_submit_folio_write
+  __tracepoint_f2fs_submit_folio_write
+  __traceiter_android_vh_fuse_request_send
+  __tracepoint_android_vh_fuse_request_send
+  __traceiter_android_vh_fuse_request_end
+  __tracepoint_android_vh_fuse_request_end
 
 # commonly used symbols
   __traceiter_android_vh_logbuf
@@ -25,9 +31,15 @@
   __traceiter_android_vh_do_shrink_slab
   __traceiter_android_vh_shrink_slab_bypass
 
+# required by health_report module
+  __tracepoint_android_vh_health_report
+  __traceiter_android_vh_health_report
+
 # required by mi_mem_engine.ko
   __traceiter_android_vh_tune_swappiness
   __tracepoint_android_vh_tune_swappiness
+  __traceiter_android_vh_do_shrink_slab_ex
+  __tracepoint_android_vh_do_shrink_slab_ex
 
 # required by SAGT module
   __traceiter_android_rvh_before_do_sched_yield
@@ -74,9 +86,14 @@
   scsi_device_set_state
   blk_mq_quiesce_tagset
   blk_mq_unquiesce_tagset
+  dev_pm_opp_find_freq_floor_indexed
+  blk_mq_alloc_queue
+  scsi_host_busy
+  dev_pm_opp_find_freq_ceil_indexed
 
 #required by stability
   sock_from_file
+  get_dmabuf_debugfs_data
   __traceiter_android_vh_cma_alloc_fail
   __tracepoint_android_vh_cma_alloc_fail
   __traceiter_android_vh_warn_alloc_show_mem_bypass
@@ -101,6 +118,7 @@
   __traceiter_android_vh_rwsem_write_wait_start
   __traceiter_android_vh_mutex_wait_start
   __traceiter_android_vh_alter_mutex_list_add
+  __traceiter_android_rvh_cpuset_fork
   __traceiter_android_vh_sched_setaffinity_early
   __traceiter_android_rvh_set_cpus_allowed_comm
   __traceiter_android_rvh_dequeue_task
@@ -108,10 +126,18 @@
   __tracepoint_android_vh_rwsem_write_wait_start
   __tracepoint_android_vh_mutex_wait_start
   __tracepoint_android_vh_alter_mutex_list_add
+  __tracepoint_android_rvh_cpuset_fork
   __tracepoint_android_vh_sched_setaffinity_early
   __tracepoint_android_rvh_set_cpus_allowed_comm
   __tracepoint_android_rvh_dequeue_task
+  cpuset_cpus_allowed
   cpufreq_update_policy
+  cgroup_threadgroup_rwsem
+
+#required by millet.ko
+  __traceiter_android_rvh_refrigerator
+  __tracepoint_android_rvh_refrigerator
+  freezer_cgrp_subsys
 
 # required by trace_hook.ko
   android_rvh_probe_register
@@ -385,6 +411,13 @@
   filp_open_block
   blk_crypto_start_using_key
   cgroup_rm_cftypes
+  mem_cgroup_move_account
+  __traceiter_android_vh_mem_cgroup_charge
+  __traceiter_android_vh_filemap_add_folio
+  __traceiter_android_vh_shrink_node
+  __tracepoint_android_vh_mem_cgroup_charge
+  __tracepoint_android_vh_filemap_add_folio
+  __tracepoint_android_vh_shrink_node
 
 #required by mem_reclaim_ctl.ko
 __traceiter_android_vh_page_should_be_protected

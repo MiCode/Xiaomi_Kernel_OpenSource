@@ -187,7 +187,7 @@ static bool gunyah_has_qcom_extensions(void)
 	uuid_t uuid;
 	u32 *up;
 
-	arm_smccc_1_1_smc(GUNYAH_QCOM_EXT_CALL_UUID_ID, &res);
+	arm_smccc_1_1_invoke(GUNYAH_QCOM_EXT_CALL_UUID_ID, &res);
 
 	up = (u32 *)&uuid.b[0];
 	up[0] = lower_32_bits(res.a0);

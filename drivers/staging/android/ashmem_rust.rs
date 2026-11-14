@@ -37,6 +37,8 @@ const ASHMEM_FULL_NAME_LEN: usize = bindings::ASHMEM_FULL_NAME_LEN as usize;
 const ASHMEM_NAME_PREFIX_LEN: usize = bindings::ASHMEM_NAME_PREFIX_LEN as usize;
 const ASHMEM_NAME_PREFIX: [u8; ASHMEM_NAME_PREFIX_LEN] = *b"dev/ashmem/";
 
+const ASHMEM_MAX_SIZE: usize = usize::MAX >> 1;
+
 const PROT_READ: usize = bindings::PROT_READ as usize;
 const PROT_EXEC: usize = bindings::PROT_EXEC as usize;
 const PROT_WRITE: usize = bindings::PROT_WRITE as usize;
@@ -157,7 +159,7 @@ impl MiscDevice for Ashmem {
         let asma = &mut *me.inner.lock();
 
         // User needs to SET_SIZE before mapping.
-        if asma.size == 0 {
+        if asma.size == 0 || asma.size >= ASHMEM_MAX_SIZE {
             return Err(EINVAL);
         }
 
@@ -413,18 +415,17 @@ impl Ashmem {
             None => return Err(EINVAL),
         };
 
+        let max_size = page_align(asma.size);
+        let remaining = max_size.checked_sub(offset).ok_or(EINVAL)?;
+
         // Per custom, you can pass zero for len to mean "everything onward".
-        let len = if cmd_len == 0 {
-            page_align(asma.size) - offset
-        } else {
-            cmd_len
-        };
+        let len = if cmd_len == 0 { remaining } else { cmd_len };
 
         if (offset | len) & !PAGE_MASK != 0 {
             return Err(EINVAL);
         }
         let len_plus_offset = offset.checked_add(len).ok_or(EINVAL)?;
-        if page_align(asma.size) < len_plus_offset {
+        if max_size < len_plus_offset {
             return Err(EINVAL);
         }
 

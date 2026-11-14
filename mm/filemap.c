@@ -990,6 +990,7 @@ int filemap_add_folio(struct address_space *mapping, struct folio *folio,
 	void *shadow = NULL;
 	int ret;
 
+	trace_android_vh_filemap_add_folio(mapping, folio, index);
 	ret = mem_cgroup_charge(folio, NULL, gfp);
 	if (ret)
 		return ret;
@@ -2250,6 +2251,7 @@ unsigned filemap_get_folios_contig(struct address_space *mapping,
 			*start = folio->index + nr;
 			goto out;
 		}
+		xas_advance(&xas, folio_next_index(folio) - 1);
 		continue;
 put_folio:
 		folio_put(folio);

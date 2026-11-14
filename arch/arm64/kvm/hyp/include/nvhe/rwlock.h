@@ -117,7 +117,7 @@ static inline void hyp_read_unlock(hyp_rwlock_t *lock)
 	: "memory");
 }
 
-#ifdef CONFIG_NVHE_EL2_DEBUG
+#ifdef CONFIG_PKVM_STRICT_CHECKS
 static inline void hyp_assert_write_lock_held(hyp_rwlock_t *lock)
 {
 	BUG_ON(!(READ_ONCE(lock->__val) & BIT(__HYP_RWLOCK_WRITER_BIT)));

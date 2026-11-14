@@ -665,7 +665,7 @@ static void quirk_ipr_msi(struct pci_dev *dev)
 		dev_info(&dev->dev, "Quirk disabled MSI\n");
 	}
 }
-DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_IBM, PCI_DEVICE_ID_IBM_OBSIDIAN,
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_IBM, PCI_DEVICE_ID_IBM_TANZANITE,
 			quirk_ipr_msi);
 
 struct pci_controller_ops maple_pci_controller_ops = {

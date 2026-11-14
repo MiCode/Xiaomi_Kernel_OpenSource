@@ -111,7 +111,7 @@ int __pkvm_create_private_mapping(phys_addr_t phys, size_t size,
 	return err;
 }
 
-#ifdef CONFIG_NVHE_EL2_DEBUG
+#ifdef CONFIG_PKVM_STRICT_CHECKS
 static unsigned long mod_range_start = ULONG_MAX;
 static unsigned long mod_range_end;
 static DEFINE_HYP_SPINLOCK(mod_range_lock);

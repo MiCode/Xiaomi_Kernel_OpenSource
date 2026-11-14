@@ -287,6 +287,9 @@
   mmc_cqe_post_req
   mmc_put_card
 
+# required mmdvfs.ko
+  devfreq_event_get_event
+
 # required pinctrl_sprd.ko
   pinctrl_register
   pinctrl_unregister
@@ -303,6 +306,13 @@
   __traceiter_android_vh_regmap_update
   __tracepoint_android_vh_regmap_update
 
+# required sc2731_charger.ko
+  power_supply_get_battery_info
+  power_supply_put_battery_info
+
+# required sc27xx-vibra.ko
+  input_ff_create_memless
+
 # required sc8546_charger.ko
   __regmap_init_i2c
 
@@ -314,6 +324,7 @@
   mmc_get_ext_csd
   mmc_regulator_disable_vqmmc
   mmc_regulator_enable_vqmmc
+  mmc_sd_switch
   mmc_send_status
   sdhci_enable_v4_mode
   sdhci_request
@@ -328,8 +339,17 @@
 # required sipa_core.ko
   alarm_start
 
+# required spi-sprd-adi.ko
+  devm_register_restart_handler
+
 # required sprd_ase_driver.ko
   alarm_forward
+
+# required sprd_bt_tty.ko
+  tty_port_link_device
+
+# required sprd_camera.ko
+  of_irq_to_resource
 
 # required sprd_charger_manager.ko
   alarm_expires_remaining
@@ -343,6 +363,9 @@
   mipi_dsi_generic_read
   mipi_dsi_set_maximum_return_packet_size
   of_get_drm_display_mode
+
+# required sprd-iommu.ko
+  generic_single_device_group
 
 # required sprd_pmic_adc.ko
   nvmem_cell_read_u16

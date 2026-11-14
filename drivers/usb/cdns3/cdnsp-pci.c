@@ -34,6 +34,8 @@
 #define PCI_CLASS_SERIAL_USB_CDNS_USB3	(PCI_CLASS_SERIAL_USB << 8 | 0x80)
 #define PCI_CLASS_SERIAL_USB_CDNS_UDC	PCI_CLASS_SERIAL_USB_DEVICE
 
+#define CHICKEN_APB_TIMEOUT_VALUE       0x1C20
+
 static struct pci_dev *cdnsp_get_second_fun(struct pci_dev *pdev)
 {
 	/*
@@ -145,6 +147,14 @@ static int cdnsp_pci_probe(struct pci_dev *pdev,
 		cdnsp->otg_irq = pdev->irq;
 	}
 
+	/*
+	 * Cadence PCI based platform require some longer timeout for APB
+	 * to fixes domain clock synchronization issue after resuming
+	 * controller from L1 state.
+	 */
+	cdnsp->override_apb_timeout = CHICKEN_APB_TIMEOUT_VALUE;
+	pci_set_drvdata(pdev, cdnsp);
+
 	if (pci_is_enabled(func)) {
 		cdnsp->dev = dev;
 		cdnsp->gadget_init = cdnsp_gadget_init;
@@ -153,8 +163,6 @@ static int cdnsp_pci_probe(struct pci_dev *pdev,
 		if (ret)
 			goto free_cdnsp;
 	}
-
-	pci_set_drvdata(pdev, cdnsp);
 
 	device_wakeup_enable(&pdev->dev);
 	if (pci_dev_run_wake(pdev))

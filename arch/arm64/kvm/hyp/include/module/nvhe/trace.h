@@ -37,6 +37,7 @@ void __pkvm_teardown_tracing(void);
 int __pkvm_enable_tracing(bool enable);
 int __pkvm_reset_tracing(unsigned int cpu);
 int __pkvm_swap_reader_tracing(unsigned int cpu);
+void __pkvm_panic_tracing(void);
 int __pkvm_enable_event(unsigned short id, bool enable);
 
 extern struct hyp_printk_fmt __hyp_printk_fmts_start[];
@@ -81,7 +82,7 @@ do {							\
 #define trace_hyp_printk(fmt, ...) \
 	__trace_hyp_printk_N(fmt, __VA_ARGS__)
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 void hyp_ftrace_setup_core(void);
 unsigned long *hyp_ftrace_find_host_func(unsigned long host_func,
 					 unsigned long *funcs,
@@ -105,7 +106,7 @@ static inline void hyp_ftrace_enable(unsigned long *funcs, unsigned long *funcs_
 		       bool enable, void *tramp) { }
 static inline int __pkvm_sync_ftrace(unsigned long host_func_pg) { return -EOPNOTSUPP; }
 static inline int __pkvm_disable_ftrace(void) { return -EOPNOTSUPP; }
-#endif /* CONFIG_PROTECTED_NVHE_FTRACE */
+#endif /* CONFIG_PKVM_FTRACE */
 #else /* CONFIG_TRACING */
 static inline int
 register_hyp_mod_events(void *event_ids, size_t nr_events, void *funcs, void *funcs_end,
@@ -127,6 +128,7 @@ static inline void __pkvm_teardown_tracing(void) { }
 static inline int __pkvm_enable_tracing(bool enable) { return -ENODEV; }
 static inline int __pkvm_reset_tracing(unsigned int cpu) { return -ENODEV; }
 static inline int __pkvm_swap_reader_tracing(unsigned int cpu) { return -ENODEV; }
+static inline void __pkvm_panic_tracing(void) { }
 static inline int __pkvm_enable_event(unsigned short id, bool enable)  { return -ENODEV; }
 #define trace_hyp_printk(fmt, ...)
 

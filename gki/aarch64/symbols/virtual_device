@@ -1287,6 +1287,7 @@
   napi_consume_skb
   netdev_notify_peers
   netdev_rss_key_fill
+  netdev_stat_queue_sum
   netdev_warn
   net_dim
   net_dim_free_irq_moder

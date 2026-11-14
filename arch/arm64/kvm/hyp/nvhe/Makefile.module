@@ -5,9 +5,6 @@ $(obj)/hyp.lds: arch/arm64/kvm/hyp/nvhe/module.lds.S FORCE
 
 include $(srctree)/arch/arm64/kvm/hyp/nvhe/Makefile.nvhe
 
-# Deprecated; subject to removal.
-ccflags-y += -I$(srctree)/arch/arm64/kvm/hyp/include/module/nvhe
-
 # LINT.IfChange(includes)
 ccflags-y += -I$(srctree)/arch/arm64/kvm/hyp/include/module
 # LINT.ThenChange(/BUILD.bazel:pkvm_includes)

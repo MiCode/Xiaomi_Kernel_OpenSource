@@ -42,11 +42,7 @@ static void tcp6_check_fraglist_gro(struct list_head *head, struct sk_buff *skb,
 					iif, sdif);
 	NAPI_GRO_CB(skb)->is_flist = !sk;
 	if (sk)
-#if IS_ENABLED(CONFIG_MTK_NET_SK_PATCH_PRE_CHECKIN)
 		sock_gen_put(sk);
-#else
-		sock_put(sk);
-#endif
 #endif /* IS_ENABLED(CONFIG_IPV6) */
 }
 

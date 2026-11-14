@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2025 MediaTek Inc.
- */
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM gzvm
 #define TRACE_INCLUDE_PATH trace/hooks
 #if !defined(_TRACE_HOOK_GZVM_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_GZVM_H
 #include <trace/hooks/vendor_hooks.h>
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 struct gzvm_vcpu;
 struct gzvm;
 
@@ -27,7 +23,6 @@ DECLARE_HOOK(android_vh_gzvm_handle_demand_page_post,
 DECLARE_HOOK(android_vh_gzvm_destroy_vm_post_process,
 	     TP_PROTO(struct gzvm *vm),
 	     TP_ARGS(vm));
-#endif
 
 #endif /* _TRACE_HOOK_GZVM_H */
 /* This part must be outside protection */

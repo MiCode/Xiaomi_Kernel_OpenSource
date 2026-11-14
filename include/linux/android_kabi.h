@@ -42,11 +42,18 @@
  * Worker macros, don't use these, use the ones without a leading '_'
  */
 
-#define _ANDROID_KABI_RULE(hint, target, value)				 \
+#if defined(BUILD_VDSO) || defined(__DISABLE_EXPORTS)
+#define __ANDROID_KABI_RULE(hint, target, value)
+#else
+#define __ANDROID_KABI_RULE(hint, target, value)			 \
 	static const char CONCATENATE(__gendwarfksyms_rule_,		 \
 				      __COUNTER__)[] __used __aligned(1) \
 		__section(".discard.gendwarfksyms.kabi_rules") =	 \
-			"1\0" #hint "\0" #target "\0" #value
+			"1\0" #hint "\0" target "\0" value
+#endif
+
+#define _ANDROID_KABI_RULE(hint, target, value) \
+	__ANDROID_KABI_RULE(hint, #target, #value)
 
 #define _ANDROID_KABI_NORMAL_SIZE_ALIGN(_orig, _new)			\
 	union {								\
@@ -63,6 +70,9 @@
 				__stringify(_new));			\
 	}
 
+#if defined(BUILD_VDSO) || defined(__DISABLE_EXPORTS)
+#define _ANDROID_KABI_REPLACE(_orig, _new)	_new
+#else
 #define _ANDROID_KABI_REPLACE(_orig, _new)		      \
 	union {						      \
 		_new;					      \
@@ -71,6 +81,7 @@
 		};					      \
 		_ANDROID_KABI_NORMAL_SIZE_ALIGN(_orig, _new); \
 	}
+#endif
 
 
 /*
@@ -119,6 +130,22 @@
  */
 #define ANDROID_KABI_ENUMERATOR_VALUE(fqn, field, value) \
 	_ANDROID_KABI_RULE(enumerator_value, fqn field, value)
+
+/*
+ * ANDROID_KABI_BYTE_SIZE(fqn, value)
+ *   Set the byte_size attribute for the struct/union/enum fqn to
+ *   value bytes.
+ */
+#define ANDROID_KABI_BYTE_SIZE(fqn, value) \
+	_ANDROID_KABI_RULE(byte_size, fqn, value)
+
+/*
+ * ANDROID_KABI_TYPE_STRING(type, str)
+ *   For the given type, override the type string used in symtypes
+ *   output and version calculation with str.
+ */
+#define ANDROID_KABI_TYPE_STRING(type, str) \
+	__ANDROID_KABI_RULE(type_string, type, str)
 
 /*
  * ANDROID_KABI_IGNORE

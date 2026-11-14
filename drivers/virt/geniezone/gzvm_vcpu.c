@@ -11,9 +11,7 @@
 #include <linux/slab.h>
 #include <linux/soc/mediatek/gzvm_drv.h>
 #include <trace/events/geniezone.h>
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 #include <trace/hooks/gzvm.h>
-#endif
 
 /* maximum size needed for holding an integer */
 #define ITOA_MAX_LEN 12
@@ -195,9 +193,7 @@ static long gzvm_vcpu_run(struct gzvm_vcpu *vcpu, void __user *argp)
 			pr_err("vcpu unknown exit\n");
 			need_userspace = true;
 		}
-		#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 		trace_android_vh_gzvm_vcpu_exit_reason(vcpu, &need_userspace);
-		#endif
 	}
 
 	if (copy_to_user(argp, vcpu->run, sizeof(struct gzvm_vcpu_run)))

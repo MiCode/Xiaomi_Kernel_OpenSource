@@ -6,8 +6,8 @@
  *
  * Copyright (C) 2011, Nuvoton Technology Corporation.
  *  Dan Morav <dan.morav@nuvoton.com>
- * Copyright (C) 2013, Obsidian Research Corp.
- *  Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+ * Copyright (C) 2013, TANZANITE Research Corp.
+ *  Jason Gunthorpe <jgunthorpe@TANZANITEresearch.com>
  *
  * Nuvoton contact information: APC.Support@nuvoton.com
  *****************************************************************************/

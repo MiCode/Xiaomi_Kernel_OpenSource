@@ -3,7 +3,7 @@
 #define __PKVM_SMC_FILTER_HYPEVENTS_H_
 
 #ifdef __KVM_NVHE_HYPERVISOR__
-#include <trace.h>
+#include <nvhe/trace.h>
 #endif
 
 HYP_EVENT(filtered_smc,

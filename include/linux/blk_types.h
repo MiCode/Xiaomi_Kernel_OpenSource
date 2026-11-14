@@ -443,7 +443,7 @@ static inline enum req_op bio_op(const struct bio *bio)
 
 static inline bool op_is_write(blk_opf_t op)
 {
-	return !!(op & (__force blk_opf_t)1);
+	return (op & (__force blk_opf_t)1) || op == REQ_OP_ZONE_FINISH;
 }
 
 /*

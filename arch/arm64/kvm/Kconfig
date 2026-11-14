@@ -43,42 +43,10 @@ menuconfig KVM
 
 	  If unsure, say N.
 
-config NVHE_EL2_DEBUG
-	bool "Debug mode for non-VHE EL2 object"
-	depends on KVM
-	select PKVM_SELFTESTS
-	help
-	  Say Y here to enable the debug mode for the non-VHE KVM EL2 object.
-	  Failure reports will BUG() in the hypervisor. This is intended for
-	  local EL2 hypervisor development.
-
-	  If unsure, say N.
-
-config PKVM_SELFTESTS
-	bool "Protected KVM hypervisor selftests"
-	help
-	  Say Y here to enable Protected KVM (pKVM) hypervisor selftests
-	  during boot. Failure reports will panic the hypervisor. This is
-	  intended for EL2 hypervisor development.
-
-	  If unsure, say N.
-
-config PROTECTED_NVHE_STACKTRACE
-	bool "Protected KVM hypervisor stacktraces"
-	depends on NVHE_EL2_DEBUG
-	default n
-	help
-	  Say Y here to enable pKVM hypervisor stacktraces on hyp_panic()
-
-	  If using protected nVHE mode, but cannot afford the associated
-	  memory cost (less than 0.75 page per CPU) of pKVM stacktraces,
-	  say N.
-
-	  If unsure, or not using protected nVHE (pKVM), say N.
+if KVM
 
 config PTDUMP_STAGE2_DEBUGFS
 	bool "Present the stage-2 pagetables to debugfs"
-	depends on KVM
 	depends on DEBUG_KERNEL
 	depends on DEBUG_FS
 	depends on GENERIC_PTDUMP
@@ -93,26 +61,17 @@ config PTDUMP_STAGE2_DEBUGFS
 
 	  If in doubt, say N.
 
-config PROTECTED_NVHE_TESTING
-	bool "Protected KVM hypervisor testing infrastructure"
-	depends on KVM
+config PKVM_STACKTRACE
+	bool "Protected KVM hypervisor stacktraces"
 	default n
 	help
-	  Say Y here to enable pKVM hypervisor testing infrastructure.
+	  Say Y here to enable pKVM hypervisor stacktraces on hyp_panic()
 
-	  If unsure, say N.
+	  If using protected nVHE mode, but cannot afford the associated
+	  memory cost (less than 0.75 page per CPU) of pKVM stacktraces,
+	  say N.
 
-config PROTECTED_NVHE_FTRACE
-	bool "Protected KVM hypervisor function tracing"
-	depends on KVM
-	depends on TRACING
-	default n
-	help
-	  Say Y here to enable func and func_ret hypervisor tracing events.
-	  Those events are raised whenever the hypervisor branch to a
-	  function.
-
-	  If unsure, Say N.
+	  If unsure, or not using protected nVHE (pKVM), say N.
 
 config PKVM_MODULE_PATH
 	string "Path to pKVM modules"
@@ -121,4 +80,67 @@ config PKVM_MODULE_PATH
 	  Directory where the pKVM modules are found. If empty, the modules
 	  will be searched into the default path /lib/modules/<uname>.
 
+menuconfig PKVM_DEBUG
+	bool "Debug mode for Protected KVM hypervisor"
+	help
+	  Say Y here to enable the debug mode for the Protected KVM (pKVM)
+	  hypervisor. Failure reports will BUG() in the hypervisor. This is
+	  intended for local EL2 hypervisor development.
+
+	  If unsure, say N.
+
+if PKVM_DEBUG
+
+config PKVM_STRICT_CHECKS
+	bool "Additional checks in the Protected KVM hypervisor"
+	default y
+	help
+	  Say Y here to add more checks into the Protected KVM hypervisor.
+          Those checks have a slight performance cost and will BUG() on a
+          failure. This is intended for EL2 hypervisor development.
+
+config PKVM_SELFTESTS
+	bool "Protected KVM hypervisor selftests"
+	default y
+	help
+	  Say Y here to enable Protected KVM (pKVM) hypervisor selftests
+	  during boot. Failure reports will panic the hypervisor. This is
+	  intended for EL2 hypervisor development.
+
+	  If unsure, say N.
+
+config PKVM_DUMP_TRACE_ON_PANIC
+	bool "Dump Protected KVM hypervisor trace buffer on panic"
+	default y
+	help
+	   Say Y here to dump the content of the pKVM hypervisor on either
+           hypervisor or host panic. In the case of a hyp panic, only the tail
+           page is dumped. It only has an effect if the command line option
+           hyp_trace_printk is set.
+
+config PKVM_FTRACE
+	bool "Protected KVM hypervisor function tracing"
+	depends on FTRACE
+	default y
+	help
+	  Say Y here to enable func and func_ret hypervisor tracing events.
+	  Those events are raised whenever the hypervisor branch to a
+	  function.
+
+	  If unsure, Say N.
+
+config PKVM_DISABLE_STAGE2_ON_PANIC
+	bool "Disable the host stage-2 on panic"
+	default n
+	help
+	  If panic occurs while the host lock is held and if, plagued by bad
+	  luck the panic path triggers a host stage-2 memory abort, a lockup
+	  would happen. The only way out is to disable the stage-2 page-table.
+	  This however tamper the system security. This option should therefore
+	  solely be enabled to debug specific issues.
+
+	  Just say N.
+
+endif # PKVM_DEBUG
+endif # KVM
 endif # VIRTUALIZATION

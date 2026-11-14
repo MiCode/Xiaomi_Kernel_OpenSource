@@ -209,7 +209,7 @@ static long gunyah_qtvm_attach(struct gunyah_vm *ghvm, struct gunyah_auth_desc *
 
 	list_add(&vm->list, &gunyah_qtvm_list);
 	mutex_unlock(&gunyah_qtvm_lock);
-	return -EINVAL;
+	return 0;
 }
 
 static void gunyah_qtvm_detach(struct gunyah_vm *ghvm)

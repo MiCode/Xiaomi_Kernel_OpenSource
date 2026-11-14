@@ -104,6 +104,9 @@ struct drm_property *drm_property_create(struct drm_device *dev,
 	if (WARN_ON(!drm_property_flags_valid(flags)))
 		return NULL;
 
+	if (!name)
+                return NULL;
+
 	if (WARN_ON(strlen(name) >= DRM_PROP_NAME_LEN))
 		return NULL;
 

@@ -423,7 +423,7 @@ impl DeliverToRead for Transaction {
         tr.data.ptr.buffer = self.data_address as _;
         tr.offsets_size = self.offsets_size as _;
         if tr.offsets_size > 0 {
-            tr.data.ptr.offsets = (self.data_address + ptr_align(self.data_size)) as _;
+            tr.data.ptr.offsets = (self.data_address + ptr_align(self.data_size).unwrap()) as _;
         }
         tr.sender_euid = self.sender_euid.into_uid_in_current_ns();
         tr.sender_pid = 0;

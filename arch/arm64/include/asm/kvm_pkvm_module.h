@@ -95,12 +95,14 @@ struct pkvm_sglist_page {
  *				allows to apply this prot on a range of
  *				contiguous memory.
  * @host_stage2_enable_lazy_pte:
+ *				DEPRECATED
  *				Unmap a range of memory from the host stage-2,
  *				leaving the pages host ownership intact. The
  *				pages will be remapped lazily (subject to the
  *				usual ownership checks) in response to a
  *				faulting access from the host.
  * @host_stage2_disable_lazy_pte:
+ *				DEPRECATED
  *				This is the opposite function of
  *				host_stage2_enable_lazy_pte. Must be called once
  *				the module is done with the region.

@@ -866,8 +866,7 @@ int kvm_pgtable_stage2_flush(struct kvm_pgtable *pgt, u64 addr, u64 size);
  * kvm_pgtable_stage2_split() is best effort: it tries to break as many
  * blocks in the input range as allowed by @mc_capacity.
  */
-int kvm_pgtable_stage2_split(struct kvm_pgtable *pgt, u64 addr, u64 size,
-			     struct kvm_mmu_memory_cache *mc);
+int kvm_pgtable_stage2_split(struct kvm_pgtable *pgt, u64 addr, u64 size, void *mc);
 
 /**
  * kvm_pgtable_walk() - Walk a page-table.
@@ -942,27 +941,4 @@ enum kvm_pgtable_prot kvm_pgtable_hyp_pte_prot(kvm_pte_t pte);
  */
 void kvm_tlb_flush_vmid_range(struct kvm_s2_mmu *mmu,
 				phys_addr_t addr, size_t size);
-
-/**
- * kvm_pgtable_stage2_get_pages() - Raise the refcount for each entry and unmap them.
- *
- * @pgt:	Page-table structure initialised by kvm_pgtable_*_init()
- *		or a similar initialiser.
- * @addr:	Input address for the start of the walk.
- * @size:	Size of the range.
- * @mc:		Cache of pre-allocated and zeroed memory from which to allocate
- *		page-table pages.
- */
-int kvm_pgtable_stage2_get_pages(struct kvm_pgtable *pgt, u64 addr, u64 size, void *mc);
-
-/**
- * kvm_pgtable_stage2_put_pages() - Drop the refcount for each entry. This is the
- *			     opposite of kvm_pgtable_get_pages().
- *
- * @pgt:	Page-table structure initialised by kvm_pgtable_*_init()
- *		or a similar initialiser.
- * @addr:	Input address for the start of the walk.
- * @size:	Size of the range.
- */
-int kvm_pgtable_stage2_put_pages(struct kvm_pgtable *pgt, u64 addr, u64 size);
 #endif	/* __ARM64_KVM_PGTABLE_H__ */

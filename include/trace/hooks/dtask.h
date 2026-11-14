@@ -150,6 +150,10 @@ DECLARE_HOOK(android_vh_exit_check,
 DECLARE_RESTRICTED_HOOK(android_rvh_dpm_prepare,
 	TP_PROTO(int flag),
 	TP_ARGS(flag), 1);
+
+DECLARE_HOOK(android_vh_set_tsk_need_resched_lazy,
+	TP_PROTO(struct task_struct *p, struct rq *rq, int *need_lazy),
+	TP_ARGS(p, rq, need_lazy));
 #endif /* _TRACE_HOOK_DTASK_H */
 
 /* This part must be outside protection */

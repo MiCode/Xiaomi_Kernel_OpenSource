@@ -6,6 +6,7 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/percpu-defs.h>
+#include <linux/panic_notifier.h>
 #include <linux/trace_events.h>
 #include <linux/tracefs.h>
 
@@ -54,6 +55,8 @@ static struct hyp_trace_buffer {
 };
 
 static size_t hyp_trace_buffer_size = 7 << 10;
+
+static bool hyp_trace_panic __read_mostly;
 
 /* Number of pages the ring-buffer requires to accommodate for size */
 #define NR_PAGES(size) \
@@ -174,6 +177,10 @@ static void hyp_clock_wait(struct hyp_trace_buffer *hyp_buffer)
 
 static int __get_reader_page(int cpu)
 {
+	/* we'd better no try to call the hyp if it has panic'ed */
+	if (hyp_trace_panic)
+		return 0;
+
 	return kvm_call_hyp_nvhe(__pkvm_swap_reader_tracing, cpu);
 }
 
@@ -877,7 +884,7 @@ static int hyp_trace_clock_show(struct seq_file *m, void *v)
 }
 DEFINE_SHOW_ATTRIBUTE(hyp_trace_clock);
 
-#ifdef CONFIG_PROTECTED_NVHE_TESTING
+#ifdef CONFIG_PKVM_SELFTESTS
 static int selftest_event_open(struct inode *inode, struct file *file)
 {
 	if (file->f_mode & FMODE_WRITE)
@@ -948,6 +955,28 @@ static void hyp_trace_buffer_printk(struct hyp_trace_buffer *hyp_buffer)
 				    NULL, NULL);
 	}
 }
+
+static int hyp_trace_panic_handler(struct notifier_block *self,
+				   unsigned long ev, void *v)
+{
+#ifdef CONFIG_PKVM_DUMP_TRACE_ON_PANIC
+	if (!hyp_trace_buffer_loaded(&hyp_trace_buffer) ||
+	    !hyp_trace_buffer.printk_iter)
+		return NOTIFY_DONE;
+
+	if (!strncmp("HYP panic:", v, 10))
+		hyp_trace_panic = true;
+
+	ring_buffer_poll_writer(hyp_trace_buffer.trace_buffer, RING_BUFFER_ALL_CPUS);
+	hyp_trace_buffer_printk(&hyp_trace_buffer);
+#endif
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block hyp_trace_panic_notifier = {
+	.notifier_call = hyp_trace_panic_handler,
+	.priority = INT_MAX - 1,
+};
 
 void hyp_trace_enable_event_early(void)
 {
@@ -1025,6 +1054,8 @@ int hyp_trace_init_tracefs(void)
 	if (hyp_trace_buffer.printk_on &&
 	    hyp_trace_buffer_printk_init(&hyp_trace_buffer))
 		pr_warn("Failed to init ht_printk");
+
+	atomic_notifier_chain_register(&panic_notifier_list, &hyp_trace_panic_notifier);
 
 	return 0;
 }

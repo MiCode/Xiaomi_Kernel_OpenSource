@@ -4,9 +4,7 @@
  */
 
 #include <linux/soc/mediatek/gzvm_drv.h>
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 #include <trace/hooks/gzvm.h>
-#endif
 
 static int cmp_ppages(struct rb_node *node, const struct rb_node *parent)
 {
@@ -163,17 +161,13 @@ static int handle_single_demand_page(struct gzvm *vm, int memslot_id, u64 gfn)
 	if (unlikely(ret))
 		return -EFAULT;
 
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 	trace_android_vh_gzvm_handle_demand_page_pre(vm, memslot_id, pfn, gfn, 1);
-#endif
 
 	ret = gzvm_arch_map_guest(vm->vm_id, memslot_id, pfn, gfn, 1);
 	if (unlikely(ret))
 		return -EFAULT;
 
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 	trace_android_vh_gzvm_handle_demand_page_post(vm, memslot_id, pfn, gfn, 1);
-#endif
 
 	return ret;
 }
@@ -218,9 +212,7 @@ static int handle_block_demand_page(struct gzvm *vm, int memslot_id, u64 gfn)
 			vm->demand_page_buffer[i] = pfn;
 		}
 
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 		trace_android_vh_gzvm_handle_demand_page_pre(vm, memslot_id, 0, gfn, nr_entries);
-#endif
 
 		ret = gzvm_arch_map_guest_block(vm->vm_id, memslot_id,
 						start_gfn, nr_entries);
@@ -229,9 +221,7 @@ static int handle_block_demand_page(struct gzvm *vm, int memslot_id, u64 gfn)
 			goto err_unlock;
 		}
 
-#if IS_ENABLED(CONFIG_MTK_GZVM_DEBUG)
 		trace_android_vh_gzvm_handle_demand_page_post(vm, memslot_id, 0, gfn, nr_entries);
-#endif
 	}
 err_unlock:
 	mutex_unlock(&vm->demand_paging_lock);

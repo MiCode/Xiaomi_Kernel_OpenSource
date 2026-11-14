@@ -169,6 +169,9 @@ filegroup(
             # cscope files
             "cscope.*",
             "ncscope.*",
+
+            # ABI and symbol list files
+            "gki/**",
         ],
     ),
     visibility = ["//visibility:public"],
@@ -189,6 +192,7 @@ filegroup(
         "gki/aarch64/symbols/galaxy",
         "gki/aarch64/symbols/honor",
         "gki/aarch64/symbols/imx",
+        "gki/aarch64/symbols/lenovo",
         "gki/aarch64/symbols/mtk",
         "gki/aarch64/symbols/mtktv",
         "gki/aarch64/symbols/oplus",
@@ -1615,11 +1619,15 @@ ddk_headers(
     hdrs = [
         "arch/arm64/kvm/hyp/include/module/nvhe/define_events.h",
         "arch/arm64/kvm/hyp/include/module/nvhe/trace.h",
+        "arch/arm64/kvm/hyp/include/nvhe/iommu.h",
+        "arch/arm64/kvm/hyp/include/nvhe/spinlock.h",
+        "arch/arm64/kvm/hyp/include/nvhe/trap_handler.h",
     ],
     includes = [
         # LINT.IfChange(pkvm_includes)
         "arch/arm64/kvm/hyp/include/module",
         # LINT.ThenChange(/arch/arm64/kvm/hyp/nvhe/Makefile.module:includes)
+        "arch/arm64/kvm/hyp/include",
     ],
     visibility = ["//visibility:private"],
 )
@@ -1766,7 +1774,9 @@ filegroup(
 ddk_headers(
     name = "all_headers_unsafe",
     hdrs = [
+        "mm/swap.h",
         "drivers/devfreq/governor.h",
+        "drivers/scsi/sd.h",
         "drivers/pinctrl/core.h",
         "drivers/ufs/core/ufshcd-priv.h",
         "drivers/ufs/host/ufshcd-pltfrm.h",
@@ -1792,7 +1802,9 @@ ddk_headers(
     # Unsafe include directories are appended to ccflags-y.
     includes = [
         ".",
+        "mm",
         "drivers/devfreq",
+        "drivers/scsi",
         "drivers/pinctrl",
         "drivers/ufs/core",
         "drivers/ufs/host",

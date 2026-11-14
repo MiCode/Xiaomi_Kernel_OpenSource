@@ -550,6 +550,7 @@
   devm_memremap
   devm_memunmap
   devm_mfd_add_devices
+  devm_mmc_alloc_host
   devm_nvmem_cell_get
   devm_nvmem_device_get
   devm_nvmem_register
@@ -3035,6 +3036,10 @@
   __traceiter_android_vh_freq_qos_add_request
   __traceiter_android_vh_freq_qos_remove_request
   __traceiter_android_vh_freq_qos_update_request
+  __traceiter_android_vh_gzvm_destroy_vm_post_process
+  __traceiter_android_vh_gzvm_handle_demand_page_post
+  __traceiter_android_vh_gzvm_handle_demand_page_pre
+  __traceiter_android_vh_gzvm_vcpu_exit_reason
   __traceiter_android_vh_iommu_iovad_alloc_iova
   __traceiter_android_vh_iommu_iovad_free_iova
   __traceiter_android_vh_is_fpsimd_save
@@ -3159,6 +3164,10 @@
   __tracepoint_android_vh_freq_qos_add_request
   __tracepoint_android_vh_freq_qos_remove_request
   __tracepoint_android_vh_freq_qos_update_request
+  __tracepoint_android_vh_gzvm_destroy_vm_post_process
+  __tracepoint_android_vh_gzvm_handle_demand_page_post
+  __tracepoint_android_vh_gzvm_handle_demand_page_pre
+  __tracepoint_android_vh_gzvm_vcpu_exit_reason
   __tracepoint_android_vh_iommu_iovad_alloc_iova
   __tracepoint_android_vh_iommu_iovad_free_iova
   __tracepoint_android_vh_is_fpsimd_save

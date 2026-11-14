@@ -244,28 +244,32 @@ static unsigned int fuse_req_hash(u64 unique)
 /*
  * A new request is available, wake fiq->waitq
  */
-static void fuse_dev_wake_and_unlock(struct fuse_iqueue *fiq)
+static void fuse_dev_wake_and_unlock(struct fuse_iqueue *fiq, bool sync)
 __releases(fiq->lock)
 {
-	wake_up(&fiq->waitq);
+	if (sync)
+		wake_up_sync(&fiq->waitq);
+	else
+		wake_up(&fiq->waitq);
 	kill_fasync(&fiq->fasync, SIGIO, POLL_IN);
 	spin_unlock(&fiq->lock);
 }
 
-static void fuse_dev_queue_forget(struct fuse_iqueue *fiq, struct fuse_forget_link *forget)
+static void fuse_dev_queue_forget(struct fuse_iqueue *fiq, struct fuse_forget_link *forget,
+		bool sync)
 {
 	spin_lock(&fiq->lock);
 	if (fiq->connected) {
 		fiq->forget_list_tail->next = forget;
 		fiq->forget_list_tail = forget;
-		fuse_dev_wake_and_unlock(fiq);
+		fuse_dev_wake_and_unlock(fiq, sync);
 	} else {
 		kfree(forget);
 		spin_unlock(&fiq->lock);
 	}
 }
 
-static void fuse_dev_queue_interrupt(struct fuse_iqueue *fiq, struct fuse_req *req)
+static void fuse_dev_queue_interrupt(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync)
 {
 	spin_lock(&fiq->lock);
 	if (list_empty(&req->intr_entry)) {
@@ -279,21 +283,21 @@ static void fuse_dev_queue_interrupt(struct fuse_iqueue *fiq, struct fuse_req *r
 			list_del_init(&req->intr_entry);
 			spin_unlock(&fiq->lock);
 		} else  {
-			fuse_dev_wake_and_unlock(fiq);
+			fuse_dev_wake_and_unlock(fiq, sync);
 		}
 	} else {
 		spin_unlock(&fiq->lock);
 	}
 }
 
-static void fuse_dev_queue_req(struct fuse_iqueue *fiq, struct fuse_req *req)
+static void fuse_dev_queue_req(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync)
 {
 	spin_lock(&fiq->lock);
 	if (fiq->connected) {
 		if (req->in.h.opcode != FUSE_NOTIFY_REPLY)
 			req->in.h.unique = fuse_get_unique_locked(fiq);
 		list_add_tail(&req->list, &fiq->pending);
-		fuse_dev_wake_and_unlock(fiq);
+		fuse_dev_wake_and_unlock(fiq, sync);
 	} else {
 		spin_unlock(&fiq->lock);
 		req->out.h.error = -ENOTCONN;
@@ -309,13 +313,13 @@ const struct fuse_iqueue_ops fuse_dev_fiq_ops = {
 };
 EXPORT_SYMBOL_GPL(fuse_dev_fiq_ops);
 
-static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req)
+static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync)
 {
 	req->in.h.len = sizeof(struct fuse_in_header) +
 		fuse_len_args(req->args->in_numargs,
 			      (struct fuse_arg *) req->args->in_args);
 	trace_fuse_request_send(req);
-	fiq->ops->send_req(fiq, req);
+	fiq->ops->send_req(fiq, req, sync);
 }
 
 void fuse_queue_forget(struct fuse_conn *fc, struct fuse_forget_link *forget,
@@ -331,7 +335,7 @@ void fuse_queue_forget(struct fuse_conn *fc, struct fuse_forget_link *forget,
 	forget->forget_one.nodeid = nodeid;
 	forget->forget_one.nlookup = nlookup;
 
-	fiq->ops->send_forget(fiq, forget);
+	fiq->ops->send_forget(fiq, forget, false);
 }
 
 static void flush_bg_queue(struct fuse_conn *fc)
@@ -345,7 +349,7 @@ static void flush_bg_queue(struct fuse_conn *fc)
 		req = list_first_entry(&fc->bg_queue, struct fuse_req, list);
 		list_del(&req->list);
 		fc->active_background++;
-		fuse_send_one(fiq, req);
+		fuse_send_one(fiq, req, false);
 	}
 }
 
@@ -421,7 +425,7 @@ static int queue_interrupt(struct fuse_req *req)
 	if (unlikely(!test_bit(FR_INTERRUPTED, &req->flags)))
 		return -EINVAL;
 
-	fiq->ops->send_interrupt(fiq, req);
+	fiq->ops->send_interrupt(fiq, req, false);
 
 	return 0;
 }
@@ -482,7 +486,7 @@ static void __fuse_request_send(struct fuse_req *req)
 	/* acquire extra reference, since request is still needed after
 	   fuse_request_end() */
 	__fuse_get_request(req);
-	fuse_send_one(fiq, req);
+	fuse_send_one(fiq, req, true);
 
 	request_wait_answer(req);
 	/* Pairs with smp_wmb() in fuse_request_end() */
@@ -660,7 +664,7 @@ static int fuse_simple_notify_reply(struct fuse_mount *fm,
 
 	fuse_args_to_req(req, args);
 
-	fuse_send_one(fiq, req);
+	fuse_send_one(fiq, req, false);
 
 	return 0;
 }
@@ -1888,7 +1892,7 @@ static void fuse_resend(struct fuse_conn *fc)
 	}
 	/* iq and pq requests are both oldest to newest */
 	list_splice(&to_queue, &fiq->pending);
-	fuse_dev_wake_and_unlock(fiq);
+	fuse_dev_wake_and_unlock(fiq, false);
 }
 
 static int fuse_notify_resend(struct fuse_conn *fc)

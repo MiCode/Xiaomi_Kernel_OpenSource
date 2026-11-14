@@ -222,6 +222,7 @@
   divider_recalc_rate
   divider_round_rate_parent
   dma_alloc_attrs
+  dma_alloc_pages
   dma_async_device_register
   dma_async_tx_descriptor_init
   dma_buf_export
@@ -232,6 +233,7 @@
   dma_fence_signal
   dma_fence_wait_timeout
   dma_free_attrs
+  dma_free_pages
   dma_get_slave_channel
   dmam_alloc_attrs
   dma_map_page_attrs

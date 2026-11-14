@@ -600,8 +600,9 @@ gunyah_hypercall_vcpu_run(u64 capid, unsigned long *resume_data,
 #define GUNYAH_ADDRSPC_MODIFY_FLAG_SANITIZE_BIT		1
 enum gunyah_error
 gunyah_hypercall_addrspc_modify_pages(u64 capid, u64 addr, u64 size, u64 flags);
-
 enum gunyah_error
 gunyah_hypercall_addrspace_find_info_area(unsigned long *ipa, unsigned long *size);
-
+enum gunyah_error
+#define GUNYAH_ADDRSPACE_VMMIO_CONFIGURE_OP_ADD_RANGE	0
+gunyah_hypercall_addrspc_configure_vmmio_range(u64 capid, u64 base, u64 size, u64 op);
 #endif

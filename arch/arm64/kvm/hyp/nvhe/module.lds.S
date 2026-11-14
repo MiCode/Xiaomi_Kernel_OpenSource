@@ -41,7 +41,7 @@ SECTIONS {
 		*(__patchable_function_entries __patchable_function_entries.*)
 	}
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 	.hyp.text.ftrace_tramp : {
 		. = . +20;
 	}

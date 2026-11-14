@@ -14,7 +14,7 @@ ccflags-y += -fno-stack-protector	\
 	     -DDISABLE_BRANCH_PROFILING	\
 	     $(DISABLE_STACKLEAK_PLUGIN)
 
-ifeq ($(CONFIG_PROTECTED_NVHE_FTRACE), y)
+ifeq ($(CONFIG_PKVM_FTRACE), y)
 ccflags-y += -fpatchable-function-entry=3
 endif
 

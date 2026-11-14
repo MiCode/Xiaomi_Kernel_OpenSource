@@ -528,17 +528,17 @@ struct fuse_iqueue_ops {
 	/**
 	 * Send one forget
 	 */
-	void (*send_forget)(struct fuse_iqueue *fiq, struct fuse_forget_link *link);
+	void (*send_forget)(struct fuse_iqueue *fiq, struct fuse_forget_link *link, bool sync);
 
 	/**
 	 * Send interrupt for request
 	 */
-	void (*send_interrupt)(struct fuse_iqueue *fiq, struct fuse_req *req);
+	void (*send_interrupt)(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync);
 
 	/**
 	 * Send one request
 	 */
-	void (*send_req)(struct fuse_iqueue *fiq, struct fuse_req *req);
+	void (*send_req)(struct fuse_iqueue *fiq, struct fuse_req *req, bool sync);
 
 	/**
 	 * Clean up when fuse_iqueue is destroyed

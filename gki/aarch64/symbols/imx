@@ -210,6 +210,7 @@
   config_item_set_name
   console_lock
   console_suspend_enabled
+  console_trylock
   console_unlock
   __const_udelay
   consume_skb
@@ -261,6 +262,7 @@
   csum_partial
   csum_tcpudp_nofold
   _ctype
+  current_work
   deactivate_locked_super
   debugfs_attr_read
   debugfs_attr_write
@@ -571,6 +573,7 @@
   dmaenginem_async_device_register
   dma_fence_add_callback
   dma_fence_array_ops
+  dma_fence_chain_init
   dma_fence_context_alloc
   dma_fence_default_wait
   dma_fence_free
@@ -578,6 +581,7 @@
   dma_fence_init
   dma_fence_release
   dma_fence_remove_callback
+  dma_fence_set_deadline
   dma_fence_signal
   dma_fence_signal_locked
   dma_fence_wait_timeout
@@ -607,6 +611,7 @@
   dma_release_channel
   dma_request_chan
   __dma_request_channel
+  dma_resv_get_singleton
   dma_set_coherent_mask
   dma_set_mask
   __dma_sync_sg_for_cpu
@@ -638,15 +643,25 @@
   driver_set_override
   driver_unregister
   drm_add_edid_modes
+  drm_add_modes_noedid
+  drm_analog_tv_mode
+  drm_any_plane_has_format
   drm_atomic_add_affected_connectors
   drm_atomic_add_affected_planes
+  drm_atomic_add_encoder_bridges
+  drm_atomic_bridge_chain_check
+  drm_atomic_bridge_chain_disable
   drm_atomic_bridge_chain_enable
+  drm_atomic_bridge_chain_post_disable
+  drm_atomic_bridge_chain_pre_enable
   drm_atomic_commit
   drm_atomic_get_connector_state
   drm_atomic_get_crtc_state
   drm_atomic_get_new_bridge_state
   drm_atomic_get_new_connector_for_encoder
+  drm_atomic_get_new_crtc_for_encoder
   drm_atomic_get_new_private_obj_state
+  drm_atomic_get_old_crtc_for_encoder
   drm_atomic_get_old_private_obj_state
   drm_atomic_get_plane_state
   drm_atomic_get_private_obj_state
@@ -676,6 +691,7 @@
   drm_atomic_helper_crtc_reset
   drm_atomic_helper_damage_iter_init
   drm_atomic_helper_damage_iter_next
+  __drm_atomic_helper_disable_plane
   drm_atomic_helper_disable_plane
   drm_atomic_helper_disable_planes_on_crtc
   drm_atomic_helper_page_flip
@@ -686,18 +702,26 @@
   __drm_atomic_helper_plane_reset
   drm_atomic_helper_plane_reset
   __drm_atomic_helper_private_obj_duplicate_state
+  __drm_atomic_helper_set_config
   drm_atomic_helper_set_config
   drm_atomic_helper_shutdown
   drm_atomic_helper_update_plane
   drm_atomic_helper_wait_for_vblanks
+  drm_atomic_nonblocking_commit
   drm_atomic_normalize_zpos
   drm_atomic_private_obj_fini
   drm_atomic_private_obj_init
+  drm_atomic_set_crtc_for_connector
+  drm_atomic_set_crtc_for_plane
+  drm_atomic_set_fb_for_plane
+  drm_atomic_set_mode_prop_for_crtc
   drm_atomic_state_alloc
   drm_atomic_state_clear
   __drm_atomic_state_free
   drm_bridge_add
   drm_bridge_attach
+  drm_bridge_chain_mode_set
+  drm_bridge_chain_mode_valid
   drm_bridge_detect
   drm_bridge_edid_read
   drm_bridge_hpd_disable
@@ -706,6 +730,20 @@
   drm_bridge_is_panel
   drm_bridge_remove
   drm_bus_flags_from_videomode
+  drm_calc_timestamping_constants
+  drm_client_buffer_vmap
+  drm_client_buffer_vunmap
+  drm_client_dev_hotplug
+  drm_client_framebuffer_create
+  drm_client_framebuffer_delete
+  drm_client_init
+  drm_client_modeset_commit
+  drm_client_modeset_commit_locked
+  drm_client_modeset_dpms
+  drm_client_modeset_probe
+  drm_client_register
+  drm_client_release
+  drm_client_rotation
   drm_compat_ioctl
   drm_connector_atomic_hdr_metadata_equal
   drm_connector_attach_colorspace_property
@@ -718,7 +756,9 @@
   drm_connector_list_iter_begin
   drm_connector_list_iter_end
   drm_connector_list_iter_next
+  drm_connector_list_update
   drm_connector_register
+  drm_connector_set_orientation_from_panel
   drm_connector_set_panel_orientation
   drm_connector_unregister
   drm_connector_update_edid_property
@@ -730,6 +770,7 @@
   drm_crtc_commit_wait
   drm_crtc_handle_vblank
   drm_crtc_init_with_planes
+  drm_crtc_next_vblank_start
   drm_crtc_send_vblank_event
   drm_crtc_vblank_count
   drm_crtc_vblank_get
@@ -737,6 +778,7 @@
   drm_crtc_vblank_off
   drm_crtc_vblank_on
   drm_crtc_vblank_put
+  drm_crtc_vblank_reset
   drm_crtc_wait_one_vblank
   __drm_debug
   drm_default_rgb_quant_range
@@ -744,6 +786,7 @@
   drm_detect_monitor_audio
   drm_dev_alloc
   __drm_dev_dbg
+  drm_dev_has_vblank
   drm_dev_printk
   drm_dev_put
   drm_dev_register
@@ -752,13 +795,17 @@
   drm_display_mode_from_cea_vic
   drm_display_mode_from_videomode
   drm_display_mode_to_videomode
+  drm_driver_color_mode_format
+  drm_driver_legacy_fb_format
   drm_edid_connector_add_modes
   drm_edid_connector_update
   drm_edid_dup
   drm_edid_duplicate
   drm_edid_free
   drm_edid_get_monitor_name
+  drm_edid_override_connector_update
   drm_edid_raw
+  drm_edid_read
   drm_edid_read_custom
   drm_edid_read_ddc
   drm_edid_valid
@@ -768,6 +815,10 @@
   drm_format_info
   drm_format_info_block_height
   drm_format_info_block_width
+  drm_format_info_bpp
+  drm_format_info_min_pitch
+  drm_framebuffer_cleanup
+  drm_framebuffer_init
   drm_gem_create_mmap_offset
   drm_gem_fb_create
   drm_gem_fb_get_obj
@@ -779,9 +830,12 @@
   drm_gem_object_release
   drm_gem_plane_helper_prepare_fb
   drm_gem_prime_import
+  drm_gem_prime_mmap
   drm_gem_private_object_init
+  drm_gem_vmap_unlocked
   drm_gem_vm_close
   drm_gem_vm_open
+  drm_gem_vunmap_unlocked
   drm_get_connector_status_name
   drm_get_edid
   drm_get_format_info
@@ -796,9 +850,13 @@
   drm_kms_helper_hotplug_event
   drm_kms_helper_poll_fini
   drm_kms_helper_poll_init
+  __drmm_add_action_or_reset
+  drm_master_internal_acquire
+  drm_master_internal_release
   drm_match_cea_mode
   drmm_connector_hdmi_init
   drmm_connector_init
+  __drmm_encoder_alloc
   drmm_kmalloc
   drmm_mode_config_init
   drm_mode_config_cleanup
@@ -807,27 +865,42 @@
   drm_mode_config_reset
   drm_mode_copy
   drm_mode_create
+  drm_mode_create_from_cmdline_mode
   drm_mode_create_hdmi_colorspace_property
   drm_mode_debug_printmodeline
   drm_mode_destroy
   drm_mode_duplicate
   drm_mode_equal
   drm_mode_find_dmt
+  drm_mode_get_hv_timing
+  drm_mode_init
   drm_mode_is_420_also
   drm_mode_is_420_only
+  drm_mode_object_get
   drm_mode_object_put
   drm_mode_probed_add
+  drm_mode_prune_invalid
   drm_modeset_acquire_fini
   drm_modeset_acquire_init
   drm_modeset_backoff
+  drm_mode_set_config_internal
+  drm_mode_set_crtcinfo
   drm_modeset_drop_locks
   drm_modeset_lock
+  drm_modeset_lock_all
+  drm_modeset_lock_all_ctx
   drm_modeset_lock_single_interruptible
   drm_mode_set_name
   drm_modeset_unlock
+  drm_modeset_unlock_all
+  drm_mode_sort
+  drm_mode_validate_driver
+  drm_mode_validate_size
+  drm_mode_validate_ycbcr420
   drm_mode_vrefresh
   __drmm_simple_encoder_alloc
   drm_object_attach_property
+  drm_object_property_get_default_value
   drm_object_property_set_value
   drm_of_component_match_add
   drm_of_encoder_active_endpoint
@@ -858,24 +931,37 @@
   drm_plane_create_scaling_filter_property
   drm_plane_create_zpos_immutable_property
   drm_plane_create_zpos_property
+  drm_plane_get_damage_clips
+  drm_plane_get_damage_clips_count
   drm_poll
   drm_prime_gem_destroy
   drm_prime_get_contiguous_size
   drm_printf
   __drm_printfn_dbg
   drm_probe_ddc
+  drm_property_blob_get
+  drm_property_blob_put
+  drm_property_create_blob
   drm_property_create_enum
   drm_property_create_range
   drm_property_destroy
+  drm_property_replace_blob
   drm_read
   drm_rect_intersect
   drm_release
   drm_self_refresh_helper_cleanup
   drm_self_refresh_helper_init
+  drm_set_preferred_mode
   drm_simple_encoder_init
+  drm_sysfs_connector_hotplug_event
   drm_sysfs_connector_property_event
+  drm_sysfs_hotplug_event
+  __drm_universal_plane_alloc
   drm_universal_plane_init
   drm_vblank_init
+  drm_warn_on_modeset_not_all_locked
+  drm_writeback_cleanup_job
+  drm_writeback_prepare_job
   drop_reasons_register_subsys
   drop_reasons_unregister_subsys
   dump_stack
@@ -926,6 +1012,8 @@
   extcon_set_state_sync
   fd_install
   fget
+  file_update_time
+  file_write_and_wait_range
   filp_close
   _find_first_bit
   _find_first_zero_bit
@@ -951,7 +1039,9 @@
   flush_work
   __flush_workqueue
   __folio_lock
+  folio_mkclean
   __folio_put
+  folio_unlock
   follow_pfnmap_end
   follow_pfnmap_start
   __fortify_panic
@@ -974,6 +1064,7 @@
   fwnode_get_phy_node
   fwnode_graph_get_endpoint_by_id
   fwnode_graph_get_next_endpoint
+  fwnode_graph_get_remote_endpoint
   fwnode_handle_get
   fwnode_irq_get_byname
   fwnode_mdio_find_device
@@ -1103,6 +1194,8 @@
   __hw_addr_init
   __hw_addr_sync
   __hw_addr_unsync
+  hwrng_register
+  hwrng_unregister
   i2c_adapter_type
   i2c_add_adapter
   i2c_add_numbered_adapter
@@ -1120,6 +1213,7 @@
   i2c_get_match_data
   i2c_match_id
   i2c_new_ancillary_device
+  i2c_new_client_device
   i2c_new_dummy_device
   i2c_put_adapter
   i2c_put_dma_safe_msg_buf
@@ -1407,6 +1501,7 @@
   media_devnode_create
   media_devnode_remove
   media_entity_find_link
+  media_entity_get_fwnode_pad
   media_entity_pads_init
   media_entity_pipeline
   media_entity_remove_links
@@ -1430,6 +1525,7 @@
   memremap
   mem_section
   memset
+  memset64
   __memset_io
   memstart_addr
   memunmap
@@ -1559,6 +1655,7 @@
   nla_strscpy
   __nla_validate
   nonseekable_open
+  noop_dirty_folio
   noop_llseek
   noop_qdisc
   nr_cpu_ids
@@ -2058,6 +2155,7 @@
   register_restart_handler
   __register_rpmsg_driver
   register_syscore_ops
+  register_sysrq_key
   register_tcf_proto_ops
   register_virtio_device
   __register_virtio_driver
@@ -2380,6 +2478,7 @@
   snd_soc_daifmt_clock_provider_from_bitmap
   snd_soc_daifmt_parse_clock_provider_raw
   snd_soc_daifmt_parse_format
+  snd_soc_dai_is_dummy
   snd_soc_dai_name_get
   snd_soc_dai_set_bclk_ratio
   snd_soc_dai_set_fmt
@@ -2664,6 +2763,7 @@
   unregister_qdisc
   unregister_reboot_notifier
   unregister_rpmsg_driver
+  unregister_sysrq_key
   unregister_tcf_proto_ops
   unregister_virtio_device
   unregister_virtio_driver
@@ -2744,10 +2844,14 @@
   v4l2_ctrl_new_std_menu_items
   v4l2_ctrl_poll
   __v4l2_ctrl_s_ctrl
+  __v4l2_ctrl_s_ctrl_compound
   __v4l2_ctrl_s_ctrl_int64
   v4l2_ctrl_subdev_log_status
   v4l2_ctrl_subdev_subscribe_event
   v4l2_ctrl_subscribe_event
+  v4l2_ctrl_type_op_equal
+  v4l2_ctrl_type_op_init
+  v4l2_ctrl_type_op_validate
   v4l2_device_register
   __v4l2_device_register_subdev
   __v4l2_device_register_subdev_nodes
@@ -2894,6 +2998,7 @@
   video_device_release
   video_device_release_empty
   video_firmware_drivers_only
+  video_get_options
   video_ioctl2
   videomode_from_timing
   __video_register_device

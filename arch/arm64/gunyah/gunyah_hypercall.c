@@ -44,6 +44,7 @@ EXPORT_SYMBOL_GPL(arch_is_gunyah_guest);
 #define GUNYAH_HYPERCALL_MSGQ_RECV		GUNYAH_HYPERCALL(0x801C)
 #define GUNYAH_HYPERCALL_ADDRSPACE_MAP		GUNYAH_HYPERCALL(0x802B)
 #define GUNYAH_HYPERCALL_ADDRSPACE_UNMAP	GUNYAH_HYPERCALL(0x802C)
+#define GUNYAH_HYPERCALL_ADDRSPACE_CONFIG_VMMIO_RANGE	GUNYAH_HYPERCALL(0x8060)
 #define GUNYAH_HYPERCALL_MEMEXTENT_DONATE	GUNYAH_HYPERCALL(0x8061)
 #define GUNYAH_HYPERCALL_VCPU_RUN		GUNYAH_HYPERCALL(0x8065)
 #define GUNYAH_HYPERCALL_ADDRSPC_MODIFY_PAGES	GUNYAH_HYPERCALL(0x8069)
@@ -80,6 +81,34 @@ enum gunyah_error gunyah_hypercall_addrspc_modify_pages(u64 capid, u64 addr,
 	return res.a0;
 }
 EXPORT_SYMBOL_GPL(gunyah_hypercall_addrspc_modify_pages);
+
+/**
+ * gunyah_hypercall_addrspc_configure_vmmio_range() - Configure virtual MMIO device regions for
+ *                                                    the address space.
+ * @capid: Address space capability ID
+ * @base: Base guest address of MMIO region
+ * @size: Size of the MMIO region
+ * @op: Map or Unmap
+ */
+enum gunyah_error gunyah_hypercall_addrspc_configure_vmmio_range(u64 capid, u64 base,
+						    u64 size, u64 op)
+{
+	struct arm_smccc_1_2_regs args = {
+		.a0 = GUNYAH_HYPERCALL_ADDRSPACE_CONFIG_VMMIO_RANGE,
+		.a1 = capid,
+		.a2 = base,
+		.a3 = size,
+		.a4 = op,
+		/* Reserved. Must be 0 */
+		.a5 = 0,
+	};
+	struct arm_smccc_1_2_regs res;
+
+	arm_smccc_1_2_hvc(&args, &res);
+
+	return res.a0;
+}
+EXPORT_SYMBOL_GPL(gunyah_hypercall_addrspc_configure_vmmio_range);
 
 /**
  * gunyah_hypercall_bell_send() - Assert a gunyah doorbell

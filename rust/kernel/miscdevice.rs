@@ -20,12 +20,7 @@ use crate::{
     str::CStr,
     types::{AsBytes, ForeignOwnable, Opaque},
 };
-use core::{
-    marker::PhantomData,
-    mem::MaybeUninit,
-    pin::Pin,
-    ptr::NonNull,
-};
+use core::{marker::PhantomData, mem::MaybeUninit, pin::Pin, ptr::NonNull};
 
 /// The kernel `loff_t` type.
 #[allow(non_camel_case_types)]

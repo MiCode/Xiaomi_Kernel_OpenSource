@@ -263,7 +263,7 @@ SYM_CODE_START(__bp_harden_hyp_vecs)
 	.org 1b
 SYM_CODE_END(__bp_harden_hyp_vecs)
 
-#if defined(__KVM_NVHE_HYPERVISOR__) && defined(CONFIG_PROTECTED_NVHE_FTRACE)
+#if defined(__KVM_NVHE_HYPERVISOR__) && defined(CONFIG_PKVM_FTRACE)
 SYM_FUNC_START(__hyp_ftrace_tramp)
 	stp	x0,  x1,	[sp, #-16]!
 	stp	x2,  x3, 	[sp, #-16]!

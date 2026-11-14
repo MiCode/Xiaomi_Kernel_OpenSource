@@ -158,15 +158,13 @@ static int kvm_arm_smmu_domain_finalize(struct kvm_arm_smmu_domain *kvm_smmu_dom
 	if (kvm_smmu_domain->smmu)
 		return 0;
 
-	kvm_smmu_domain->smmu = smmu;
-
 	if (kvm_smmu_domain->domain.type == IOMMU_DOMAIN_IDENTITY) {
 		kvm_smmu_domain->id = KVM_IOMMU_DOMAIN_IDMAP_ID;
 		/*
 		 * Identity domains doesn't use the DMA API, so no need to
 		 * set the  domain aperture.
 		 */
-		return 0;
+		goto out;
 	}
 
 	/* Default to stage-1. */
@@ -224,7 +222,9 @@ static int kvm_arm_smmu_domain_finalize(struct kvm_arm_smmu_domain *kvm_smmu_dom
 		return ret;
 	}
 
-	return 0;
+out:
+	kvm_smmu_domain->smmu = smmu;
+	return ret;
 }
 
 static void kvm_arm_smmu_domain_free(struct iommu_domain *domain)

@@ -101,7 +101,7 @@ static const char *hyp_printk_fmt_from_id(u8 fmt_id)
 	return fmt ? fmt->fmt : "Unknown Format";
 }
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 extern unsigned long __hyp_patchable_function_entries_start[];
 extern unsigned long __hyp_patchable_function_entries_end[];
 extern unsigned long kvm_nvhe_sym(__hyp_text_start_kern);
@@ -835,7 +835,7 @@ void hyp_trace_init_event_tracefs(struct dentry *parent)
 {
 	int nr_events = nr_entries(__hyp_events_start, __hyp_events_end);
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 	tracefs_create_file("set_ftrace_filter", 0600, parent, (void *)true,
 			    &hyp_ftrace_filter_fops);
 	tracefs_create_file("set_ftrace_notrace", 0200, parent, (void *)false,

@@ -41,7 +41,7 @@
  */
 #define IPR_NUM_BASE_CMD_BLKS			(ioa_cfg->max_cmds)
 
-#define PCI_DEVICE_ID_IBM_OBSIDIAN_E	0x0339
+#define PCI_DEVICE_ID_IBM_TANZANITE_E	0x0339
 
 #define PCI_DEVICE_ID_IBM_CROC_FPGA_E2          0x033D
 #define PCI_DEVICE_ID_IBM_CROCODILE             0x034A

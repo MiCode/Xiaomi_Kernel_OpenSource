@@ -30,6 +30,7 @@
 #include <asm/kvm_hypevents.h>
 #include <asm/kvm_pkvm.h>
 #include <kvm/arm_hypercalls.h>
+#include <asm/virt.h>
 
 #include <nvhe/arm-smccc.h>
 #include <nvhe/alloc.h>
@@ -41,6 +42,16 @@
 #include <nvhe/spinlock.h>
 
 #define VM_FFA_SUPPORTED(vcpu)		((vcpu)->kvm->arch.pkvm.ffa_support)
+#define FFA_INVALID_SPM_HANDLE		(BIT(63) - 1)
+
+/* The maximum number of secure partitions that can register for VM availability */
+#define FFA_MAX_VM_AVAIL_SPS	(8)
+#define FFA_VM_AVAIL_SPS_OOM	(-2)
+
+#define FFA_PART_VM_AVAIL_MASK (FFA_PARTITION_DIRECT_RECV |\
+				FFA_PARTITION_HYP_CREATE_VM |\
+				FFA_PARTITION_HYP_DESTROY_VM)
+#define FFA_PART_SUPPORTS_VM_AVAIL (FFA_PART_VM_AVAIL_MASK)
 
 /*
  * A buffer to hold the maximum descriptor size we can see from the host,
@@ -60,6 +71,11 @@ struct ffa_translation {
 	phys_addr_t pa;
 };
 
+struct ffa_handle {
+	u64	handle: 63;
+	u64	is_lend: 1;
+};
+
 /*
  * Note that we don't currently lock these buffers explicitly, instead
  * relying on the locking of the hyp FFA buffers.
@@ -68,9 +84,24 @@ static struct kvm_ffa_buffers hyp_buffers;
 static struct kvm_ffa_buffers host_buffers;
 static u32 hyp_ffa_version;
 static bool has_version_negotiated;
+static bool has_hyp_ffa_buffer_mapped;
+static bool has_host_signalled;
+
+static struct ffa_handle *spm_handles, *spm_free_handle;
+static u32 num_spm_handles;
 
 static DEFINE_HYP_SPINLOCK(version_lock);
 static DEFINE_HYP_SPINLOCK(kvm_ffa_hyp_lock);
+
+/* Secure partitions that can receive VM availability messages */
+struct kvm_ffa_vm_avail_sp {
+	u16 sp_id;
+	bool wants_create;
+	bool wants_destroy;
+};
+
+static struct kvm_ffa_vm_avail_sp vm_avail_sps[FFA_MAX_VM_AVAIL_SPS];
+static int num_vm_avail_sps = -1;
 
 static struct kvm_ffa_buffers *ffa_get_buffers(struct pkvm_hyp_vcpu *hyp_vcpu)
 {
@@ -78,6 +109,57 @@ static struct kvm_ffa_buffers *ffa_get_buffers(struct pkvm_hyp_vcpu *hyp_vcpu)
 		return &host_buffers;
 
 	return &pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu)->ffa_buf;
+}
+
+DECLARE_STATIC_KEY_FALSE(kvm_ffa_unmap_on_lend);
+
+static int ffa_host_store_handle(u64 ffa_handle, bool is_lend)
+{
+	u32 i;
+	struct ffa_handle *free_handle = NULL;
+
+	if (!static_branch_unlikely(&kvm_ffa_unmap_on_lend))
+		return 0;
+
+	if (spm_free_handle >= spm_handles &&
+	    spm_free_handle < (spm_handles + num_spm_handles)) {
+		free_handle = spm_free_handle;
+	} else {
+		for (i = 0; i < num_spm_handles; i++)
+			if (spm_handles[i].handle == FFA_INVALID_SPM_HANDLE)
+				break;
+
+		if (i == num_spm_handles)
+			return -ENOSPC;
+
+		free_handle = &spm_handles[i];
+	}
+
+	free_handle->handle = ffa_handle;
+	free_handle->is_lend = is_lend;
+	return 0;
+}
+
+static struct ffa_handle *ffa_host_get_handle(u64 ffa_handle)
+{
+	u32 i;
+
+	for (i = 0; i < num_spm_handles; i++)
+		if (spm_handles[i].handle == ffa_handle)
+			return &spm_handles[i];
+	return NULL;
+}
+
+static int ffa_host_clear_handle(u64 ffa_handle)
+{
+	struct ffa_handle *entry = ffa_host_get_handle(ffa_handle);
+
+	if (!entry)
+		return -EINVAL;
+
+	entry->handle = FFA_INVALID_SPM_HANDLE;
+	spm_free_handle = entry;
+	return 0;
 }
 
 static void ffa_to_smccc_error(struct arm_smccc_res *res, u64 ffa_errno)
@@ -116,12 +198,27 @@ static int ffa_map_hyp_buffers(u64 ffa_page_count)
 {
 	struct arm_smccc_res res;
 
+	/*
+	 * Ensure that the read of `has_hyp_ffa_buffer_mapped` is visible
+	 * to other CPUs before proceeding.
+	 */
+	if (smp_load_acquire(&has_hyp_ffa_buffer_mapped))
+		return 0;
+
 	arm_smccc_1_1_smc(FFA_FN64_RXTX_MAP,
 			  hyp_virt_to_phys(hyp_buffers.tx),
 			  hyp_virt_to_phys(hyp_buffers.rx),
 			  ffa_page_count,
 			  0, 0, 0, 0,
 			  &res);
+	if (res.a0 != FFA_SUCCESS)
+		return res.a2;
+
+	/*
+	 * Ensure that the write to `has_hyp_ffa_buffer_mapped` is visible
+	 * to other CPUs after the previous operations.
+	 */
+	smp_store_release(&has_hyp_ffa_buffer_mapped, true);
 
 	return res.a0 == FFA_SUCCESS ? FFA_RET_SUCCESS : res.a2;
 }
@@ -130,12 +227,27 @@ static int ffa_unmap_hyp_buffers(void)
 {
 	struct arm_smccc_res res;
 
+	/*
+	 * Ensure that the read of `has_hyp_ffa_buffer_mapped` is visible
+	 * to other CPUs before proceeding.
+	 */
+	if (!smp_load_acquire(&has_hyp_ffa_buffer_mapped))
+		return 0;
+
 	arm_smccc_1_1_smc(FFA_RXTX_UNMAP,
 			  HOST_FFA_ID,
 			  0, 0, 0, 0, 0, 0,
 			  &res);
+	if (res.a0 != FFA_SUCCESS)
+		return res.a2;
 
-	return res.a0 == FFA_SUCCESS ? FFA_RET_SUCCESS : res.a2;
+	/*
+	 * Ensure that the write to `has_hyp_ffa_buffer_mapped` is visible
+	 * to other CPUs after the previous operations.
+	 */
+	smp_store_release(&has_hyp_ffa_buffer_mapped, false);
+
+	return FFA_RET_SUCCESS;
 }
 
 static void ffa_mem_frag_tx(struct arm_smccc_res *res, u32 handle_lo,
@@ -187,6 +299,156 @@ static void ffa_rx_release(struct arm_smccc_res *res)
 			  0, 0,
 			  0, 0, 0, 0, 0,
 			  res);
+}
+
+static int parse_vm_availability_resp(u32 partition_sz, u32 count)
+{
+	struct ffa_partition_info *part;
+	u32 i, j, off;
+	bool supports_direct_recv, wants_create, wants_destroy;
+
+	if (num_vm_avail_sps >= 0)
+		return FFA_RET_SUCCESS;
+	if (num_vm_avail_sps == FFA_VM_AVAIL_SPS_OOM)
+		return FFA_RET_NO_MEMORY;
+
+	num_vm_avail_sps = 0;
+	for (i = 0; i < count; i++) {
+		if (check_mul_overflow(i, partition_sz, &off))
+			return FFA_RET_INVALID_PARAMETERS;
+
+		if (off >= KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE)
+			return FFA_RET_INVALID_PARAMETERS;
+
+		part = hyp_buffers.rx + off;
+		supports_direct_recv = part->properties & FFA_PARTITION_DIRECT_RECV;
+		wants_create = part->properties & FFA_PARTITION_HYP_CREATE_VM;
+		wants_destroy = part->properties & FFA_PARTITION_HYP_DESTROY_VM;
+
+		if (supports_direct_recv && (wants_create || wants_destroy)) {
+			/* Check for duplicate SP IDs */
+			for (j = 0; j < num_vm_avail_sps; j++)
+				if (vm_avail_sps[j].sp_id == part->id)
+					break;
+
+			if (j == num_vm_avail_sps) {
+				if (num_vm_avail_sps >= FFA_MAX_VM_AVAIL_SPS) {
+					/* We ran out of space in the array */
+					num_vm_avail_sps = FFA_VM_AVAIL_SPS_OOM;
+					return FFA_RET_NO_MEMORY;
+				}
+
+				vm_avail_sps[num_vm_avail_sps].sp_id = part->id;
+				vm_avail_sps[num_vm_avail_sps].wants_create = wants_create;
+				vm_avail_sps[num_vm_avail_sps].wants_destroy = wants_destroy;
+				num_vm_avail_sps++;
+			}
+		}
+	}
+
+	return FFA_RET_SUCCESS;
+}
+
+static int kvm_notify_vm_availability(uint16_t vm_handle, struct kvm_ffa_buffers *ffa_buf,
+				      u32 availability_msg)
+{
+	int i;
+	struct arm_smccc_res res;
+	u64 avail_bit = availability_msg != FFA_VM_DESTRUCTION_MSG;
+
+	for (i = 0; i < num_vm_avail_sps; i++) {
+		u64 sp_mask = 1UL << i;
+		u64 avail_value = avail_bit << i;
+		uint32_t dest = ((uint32_t)vm_avail_sps[i].sp_id << 16) | hyp_smp_processor_id();
+
+		if ((ffa_buf->vm_avail_bitmap & sp_mask) == avail_value &&
+		    !(ffa_buf->vm_creating_bitmap & sp_mask))
+			continue;
+
+		if (avail_bit && !vm_avail_sps[i].wants_create) {
+			/*
+			 * The SP did not ask for creation messages,
+			 * so just mark this VM as available and
+			 * continue
+			 */
+			ffa_buf->vm_avail_bitmap |= avail_value;
+			continue;
+		} else if (!avail_bit && !vm_avail_sps[i].wants_destroy) {
+			/*
+			 * The SP did not ask for destruction messages,
+			 * so just mark this VM as not available and
+			 * continue
+			 */
+			ffa_buf->vm_avail_bitmap &= ~sp_mask;
+			continue;
+		}
+
+		/*
+		 * Give the SP some cycles in advance,
+		 * in case it got interrupted the last time.
+		 *
+		 * Some TEEs return NOT_SUPPORTED instead.
+		 * If that happens, ignore the error and continue.
+		 */
+		arm_smccc_1_1_smc(FFA_RUN, dest, 0, 0, 0, 0, 0, 0, &res);
+		if (res.a0 == FFA_ERROR && (int)res.a2 != FFA_RET_NOT_SUPPORTED)
+			return ffa_to_linux_errno(res.a2);
+		else if (res.a0 == FFA_INTERRUPT)
+			return -EINTR;
+
+		if (availability_msg == FFA_VM_DESTRUCTION_MSG &&
+		    (ffa_buf->vm_creating_bitmap & sp_mask)) {
+			/*
+			 * If we sent the initial creation message for this VM
+			 * but never got the success response from the TEE, we
+			 * need to keep trying to create it until it works.
+			 * Otherwise we cannot destroy it.
+			 *
+			 * TODO: this is not triggered for SPs that requested only
+			 * creation messages (but not destruction). In that case,
+			 * we will never retry the creation message, and the SP
+			 * will probably leak its state for the pending VM.
+			 */
+			arm_smccc_1_1_smc(FFA_MSG_SEND_DIRECT_REQ, vm_avail_sps[i].sp_id,
+					  FFA_VM_CREATION_MSG, HANDLE_LOW(FFA_INVALID_HANDLE),
+					  HANDLE_HIGH(FFA_INVALID_HANDLE), vm_handle, 0, 0,
+					  &res);
+
+			if (res.a0 != FFA_MSG_SEND_DIRECT_RESP)
+				return -EINVAL;
+			if (res.a3 != FFA_RET_SUCCESS)
+				return ffa_to_linux_errno(res.a3);
+
+			/* Creation completed successfully, clear the flag */
+			ffa_buf->vm_creating_bitmap &= ~sp_mask;
+		}
+
+		arm_smccc_1_1_smc(FFA_MSG_SEND_DIRECT_REQ, vm_avail_sps[i].sp_id,
+				  availability_msg, HANDLE_LOW(FFA_INVALID_HANDLE),
+				  HANDLE_HIGH(FFA_INVALID_HANDLE), vm_handle, 0, 0,
+				  &res);
+		if (res.a0 != FFA_MSG_SEND_DIRECT_RESP)
+			return -EINVAL;
+
+		switch ((int)res.a3) {
+		case FFA_RET_SUCCESS:
+			ffa_buf->vm_avail_bitmap &= ~sp_mask;
+			ffa_buf->vm_avail_bitmap |= avail_value;
+			ffa_buf->vm_creating_bitmap &= ~sp_mask;
+			break;
+
+		case FFA_RET_INTERRUPTED:
+		case FFA_RET_RETRY:
+			if (availability_msg == FFA_VM_CREATION_MSG)
+				ffa_buf->vm_creating_bitmap |= sp_mask;
+
+			fallthrough;
+		default:
+			return ffa_to_linux_errno(res.a3);
+		}
+	}
+
+	return 0;
 }
 
 static void do_ffa_rxtx_map(struct arm_smccc_res *res,
@@ -372,9 +634,10 @@ out:
 }
 
 static u32 __ffa_host_share_ranges(struct ffa_mem_region_addr_range *ranges,
-				   u32 nranges)
+				   u32 nranges, bool is_lend)
 {
 	u32 i;
+	int ret;
 
 	for (i = 0; i < nranges; ++i) {
 		struct ffa_mem_region_addr_range *range = &ranges[i];
@@ -384,17 +647,27 @@ static u32 __ffa_host_share_ranges(struct ffa_mem_region_addr_range *ranges,
 		if (!PAGE_ALIGNED(sz))
 			break;
 
-		if (__pkvm_host_share_ffa(pfn, sz / PAGE_SIZE))
+		if (static_branch_unlikely(&kvm_ffa_unmap_on_lend) && is_lend)
+			ret = __pkvm_host_donate_ffa(pfn, sz / PAGE_SIZE);
+		else
+			ret = __pkvm_host_share_ffa(pfn, sz / PAGE_SIZE);
+		if (ret)
 			break;
 	}
 
 	return i;
 }
 
+/*
+ * Verify if the page is lent on shared and unshare it with FF-A.
+ * On success, return the number of *unshared* pages and store in the
+ * is_lend argument whether the range was shared or lent.
+ */
 static u32 __ffa_host_unshare_ranges(struct ffa_mem_region_addr_range *ranges,
-				     u32 nranges)
+				     u32 nranges, bool is_lend)
 {
 	u32 i;
+	int ret;
 
 	for (i = 0; i < nranges; ++i) {
 		struct ffa_mem_region_addr_range *range = &ranges[i];
@@ -404,7 +677,12 @@ static u32 __ffa_host_unshare_ranges(struct ffa_mem_region_addr_range *ranges,
 		if (!PAGE_ALIGNED(sz))
 			break;
 
-		if (__pkvm_host_unshare_ffa(pfn, sz / PAGE_SIZE))
+		if (static_branch_unlikely(&kvm_ffa_unmap_on_lend) && is_lend)
+			ret = __pkvm_host_reclaim_ffa(pfn, sz / PAGE_SIZE);
+		else
+
+			ret = __pkvm_host_unshare_ffa(pfn, sz / PAGE_SIZE);
+		if (ret)
 			break;
 	}
 
@@ -489,13 +767,13 @@ unshare:
 }
 
 static int ffa_host_share_ranges(struct ffa_mem_region_addr_range *ranges,
-				 u32 nranges)
+				 u32 nranges, bool is_lend)
 {
-	u32 nshared = __ffa_host_share_ranges(ranges, nranges);
+	u32 nshared = __ffa_host_share_ranges(ranges, nranges, is_lend);
 	int ret = 0;
 
 	if (nshared != nranges) {
-		WARN_ON(__ffa_host_unshare_ranges(ranges, nshared) != nshared);
+		WARN_ON(__ffa_host_unshare_ranges(ranges, nshared, is_lend) != nshared);
 		ret = -EACCES;
 	}
 
@@ -503,13 +781,13 @@ static int ffa_host_share_ranges(struct ffa_mem_region_addr_range *ranges,
 }
 
 static int ffa_host_unshare_ranges(struct ffa_mem_region_addr_range *ranges,
-				   u32 nranges)
+				   u32 nranges, bool is_lend)
 {
-	u32 nunshared = __ffa_host_unshare_ranges(ranges, nranges);
 	int ret = 0;
+	u32 nunshared = __ffa_host_unshare_ranges(ranges, nranges, is_lend);
 
 	if (nunshared != nranges) {
-		WARN_ON(__ffa_host_share_ranges(ranges, nunshared) != nunshared);
+		WARN_ON(__ffa_host_share_ranges(ranges, nunshared, is_lend) != nunshared);
 		ret = -EACCES;
 	}
 
@@ -528,6 +806,9 @@ static void do_ffa_mem_frag_tx(struct arm_smccc_res *res,
 	int ret = FFA_RET_INVALID_PARAMETERS;
 	u32 nr_ranges;
 	struct kvm_ffa_buffers *ffa_buf;
+	bool is_lend = false;
+	u64 host_handle = PACK_HANDLE(handle_lo, handle_hi);
+	struct ffa_handle *entry;
 
 	if (fraglen > KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE)
 		goto out;
@@ -544,7 +825,17 @@ static void do_ffa_mem_frag_tx(struct arm_smccc_res *res,
 	memcpy(buf, ffa_buf->tx, fraglen);
 	nr_ranges = fraglen / sizeof(*buf);
 
-	ret = ffa_host_share_ranges(buf, nr_ranges);
+	if (static_branch_unlikely(&kvm_ffa_unmap_on_lend)) {
+		entry = ffa_host_get_handle(host_handle);
+		if (!entry) {
+			ffa_to_smccc_error(res, FFA_RET_INVALID_PARAMETERS);
+			goto out_unlock;
+		}
+
+		is_lend = entry->is_lend;
+	}
+
+	ret = ffa_host_share_ranges(buf, nr_ranges, is_lend);
 	if (ret) {
 		/*
 		 * We're effectively aborting the transaction, so we need
@@ -558,7 +849,7 @@ static void do_ffa_mem_frag_tx(struct arm_smccc_res *res,
 
 	ffa_mem_frag_tx(res, handle_lo, handle_hi, fraglen, endpoint_id);
 	if (res->a0 != FFA_SUCCESS && res->a0 != FFA_MEM_FRAG_RX)
-		WARN_ON(ffa_host_unshare_ranges(buf, nr_ranges));
+		WARN_ON(ffa_host_unshare_ranges(buf, nr_ranges, is_lend));
 
 out_unlock:
 	hyp_spin_unlock(&kvm_ffa_hyp_lock);
@@ -609,6 +900,8 @@ static int __do_ffa_mem_xfer(const u64 func_id,
 	u32 offset, nr_ranges;
 	int ret = 0;
 	struct ffa_mem_transfer *transfer = NULL;
+	u64 ffa_handle;
+	bool is_lend = func_id == FFA_FN64_MEM_LEND;
 
 	if (addr_mbz || npages_mbz || fraglen > len ||
 	    fraglen > KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) {
@@ -705,7 +998,7 @@ static int __do_ffa_mem_xfer(const u64 func_id,
 			       temp_reg->addr_range_cnt * sizeof(struct ffa_mem_region_addr_range));
 		}
 	} else
-		ret = ffa_host_share_ranges(reg->constituents, nr_ranges);
+		ret = ffa_host_share_ranges(reg->constituents, nr_ranges, is_lend);
 	if (ret)
 		goto out_unlock;
 
@@ -716,15 +1009,22 @@ static int __do_ffa_mem_xfer(const u64 func_id,
 
 		if (res->a3 != fraglen)
 			goto err_unshare;
-	} else if (res->a0 != FFA_SUCCESS) {
+
+		ffa_handle = PACK_HANDLE(res->a1, res->a2);
+	} else if (res->a0 == FFA_SUCCESS) {
+		ffa_handle = PACK_HANDLE(res->a2, res->a3);
+	} else {
 		goto err_unshare;
 	}
 
 	if (hyp_vcpu && transfer) {
-		transfer->ffa_handle = PACK_HANDLE(res->a2, res->a3);
+		transfer->ffa_handle = ffa_handle;
 		list_add(&transfer->node, &ffa_buf->xfer_list);
+	} else if (!hyp_vcpu) {
+		ret = ffa_host_store_handle(ffa_handle, is_lend);
+		if (ret)
+			goto err_unshare;
 	}
-
 	hyp_spin_unlock(&kvm_ffa_hyp_lock);
 	return 0;
 out_unlock:
@@ -738,7 +1038,7 @@ err_unshare:
 	if (hyp_vcpu)
 		ffa_guest_unshare_ranges(hyp_vcpu, transfer);
 	else
-		WARN_ON(ffa_host_unshare_ranges(reg->constituents, nr_ranges));
+		WARN_ON(ffa_host_unshare_ranges(reg->constituents, nr_ranges, is_lend));
 	goto out_unlock;
 }
 
@@ -773,6 +1073,8 @@ static void do_ffa_mem_reclaim(struct arm_smccc_res *res,
 	u64 handle;
 	struct ffa_mem_transfer *transfer = NULL;
 	struct kvm_ffa_buffers *ffa_buf;
+	struct ffa_handle *entry;
+	bool is_lend = false;
 
 	handle = PACK_HANDLE(handle_lo, handle_hi);
 
@@ -791,6 +1093,16 @@ static void do_ffa_mem_reclaim(struct arm_smccc_res *res,
 
 		/* Prevent the host from replicating a transfer handle used by the guest */
 		WARN_ON(transfer);
+
+		if (static_branch_unlikely(&kvm_ffa_unmap_on_lend)) {
+			entry = ffa_host_get_handle(handle);
+			if (!entry) {
+				ret = FFA_RET_INVALID_PARAMETERS;
+				goto out_unlock;
+			}
+
+			is_lend = entry->is_lend;
+		}
 	}
 
 	buf = hyp_buffers.tx;
@@ -854,7 +1166,9 @@ out_reclaim:
 	else {
 		reg = (void *)buf + offset;
 		WARN_ON(ffa_host_unshare_ranges(reg->constituents,
-						reg->addr_range_cnt));
+						reg->addr_range_cnt, is_lend));
+		if (static_branch_unlikely(&kvm_ffa_unmap_on_lend))
+			ffa_host_clear_handle(handle);
 	}
 
 	if (transfer) {
@@ -938,6 +1252,7 @@ static void do_ffa_guest_features(struct arm_smccc_res *res, struct kvm_cpu_cont
 	case FFA_FN64_MEM_SHARE:
 	case FFA_MEM_LEND:
 	case FFA_FN64_MEM_LEND:
+	case FFA_RX_RELEASE:
 		ret = FFA_RET_SUCCESS;
 		goto out_handled;
 	case FFA_RXTX_MAP:
@@ -959,6 +1274,48 @@ static void do_ffa_guest_features(struct arm_smccc_res *res, struct kvm_cpu_cont
 
 out_handled:
 	ffa_to_smccc_res_prop(res, ret, prop);
+}
+
+static void do_ffa_part_get_response(struct arm_smccc_res *res,
+				     u32 uuid0, u32 uuid1, u32 uuid2,
+				     u32 uuid3, u32 flags, struct kvm_ffa_buffers *ffa_buf)
+{
+	int ret;
+	u32 count, partition_sz, copy_sz;
+
+	arm_smccc_1_1_smc(FFA_PARTITION_INFO_GET, uuid0, uuid1,
+			  uuid2, uuid3, flags, 0, 0,
+			  res);
+
+	if (res->a0 != FFA_SUCCESS)
+		return;
+
+	count = res->a2;
+	if (!count)
+		return;
+
+	if (hyp_ffa_version > FFA_VERSION_1_0) {
+		/* Get the number of partitions deployed in the system */
+		if (flags & 0x1)
+			return;
+
+		partition_sz  = res->a3;
+	} else
+		/* FFA_VERSION_1_0 lacks the size in the response */
+		partition_sz = FFA_1_0_PARTITON_INFO_SZ;
+
+	copy_sz = partition_sz * count;
+	if (copy_sz > KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) {
+		ffa_to_smccc_res(res, FFA_RET_ABORTED);
+		return;
+	}
+
+	ret = parse_vm_availability_resp(partition_sz, count);
+	if (ret)
+		ffa_to_smccc_res(res, ret);
+
+	if (ffa_buf)
+		memcpy(ffa_buf->rx, hyp_buffers.rx, copy_sz);
 }
 
 static int hyp_ffa_post_init(void)
@@ -1010,7 +1367,10 @@ static void do_ffa_version(struct arm_smccc_res *res,
 
 	hyp_spin_lock(&version_lock);
 	if (has_version_negotiated) {
-		res->a0 = hyp_ffa_version;
+		if (FFA_MINOR_VERSION(ffa_req_version) < FFA_MINOR_VERSION(hyp_ffa_version))
+			res->a0 = FFA_RET_NOT_SUPPORTED;
+		else
+			res->a0 = hyp_ffa_version;
 		goto unlock;
 	}
 
@@ -1031,6 +1391,10 @@ static void do_ffa_version(struct arm_smccc_res *res,
 	if (hyp_ffa_post_init()) {
 		res->a0 = FFA_RET_NOT_SUPPORTED;
 	} else {
+		/*
+		 * Ensure that the write to `has_version_negotiated` is visible
+		 * to other CPUs after the previous operations.
+		 */
 		smp_store_release(&has_version_negotiated, true);
 		res->a0 = hyp_ffa_version;
 	}
@@ -1065,7 +1429,6 @@ static void do_ffa_part_get(struct arm_smccc_res *res,
 	DECLARE_REG(u32, uuid2, ctxt, 3);
 	DECLARE_REG(u32, uuid3, ctxt, 4);
 	DECLARE_REG(u32, flags, ctxt, 5);
-	u32 count, partition_sz, copy_sz;
 	struct kvm_ffa_buffers *ffa_buf;
 
 	hyp_spin_lock(&kvm_ffa_hyp_lock);
@@ -1075,35 +1438,7 @@ static void do_ffa_part_get(struct arm_smccc_res *res,
 		goto out_unlock;
 	}
 
-	arm_smccc_1_1_smc(FFA_PARTITION_INFO_GET, uuid0, uuid1,
-			  uuid2, uuid3, flags, 0, 0,
-			  res);
-
-	if (res->a0 != FFA_SUCCESS)
-		goto out_unlock;
-
-	count = res->a2;
-	if (!count)
-		goto out_unlock;
-
-	if (hyp_ffa_version > FFA_VERSION_1_0) {
-		/* Get the number of partitions deployed in the system */
-		if (flags & 0x1)
-			goto out_unlock;
-
-		partition_sz  = res->a3;
-	} else {
-		/* FFA_VERSION_1_0 lacks the size in the response */
-		partition_sz = FFA_1_0_PARTITON_INFO_SZ;
-	}
-
-	copy_sz = partition_sz * count;
-	if (copy_sz > KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) {
-		ffa_to_smccc_res(res, FFA_RET_ABORTED);
-		goto out_unlock;
-	}
-
-	memcpy(ffa_buf->rx, hyp_buffers.rx, copy_sz);
+	do_ffa_part_get_response(res, uuid0, uuid1, uuid2, uuid3, flags, ffa_buf);
 out_unlock:
 	hyp_spin_unlock(&kvm_ffa_hyp_lock);
 }
@@ -1111,52 +1446,49 @@ out_unlock:
 static void do_ffa_direct_msg(struct kvm_cpu_context *ctxt,
 			      u64 vm_handle)
 {
-	DECLARE_REG(u32, func_id, ctxt, 0);
 	DECLARE_REG(u32, endp, ctxt, 1);
-	DECLARE_REG(u32, msg_flags, ctxt, 2);
-	DECLARE_REG(u32, w3, ctxt, 3);
-	DECLARE_REG(u32, w4, ctxt, 4);
-	DECLARE_REG(u32, w5, ctxt, 5);
-	DECLARE_REG(u32, w6, ctxt, 6);
-	DECLARE_REG(u32, w7, ctxt, 7);
 
-	struct arm_smccc_1_2_regs req, resp;
+	struct arm_smccc_1_2_regs *reg = (void *)&ctxt->regs.regs[0];
 
 	if (FIELD_GET(FFA_SRC_ENDPOINT_MASK, endp) != vm_handle) {
-		resp = (struct arm_smccc_1_2_regs) {
-			.a0	= FFA_ERROR,
-			.a2	= FFA_RET_INVALID_PARAMETERS,
-		};
+		struct arm_smccc_res res;
+
+		ffa_to_smccc_error(&res, FFA_RET_INVALID_PARAMETERS);
+		ffa_set_retval(ctxt, &res);
 		return;
 	}
 
-	req = (struct arm_smccc_1_2_regs) {
-		.a0	= func_id,
-		.a1	= endp,
-		.a2	= msg_flags,
-		.a3	= w3,
-		.a4	= w4,
-		.a5	= w5,
-		.a6	= w6,
-		.a7	= w7,
-	};
+	__hyp_exit();
+	arm_smccc_1_2_smc(reg, reg);
+	__hyp_enter();
+}
+
+static int kvm_host_ffa_signal_availability(void)
+{
+	int ret;
+	struct arm_smccc_res res;
 
 	/*
-	 * In case SMCCC 1.2 is not supported we should preserve the
-	 * host registers.
+	 * Map our hypervisor buffers into the SPMD before mapping and
+	 * pinning the host buffers in our own address space.
 	 */
-	memcpy(&resp, &ctxt->regs.regs[0], sizeof(resp));
+	ret = ffa_map_hyp_buffers((KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) / FFA_PAGE_SIZE);
+	if (ret)
+		return ffa_to_linux_errno(ret);
 
-	__hyp_exit();
-	arm_smccc_1_2_smc(&req, &resp);
-	__hyp_enter();
+	do_ffa_part_get_response(&res, 0, 0, 0, 0, 0, NULL);
+	if (res.a0 != FFA_SUCCESS)
+		return ffa_to_linux_errno(ret);
 
-	memcpy(&ctxt->regs.regs[0], &resp, sizeof(resp));
+	ffa_rx_release(&res);
+
+	return kvm_notify_vm_availability(HOST_FFA_ID, &host_buffers, FFA_VM_CREATION_MSG);
 }
 
 bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
 {
 	struct arm_smccc_res res;
+	int ret;
 
 	/*
 	 * There's no way we can tell what a non-standard SMC call might
@@ -1178,6 +1510,34 @@ bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
 	    !smp_load_acquire(&has_version_negotiated)) {
 		ffa_to_smccc_error(&res, FFA_RET_INVALID_PARAMETERS);
 		goto out_handled;
+	}
+
+	/*
+	 * Notify TZ of host VM creation immediately
+	 * before handling the first non-version SMC/HVC
+	 */
+	if (func_id != FFA_VERSION && !has_host_signalled) {
+		ret = kvm_host_ffa_signal_availability();
+		if (!ret)
+			/*
+			 * Ensure that the write to `has_host_signalled` is visible
+			 * to other CPUs after the previous operations.
+			 */
+			has_host_signalled = true;
+		else if (ret == -EAGAIN || ret == -EINTR) {
+			/*
+			 * Don't retry with interrupts masked as we will spin
+			 * forever.
+			 */
+			if (host_ctxt->regs.pstate & PSR_I_BIT) {
+				ffa_to_smccc_error(&res, FFA_RET_DENIED);
+				goto out_handled;
+			}
+
+			/* Go back to the host and replay the last instruction */
+			write_sysreg_el2(read_sysreg_el2(SYS_ELR) - 4, SYS_ELR);
+			return true;
+		}
 	}
 
 	switch (func_id) {
@@ -1396,6 +1756,18 @@ unlock:
 	return ret;
 }
 
+int kvm_guest_notify_availability(u32 ffa_handle, struct kvm_ffa_buffers *ffa_buf, bool is_dying)
+{
+	int ret;
+
+	hyp_spin_lock(&kvm_ffa_hyp_lock);
+	ret = kvm_notify_vm_availability(ffa_handle, ffa_buf,
+					 is_dying ? FFA_VM_DESTRUCTION_MSG : FFA_VM_CREATION_MSG);
+	hyp_spin_unlock(&kvm_ffa_hyp_lock);
+
+	return ret;
+}
+
 u32 ffa_get_hypervisor_version(void)
 {
 	u32 version = 0;
@@ -1445,6 +1817,14 @@ int hyp_ffa_init(void *pages)
 	pages += KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE;
 	rx = pages;
 	pages += KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE;
+
+	if (static_branch_unlikely(&kvm_ffa_unmap_on_lend)) {
+		spm_handles = pages;
+		pages += KVM_FFA_SPM_HANDLE_NR_PAGES * PAGE_SIZE;
+		num_spm_handles = KVM_FFA_SPM_HANDLE_NR_PAGES * PAGE_SIZE /
+			sizeof(struct ffa_handle);
+		memset(spm_handles, -1, KVM_FFA_SPM_HANDLE_NR_PAGES * PAGE_SIZE);
+	}
 
 	ffa_desc_buf = (struct kvm_ffa_descriptor_buffer) {
 		.buf	= pages,

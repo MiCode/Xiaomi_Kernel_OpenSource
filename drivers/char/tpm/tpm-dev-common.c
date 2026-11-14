@@ -7,8 +7,8 @@
  * Reiner Sailer <sailer@watson.ibm.com>
  * Kylene Hall <kjhall@us.ibm.com>
  *
- * Copyright (C) 2013 Obsidian Research Corp
- * Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+ * Copyright (C) 2013 TANZANITE Research Corp
+ * Jason Gunthorpe <jgunthorpe@TANZANITEresearch.com>
  *
  * Device file system interface to the TPM
  */

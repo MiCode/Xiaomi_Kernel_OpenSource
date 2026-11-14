@@ -3921,9 +3921,8 @@ void __move_queued_task_locked(struct rq *src_rq, struct rq *dst_rq, struct task
 static inline
 int __task_is_pushable(struct rq *rq, struct task_struct *p, int cpu)
 {
-	if (!task_on_cpu(rq, p) &&
-	    cpumask_test_cpu(cpu, &p->cpus_mask))
-		return 1;
+	if (!task_on_cpu(rq, p))
+		return cpumask_test_cpu(cpu, &p->cpus_mask) ? 1 : -1;
 
 	return 0;
 }

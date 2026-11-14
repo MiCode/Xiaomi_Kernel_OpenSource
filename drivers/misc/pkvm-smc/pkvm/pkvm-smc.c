@@ -11,7 +11,7 @@
 
 #include "events.h"
 #define HYP_EVENT_FILE ../../../../drivers/misc/pkvm-smc/pkvm/events.h
-#include <define_events.h>
+#include <nvhe/define_events.h>
 
 const struct pkvm_module_ops *pkvm_ops;
 bool permissive;

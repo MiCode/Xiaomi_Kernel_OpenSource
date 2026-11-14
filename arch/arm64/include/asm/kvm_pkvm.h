@@ -413,7 +413,8 @@ static inline unsigned long pkvm_selftest_pages(void) { return 32; }
 static inline unsigned long pkvm_selftest_pages(void) { return 0; }
 #endif
 
-#define KVM_FFA_MBOX_NR_PAGES	1
+#define KVM_FFA_MBOX_NR_PAGES		1
+#define KVM_FFA_SPM_HANDLE_NR_PAGES	2
 
 /*
  * Maximum number of consitutents allowed in a descriptor. This number is
@@ -424,6 +425,7 @@ static inline unsigned long pkvm_selftest_pages(void) { return 0; }
 static inline unsigned long hyp_ffa_proxy_pages(void)
 {
 	size_t desc_max;
+	unsigned long num_pages;
 
 	/*
 	 * SG_MAX_SEGMENTS is supposed to bound the number of elements in an
@@ -446,7 +448,9 @@ static inline unsigned long hyp_ffa_proxy_pages(void)
 		   KVM_FFA_MAX_NR_CONSTITUENTS * sizeof(struct ffa_mem_region_addr_range);
 
 	/* Plus a page each for the hypervisor's RX and TX mailboxes. */
-	return (2 * KVM_FFA_MBOX_NR_PAGES) + DIV_ROUND_UP(desc_max, PAGE_SIZE);
+	num_pages = (2 * KVM_FFA_MBOX_NR_PAGES) + DIV_ROUND_UP(desc_max, PAGE_SIZE);
+
+	return num_pages;
 }
 
 static inline size_t pkvm_host_sve_state_size(void)
@@ -534,8 +538,7 @@ int pkvm_pgtable_stage2_relax_perms(struct kvm_pgtable *pgt, u64 addr, enum kvm_
 				    enum kvm_pgtable_walk_flags flags);
 kvm_pte_t pkvm_pgtable_stage2_mkyoung(struct kvm_pgtable *pgt, u64 addr,
 				      enum kvm_pgtable_walk_flags flags);
-int pkvm_pgtable_stage2_split(struct kvm_pgtable *pgt, u64 addr, u64 size,
-			      struct kvm_mmu_memory_cache *mc);
+int pkvm_pgtable_stage2_split(struct kvm_pgtable *pgt, u64 addr, u64 size, void *mc);
 void pkvm_pgtable_stage2_free_unlinked(struct kvm_pgtable_mm_ops *mm_ops,
 				       struct kvm_pgtable_pte_ops *pte_ops,
 				       void *pgtable, s8 level);

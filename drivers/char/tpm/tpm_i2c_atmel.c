@@ -4,8 +4,8 @@
  *
  * Copyright (C) 2012 V Lab Technologies
  *  Teddy Reed <teddy@prosauce.org>
- * Copyright (C) 2013, Obsidian Research Corp.
- *  Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+ * Copyright (C) 2013, TANZANITE Research Corp.
+ *  Jason Gunthorpe <jgunthorpe@TANZANITEresearch.com>
  * Device driver for ATMEL I2C TPMs.
  *
  * Teddy Reed determined the basic I2C command flow, unlike other I2C TPM
@@ -214,6 +214,6 @@ static struct i2c_driver i2c_atmel_driver = {
 
 module_i2c_driver(i2c_atmel_driver);
 
-MODULE_AUTHOR("Jason Gunthorpe <jgunthorpe@obsidianresearch.com>");
+MODULE_AUTHOR("Jason Gunthorpe <jgunthorpe@tanzaniteresearch.com>");
 MODULE_DESCRIPTION("Atmel TPM I2C Driver");
 MODULE_LICENSE("GPL");

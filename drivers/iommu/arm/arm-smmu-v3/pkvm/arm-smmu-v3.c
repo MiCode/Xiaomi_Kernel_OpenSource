@@ -209,8 +209,6 @@ static int smmu_build_cmd(u64 *cmd, struct arm_smmu_cmdq_ent *ent)
 static int smmu_issue_cmds(struct hyp_arm_smmu_v3_device *smmu,
 			   u64 *cmds, int n)
 {
-	int idx = Q_IDX(smmu, smmu->cmdq_prod);
-	u64 *slot = smmu->cmdq_base + idx * CMDQ_ENT_DWORDS;
 	int i;
 	int ret;
 	u32 prod;
@@ -219,8 +217,14 @@ static int smmu_issue_cmds(struct hyp_arm_smmu_v3_device *smmu,
 	if (ret)
 		return ret;
 
-	for (i = 0; i < CMDQ_ENT_DWORDS * n; i++)
-		slot[i] = cpu_to_le64(cmds[i]);
+	for (i = 0; i < n; i++) {
+		int j;
+		int idx = Q_IDX(smmu, smmu->cmdq_prod + i);
+		u64 *slot = smmu->cmdq_base + idx * CMDQ_ENT_DWORDS;
+
+		for (j = 0; j < CMDQ_ENT_DWORDS; j++)
+			slot[j] = cpu_to_le64(cmds[i * CMDQ_ENT_DWORDS + j]);
+	}
 
 	prod = (Q_WRAP(smmu, smmu->cmdq_prod) | Q_IDX(smmu, smmu->cmdq_prod)) + n;
 	smmu->cmdq_prod = Q_OVF(smmu->cmdq_prod) | Q_WRAP(smmu, prod) | Q_IDX(smmu, prod);

@@ -14,6 +14,11 @@ DECLARE_HOOK(android_vh_syscall_prctl_finished,
 DECLARE_HOOK(android_vh_security_audit_log_setid,
 	TP_PROTO(u32 type, u32 old_id, u32 new_id),
 	TP_ARGS(type, old_id, new_id));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_pr_set_vma_name_bypass,
+	TP_PROTO(struct mm_struct *mm, unsigned long addr, unsigned long size,
+		      struct anon_vma_name *anon_name, int *error, bool *bypass),
+	TP_ARGS(mm, addr, size, anon_name, error, bypass), 1);
 #endif
 
 #include <trace/define_trace.h>

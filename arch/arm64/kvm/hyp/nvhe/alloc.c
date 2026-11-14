@@ -551,7 +551,7 @@ void *hyp_alloc(size_t size)
 	unsigned long chunk_addr;
 	int missing_map, ret = 0;
 
-	size = ALIGN(size, MIN_ALLOC);
+	size = ALIGN(size ?: MIN_ALLOC, MIN_ALLOC);
 
 	hyp_spin_lock(&allocator->lock);
 
