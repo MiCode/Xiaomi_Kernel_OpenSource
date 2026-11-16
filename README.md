@@ -229,7 +229,8 @@
 | bixi-v-oss | Xiaomi MIX Flip 2 | Android V | LA.VENDOR.15.4.0.r1-10100-r1.0.r1_00025.1 |[bixi-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bixi-v-oss) |
 | violin-v-oss | Xiaomi Pad 7S Pro 12.5 | Android V | release-v-xring-O1 | [violin-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violin-v-oss) |
 | creek-v-oss | POCO M7 / Redmi 15 | Android V | Divar.LA.3.0.1 MPSS.HA.1.2-00060-KD_ALL_PACK-1 |[creek-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/creek-v-oss) |
-| dew-v-oss | REDMI 15C / POCO C85 | Android V | t-alps-release-v0.mp1.rc-V4 |[dew-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dew-v-oss) |
+| dew-v-oss | REDMI 15C / POCO C85 | Android V | t-alps-release-v0.mp1.rc-V4 | [dew-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dew-v-oss) |
+(https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dew-v-oss) |
 | bsp-klimt-v-oss | Xiaomi 15T Pro | Android V | t-alps-release-v0.mp1.rc-V12.13 |[bsp-klimt-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-klimt-v-oss) |
 | kunzite-v-oss | REDMI Note 15 SE 5G / REDMI Note 15 | Android V | LA.VENDOR.15.4.1.r1-06600-r1.0.r1_00017.0 |[kunzite-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/kunzite-v-oss) |
 | lapis-v-oss | REDMI Note 15 Pro 5G | Android V | bsp-t-alps-release-u0.mp1.tc8sp3-V1 |[lapis-v-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lapis-v-oss) |
