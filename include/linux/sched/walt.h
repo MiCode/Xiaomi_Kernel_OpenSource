@@ -37,6 +37,8 @@ enum pause_client {
 #define MAX_CPUS_PER_CLUSTER 6
 #define MAX_CLUSTERS 4
 
+
+
 struct core_ctl_notif_data {
 	unsigned int nr_big;
 	unsigned int coloc_load_pct;
@@ -68,6 +70,10 @@ struct walt_related_thread_group {
 	u64			last_update;
 	u64			downmigrate_ts;
 	u64			start_ktime_ts;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_t		rtg_prefer_cpus;
+	u64			rtg_util;
+#endif
 };
 
 struct walt_task_struct {
@@ -146,6 +152,10 @@ struct walt_task_struct {
 	int				prev_on_rq;
 	int				prev_on_rq_cpu;
 	struct list_head		mvp_list;
+//MIUI ADD: Performance_BoostFramework
+	int                             winstate;
+	void			    	*sched_assi_task_ptr;
+//END Performance_BoostFramework
 	u64				sum_exec_snapshot_for_slice;
 	u64				sum_exec_snapshot_for_total;
 	u64				total_exec;
@@ -173,7 +183,6 @@ struct walt_task_struct {
 	int				pipeline_activity_cnt;
 	atomic_t			event_windows;
 	u8				lib_app_state;
-
 };
 
 #define wts_to_ts(wts) ({ \

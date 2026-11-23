@@ -28,7 +28,7 @@ def register_modules(registry):
     )
 
     registry.register(
-        name = "drivers/i2c/busses/i2c-qcom-geni-msm.c",
+        name = "drivers/i2c/busses/i2c-qcom-geni-msm",
         out = "i2c-qcom-geni-msm.ko",
         config = "CONFIG_I2C_QCOM_GENI_MSM",
         srcs = [

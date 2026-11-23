@@ -1,0 +1,7 @@
+config POWERINSIGHT_GPU_OPP
+	tristate "xiaomi gpu opp stats"
+	default n
+
+config POWERINSIGHT_GPU_OPP_STATS
+	bool "xiaomi gpu opp stats config"
+	default n

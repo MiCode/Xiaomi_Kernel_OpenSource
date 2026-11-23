@@ -30,6 +30,18 @@ union kprobe_data {
 	struct work_struct *data;
 };
 
+static int entry_dwc3_host_exit(struct kretprobe_instance *ri,
+	struct pt_regs *regs)
+{
+	return 0;
+}
+
+static int exit_dwc3_host_exit(struct kretprobe_instance *ri,
+	struct pt_regs *regs)
+{
+	mdelay(200);
+	return 0;
+}
 static int entry_dwc3_suspend_common(struct kretprobe_instance *ri,
 				struct pt_regs *regs)
 {
@@ -368,18 +380,6 @@ static int exit_android_work(struct kretprobe_instance *ri,
 	return 0;
 }
 
-static int entry_dwc3_host_exit(struct kretprobe_instance *ri,
-				struct pt_regs *regs)
-{
-	return 0;
-}
-
-static int exit_dwc3_host_exit(struct kretprobe_instance *ri,
-				   struct pt_regs *regs)
-{
-	mdelay(200);
-	return 0;
-}
 
 
 #define ENTRY_EXIT(name) {\
@@ -404,6 +404,7 @@ static struct kretprobe dwc3_msm_probes[] = {
 	ENTRY(__dwc3_gadget_ep_enable),
 	ENTRY_EXIT(dwc3_host_exit),
 	ENTRY_EXIT(dwc3_gadget_pullup),
+	ENTRY_EXIT(dwc3_host_exit),
 	ENTRY_EXIT(android_work),
 	ENTRY_EXIT(usb_ep_set_maxpacket_limit),
 	ENTRY_EXIT(dwc3_suspend_common),

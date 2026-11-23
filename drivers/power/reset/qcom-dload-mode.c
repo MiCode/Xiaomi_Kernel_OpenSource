@@ -54,7 +54,7 @@ struct qcom_dload {
 static int enable_dump =
 	IS_ENABLED(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT);
 static enum qcom_download_mode current_download_mode = QCOM_DOWNLOAD_NODUMP;
-static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_FULLDUMP;
+static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_BOTHDUMP;
 
 static int set_download_mode(enum qcom_download_mode mode)
 {
@@ -313,36 +313,6 @@ static int poweroff_init_regulator(struct qcom_dload *poweroff)
 	return 0;
 }
 
-static void disable_regulators(struct qcom_dload *poweroff)
-{
-	int i;
-
-	for (i = (poweroff->reg_cnt - 1); i >= 0; i--) {
-		regulator_set_voltage(poweroff->regs[i].reg, 0, INT_MAX);
-		regulator_set_load(poweroff->regs[i].reg, 0);
-		regulator_disable(poweroff->regs[i].reg);
-	}
-}
-
-static int enable_regulators(struct qcom_dload *poweroff)
-{
-	int i, rc = 0;
-
-	for (i = 0; i < poweroff->reg_cnt; i++) {
-		regulator_set_voltage(poweroff->regs[i].reg, poweroff->regs[i].uV, INT_MAX);
-		regulator_set_load(poweroff->regs[i].reg, poweroff->regs[i].uA);
-		rc = regulator_enable(poweroff->regs[i].reg);
-		if (rc) {
-			pr_err("Regulator enable failed(rc:%d)\n", rc);
-			goto err_enable;
-		}
-	}
-	return rc;
-
-err_enable:
-	disable_regulators(poweroff);
-	return rc;
-}
 
 static int qcom_dload_panic(struct notifier_block *this, unsigned long event,
 			      void *ptr)
@@ -358,24 +328,11 @@ static int qcom_dload_panic(struct notifier_block *this, unsigned long event,
 static int qcom_dload_reboot(struct notifier_block *this, unsigned long event,
 			      void *ptr)
 {
-	char *cmd = ptr;
 	struct qcom_dload *poweroff = container_of(this, struct qcom_dload,
 						     reboot_nb);
-	int ret;
 	/* Clean shutdown, disable dump mode to allow normal restart */
 	if (!poweroff->in_panic)
 		set_download_mode(QCOM_DOWNLOAD_NODUMP);
-
-	if (cmd && !strcmp(cmd, "edl")) {
-		poweroff->in_reboot_edl = true;
-		set_download_mode(QCOM_DOWNLOAD_EDL);
-		if (poweroff->in_reboot_edl) {
-			ret = enable_regulators(poweroff);
-			if (ret)
-				dev_err(poweroff->dev,
-					"Regulator enable failed(rc:%d)\n", ret);
-		}
-	}
 
 	if (current_download_mode != QCOM_DOWNLOAD_NODUMP)
 		reboot_mode = REBOOT_WARM;

@@ -1,0 +1,6 @@
+config XM_MIMON
+    tristate "CPU monitoring"
+    default n
+    help
+      Enable CPU monitoring functionality including
+      cpu netlink communication and cpu load notification.

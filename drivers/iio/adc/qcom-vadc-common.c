@@ -976,6 +976,9 @@ static int qcom_vadc7_scale_hw_calib_therm(
 	s64 resistance;
 	int ret, result;
 
+	if (adc_code > 0xfff7)
+		adc_code = 0xfff7;
+
 	if (adc_code >= data->full_scale_code_raw)
 		return -EINVAL;
 

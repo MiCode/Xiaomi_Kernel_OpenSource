@@ -9,6 +9,7 @@ def register_modules(registry):
             "drivers/usb/dwc3/debug_ipc.c",
             "drivers/usb/dwc3/dwc3-msm-core.c",
             "drivers/usb/dwc3/dwc3-msm-ops.c",
+            "drivers/misc/hwid/hwid.h",
         ],
         deps = [
             # do not sort
@@ -42,5 +43,7 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/power/supply/mca/mca_common/mca_sysfs",
+            "drivers/misc/hwid",
         ],
     )

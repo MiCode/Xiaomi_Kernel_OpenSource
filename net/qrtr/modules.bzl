@@ -54,6 +54,12 @@ def register_modules(registry):
             "net/qrtr/ns.c",
             "net/qrtr/qrtr.h",
         ],
+        includes = [
+        "drivers/xiaomi/mi_qmi_trace",
+        "vendor/kernel_platform/drivers/xiaomi/mi_qmi_trace",
+        "drivers/powerinsight/common",
+        "vendor/kernel_platform/drivers/powerinsight/common",
+        ],
         deps = [
             # do not sort
             "kernel/trace/qcom_ipc_logging",
@@ -69,6 +75,8 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/xiaomi/mi_qmi_trace",
+            "drivers/powerinsight/common",
         ],
     )
 

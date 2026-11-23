@@ -60,6 +60,7 @@
 #include "qcom_system_heap.h"
 #include "qcom_system_movable_heap.h"
 #include "mm/internal.h"
+#include "mi_dma_dio.h"
 
 #if IS_ENABLED(CONFIG_QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL)
 #define DYNAMIC_POOL_FILL_MARK (100 * SZ_1M)
@@ -369,7 +370,6 @@ static void system_heap_deferred_free(struct deferred_freelist_item *item,
 	table = &buffer->sg_table;
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
-
 		/* Do not keep page in the pool if it is a zone movable page */
 		if (is_zone_movable_page(page)) {
 			/* Matches get_page() in qcom_movable_heap_alloc_pages() */
@@ -421,20 +421,205 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 
 		if (!page && movable)
 			page = qcom_movable_heap_alloc_pages(pools[i]);
-		if (!page)
+		if (!page) {
 			page = alloc_pages(pools[i]->gfp_mask, pools[i]->order);
-		if (!page && alloc_reclaim && i == 1)
+		}
+		if (!page && alloc_reclaim && i == 1) {
 			page = alloc_pages(LOW_ORDER_GFP | __GFP_RETRY_MAYFAIL, pools[i]->order);
+		}
 		if (!page)
 			continue;
 
 		if (dynamic_pool_needs_refill(pools[i]))
 			wake_up_process(pools[i]->refill_worker);
-
 		return page;
 	}
 	return NULL;
 }
+
+/*
+ * Copied from system_qcom_sg_buffer_alloc, system_heap_allocate_async_read will use it.
+ *
+ * Need to keep updated with the system_qcom_sg_buffer_alloc!
+ */
+static int system_qcom_sg_buffer_alloc_async_read(struct dma_dio_operations *ops,
+						  struct dma_heap *heap,
+						  struct dma_dio_file *dio_file,
+						  struct qcom_sg_buffer *buffer,
+						  unsigned long len,
+						  bool movable)
+{
+	struct qcom_system_heap *sys_heap;
+	unsigned long size_remaining = len;
+	unsigned int max_order = orders[0];
+	struct sg_table *table;
+	struct scatterlist *sg;
+	struct list_head pages;
+	struct page *page, *tmp_page;
+	int i, ret = -ENOMEM;
+	struct dma_dio_file_task *dio_ftask;
+
+	sys_heap = dma_heap_get_drvdata(heap);
+
+	qcom_sg_buffer_init(buffer);
+	buffer->heap = heap;
+	buffer->len = len;
+	buffer->uncached = sys_heap->uncached;
+	buffer->free = qcom_system_heap_free;
+
+	INIT_LIST_HEAD(&pages);
+
+	dio_ftask = ops->dma_dio_declare_file_read(dio_file);
+	if (!dio_ftask)
+		return ret;
+
+	pr_info("mi_ext_pool: start dio async read, len=%ld\n", len);
+	i = 0;
+	while (size_remaining > 0) {
+		/*
+		 * Avoid trying to allocate memory if the process
+		 * has been killed by SIGKILL
+		 */
+		if (fatal_signal_pending(current))
+			goto free_mem;
+
+		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
+							     size_remaining,
+							     max_order,
+							     movable,
+                                                                     false);
+		if (!page)
+			goto free_mem;
+		list_add_tail(&page->lru, &pages);
+
+		/**
+		 * If alloc and read, gather each page to read task.
+		 * If got error, free buffer and return error.
+		 */
+		if (ops->dma_dio_gather_file_page(dio_ftask, page))
+			goto free_mem;
+
+		size_remaining -= page_size(page);
+		max_order = compound_order(page);
+		i++;
+	}
+	pr_info("mi_ext_pool: got pages for dio async read, len=%ld\n", len);
+
+	table = &buffer->sg_table;
+	if (sg_alloc_table(table, i, GFP_KERNEL))
+		goto free_mem;
+
+	sg = table->sgl;
+	list_for_each_entry_safe(page, tmp_page, &pages, lru) {
+		sg_set_page(sg, page, page_size(page), 0);
+		sg = sg_next(sg);
+		list_del(&page->lru);
+	}
+
+	/*
+	 * For uncached buffers, we need to initially flush cpu cache, since
+	 * the __GFP_ZERO on the allocation means the zeroing was done by the
+	 * cpu and thus it is likely cached. Map (and implicitly flush) and
+	 * unmap it now so we don't get corruption later on.
+	 */
+	if (buffer->uncached) {
+		dma_map_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
+		dma_unmap_sgtable(dma_heap_get_dev(heap), table, DMA_BIDIRECTIONAL, 0);
+	}
+
+	/**
+	 * End of alloc, dma-buf export and anything we need, but maybe
+	 * file read is still work, so, wait it. if done, destroy all file
+	 * task.
+	 * But maybe something wrong when read file, if so, abandon dma-buf
+	 * return error.
+	 */
+	if (ops->dma_dio_end_file_read(dio_ftask)) {
+		ret = -EIO;
+		goto free_pages;
+	}
+	pr_info("mi_ext_pool: finished dio async read, len=%ld\n", len);
+
+	return 0;
+
+free_mem:
+	/**
+	 * maybe we already trigger file read, so, before release pages and
+	 * return, destroy file task, include running task.
+	 */
+	ops->dma_dio_end_file_read(dio_ftask);
+
+free_pages:
+	list_for_each_entry_safe(page, tmp_page, &pages, lru) {
+		/* Unpin the memory first if it was borrowed from movable zone */
+		if (is_zone_movable_page(page))
+			put_page(page);
+		__free_pages(page, compound_order(page));
+	}
+
+	return ret;
+}
+
+/*
+ * Copied from system_heap_allocate, mi_dma_dio.ko(dmabuf dio) will use it directly
+ * instead of using the allocate callback in struct dma_heap_ops.
+ *
+ * Need to keep updated with the system_heap_allocate!
+ */
+struct dma_buf *
+system_heap_allocate_async_read(struct dma_dio_operations *ops, struct dma_heap *heap,
+				struct dma_dio_file *dio_file, u32 fd_flags, u64 heap_flags)
+{
+	struct qcom_sg_buffer *buffer;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+	unsigned long len;
+	int ret;
+
+	if (!ops || !ops->dma_dio_declare_file_read || !ops->dma_dio_gather_file_page ||
+		!ops->dma_dio_end_file_read || !ops->dma_dio_alloc_size)
+		return ERR_PTR(-ENOTSUPP);
+
+	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+	if (!buffer)
+		return ERR_PTR(-ENOMEM);
+
+	len = PAGE_ALIGN(ops->dma_dio_alloc_size(dio_file));
+	ret = system_qcom_sg_buffer_alloc_async_read(ops, heap, dio_file, buffer, len, false);
+	if (ret)
+		goto free_buf_struct;
+
+	buffer->vmperm = mem_buf_vmperm_alloc(&buffer->sg_table,
+				qcom_sg_release, (void *)buffer);
+	if (IS_ERR(buffer->vmperm)) {
+		ret = PTR_ERR(buffer->vmperm);
+		goto free_sys_heap_mem;
+	}
+
+	/* create the dmabuf */
+	exp_info.exp_name = dma_heap_get_name(heap);
+	exp_info.size = buffer->len;
+	exp_info.flags = fd_flags;
+	exp_info.priv = buffer;
+	dmabuf = qcom_dma_buf_export(&exp_info, &qcom_sg_buf_ops);
+	if (IS_ERR(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		goto free_vmperm;
+	}
+
+	return dmabuf;
+
+free_vmperm:
+	mem_buf_vmperm_free(buffer->vmperm);
+free_sys_heap_mem:
+	qcom_system_heap_free(buffer);
+	return ERR_PTR(ret);
+free_buf_struct:
+	kfree(buffer);
+
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL_GPL(system_heap_allocate_async_read);
 
 int system_qcom_sg_buffer_alloc(struct dma_heap *heap,
 				struct qcom_sg_buffer *buffer,
@@ -451,7 +636,6 @@ int system_qcom_sg_buffer_alloc(struct dma_heap *heap,
 	int i, ret = -ENOMEM;
 
 	sys_heap = dma_heap_get_drvdata(heap);
-
 	qcom_sg_buffer_init(buffer);
 	buffer->heap = heap;
 	buffer->len = len;

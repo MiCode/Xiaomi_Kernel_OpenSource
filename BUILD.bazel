@@ -46,6 +46,17 @@ load(
 )
 load(":kleaf-scripts/targets/sun_vms.bzl", "define_sun_vms")
 load(":kleaf-scripts/targets/vienna.bzl", "define_vienna")
+load(":kleaf-scripts/targets/haotian.bzl", "define_haotian")
+load(":kleaf-scripts/targets/popsicle.bzl", "define_popsicle")
+load(":kleaf-scripts/targets/pudding.bzl", "define_pudding")
+load(":kleaf-scripts/targets/myron.bzl", "define_myron")
+load(":kleaf-scripts/targets/athens.bzl", "define_athens")
+load(":kleaf-scripts/targets/byron.bzl", "define_byron")
+load(":kleaf-scripts/targets/shuntian.bzl", "define_shuntian")
+load(":kleaf-scripts/targets/songyuan.bzl", "define_songyuan")
+load(":kleaf-scripts/targets/pandora.bzl", "define_pandora")
+load(":kleaf-scripts/targets/nezha.bzl", "define_nezha")
+load(":kleaf-scripts/targets/xiaomi_sm8850_common.bzl", "export_xiaomi_headers")
 load(":kleaf-scripts/targets/vienna_le.bzl", "define_vienna_le")
 
 exports_files(["android/abi_gki_aarch64_qcom"])
@@ -169,6 +180,7 @@ ddk_headers(
         # do not sort
         ":additional_msm_headers",
         "//common:all_headers",
+        ":unsafe_headers_qcom_group_headers",
     ],
     visibility = ["//visibility:public"],
 )
@@ -194,6 +206,15 @@ hermetic_genrule(
     tools = ["flatten_kconfig.sh"],
 )
 
+ddk_headers(
+    name = "unsafe_headers_qcom_group_headers",
+    hdrs = [
+    # do not sort
+    ":unsafe_headers_qcom_group"
+    ],
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "unsafe_headers_qcom_group",
     srcs = [
@@ -203,6 +224,8 @@ filegroup(
         "//common:drivers/android/dbitmap.h",
         "//common:drivers/android/debug_kinfo.h",
         "//common:drivers/base/regmap/internal.h",
+        "//common:kernel/irq/internals.h",
+        "//common:kernel/irq/settings.h",
         "//common:drivers/clk/clk.h",
         "//common:drivers/devfreq/governor.h",
         "//common:drivers/dma/dmaengine.h",
@@ -233,6 +256,7 @@ filegroup(
         "//common:drivers/remoteproc/remoteproc_internal.h",
         "//common:drivers/rpmsg/rpmsg_internal.h",
         "//common:drivers/scsi/scsi_logging.h",
+        "//common:drivers/scsi/sd.h",
         "//common:drivers/thermal/thermal_core.h",
         "//common:drivers/thermal/thermal_debugfs.h",
         "//common:drivers/thermal/thermal_hwmon.h",
@@ -254,8 +278,12 @@ filegroup(
         "//common:drivers/usb/host/xhci-port.h",
         "//common:drivers/usb/typec/ucsi/ucsi.h",
         "//common:drivers/virt/gunyah/rsc_mgr.h",
+        "//common:fs/fuse/fuse_i.h",
         "//common:fs/proc/internal.h",
+        "//common:kernel/cgroup/cgroup-internal.h",
+        "//common:kernel/futex/futex.h",
         "//common:kernel/locking/mutex.h",
+        "//common:kernel/locking/rtmutex_common.h",
         "//common:kernel/power/power.h",
         "//common:kernel/printk/printk_ringbuffer.h",
         "//common:kernel/rcu/rcu.h",
@@ -273,12 +301,21 @@ filegroup(
         "//common:mm/internal.h",
         "//common:mm/slab.h",
         "//common:mm/vma.h",
+        "//common:mm/swap.h",
         "//common:sound/usb/card.h",
         "//common:sound/usb/endpoint.h",
         "//common:sound/usb/helper.h",
         "//common:sound/usb/pcm.h",
         "//common:sound/usb/power.h",
         "//common:sound/usb/usbaudio.h",
+        "//common:block/elevator.h",
+        "//common:block/blk.h",
+        "//common:block/blk-mq.h",
+        "//common:block/blk-mq-debugfs.h",
+        "//common:block/blk-mq-sched.h",
+        "//common:block/blk-stat.h",
+        "//common:block/blk-cgroup.h",
+        "//common:block/blk-crypto-internal.h",
     ],
     visibility = ["//visibility:public"],
 )
@@ -345,6 +382,28 @@ define_vienna()
 define_vienna_le()
 
 define_lahaina()
+
+define_haotian()
+
+define_popsicle()
+
+define_pudding()
+
+define_myron()
+
+define_athens()
+
+define_byron()
+
+define_shuntian()
+
+define_songyuan()
+
+define_pandora()
+
+define_nezha()
+
+export_xiaomi_headers()
 
 define_hamoa()
 

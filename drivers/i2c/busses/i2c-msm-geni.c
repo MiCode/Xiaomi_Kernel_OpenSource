@@ -1111,7 +1111,6 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 			geni_i2c_err(gi2c, I2C_BUS_PROTO);
 		if (m_stat & M_GP_IRQ_4_EN)
 			geni_i2c_err(gi2c, I2C_ARB_LOST);
-
 		if (cb_str->cb_event == MSM_GPI_QUP_NOTIFY)
 			complete(&gi2c->xfer);
 		break;
@@ -2952,10 +2951,16 @@ static int geni_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	gi2c->err = 0;
 	atomic_set(&gi2c->is_xfer_in_progress, 1);
 
-	/* Client to respect system suspend */
-	if (!pm_runtime_enabled(gi2c->dev)) {
+	/*
+	*  Reject transfers if PM is disabled (system suspended) or if in
+	* pm_ctrl_client mode with device not runtime active. This prevents
+	* hardware access while suspended, protecting against both userspace
+	* and kernel clients that may attempt transfers without proper PM control.
+	*/
+	if (!pm_runtime_enabled(gi2c->dev) ||
+	    (gi2c->pm_ctrl_client && !pm_runtime_active(gi2c->dev))) {
 		I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
-			"%s: System suspended\n", __func__);
+			"%s: Device suspended\n", __func__);
 		atomic_set(&gi2c->is_xfer_in_progress, 0);
 		return -EACCES;
 	}
@@ -3674,7 +3679,7 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		char ipc_name[I2C_NAME_SIZE];
 
 		snprintf(ipc_name, I2C_NAME_SIZE, "%s", dev_name(gi2c->dev));
-		gi2c->ipcl = ipc_log_context_create(2, ipc_name, 0);
+		gi2c->ipcl = ipc_log_context_create(10, ipc_name, 0);
 	}
 
 	if (!gi2c->is_le_vm) {

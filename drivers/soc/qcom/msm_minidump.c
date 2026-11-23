@@ -24,6 +24,7 @@
 #include "minidump_private.h"
 #include "elf.h"
 
+
 /* minidump core structure */
 struct md_core {
 	const struct md_ops	*ops;
@@ -432,7 +433,7 @@ int msm_minidump_driver_probe(const struct md_init_data *data)
 	msm_minidump_log_init();
 	pr_info("Enabled with max number of regions %d\n",
 		CONFIG_MINIDUMP_MAX_ENTRIES);
-
+  
 out:
 	return ret;
 }

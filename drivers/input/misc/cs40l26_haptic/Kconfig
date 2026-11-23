@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Input misc drivers configuration
+#
+
+config INPUT_CS40L26
+	tristate "Cirrus Logic CS40L26 haptic amplifier support"
+	select CL_DSP
+	help
+	  Say Y here to enable support for CS40L26 boosted haptic amplifier.
+
+	  To compile the driver as a module choose M here: the module will be
+	  called cs40l26_core.
+
+config INPUT_CS40L26_I2C
+	tristate "Support I2C bus connection"
+	depends on INPUT_CS40L26 && I2C
+	select REGMAP_I2C
+	help
+	   Say Y if you have CS40L26 hooked to an I2C bus.
+
+	   To compile the driver as a module choose M here: the
+	   module will be called cs40l26_i2c.
+
+config INPUT_CS40L26_SPI
+	tristate "Cirrus Logic CS40L26 Haptic Driver (SPI)"
+	depends on INPUT_CS40L26 && SPI_MASTER
+	select REGMAP_SPI
+	help
+	   Say Y if you have CS40L26 hooked to a SPI bus.
+
+	   To compile the driver as a module choose M here: the
+	   module will be called cs40l26_spi.

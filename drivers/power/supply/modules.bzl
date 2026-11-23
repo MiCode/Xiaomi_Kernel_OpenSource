@@ -1,6 +1,7 @@
+load(":drivers/power/supply/mca/modules.bzl", register_mca = "register_modules")
 load(":drivers/power/supply/qcom/modules.bzl", register_qcom = "register_modules")
-
 def register_modules(registry):
+    register_mca(registry)
     register_qcom(registry)
 
     registry.register(

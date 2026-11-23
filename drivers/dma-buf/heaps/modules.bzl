@@ -23,6 +23,7 @@ def register_modules(registry):
             "CONFIG_QCOM_DMABUF_HEAPS_SYSTEM": {
                 True: [
                     # do not sort
+                    "drivers/dma-buf/heaps/mi_dma_dio.h",
                     "drivers/dma-buf/heaps/qcom_system_heap.c",
                     "drivers/dma-buf/heaps/qcom_dynamic_page_pool.c",
                     "drivers/dma-buf/heaps/qcom_dma_heap_secure_utils.h",
@@ -81,6 +82,7 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
             "drivers/dma-buf/heaps/deferred-free-helper",
+            "drivers/soc/qcom/debug_symbol",
         ],
     )
     registry.register(
@@ -91,5 +93,20 @@ def register_modules(registry):
             # do not sort
             "drivers/dma-buf/heaps/deferred-free-helper.c",
             "drivers/dma-buf/heaps/deferred-free-helper.h",
+        ],
+    )
+    registry.register(
+        name = "drivers/dma-buf/heaps/mi_dma_dio",
+        out = "mi_dma_dio.ko",
+        config = "CONFIG_MI_DMABUF_DIO",
+        srcs = [
+            # do not sort
+            "drivers/dma-buf/heaps/mi_dma_dio.h",
+            "drivers/dma-buf/heaps/mi_dma_dio.c",
+        ],
+        deps = [
+            # do not sort
+            "drivers/soc/qcom/debug_symbol",
+            "drivers/dma-buf/heaps/qcom_dma_heaps",
         ],
     )

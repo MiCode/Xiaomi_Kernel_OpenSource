@@ -62,6 +62,10 @@ struct ddump_shm_hdr {
 	u64 svm_dump_len;
 	struct gh_virt_time_offset time_ofs[REC_TIME_NUM];
 	bool log_is_encrypted;
+	u64 svm_suspend_timing; // save svm suspend timing
+	u64 pvm_read_timing;    // save pvm read timing
+	u64 pvm_read_len;       // save pvm read len
+	bool pvm_read_suspend;  // save if svm suspend when read
 	bool svm_is_suspend;
 	struct encrypt_data data;
 };

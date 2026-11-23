@@ -35,6 +35,12 @@ static int max_nr_pipeline = MAX_NR_PIPELINE;
 static unsigned int min_cfs_boost_prio = 99;
 static unsigned int max_cfs_boost_prio = 119;
 
+//MIUI ADD: Task_Attribute_Sched
+/* Callback function pointer for task_attribute.ko cluster packing, NULL when module not loaded */
+miui_cluster_packing_fn __rcu miui_cluster_packing_callback;
+EXPORT_SYMBOL_GPL(miui_cluster_packing_callback);
+//END Task_Attribute_Sched
+
 char *cgroup_names[ANDROID_CGROUPS] = {"", "top-app", "foreground", "background"};
 unsigned int sysctl_sched_topapp_updownmigrate_0[NUM_UPDOWN_SETTINGS];
 unsigned int sysctl_sched_topapp_updownmigrate_1[NUM_UPDOWN_SETTINGS];
@@ -49,6 +55,9 @@ unsigned int sysctl_sched_other_cgroup_updownmigrate_0[NUM_UPDOWN_SETTINGS];
 unsigned int sysctl_sched_other_cgroup_updownmigrate_1[NUM_UPDOWN_SETTINGS];
 unsigned int sysctl_sched_other_cgroup_updownmigrate_2[NUM_UPDOWN_SETTINGS];
 unsigned int use_cgroup_margin;
+// MIUI ADD: Performance_BoostFramework
+EXPORT_SYMBOL_GPL(use_cgroup_margin);
+//END Performance_BoostFramework
 unsigned int sysctl_sched_capacity_margin_up_pct[MAX_MARGIN_LEVELS];
 unsigned int sysctl_sched_capacity_margin_dn_pct[MAX_MARGIN_LEVELS];
 unsigned int sysctl_sched_busy_hyst_enable_cpus;
@@ -62,9 +71,11 @@ unsigned int sysctl_sched_util_busy_hyst_cpu[WALT_NR_CPUS];
 unsigned int sysctl_sched_util_busy_hyst_cpu_util[WALT_NR_CPUS];
 unsigned int sysctl_sched_boost;
 unsigned int sysctl_sched_wake_up_idle[2];
-unsigned int sysctl_input_boost_ms;
-unsigned int sysctl_input_boost_freq[WALT_NR_CPUS];
-unsigned int sysctl_sched_boost_on_input;
+// MIUI DEL: Performance_BoostFramework
+//unsigned int sysctl_input_boost_ms;
+//unsigned int sysctl_input_boost_freq[WALT_NR_CPUS];
+//unsigned int sysctl_sched_boost_on_input;
+// END Performance_BoostFramework
 unsigned int sysctl_sched_early_up[MAX_MARGIN_LEVELS];
 unsigned int sysctl_sched_early_down[MAX_MARGIN_LEVELS];
 
@@ -154,9 +165,19 @@ unsigned int sysctl_single_thread_pipeline;
 unsigned int sysctl_walt_features;
 unsigned int sysctl_pipeline_force_config;
 unsigned int sysctl_topapp_weight_pct;
+// MIUI ADD: Performance_BoostFramework
+unsigned int sysctl_sched_storage_boost_disable;
+//END Performance_BoostFramework
+
 
 /* range is [1 .. INT_MAX] */
 static int sysctl_task_read_pid = 1;
+
+// MIUI ADD: Camera_CamSched
+#ifdef CONFIG_MI_CAM_WALT
+int sysctl_sched_freq_cam_cpu02_pressure_enable = 0;
+#endif
+// END Camera_CamSched
 
 static int walt_proc_group_thresholds_handler(const struct ctl_table *table, int write,
 				       void __user *buffer, size_t *lenp,
@@ -1712,35 +1733,73 @@ static struct ctl_table smart_freq_cluster3[] = {
 	},
 };
 
+// MIUI MOD: Performance_BoostFramework
 static struct ctl_table input_boost_sysctls[] = {
 	{
-		.procname	= "input_boost_ms",
-		.data		= &sysctl_input_boost_ms,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= &one_hundred_thousand,
+		.procname       = "input_touch_boost_freq",
+		.data           = (int *) TYPE_TOUCH_FREQ,
+		.maxlen         = sizeof(unsigned int) * WALT_NR_CPUS,
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
 	},
 	{
-		.procname	= "input_boost_freq",
-		.data		= &sysctl_input_boost_freq,
-		.maxlen		= sizeof(unsigned int) * 8,
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= SYSCTL_INT_MAX,
+		.procname       = "input_touch_boost_sched_boost",
+		.data           = (int *) TYPE_TOUCH_SCHED_BOOST,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
 	},
 	{
-		.procname	= "sched_boost_on_input",
-		.data		= &sysctl_sched_boost_on_input,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= SYSCTL_INT_MAX,
+		.procname       = "input_touch_boost_ms",
+		.data           = (int *) TYPE_TOUCH_BOOST_MS,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
+	},
+	{
+		.procname       = "input_powerkey_boost_freq",
+		.data           = (int *) TYPE_POWERKEY_FREQ,
+		.maxlen         = sizeof(unsigned int) * WALT_NR_CPUS,
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
+	},
+	{
+		.procname       = "input_powerkey_boost_sched_boost",
+		.data           = (int *) TYPE_POWERKEY_SCHED_BOOST,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
+	},
+	{
+		.procname       = "input_powerkey_boost_ms",
+		.data           = (int *) TYPE_POWERKEY_BOOST_MS,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
+	},
+	{
+		.procname       = "input_volkey_boost_freq",
+		.data           = (int *) TYPE_VOLKEY_FREQ,
+		.maxlen         = sizeof(unsigned int) * WALT_NR_CPUS,
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
+	},
+	{
+		.procname       = "input_volkey_boost_sched_boost",
+		.data           = (int *) TYPE_VOLKEY_SCHED_BOOST,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
+	},
+	{
+		.procname       = "input_volkey_boost_ms",
+		.data           = (int *) TYPE_VOLKEY_BOOST_MS,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = input_boost_fill_boost_params,
 	},
 };
+// END Performance_BoostFramework
 
 static struct ctl_table walt_table[] = {
 	{
@@ -2448,6 +2507,19 @@ static struct ctl_table walt_table[] = {
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_INT_MAX,
 	},
+//MIUI ADD: Camera_CamSched
+#ifdef CONFIG_MI_CAM_WALT
+	{
+		.procname	= "sched_freq_cam_cpu_pressure_enable",
+		.data		= &sysctl_sched_freq_cam_cpu02_pressure_enable,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+#endif
+//END Camera_CamSched
 	{
 		.procname	= "sched_topapp_weight_pct",
 		.data		= &sysctl_topapp_weight_pct,
@@ -2457,6 +2529,17 @@ static struct ctl_table walt_table[] = {
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_INT_MAX,
 	},
+// MIUI ADD: Performance_BoostFramework
+	{
+		.procname	= "sched_storage_boost_disable",
+		.data		= &sysctl_sched_storage_boost_disable,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+// END Performance_BoostFramework
 };
 
 void walt_register_sysctl(void)

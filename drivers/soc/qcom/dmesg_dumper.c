@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/proc_fs.h>
+#include <linux/sched/clock.h>
 #include <linux/skbuff.h>
 #include <linux/suspend.h>
 #include <linux/types.h>
@@ -331,8 +332,10 @@ static void qcom_ddump_gh_cb(int irq, void *data)
 			dev_err(qdd->dev, "dump alive log error %d\n", ret);
 
 		qcom_ddump_gh_kick(qdd);
-		if (hdr->svm_dump_len == 0)
+		if (hdr->svm_dump_len == 0) {
+			kmsg_dump_rewind(&qdd->iter);
 			pm_wakeup_ws_event(qdd->wakeup_source, 0, true);
+		}
 	}
 }
 
@@ -522,6 +525,10 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 	struct qcom_dmesg_dumper *qdd = pde_data(file_inode(file));
 	struct ddump_shm_hdr *hdr;
 	int ret;
+	static bool fresh_read = true;
+	static bool last_dump = true;
+	char dump_status[512] = {0};
+	int len = 0;
 
 	if (!qdd->is_ready)
 		return -ENODEV;
@@ -530,15 +537,46 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 		dev_err(qdd->dev, "user buffer size should greater than %d\n", LOG_LINE_MAX);
 		return -EINVAL;
 	}
-
+	/* fresh_read::false means last read has some wrong, so return directly */
+	if (!fresh_read) {
+		fresh_read = true;
+		last_dump = true;
+		return 0;
+	}
 	hdr = qdd->base;
+	if (last_dump) {
+		last_dump = false;
+		len += sprintf(dump_status + len, "[last read vmkmsg info]\n");
+		len += sprintf(dump_status + len, "\tpvm timing: %llu.%llu s\n",
+				hdr->pvm_read_timing/1000000000ULL, hdr->pvm_read_timing%1000000000ULL);
+		len += sprintf(dump_status + len, "\tread len: %llu, svm_suspend: %d\n", hdr->pvm_read_len, hdr->pvm_read_suspend);
+		len += sprintf(dump_status + len, "[svm info]\n");
+		len += sprintf(dump_status + len, "\tsvm suspend timing: %llu.%llu s\n\n",
+				hdr->svm_suspend_timing/1000000000ULL, hdr->svm_suspend_timing%1000000000ULL);
+		(void)copy_to_user(buf, dump_status, len);
+		hdr->pvm_read_timing = sched_clock();
+		hdr->pvm_read_len = 0;
+		hdr->pvm_read_suspend = hdr->svm_is_suspend;
+		return len;
+	}
+
 	/**
 	 * If SVM is in suspend mode and the log size more than 1k byte,
 	 * we think SVM has log need to be read. Otherwise, we think the
 	 * log is only suspend log that we need skip the unnecessary log.
 	 */
-	if (hdr->svm_is_suspend && hdr->svm_dump_len < 1024)
+	if (hdr->svm_is_suspend && hdr->svm_dump_len < 1024) {
+		if (fresh_read) {
+			fresh_read = false;
+			len += sprintf(dump_status + len, "\n\n[current read vmkmsg info]\n");
+			len += sprintf(dump_status + len, "[skip read as svm is in suspend and log size less than 1k]\n");
+			(void)copy_to_user(buf, dump_status, len);
+			hdr->pvm_read_suspend = true;
+			hdr->pvm_read_len = hdr->svm_dump_len;
+			return len;
+		}
 		return 0;
+	}
 
 	if (hdr->log_is_encrypted)
 		hdr->user_buf_len = count;
@@ -552,11 +590,26 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 		hdr->user_buf_len = count / 2;
 
 	ret = qcom_ddump_gh_kick(qdd);
-	if (ret)
+	if (ret) {
+		if (fresh_read) {
+			fresh_read = false;
+			len += sprintf(dump_status + len, "\n\n[current read vmkmsg info]\n");
+			len += sprintf(dump_status + len, " [gh dbl kick failed with %d, svm might abnormal\n", ret);
+			(void)copy_to_user(buf, dump_status, len);
+			return len;
+		}
 		return ret;
+	}
 
 	ret = wait_for_completion_timeout(&qdd->ddump_completion, DDUMP_WAIT_WAKEIRQ_TIMEOUT);
 	if (!ret) {
+		if (fresh_read) {
+			fresh_read = false;
+			len += sprintf(dump_status + len, "\n\n[current read vmkmsg info]\n");
+			len += sprintf(dump_status + len, " [gh dbl wait timeout with %d, svm might abnormal\n", ret);
+			(void)copy_to_user(buf, dump_status, len);
+			return len;
+		}
 		dev_err(qdd->dev, "wait for completion timeout\n");
 		return -ETIMEDOUT;
 	}
@@ -571,12 +624,29 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 		return vmkmsg_with_pvm_ktime_prefix(qdd, buf, count);
 	}
 
+	hdr->pvm_read_len += hdr->svm_dump_len;
 	if (hdr->svm_dump_len &&
 		copy_to_user(buf, &hdr->data, hdr->svm_dump_len)) {
 		dev_err(qdd->dev, "copy_to_user fail\n");
+		if (fresh_read) {
+			fresh_read = false;
+			len += sprintf(dump_status + len, "\n\n[current read vmkmsg info]\n");
+			len += sprintf(dump_status + len, " [copy_to_user failed]\n");
+			(void)copy_to_user(buf, dump_status, len);
+			return len;
+		}
 		return -EFAULT;
 	}
-
+	if (hdr->svm_dump_len == 0) {
+		/* read empty, update the read info */
+		if (fresh_read) {
+			fresh_read = false;
+			len += sprintf(dump_status + len, "\n\n[current vmkmsg info]\n");
+			len += sprintf(dump_status + len, " svm_dump_len: %llu\n", hdr->pvm_read_len);
+			(void)copy_to_user(buf, dump_status, len);
+			return len;
+		}
+	}
 	return hdr->svm_dump_len;
 }
 
@@ -625,7 +695,7 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 			return -ENOMEM;
 
 		init_completion(&qdd->ddump_completion);
-		dent = proc_create_data(DDUMP_PROFS_NAME, 0400, NULL, &ddump_proc_ops, qdd);
+		dent = proc_create_data(DDUMP_PROFS_NAME, 0444, NULL, &ddump_proc_ops, qdd);
 		if (!dent) {
 			dev_err(dev, "proc_create_data fail\n");
 			return -ENOMEM;
@@ -635,6 +705,10 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 		hdr = qdd->base;
 		hdr->svm_is_suspend = false;
 		hdr->log_is_encrypted = false;
+		hdr->svm_suspend_timing = 0;
+		hdr->pvm_read_timing = 0;
+		hdr->pvm_read_len = 0;
+		hdr->pvm_read_suspend = false;
 
 		gh_get_virt_time_offset(&cur_time_ofs);
 		memset(hdr->time_ofs, 0,
@@ -816,12 +890,15 @@ static int qcom_ddump_suspend(struct device *pdev)
 	int ret;
 
 	hdr->svm_is_suspend = true;
+	hdr->svm_suspend_timing = sched_clock();
+	mb();
 	seq_backup = qdd->iter.cur_seq;
 	ret = qcom_ddump_alive_log_to_shm(qdd, qdd->size);
 	if (ret)
 		dev_err(qdd->dev, "dump alive log error %d\n", ret);
 
 	qdd->iter.cur_seq = seq_backup;
+	mb();
 	return 0;
 }
 

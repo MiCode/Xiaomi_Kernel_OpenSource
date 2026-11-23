@@ -265,6 +265,8 @@ class BazelBuilder:
 
     def build_targets(self, targets):
         """Run "bazel build" on all targets in parallel"""
+        self.user_opts.append("--jobs=10")
+        self.user_opts.append("--make_jobs=80")
         self.bazel("build", targets, extra_options=self.user_opts)
 
     def run_targets(self, targets):

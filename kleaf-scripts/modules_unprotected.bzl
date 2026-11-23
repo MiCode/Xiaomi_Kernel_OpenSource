@@ -20,12 +20,102 @@ _unprotected_modules_map = {
         "drivers/block/zram/zram.ko",
         "mm/zsmalloc.ko",
     ],
+    "haotian_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "haotian_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "popsicle_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "popsicle_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "pudding_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "pudding_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "pandora_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "pandora_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "myron_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "myron_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "athens_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "athens_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "byron_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "byron_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "shuntian_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "shuntian_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
     "lahaina_consolidate": [
         # keep sorted
         "drivers/block/zram/zram.ko",
         "mm/zsmalloc.ko",
     ],
     "lahaina_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "nezha_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "nezha_perf": [
         # keep sorted
         "drivers/block/zram/zram.ko",
         "mm/zsmalloc.ko",
@@ -56,6 +146,16 @@ _unprotected_modules_map = {
         "mm/zsmalloc.ko",
     ],
     "malabar_perf": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "songyuan_consolidate": [
+        # keep sorted
+        "drivers/block/zram/zram.ko",
+        "mm/zsmalloc.ko",
+    ],
+    "songyuan_perf": [
         # keep sorted
         "drivers/block/zram/zram.ko",
         "mm/zsmalloc.ko",

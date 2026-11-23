@@ -14,12 +14,15 @@
 #include <linux/rpmsg.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/qti_pmic_glink.h>
+#include <linux/mca/common/mca_log.h>
 
 #define MSG_OWNER_CHG_ULOG		32778
 #define MSG_TYPE_REQ_RESP		1
 #define GET_CHG_ULOG_REQ		0x18
 #define SET_CHG_ULOG_PROP_REQ		0x19
 #define GET_CHG_INIT_ULOG_REQ		0x23
+#define GET_MCA_LOG_REQ			0x52
+#define GET_MCA_REALTIME_LOG_REQ	0x53
 
 #define LOG_CATEGORY_INIT		(1ULL << 32)
 #define LOG_MIN_TIME_MS			500
@@ -28,6 +31,13 @@
 #define MAX_ULOG_SIZE			8192
 #define NUM_LOG_PAGES			10
 #define NUM_INIT_LOG_PAGES		8
+#define MAX_ADSP_LOG_SIZE		7680
+#define SINGLE_LOG_SIZE			256
+#define MAX_LOG_PR_SIZE			512
+
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "charger_ulog_glink"
+#endif
 
 struct set_ulog_prop_req_msg {
 	struct pmic_glink_hdr		hdr;
@@ -45,6 +55,18 @@ struct get_ulog_resp_msg {
 	u8				buf[MAX_ULOG_SIZE];
 };
 
+struct get_adsp_log_msg {
+	struct pmic_glink_hdr hdr;
+	char log_info[MAX_ADSP_LOG_SIZE];
+	int cur_pos;
+	u64 cur_time;
+};
+
+struct adsp_realtime_log_msg {
+	struct pmic_glink_hdr hdr;
+	char log_info[SINGLE_LOG_SIZE];
+};
+
 struct chg_ulog_glink_dev {
 	struct device			*dev;
 	struct pmic_glink_client	*client;
@@ -54,6 +76,7 @@ struct chg_ulog_glink_dev {
 	struct mutex			lock;
 	struct completion		ack;
 	struct delayed_work		ulog_work;
+	struct work_struct		adsp_dump_log_work;
 	u8				ulog_buf[MAX_ULOG_SIZE];
 	u64				log_category;
 	u32				log_level;
@@ -134,6 +157,22 @@ static void chg_ulog_work(struct work_struct *work)
 					msecs_to_jiffies(cd->log_time_ms));
 }
 
+static void adsp_dump_log_work_func(struct work_struct *work)
+{
+	struct chg_ulog_glink_dev *cd = container_of(work,
+					struct chg_ulog_glink_dev,
+					adsp_dump_log_work);
+	struct get_ulog_req_msg req_msg = { { 0 } };
+
+	req_msg.hdr.owner = MSG_OWNER_CHG_ULOG;
+	req_msg.hdr.type = MSG_TYPE_REQ_RESP;
+	req_msg.hdr.opcode = GET_MCA_LOG_REQ;
+
+	mutex_lock(&cd->lock);
+	(void)pmic_glink_write(cd->client, &req_msg, sizeof(req_msg));
+	mutex_unlock(&cd->lock);
+}
+
 static void ulog_store(struct chg_ulog_glink_dev *cd, void *ipc_ctxt,
 			size_t len)
 {
@@ -177,10 +216,47 @@ static void handle_ulog_message(struct chg_ulog_glink_dev *cd,
 	ulog_store(cd, ipc_ctxt, len - sizeof(resp_msg->hdr));
 }
 
+static void handle_adsp_log(struct chg_ulog_glink_dev *cd,
+				void *data,	size_t len)
+{
+	struct get_adsp_log_msg *log_msg = data;
+	int totol_len = log_msg->cur_pos;
+	int cur_pos = 0;
+	char buf[MAX_LOG_PR_SIZE + 1] = { 0 };
+	char *temp = NULL;
+	int count = SINGLE_LOG_SIZE;
+
+	pr_info("adsp_cur_time=%llu\n", log_msg->cur_time);
+	pr_info("totol_len=%d\n", totol_len);
+	while (totol_len) {
+		if (totol_len < SINGLE_LOG_SIZE) {
+			memcpy(buf, log_msg->log_info + cur_pos, totol_len);
+			buf[totol_len] = '\0';
+			pr_info("%s", buf);
+			break;
+		}
+
+		temp = log_msg->log_info + cur_pos + SINGLE_LOG_SIZE;
+		while(*temp != '\n' && *temp != '\0' && count < MAX_LOG_PR_SIZE - 1) {
+			temp++;
+			count++;
+		}
+		if (count < MAX_LOG_PR_SIZE - 1)
+			count++;
+		memcpy(buf, log_msg->log_info + cur_pos, count);
+		buf[count] = '\0';
+		totol_len -= count;
+		cur_pos += count;
+		count = SINGLE_LOG_SIZE;
+		mca_log_info("%s", buf);
+	}
+}
+
 static int chg_ulog_callback(void *priv, void *data, size_t len)
 {
 	struct pmic_glink_hdr *hdr = data;
 	struct chg_ulog_glink_dev *cd = priv;
+	struct adsp_realtime_log_msg *rt_log = data;
 
 	pr_debug("owner: %u type: %u opcode: %#x len: %zu\n", hdr->owner,
 		hdr->type, hdr->opcode, len);
@@ -193,6 +269,12 @@ static int chg_ulog_callback(void *priv, void *data, size_t len)
 	case GET_CHG_INIT_ULOG_REQ:
 		handle_ulog_message(cd, data, len);
 		complete(&cd->ack);
+		break;
+	case GET_MCA_LOG_REQ:
+		handle_adsp_log(cd, data, len);
+		break;
+	case GET_MCA_REALTIME_LOG_REQ:
+		mca_log_info("%s", rt_log->log_info);
 		break;
 	default:
 		pr_err("Unknown opcode %u\n", hdr->opcode);
@@ -327,6 +409,26 @@ static int ulog_time_set(void *data, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(ulog_time_fops, ulog_time_get, ulog_time_set,
 			"%llu\n");
 
+static int dump_adsp_log_get(void *data, u64 *val)
+{
+	struct chg_ulog_glink_dev *cd = data;
+
+	schedule_work(&cd->adsp_dump_log_work);
+
+	return 0;
+}
+
+static int dump_adsp_log_set(void *data, u64 val)
+{
+	struct chg_ulog_glink_dev *cd = data;
+
+	schedule_work(&cd->adsp_dump_log_work);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(dump_adsp_log_fops, dump_adsp_log_get, dump_adsp_log_set,
+			"%llu\n");
+
 static int chg_ulog_add_debugfs(struct chg_ulog_glink_dev *cd)
 {
 	struct dentry *dir, *file;
@@ -371,6 +473,14 @@ static int chg_ulog_add_debugfs(struct chg_ulog_glink_dev *cd)
 		pr_err("Failed to create time_ms %d\n", rc);
 		goto out;
 	}
+
+	file = debugfs_create_file_unsafe("dump_adsp_log", 0600, dir, cd,
+					&dump_adsp_log_fops);
+	if (IS_ERR(file)) {
+		rc = PTR_ERR(file);
+		pr_err("Failed to create time_ms %d\n", rc);
+		goto out;
+	}
 	cd->debugfs_dir = dir;
 
 	return 0;
@@ -392,6 +502,7 @@ static int chg_ulog_probe(struct platform_device *pdev)
 	mutex_init(&cd->lock);
 	init_completion(&cd->ack);
 	INIT_DELAYED_WORK(&cd->ulog_work, chg_ulog_work);
+	INIT_WORK(&cd->adsp_dump_log_work, adsp_dump_log_work_func);
 	cd->log_time_ms = LOG_DEFAULT_TIME_MS;
 	platform_set_drvdata(pdev, cd);
 

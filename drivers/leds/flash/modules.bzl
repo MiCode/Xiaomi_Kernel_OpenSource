@@ -9,5 +9,6 @@ def register_modules(registry):
         ],
         deps = [
             "drivers/power/supply/qti_battery_charger",
+            "drivers/power/supply/mca/mca_hardware_ic/subpmic/qcom_subpmic/mca_qcom_subpmic_proxy",
         ],
     )

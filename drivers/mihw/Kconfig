@@ -1,0 +1,59 @@
+config MI_SCHED
+    tristate "schedule policy defined by xiaomi"
+	depends on MIHW && MI_SCHED_WALT
+    default n
+    help
+        This option can show package runtime info in sup/big/little core.
+
+config METIS
+	tristate "frame tracing sched"
+	depends on MI_SCHED && METIS_WALT
+	help
+	  MI vip task run frist.
+
+config MI_LOAD_TRACE
+	tristate "load trace defined by xiaomi"
+	depends on MI_GROUP_ASSIST
+	help
+	  MI FRAME LOAD TRACE
+
+config MI_SCHED_4_CLUSTER
+	tristate "mi sched for 4 clusters"
+	depends on MIHW
+	default n
+	help
+	  The case is used to for Compatibility
+
+config MI_SCHED_3_CLUSTER
+	tristate "mi sched for 3 clusters"
+	depends on MIHW
+	default n
+	help
+	  The case is used to for Compatibility
+
+config MI_SCHED_2_CLUSTER
+	tristate "mi sched for 2 clusters"
+	depends on MIHW
+	default n
+	help
+	  The case is used to for Compatibility
+
+config MI_SOC
+	tristate "mi soc frame load monitor"
+	depends on MIHW
+	help
+	  The case is used to monitor soc frame load
+
+config MQOS_PERF_ACTUATOR
+        tristate "perf actuator interface"
+	default n
+        help
+	  perf actuator
+
+config MQOS_WALT
+	bool "xiaomi qos"
+	default n
+	help
+	  xiaomi QOS
+
+source "$(KCONFIG_EXT_PREFIX)drivers/mihw/dcvs_arbi/Kconfig"

@@ -186,3 +186,6 @@ sphinx_*/
 /rust-project.json
 
 git_fetch_and_checkout.sh
+
+# xiaomi hwid
+drivers/misc/hwid

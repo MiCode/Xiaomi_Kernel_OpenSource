@@ -66,7 +66,7 @@ struct zram_table_entry {
 		unsigned long handle;
 		unsigned long element;
 	};
-	unsigned int flags;
+	unsigned long flags;
 	spinlock_t lock;
 #ifdef CONFIG_ZRAM_TRACK_ENTRY_ACTIME
 	ktime_t ac_time;
@@ -140,4 +140,5 @@ struct zram {
 	struct dentry *debugfs_dir;
 #endif
 };
+
 #endif

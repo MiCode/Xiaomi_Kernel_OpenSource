@@ -10,7 +10,6 @@ clk-dummy.ko
 clk-qcom.ko
 clk-rpmh.ko
 cpu_phys_log_map.ko
-midpoint.ko
 clk-scmi.ko
 sched-walt.ko
 sched-walt-debug.ko
@@ -64,9 +63,17 @@ rtc-pm8xxx.ko
 pmic-pon-log.ko
 qcom-pdc.ko
 qcom_cpu_vendor_hooks.ko
+thermal_pause.ko
+cpu_hotplug.ko
 qcom-dload-mode.ko
 memory_dump_v2.ko
 minidump.ko
+mi_schedule.ko
+metis.ko
+xr-qi.ko
+xr-qs.ko
+mist.ko
+miloadtrace.ko
 qcom_logbuf_vendor_hooks.ko
 qcom_logbuf_boot_log.ko
 pinctrl-msm.ko
@@ -80,6 +87,8 @@ qcom-reboot-reason.ko
 qcom-scm.ko
 qcom_hwspinlock.ko
 qcom_aoss.ko
+mi_qmi_trace.ko
+common.ko
 qrtr.ko
 msm_qmp.ko
 qnoc-qos.ko
@@ -95,6 +104,9 @@ secure_buffer.ko
 mem-prot.ko
 mem_buf.ko
 mem_buf_dev.ko
+qseecom_proxy.ko
+si_core_module.ko
+mem_object.ko
 mem_buf_msgq.ko
 msm_dma_iommu_mapping.ko
 qcom_dma_heaps.ko
@@ -124,7 +136,12 @@ qcom_tzmem.ko
 icc-clk.ko
 cqhci.ko
 sdhci-msm.ko
+hwid.ko
+powerinsight_interface.ko
 arm_smmu_pmu.ko
 deferred-free-helper.ko
+bcl_pmic5.ko
+swinfo.ko
+boottime.ko
 i2c-msm-geni.ko
 msm_gpi.ko

@@ -31,6 +31,8 @@ def register_modules(registry):
         ],
         deps = [
             # do not sort
+            "drivers/power/reset/qcom-reboot-reason",
+            "drivers/misc/hwid",
             "drivers/ufs/host/ufshcd-crypto-qti",
             "drivers/soc/qcom/qcom_ice",
             "kernel/sched/walt/sched-walt",

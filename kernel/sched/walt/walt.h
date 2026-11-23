@@ -20,6 +20,23 @@
 #include <linux/cpuidle.h>
 #include <linux/sched/clock.h>
 #include <trace/hooks/cgroup.h>
+//MIUI ADD: Task_Attribute_Sched
+/* Helper function types for scheduler state access */
+typedef unsigned long (*task_attr_cpu_util_fn)(int cpu);
+typedef unsigned long (*task_attr_capacity_fn)(int cpu);
+typedef unsigned long (*task_attr_task_util_fn)(struct task_struct *p);
+typedef unsigned long (*task_attr_freq_capacity_fn)(int cpu);
+/* Callback function pointer - registered by task_attribute.ko at load time */
+typedef int (*miui_cluster_packing_fn)(int packing_cpu, int cluster_id,
+			int num_sched_clusters,
+			const struct cpumask *unhalted_cpus,
+			struct task_struct *p,
+			task_attr_cpu_util_fn get_cpu_util,
+			task_attr_capacity_fn get_capacity_orig_of,
+			task_attr_task_util_fn get_task_util,
+			task_attr_freq_capacity_fn get_freq_capacity);
+extern miui_cluster_packing_fn __rcu miui_cluster_packing_callback;
+//END Task_Attribute_Sched
 
 #define MSEC_TO_NSEC (1000 * 1000)
 
@@ -111,6 +128,7 @@ extern unsigned int trailblazer_floor_freq[MAX_CLUSTERS];
 #define WALT_IDLE_TASK_BIT		BIT(2)
 #define WALT_LRB_PIPELINE_BIT		BIT(3)
 #define WALT_GIANT_BIT			BIT(4)
+#define WALT_RT_IRQ_BAL_TASK_BIT	BIT(5)
 
 #define WALT_LOW_LATENCY_PROCFS_BIT	BIT(0)
 #define WALT_LOW_LATENCY_BINDER_BIT	BIT(1)
@@ -320,6 +338,9 @@ struct waltgov_tunables {
 	unsigned int		adaptive_low_freq_kernel;
 	unsigned int		adaptive_high_freq_kernel;
 	bool			pl;
+	int			*target_loads;
+	int			ntarget_loads;
+	spinlock_t		target_loads_lock;
 	int			boost;
 	int			zone_util_pct[MAX_ZONES][ZONE_TUPLE_SIZE];
 };
@@ -359,7 +380,6 @@ struct waltgov_policy {
 	bool			hispeed_flag;
 	bool			conservative_pl_flag;
 };
-
 DECLARE_PER_CPU(struct walt_rq, walt_rq);
 
 extern struct completion walt_get_cycle_counts_cb_completion;
@@ -426,6 +446,13 @@ extern int register_walt_callback(void);
 extern int input_boost_init(void);
 extern int core_ctl_init(void);
 extern void rebuild_sched_domains(void);
+//MIUI ADD: Performance_BoostFramework
+extern void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpumask *lowest_mask,
+		int ret, int *best_cpu);
+extern inline bool is_use_cgroup_margin(void) {
+	return use_cgroup_margin;
+}
+//END Performance_BoostFramework
 extern bool can_fit_low_prio_task(struct task_struct *p, int cpu);
 
 extern atomic64_t walt_irq_work_lastq_ws;
@@ -475,9 +502,11 @@ extern unsigned int sysctl_sched_early_up[MAX_MARGIN_LEVELS];
 extern unsigned int sysctl_sched_early_down[MAX_MARGIN_LEVELS];
 extern unsigned int sched_boost_type; /* currently activated sched boost */
 extern enum sched_boost_policy boost_policy;
-extern unsigned int sysctl_input_boost_ms;
-extern unsigned int sysctl_input_boost_freq[WALT_NR_CPUS];
-extern unsigned int sysctl_sched_boost_on_input;
+// MIUI DEL: Performance_BoostFramework
+//extern unsigned int sysctl_input_boost_ms;
+//extern unsigned int sysctl_input_boost_freq[WALT_NR_CPUS];
+//extern unsigned int sysctl_sched_boost_on_input;
+// END Performance_BoostFramework
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 extern unsigned int sysctl_sched_hyst_min_coloc_ns;
@@ -486,6 +515,10 @@ extern unsigned int sysctl_ed_boost_pct;
 extern unsigned int sysctl_em_inflate_pct;
 extern unsigned int sysctl_em_inflate_thres;
 extern unsigned int sysctl_sched_heavy_nr;
+
+// MIUI ADD: Performance_BoostFramework
+extern unsigned int sysctl_sched_storage_boost_disable;
+// END Performance_BoostFramework
 
 extern int cpufreq_walt_set_adaptive_freq(unsigned int cpu, unsigned int adaptive_level_1,
 					  unsigned int adaptive_low_freq,
@@ -515,9 +548,39 @@ extern unsigned int sysctl_walt_features;
 extern int sched_dynamic_tp_handler(const struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 
+// MIUI ADD: Performance_BoostFramework
+enum input_boost_node_type {
+	TYPE_TOUCH_FREQ,
+	TYPE_TOUCH_SCHED_BOOST,
+	TYPE_TOUCH_BOOST_MS,
+	TYPE_POWERKEY_FREQ,
+	TYPE_POWERKEY_SCHED_BOOST,
+	TYPE_POWERKEY_BOOST_MS,
+	TYPE_VOLKEY_FREQ,
+	TYPE_VOLKEY_SCHED_BOOST,
+	TYPE_VOLKEY_BOOST_MS,
+	TYPE_PARAM_MAX
+};
+
+extern int input_boost_fill_boost_params(const struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp, loff_t *ppos);
+// END Performance_BoostFramework
+
 extern struct list_head cluster_head;
 #define for_each_sched_cluster(cluster) \
 	list_for_each_entry_rcu(cluster, &cluster_head, list)
+
+//MIUI ADD: Camera_CamSched
+#ifdef CONFIG_MI_CAM_WALT
+extern int sysctl_sched_freq_cam_cpu02_pressure_enable;
+struct waltgov_cam_cpu {
+	unsigned long	util;
+	unsigned long	cap;
+	int	util_thresh;
+	int	inflate_factor;
+};
+#endif
+//END Camera_CamSched
 
 static inline struct walt_sched_cluster *cpu_cluster(int cpu)
 {
@@ -609,6 +672,9 @@ extern bool single_cluster_pipeline;
 #define WALT_CPUFREQ_SMART_FREQ_BIT		BIT(9)
 #define WALT_CPUFREQ_UCLAMP_BIT			BIT(10)
 #define WALT_CPUFREQ_PIPELINE_BUSY_BIT		BIT(11)
+//MIUI ADD: Performance_BoostFramework
+#define WALT_CPUFREQ_KT_LOAD_BOOST_BIT		BIT(20)
+//END Performance_BoostFramework
 
 /* CPUFREQ_REASON_LOAD is unused. If reasons value is 0, this indicates
  * that no extra features were enforced, and the frequency aligns with
@@ -637,6 +703,23 @@ extern bool single_cluster_pipeline;
 #define CPUFREQ_REASON_IPC_SMART_FREQ_BIT	BIT(18)
 #define CPUFREQ_REASON_UCLAMP_BIT		BIT(19)
 #define CPUFREQ_REASON_PIPELINE_BUSY_BIT	BIT(20)
+//MIUI ADD: Performance_BoostFramework
+#define CPUFREQ_REASON_FUSE_FLOOR_BIT		BIT(28)
+#define CPUFREQ_REASON_FUSE_BOOST_BIT		BIT(29)
+#define CPUFREQ_REASON_KT_LOAD_BOOST_BIT	BIT(30)
+//END Performance_BoostFramework
+
+//MIUI ADD: Task_Attribute_Sched
+#define MIUI_POWER_ENHANCE_TRAILBLAZER			BIT(0)
+#define MIUI_POWER_ENHANCE_IPC			BIT(1)
+#define MIUI_POWER_ENHANCE_CLUSTER_PACKING			BIT(2)
+#define MIUI_POWER_ENHANCE_CPU_BUSY_THRES		BIT(3)
+extern unsigned int __read_mostly miui_power_enhance;
+#define miui_power_enhance_feat(feat)		(miui_power_enhance & feat)
+#define miui_power_enhance_feat_set(feat)	(miui_power_enhance |= feat)
+#define miui_power_enhance_feat_unset(feat)	(miui_power_enhance &= ~feat)
+extern void oem_corectl_cpu_busy(unsigned int flag, unsigned int val);
+//END Task_Attribute_Sched
 
 enum sched_boost_policy {
 	SCHED_BOOST_NONE,
@@ -749,6 +832,26 @@ static inline unsigned long cpu_util(int cpu)
 	u64 walt_cpu_util = wrq->walt_stats.cumulative_runnable_avg_scaled;
 
 	return min_t(unsigned long, walt_cpu_util, capacity_orig_of(cpu));
+}
+
+static inline unsigned long walt_get_cpu_util(int cpu)
+{
+	return cpu_util(cpu);
+}
+
+static inline unsigned long walt_get_capacity_orig_of(int cpu)
+{
+	return capacity_orig_of(cpu);
+}
+
+static inline unsigned long walt_get_task_util(struct task_struct *p)
+{
+	return task_util(p);
+}
+
+static inline unsigned long walt_get_freq_capacity(int cpu)
+{
+	return arch_scale_freq_capacity(cpu);
 }
 
 static inline unsigned long cpu_util_cum(int cpu)
@@ -900,6 +1003,10 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		if (sched_boost_type == BALANCE_BOOST &&
 			task_util(p) <= sysctl_sched_min_task_util_for_boost)
 			policy = SCHED_BOOST_NONE;
+// MIUI ADD: Performance_BoostFramework
+                if (is_storage_boost() && sysctl_sched_storage_boost_disable)
+                        policy = SCHED_BOOST_NONE;
+// END Performance_BoostFramework
 	}
 
 	return policy;
@@ -1166,14 +1273,19 @@ finish:
 
 	return capacity * 1024 > uclamp_task_util(p) * margin;
 }
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+extern unsigned long os_cpu_get_group_prefer_util(struct task_struct *p);
+#endif
 extern int pipeline_fits_smaller_cpus(struct task_struct *p);
 static inline bool task_fits_max(struct task_struct *p, int dst_cpu)
 {
 	unsigned long task_boost = per_task_boost(p);
 	cpumask_t other_cluster;
 	int ret = -1;
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (arch_scale_cpu_capacity(dst_cpu) < os_cpu_get_group_prefer_util(p))
+		return false;
+#endif
 	/*
 	 * If a task is affined only to cpus of cluster then it cannot be a
 	 * misfit
@@ -1348,10 +1460,14 @@ static inline bool walt_flag_test(struct task_struct *p, unsigned int feature)
 
 /* higher number, better priority */
 #define WALT_RTG_MVP		0
+//MIUI ADD: Performance_BoostFramework
+#define WALT_FUSE_MVP		0
+//END Performance_BoostFramework
 #define WALT_BINDER_MVP		1
 #define WALT_TASK_BOOST_MVP	2
 #define WALT_LL_MVP		3
 #define WALT_PIPELINE_MVP	4
+#define WALT_KEYTASK_MVP	5
 
 #define WALT_NOT_MVP		-1
 
@@ -1404,6 +1520,9 @@ static inline bool task_reject_partialhalt_cpu(struct task_struct *p, int cpu)
 	return false;
 }
 
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+extern void os_cpu_get_group_prefer_cpus(struct task_struct *p, struct cpumask *perfer_cpus);
+#endif
 /* walt_find_and_choose_cluster_packing_cpu - Return a packing_cpu choice common for this cluster.
  * @start_cpu:  The cpu from the cluster to choose from
  *
@@ -1416,11 +1535,15 @@ static inline bool task_reject_partialhalt_cpu(struct task_struct *p, int cpu)
  * Returns -1 if packing_cpu if not found or is unsuitable to be packed on  to
  * Returns a valid cpu number if packing_cpu is found and is usable
  */
-static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct task_struct *p)
+
+ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct task_struct *p)
 {
 	struct walt_rq *wrq = &per_cpu(walt_rq, start_cpu);
 	struct walt_sched_cluster *cluster = wrq->cluster;
 	cpumask_t unhalted_cpus;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_t prefer_cpus;
+#endif
 	int packing_cpu;
 
 	/* if idle_enough feature is not enabled */
@@ -1428,19 +1551,45 @@ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct
 		return -1;
 	if (!sysctl_sched_cluster_util_thres_pct_clust[cluster->id])
 		return -1;
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	os_cpu_get_group_prefer_cpus(p, &prefer_cpus);
+#endif
 	/* find all unhalted active cpus */
 	cpumask_andnot(&unhalted_cpus, cpu_active_mask, cpu_halt_mask);
 
 	/* find all unhalted active cpus in this cluster */
 	cpumask_and(&unhalted_cpus, &unhalted_cpus, &cluster->cpus);
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_and(&unhalted_cpus, &unhalted_cpus, &prefer_cpus);
+#endif
 	if (is_compat_thread(task_thread_info(p)))
 		/* try to find a packing cpu within 32 bit subset */
 		cpumask_and(&unhalted_cpus, &unhalted_cpus, system_32bit_el0_cpumask());
-
 	/* return the first found unhalted, active cpu, in this cluster */
 	packing_cpu = cpumask_first(&unhalted_cpus);
+
+//MIUI ADD: Task_Attribute_Sched
+	/* Apply cluster packing decision from task_attribute module (if loaded).
+	 * Use READ_ONCE to snapshot the pointer once, preventing TOCTTOU race
+	 * between the NULL check and the indirect call if the module unloads.
+	 */
+	{
+		int ret = packing_cpu;
+		miui_cluster_packing_fn fn;
+
+		rcu_read_lock();
+		fn = rcu_dereference(miui_cluster_packing_callback);
+		if (fn)
+			ret = fn(packing_cpu, cluster->id, num_sched_clusters,
+					&unhalted_cpus, p, walt_get_cpu_util,
+					walt_get_capacity_orig_of, walt_get_task_util,
+					walt_get_freq_capacity);
+		rcu_read_unlock();
+		if (ret == -1)
+			return -1;
+		packing_cpu = ret;
+	}
+//END Task_Attribute_Sched
 
 	/* packing cpu must be a valid cpu for runqueue lookup */
 	if (packing_cpu >= nr_cpu_ids)
@@ -1474,17 +1623,6 @@ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct
 	return packing_cpu;
 }
 
-static inline bool any_large_above_util_threshold(unsigned long util)
-{
-	int cpu;
-
-	for_each_cpu(cpu, &cpu_array[0][num_sched_clusters - 1])
-		if (cpu_util(cpu) > util)
-			return true;
-
-	return false;
-}
-
 #define LARGE_CPU_THROTTLED_CAP_THRESH 700
 static inline bool is_large_cpu_cap_low(void)
 {
@@ -1493,6 +1631,17 @@ static inline bool is_large_cpu_cap_low(void)
 
 	if (wrq->cpu_capacity_orig < LARGE_CPU_THROTTLED_CAP_THRESH)
 		return true;
+
+	return false;
+}
+
+static inline bool any_large_above_util_threshold(unsigned long util)
+{
+	int cpu;
+
+	for_each_cpu(cpu, &cpu_array[0][num_sched_clusters - 1])
+		if (cpu_util(cpu) > util)
+			return true;
 
 	return false;
 }
@@ -1734,6 +1883,14 @@ DECLARE_PER_CPU(unsigned int, walt_yield_to_sleep);
 extern unsigned int walt_sched_yield_counter;
 extern unsigned int sysctl_force_frequent_yielder;
 void account_yields(u64 window_start);
+#if IS_ENABLED(CONFIG_FACTORY_BUILD)
+extern void midpoint_init(void);
+#else
+static inline void midpoint_init(void)
+{
+}
+#endif
+
 extern void pipeline_demand(struct walt_task_struct *wts, u64 *scaled_gold_demand,
 		     u64 *scaled_prime_demand);
 extern unsigned int sysctl_pipeline_force_config;

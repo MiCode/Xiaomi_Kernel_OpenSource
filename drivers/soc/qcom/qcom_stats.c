@@ -730,7 +730,7 @@ int cx_stats_get_ss_vote_info(int ss_count,
 	u32 data[((MAX_DRV + 0x3) & (~0x3))/4 + ((MAX_INT_DRV + 0x3) & (~0x3))/4 + 1];
 	u32 entry_count = 0;
 
-	if (!vote_info || !(ss_count == (MAX_DRV + MAX_INT_DRV)) || !drv)
+	if (!vote_info || !(ss_count == (MAX_DRV + MAX_INT_DRV + 1)) || !drv)
 		return -ENODEV;
 
 	if (!drv->qmp || !drv->config->cx_vote_offset)
@@ -958,10 +958,67 @@ static int island_stats_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+static int cxvt_stats_show(struct seq_file *s, void *unused)
+{
+	struct qcom_stats_cx_vote_info vote_info[MAX_DRV+MAX_INT_DRV+1];
+	int i;
+
+	memset(vote_info, 0, (int)sizeof(struct qcom_stats_cx_vote_info)*(MAX_DRV+MAX_INT_DRV));
+
+	cx_stats_get_ss_vote_info((MAX_DRV+MAX_INT_DRV+1), vote_info);
+
+	for(i = 0; i < (MAX_DRV + MAX_INT_DRV); i++){
+		seq_printf(s, "owen DRV: %d, vote: %d \n", i, vote_info[i].level);
+	}
+	return 0;
+}
+
+static int ddrvt_stats_show(struct seq_file *s, void *unused)
+{
+	struct ddr_stats_ss_vote_info vote_info[MAX_DRV];
+	int i;
+
+	memset(vote_info, 0, (int)sizeof(struct ddr_stats_ss_vote_info) * MAX_DRV);
+
+	ddr_stats_get_ss_vote_info(MAX_DRV, vote_info);
+
+	for(i = 0; i < MAX_DRV; i++){
+		seq_printf(s, "owner DRV: %d avg: %d peak: %d\n",
+					i, vote_info[i].ab, vote_info[i].ib);
+	}
+
+	return 0;
+}
+
+static int llcvt_stats_show(struct seq_file *s, void *unused)
+{
+	struct llc_island_stats_active_scids llc_active_scids;
+	int i;
+
+	memset(&llc_active_scids, 0, (int)sizeof(struct llc_island_stats_active_scids));
+
+	if (!llc_stats_get_active_scids(&llc_active_scids)) {
+		for(i = 0; i < NUM_MAX_SCID; i++){
+			if(llc_active_scids.scid_count[i]) {
+				seq_printf(s, "LLC CLIENT: %d, vote: 0x%llx | ", i, llc_active_scids.scid_count[i]);
+                        }
+		}
+		seq_printf(s, "status: 0x%llx \n", llc_active_scids.cur_scid_status);
+	}
+
+	return 0;
+}
+
+
+
 DEFINE_SHOW_ATTRIBUTE(qcom_soc_sleep_stats);
 DEFINE_SHOW_ATTRIBUTE(qcom_subsystem_sleep_stats);
 DEFINE_SHOW_ATTRIBUTE(ddr_stats);
 DEFINE_SHOW_ATTRIBUTE(island_stats);
+
+DEFINE_SHOW_ATTRIBUTE(cxvt_stats);
+DEFINE_SHOW_ATTRIBUTE(ddrvt_stats);
+DEFINE_SHOW_ATTRIBUTE(llcvt_stats);
 
 static int qcom_create_stats_device(struct stats_drvdata *drv)
 {
@@ -1006,6 +1063,9 @@ static void qcom_create_island_stat_files(struct dentry *root, void __iomem *reg
 		return;
 
 	debugfs_create_file("island_stats", 0400, root, NULL, &island_stats_fops);
+	debugfs_create_file("cxvt_stats", 0400, root, NULL, &cxvt_stats_fops);
+	debugfs_create_file("ddrvt_stats", 0400, root, NULL, &ddrvt_stats_fops);
+	debugfs_create_file("llcvt_stats", 0400, root, NULL, &llcvt_stats_fops);
 }
 
 static void qcom_create_ddr_stat_files(struct dentry *root, void __iomem *reg,

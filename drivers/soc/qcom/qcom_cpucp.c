@@ -267,6 +267,12 @@ static int qcom_cpucp_probe(struct platform_device *pdev)
 					sizeof(struct mbox_chan), GFP_KERNEL);
 	if (!cpucp_ipc->chans)
 		return -ENOMEM;
+	cpucp_ipc->chans_locks = devm_kzalloc(&pdev->dev, desc->num_chans *
+		sizeof(spinlock_t), GFP_KERNEL);
+	if (!cpucp_ipc->chans_locks)
+		return -ENOMEM;
+	for (i = 0; i < desc->num_chans; i++)
+		spin_lock_init(&cpucp_ipc->chans_locks[i]);
 
 	cpucp_ipc->chans_locks = devm_kzalloc(&pdev->dev, desc->num_chans *
 					sizeof(spinlock_t), GFP_KERNEL);

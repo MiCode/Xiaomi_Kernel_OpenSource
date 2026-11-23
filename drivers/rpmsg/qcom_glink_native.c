@@ -24,6 +24,7 @@
 #include <linux/suspend.h>
 #include <linux/termios.h>
 #include <linux/ipc_logging.h>
+#include <linux/wakeup_reason.h>
 
 #include "drivers/rpmsg/rpmsg_internal.h"
 #include "qcom_glink_native.h"
@@ -1623,9 +1624,11 @@ void qcom_glink_native_rx(struct qcom_glink *glink)
 
 	if (should_wake) {
 		dev_dbg(glink->dev, "%s: wakeup\n", __func__);
+		pr_info("%s: wakeup %s\n", __func__, glink->name);
 		glink_resume_pkt = true;
 		should_wake = false;
 		pm_system_wakeup();
+		log_abnormal_wakeup_reason("%s\n", glink->name);
 	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
@@ -1797,17 +1800,32 @@ static struct rpmsg_endpoint *qcom_glink_create_ept(struct rpmsg_device *rpdev,
 	struct qcom_glink *glink = parent->glink;
 	struct rpmsg_endpoint *ept;
 	const char *name = chinfo.name;
-	int cid;
 	int ret;
+	int rcid, lcid;
+	int rcid_exist = 0;
+	int lcid_exist = 0;
 	unsigned long flags;
+	struct glink_channel *local_channel;
 
 	spin_lock_irqsave(&glink->idr_lock, flags);
-	idr_for_each_entry(&glink->rcids, channel, cid) {
-		if (!strcmp(channel->name, name))
+	idr_for_each_entry(&glink->rcids, channel, rcid) {
+		if (!strcmp(channel->name, name)) {
+			rcid_exist = 1;
 			break;
+		}
 	}
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
 
+	idr_for_each_entry(&glink->lcids, local_channel, lcid) {
+		if (!strcmp(local_channel->name, name)) {
+			lcid_exist = 1;
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	if (rcid_exist && lcid_exist)
+		return &channel->ept;
+	
 	if (!channel) {
 		channel = qcom_glink_create_local(glink, name);
 		if (IS_ERR(channel))

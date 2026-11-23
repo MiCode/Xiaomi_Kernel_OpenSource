@@ -8,6 +8,82 @@
 
 #include "walt.h"
 #include "trace.h"
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+#include "../xiaomi_sched/qcom/rtg/rtg_pfr_cpu.h"
+#endif
+#if IS_ENABLED(CONFIG_MIPLAT_GAME) || IS_ENABLED(CONFIG_OS_CPU_PLAT_COMMON)
+#include <linux/os-cpu/plat_common.h>
+#endif
+
+// MIUI ADD: Performance_BoostFramework
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_assi_walt_rt_skip_sync_wakeup);
+// END Performance_BoostFramework
+
+
+
+#if IS_ENABLED(CONFIG_OS_CPU_QOS_SCHED)
+/*
+ * OS-CPU QoS Sched: tagged tasks (e.g. touch/keyboard IRQ kthreads) are
+ * steered away from CPUs currently busy handling softirqs during RT placement.
+ * Marker is stored on the task's walt_task_struct flags, so it is freed
+ * naturally with the task and cannot leak.
+ */
+bool walt_set_rt_irq_balance_task(struct task_struct *tsk)
+{
+	struct walt_task_struct *wts;
+
+	if (unlikely(!tsk))
+		return false;
+
+	wts = (struct walt_task_struct *)android_task_vendor_data(tsk);
+	if (!(wts->flags & WALT_INIT_BIT))
+		return false;
+
+	walt_flag_set(tsk, WALT_RT_IRQ_BAL_TASK_BIT, true);
+	return true;
+}
+EXPORT_SYMBOL_GPL(walt_set_rt_irq_balance_task);
+
+void walt_clear_rt_irq_balance_task(struct task_struct *tsk)
+{
+	struct walt_task_struct *wts;
+
+	if (unlikely(!tsk))
+		return;
+
+	wts = (struct walt_task_struct *)android_task_vendor_data(tsk);
+	if (!(wts->flags & WALT_INIT_BIT))
+		return;
+
+	walt_flag_set(tsk, WALT_RT_IRQ_BAL_TASK_BIT, false);
+}
+EXPORT_SYMBOL_GPL(walt_clear_rt_irq_balance_task);
+
+static inline bool walt_rt_irq_task_skip_cpu(struct task_struct *tsk, int cpu)
+{
+	struct rq *dst_rq;
+	struct task_struct *dst_curr;
+	bool skip = false;
+
+	if (cpu < 0 || cpu >= nr_cpu_ids)
+		return false;
+
+	if (unlikely(!tsk) || unlikely(refcount_read(&tsk->usage) == 0))
+		return false;
+
+	get_task_struct(tsk);
+	if (!walt_flag_test(tsk, WALT_RT_IRQ_BAL_TASK_BIT))
+		goto out;
+
+	dst_rq = cpu_rq(cpu);
+	dst_curr = (dst_rq != NULL) ? dst_rq->curr : NULL;
+	if (dst_curr != NULL && cpu_busy_with_softirqs(cpu))
+		skip = true;
+out:
+	put_task_struct(tsk);
+	return skip;
+}
+#endif /* CONFIG_OS_CPU_QOS_SCHED */
 
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 DEFINE_PER_CPU(u64, rt_task_arrival_time) = 0;
@@ -93,7 +169,7 @@ int sched_long_running_rt_task_ms_handler(const struct ctl_table *table, int wri
 	return ret;
 }
 
-static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpumask *lowest_mask,
+extern void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpumask *lowest_mask,
 					  int ret, int *best_cpu)
 {
 	int cpu;
@@ -108,6 +184,19 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	int end_index = 0;
 	bool best_cpu_lt = true;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_t prefer_cpus;
+	int best_prefer_cpu = -1;
+#endif
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+	bool skip_walt_indicies = false;
+	bool energy_eval_needed = false;
+	plat_mi_game_walt_get_indicies(task, &order_index, &end_index,
+			num_sched_clusters, &skip_walt_indicies, &energy_eval_needed);
+#endif
+#if IS_ENABLED(CONFIG_OS_CPU_PLAT_COMMON)
+	bool relaxed_rt = plat_is_relaxed_rt(task);
+#endif
 
 	if (unlikely(walt_disabled))
 		return;
@@ -116,6 +205,15 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 		return; /* No targets found */
 
 	rcu_read_lock();
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	os_cpu_get_group_prefer_cpus(task, &prefer_cpus);
+	if (cpumask_full(&prefer_cpus))
+		cpumask_clear(&prefer_cpus);
+	else if (!cpumask_empty(&prefer_cpus)) {
+		order_index = num_sched_clusters - 1;
+		end_index = 0;
+	}
+#endif
 
 	if (soc_feat(SOC_ENABLE_SILVER_RT_SPREAD_BIT) && order_index == 0)
 		end_index = 1;
@@ -132,12 +230,29 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			if (cpu_halted(cpu))
 				continue;
 
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+			if (best_prefer_cpu < 0 &&
+			    cpumask_test_cpu(cpu, &prefer_cpus))
+				best_prefer_cpu = cpu;
+#endif
+
 			if (sched_cpu_high_irqload(cpu))
 				continue;
 
+#if IS_ENABLED(CONFIG_OS_CPU_PLAT_COMMON)
+			if (!relaxed_rt && __cpu_overutilized(cpu, tutil))
+#else
 			if (__cpu_overutilized(cpu, tutil))
+#endif
 				continue;
 
+#ifdef CONFIG_METIS_WALT
+			if (metis_coldstart_skip_thiscpu_rt(task, cpu))
+				continue;
+#elif IS_ENABLED(CONFIG_OS_CPU_QOS_SCHED)
+			if (walt_rt_irq_task_skip_cpu(task, cpu))
+				continue;
+#endif
 			util = cpu_util(cpu);
 
 			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
@@ -188,18 +303,32 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			best_cpu_util = util;
 			*best_cpu = cpu;
 			best_cpu_lt = lt;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+			if (cpumask_test_cpu(cpu, &prefer_cpus))
+				best_prefer_cpu = cpu;
+#endif
 		}
 		if (cluster < end_index) {
 			if (*best_cpu == -1 || !available_idle_cpu(*best_cpu))
 				continue;
 		}
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		if (*best_cpu != -1 &&
+		    (*best_cpu == best_prefer_cpu || cpumask_empty(&prefer_cpus)))
+			break;
+#else
 		if (*best_cpu != -1)
 			break;
+#endif
 	}
 
 	rcu_read_unlock();
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (best_prefer_cpu != -1)
+		*best_cpu = best_prefer_cpu;
+#endif
 }
+EXPORT_SYMBOL_GPL(walt_rt_energy_aware_wake_cpu);
 
 #ifdef CONFIG_UCLAMP_TASK
 static inline bool walt_rt_task_fits_capacity(struct task_struct *p, int cpu)
@@ -212,7 +341,11 @@ static inline bool walt_rt_task_fits_capacity(struct task_struct *p, int cpu)
 	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
 
 	cpu_cap = capacity_orig_of(cpu);
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (!os_cpu_is_task_prefer_cpu(p, cpu) &&
+	    arch_scale_cpu_capacity(cpu) < os_cpu_get_group_prefer_util(p))
+		return false;
+#endif
 	return cpu_cap >= min(min_cap, max_cap);
 }
 #else
@@ -234,6 +367,7 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
+
 enum rt_fastpaths {
 	NONE = 0,
 	NON_WAKEUP,
@@ -254,9 +388,16 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	int fastpath = NONE;
 	struct cpumask lowest_mask_reduced = { CPU_BITS_NONE };
 	struct walt_task_struct *wts;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	struct cpumask rtg_mask;
+#endif
+// MIUI ADD: Performance_BoostFramework
+	bool sched_assi_skip = false;
+// END Performance_BoostFramework
 
 	if (unlikely(walt_disabled))
 		return;
+
 
 	if (walt_quiet_state)
 		return;
@@ -272,6 +413,8 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	this_cpu_rq = cpu_rq(this_cpu);
 	wts = (struct walt_task_struct *)android_task_vendor_data(task);
 
+
+
 	/*
 	 * Respect the sync flag as long as the task can run on this CPU.
 	 */
@@ -279,10 +422,43 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	    cpumask_test_cpu(this_cpu, task->cpus_ptr) &&
 	    cpumask_test_cpu(this_cpu, &wts->reduce_mask) &&
 	    walt_should_honor_rt_sync(this_cpu_rq, task, sync)) {
+#ifdef CONFIG_METIS_WALT
+		if (metis_coldstart_skip_thiscpu_rt(task, this_cpu))
+			goto sync_wakeup_skip;
+#elif IS_ENABLED(CONFIG_OS_CPU_QOS_SCHED)
+		if (walt_rt_irq_task_skip_cpu(task, this_cpu))
+			goto sync_wakeup_skip;
+#endif
+
+#ifdef CONFIG_MIGT_WALT
+		if (game_migt_should_skip_this_cpu_rt_hook) {
+			if (game_migt_should_skip_this_cpu_rt_hook(task, this_cpu))
+				goto sync_wakeup_skip;
+		}
+#endif
+
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+		if (plat_game_should_skip_cpu_rt(task, this_cpu))
+			goto sync_wakeup_skip;
+#endif
+
+// MIUI ADD: Performance_BoostFramework
+		trace_sched_assi_walt_rt_skip_sync_wakeup(task, this_cpu, &sched_assi_skip);
+		if (sched_assi_skip)
+			goto sync_wakeup_skip;
+// END Performance_BoostFramework
+
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		if (!os_cpu_is_task_prefer_cpu(task, this_cpu))
+			goto sync_wakeup_skip;
+#endif
+
 		fastpath = SYNC_WAKEUP;
 		*new_cpu = this_cpu;
 		goto out;
 	}
+
+sync_wakeup_skip:
 
 	*new_cpu = cpu; /* previous CPU as back up */
 	rq = cpu_rq(cpu);
@@ -318,6 +494,15 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 				lowest_mask, walt_rt_task_fits_capacity);
 
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(0, task);
+#ifdef CONFIG_METIS_WALT
+	if (metis_coldstart_skip_thiscpu_rt(task, packing_cpu)) {
+		packing_cpu = -1;
+	}
+#elif IS_ENABLED(CONFIG_OS_CPU_QOS_SCHED)
+	if (walt_rt_irq_task_skip_cpu(task, packing_cpu)) {
+		packing_cpu = -1;
+	}
+#endif
 	if (packing_cpu >= 0) {
 		while (packing_cpu < WALT_NR_CPUS) {
 			if (cpumask_test_cpu(packing_cpu, &wts->reduce_mask) &&
@@ -325,7 +510,14 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 				cpu_active(packing_cpu) &&
 				!cpu_halted(packing_cpu) &&
 				(cpu_rq(packing_cpu)->rt.rt_nr_running <= 1))
+#ifdef CONFIG_MIGT_WALT
+				if (game_migt_should_skip_this_cpu_rt_hook &&
+					!game_migt_should_skip_this_cpu_rt_hook(task, packing_cpu)) {
+						break;
+				}
+#else
 				break;
+#endif
 			packing_cpu++;
 		}
 
@@ -335,8 +527,8 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 			goto unlock;
 		}
 	}
-
 	cpumask_and(&lowest_mask_reduced, lowest_mask, &wts->reduce_mask);
+
 	if (!cpumask_empty(&lowest_mask_reduced))
 		walt_rt_energy_aware_wake_cpu(task, &lowest_mask_reduced, ret, &target);
 	if (target == -1)
@@ -351,13 +543,27 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	if (target != -1 &&
 	    (may_not_preempt || task->prio < cpu_rq(target)->rt.highest_prio.curr))
 		*new_cpu = target;
-
+#ifdef CONFIG_METIS_WALT
+	if (cpu_halted(*new_cpu) || metis_wakeup_cold_start_skip_ui_cpu(task, *new_cpu)) {
+#else
 	/* if backup or chosen cpu is halted, pick something else */
 	if (cpu_halted(*new_cpu)) {
+#endif
 		cpumask_t non_halted;
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		os_cpu_get_group_prefer_cpus(task, &non_halted);
+		cpumask_andnot(&non_halted, &non_halted, cpu_halt_mask);
+		target = cpumask_first_and(&non_halted, task->cpus_ptr);
+		if (target < nr_cpu_ids) {
+			*new_cpu = target;
+			goto unlock;
+		}
+#endif
 		/* choose the lowest-order, unhalted, allowed CPU */
 		cpumask_andnot(&non_halted, task->cpus_ptr, cpu_halt_mask);
+
+
+
 		target = cpumask_first(&non_halted);
 		if (target < nr_cpu_ids)
 			*new_cpu = target;
@@ -365,6 +571,10 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 unlock:
 	rcu_read_unlock();
 out:
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (trace_sched_select_task_rt_enabled())
+		os_cpu_get_group_prefer_cpus(task, &rtg_mask);
+#endif
 	trace_sched_select_task_rt(task, fastpath, *new_cpu, lowest_mask);
 	update_instruction_data(WALT_SELECT_TASK_RQ_RT);
 }
@@ -380,8 +590,14 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *sched_ctx,
 	struct walt_task_struct *wts;
 	struct cpumask lowest_mask_reduced = { CPU_BITS_NONE };
 
+
 	if (unlikely(walt_disabled))
 		return;
+
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+	cpumask_clear(&mi_game_reserve_cpumask);
+	mi_game_should_skip = plat_game_skip_cpus_rt(sched_ctx, &mi_game_reserve_cpumask);
+#endif
 
 	if (walt_quiet_state)
 		return;
@@ -397,7 +613,23 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *sched_ctx,
 				cpu_active(packing_cpu) &&
 				!cpu_halted(packing_cpu) &&
 				(cpu_rq(packing_cpu)->rt.rt_nr_running <= 2))
-				break;
+#if defined(CONFIG_MIGT_WALT) || defined(CONFIG_MIPLAT_GAME)
+			{
+#if IS_ENABLED(CONFIG_MIGT_WALT)
+				if (game_migt_should_skip_this_cpu_rt_hook &&
+					!game_migt_should_skip_this_cpu_rt_hook(sched_ctx, packing_cpu)) {
+					break;
+				}
+#endif
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+				if (!plat_game_should_skip_cpu_rt(sched_ctx, packing_cpu)) {
+					break;
+				}
+#endif
+			}
+#else
+    			break;
+#endif
 			packing_cpu++;
 		}
 
@@ -408,12 +640,13 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *sched_ctx,
 		}
 	}
 
+
 	cpumask_and(&lowest_mask_reduced, lowest_mask, &wts->reduce_mask);
+
 	if (!cpumask_empty(&lowest_mask_reduced))
 		walt_rt_energy_aware_wake_cpu(sched_ctx, &lowest_mask_reduced, ret, best_cpu);
 	if (*best_cpu == -1)
 		walt_rt_energy_aware_wake_cpu(sched_ctx, lowest_mask, ret, best_cpu);
-
 	/*
 	 * Walt was not able to find a non-halted best cpu. Ensure that
 	 * find_lowest_rq doesn't use a halted cpu going forward, but

@@ -21,4 +21,46 @@ config MSM_SYSSTATS_STUB_NONEXPORTED_SYMBOLS
           unreclaimable field either 0, or make it only include the KGSL memory.
           If unsure, say N.
 
+config MIHW
+        bool "MI driver"
+        default n
+        help
+          Mi driver code
+
+config MI_SCHED_WALT
+        bool "mi sched walt"
+        default n
+        help
+          MI SCHED WALT
+
+config METIS_WALT
+        bool "metis walt"
+        default n
+        help
+          METIS WALT
+
+config MI_SOC_DFLT
+		bool "ddr devf"
+		default n
+		help
+		ddr DEVF
+
+config MI_SOC_GFLT
+		bool "gpu devf"
+		default n
+		help
+			gpu DEVF
+
+config MI_GROUP_ASSIST
+        bool "mi group assist"
+        default n
+        help
+          MI_GROUP_ASSIST
+
+config MI_LOAD_TRACE_ASSIST
+        bool "mi load trace assist"
+        default n
+        help
+          MI_LOAD_TRACE_ASSIST
+
 endmenu		# General setup

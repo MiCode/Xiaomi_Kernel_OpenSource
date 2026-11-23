@@ -18,6 +18,8 @@ source "$(KCONFIG_EXT_PREFIX)drivers/cpufreq/Kconfig.arm"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/cpuidle/Kconfig"
 
+source "$(KCONFIG_EXT_PREFIX)drivers/mimon/Kconfig"
+
 source "$(KCONFIG_EXT_PREFIX)drivers/devfreq/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/dma-buf/heaps/Kconfig"
@@ -86,8 +88,11 @@ source "$(KCONFIG_EXT_PREFIX)drivers/power/reset/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/Kconfig"
 
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/mca/Kconfig"
+
 source "$(KCONFIG_EXT_PREFIX)drivers/powercap/qcom/Kconfig"
 
+source "$(KCONFIG_EXT_PREFIX)drivers/powerinsight/Kconfig"
 source "$(KCONFIG_EXT_PREFIX)drivers/ptp/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/regulator/Kconfig"
@@ -134,16 +139,46 @@ source "$(KCONFIG_EXT_PREFIX)init/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)kernel/sched/walt/Kconfig"
 
+source "$(KCONFIG_EXT_PREFIX)kernel/sched/xiaomi_sched/Kconfig"
+
 source "$(KCONFIG_EXT_PREFIX)kernel/trace/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)net/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)sound/usb/Kconfig"
 
+source "$(KCONFIG_EXT_PREFIX)drivers/misc/hwid/Kconfig"
+
 source "$(KCONFIG_EXT_PREFIX)drivers/block/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)Kconfig.qtvm"
 
-source "$(KCONFIG_EXT_PREFIX)drivers/block/zram/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/misc/dio_dma_mapper/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/input/fingerprint/mi_fp/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/xiaomi/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/ir-spi/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/input/misc/cs40l26_haptic/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)sound/soc/codecs/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/firmware/cirrus/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/rsmc/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/xiaomi/mi_kernel_monitor/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/xiaomi/fault_report/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/stmvl53l5/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/mihw/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/ntag/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/ntag/fm19511/Kconfig"
 
 endmenu

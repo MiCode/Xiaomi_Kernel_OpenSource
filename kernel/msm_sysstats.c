@@ -30,6 +30,10 @@ struct tgid_iter {
 static struct genl_family family;
 
 static u64 (*sysstats_kgsl_get_stats)(pid_t pid);
+size_t (*memcheck_kgsl_memstat)(const char *name);
+EXPORT_SYMBOL_GPL(memcheck_kgsl_memstat);
+int (*memcheck_walk_process_privates)(int (*f)(void *), void *data);
+EXPORT_SYMBOL_GPL(memcheck_walk_process_privates);
 
 static DEFINE_PER_CPU(__u32, sysstats_seqnum);
 #define SYSSTATS_CMD_ATTR_MAX 3
@@ -51,6 +55,18 @@ void sysstats_register_kgsl_stats_cb(u64 (*cb)(pid_t pid))
 	sysstats_kgsl_get_stats = cb;
 }
 EXPORT_SYMBOL_GPL(sysstats_register_kgsl_stats_cb);
+
+void sysstats_register_kgsl_memstat_cb(size_t (*cb)(const char *name))
+{
+	memcheck_kgsl_memstat = cb;
+}
+EXPORT_SYMBOL_GPL(sysstats_register_kgsl_memstat_cb);
+
+void sysstats_register_iterate_kgsl_process_privates(int (*cb)(int (*f)(void *), void *data))
+{
+	memcheck_walk_process_privates = cb;
+}
+EXPORT_SYMBOL_GPL(sysstats_register_iterate_kgsl_process_privates);
 
 void sysstats_unregister_kgsl_stats_cb(void)
 {

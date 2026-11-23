@@ -287,7 +287,7 @@ static struct qrtr_server *server_add(unsigned int service,
 		goto err;
 
 	/* Delete the old server on the same port */
-	old = xa_store(&node->servers, port, srv, GFP_KERNEL);
+	old = xa_store_irq(&node->servers, port, srv, GFP_ATOMIC);
 	if (old) {
 		if (xa_is_err(old)) {
 			pr_err("failed to add server [0x%x:0x%x] ret:%d\n",

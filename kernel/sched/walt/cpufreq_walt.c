@@ -17,9 +17,33 @@
 #include "trace.h"
 #include "sysctl_walt_stats.h"
 
+#if IS_ENABLED(CONFIG_MIPLAT_GAME) 
+#include <linux/os-cpu/plat_common.h>
+#endif
+
 DEFINE_PER_CPU(struct waltgov_callback *, waltgov_cb_data);
+//MIUI ADD: Performance_BoostFramework
+EXPORT_PER_CPU_SYMBOL_GPL(waltgov_cb_data);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_assi_fuse_boost_state_floor_freq);
+//END Performance_BoostFramework
 DEFINE_PER_CPU(struct waltgov_cpu, waltgov_cpu);
+
+
 DEFINE_PER_CPU(struct waltgov_tunables *, cached_tunables);
+
+
+// MIUI ADD: Camera_CamSched
+#ifdef CONFIG_MI_CAM_WALT
+DEFINE_PER_CPU(struct waltgov_cam_cpu, waltgov_cam_cpu);
+EXPORT_PER_CPU_SYMBOL_GPL(waltgov_cam_cpu);
+typedef void (*cam_set_next_freq_f)(unsigned long driving_util, unsigned int driving_cpu, unsigned long driving_freq,
+		unsigned long *next_freq, struct cpufreq_policy *policy, bool *need_freq_update);
+static cam_set_next_freq_f cam_set_freq_hook = NULL;
+#endif
+// END Camera_CamSched
+
+#define DEFAULT_TARGET_LOAD (0)
+static int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 
 /************************ Governor internals ***********************/
 
@@ -32,6 +56,7 @@ static bool waltgov_should_update_freq(struct waltgov_policy *wg_policy, u64 tim
 		wg_policy->need_freq_update = true;
 		return true;
 	}
+
 
 	/*
 	 * No need to recalculate next freq for min_rate_limit_us
@@ -208,6 +233,24 @@ unsigned long walt_map_util_freq(unsigned long util,
 	return (util_boost_factor * util/cap);
 }
 
+
+//MIUI ADD: Camera_CamSched
+#ifdef CONFIG_MI_CAM_WALT
+void register_cam_freq_hook(cam_set_next_freq_f f)
+{
+	if (likely(f))
+		cam_set_freq_hook = f;
+}
+EXPORT_SYMBOL_GPL(register_cam_freq_hook);
+
+void unregister_cam_freq_hook(void)
+{
+	cam_set_freq_hook = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_cam_freq_hook);
+#endif
+//END Camera_CamSched
+
 static inline unsigned int get_adaptive_level_1(struct waltgov_policy *wg_policy)
 {
 	return(max(wg_policy->tunables->adaptive_level_1,
@@ -302,6 +345,10 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 			wg_policy->policy->related_cpus, PAUSE_THERMAL);
 	bool reset_need_freq_update = false;
 	unsigned int j;
+
+#ifdef CONFIG_MI_CAM_WALT
+	unsigned long cam_freq;
+#endif
 
 	if (soc_feat(SOC_ENABLE_THERMAL_HALT_LOW_FREQ_BIT)) {
 		if (thermal_isolated_now) {
@@ -402,6 +449,10 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 		}
 	}
 
+//MIUI ADD: Performance_BoostFramework
+	trace_sched_assi_fuse_boost_state_floor_freq(&freq, cluster->id, wg_cpu->cpu, &wg_driv_cpu->reasons);
+// END Performance_BoostFramework
+
 	freq = get_smart_freq_limit(freq, wg_policy, wg_driv_cpu);
 
 	if (freq > freq_cap[HIGH_PERF_CAP][cluster->id]) {
@@ -413,6 +464,23 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 		freq = freq_cap[PARTIAL_HALT_CAP][cluster->id];
 		wg_driv_cpu->reasons |= CPUFREQ_REASON_PARTIAL_HALT_CAP_BIT;
 	}
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+	glk_freq = freq;
+	plat_mi_set_next_freq(NULL, util, policy->cpuinfo.max_freq, max,
+			&glk_freq, policy, &wg_policy->need_freq_update,
+			adaptive_low_freq, adaptive_high_freq, wg_driv_cpu->reasons);
+	freq = glk_freq;
+#endif
+
+#ifdef CONFIG_MI_CAM_WALT
+	if (sysctl_sched_freq_cam_cpu02_pressure_enable) {
+		cam_freq = freq;
+		if (cam_set_freq_hook) {
+			cam_set_freq_hook(util, wg_policy->driving_cpu, freq, &cam_freq, policy, &wg_policy->need_freq_update);
+		}
+		freq = cam_freq;
+	}
+#endif
 
 	if ((wg_driv_cpu->flags & WALT_CPUFREQ_UCLAMP_BIT) &&
 		((wrq->uclamp_limit[UCLAMP_MIN] != 0) ||
@@ -490,6 +558,34 @@ out:
 #define DEFAULT_SILVER_RTG_BOOST_FREQ 1000000
 #define DEFAULT_GOLD_RTG_BOOST_FREQ 768000
 #define DEFAULT_PRIME_RTG_BOOST_FREQ 0
+
+
+#ifdef CONFIG_MIGT_WALT
+int find_target_boost(unsigned long util, unsigned long *min_util, unsigned int cpu)
+#else
+static int find_target_boost(unsigned long util, struct waltgov_policy *wg_policy,
+				unsigned long *min_util)
+
+#endif
+{
+	int i, ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&wg_policy->tunables->target_loads_lock, flags);
+	for (i = 0; i < wg_policy->tunables->ntarget_loads - 1 &&
+				util >= wg_policy->tunables->target_loads[i+1]; i += 2)
+		;
+	ret = wg_policy->tunables->target_loads[i];
+	if (i == 0)
+		*min_util = 0;
+	else
+		*min_util = wg_policy->tunables->target_loads[i-1];
+
+	spin_unlock_irqrestore(&wg_policy->tunables->target_loads_lock, flags);
+
+	return ret;
+}
+
 static inline void max_and_reason(unsigned long *cur_util, unsigned long boost_util,
 		struct waltgov_cpu *wg_cpu, unsigned int reason)
 {
@@ -512,6 +608,15 @@ static void waltgov_walt_adjust(struct waltgov_cpu *wg_cpu, unsigned long cpu_ut
 	unsigned long pl = wg_cpu->walt_load.pl;
 	unsigned long nbl = scale_time_to_util(wg_cpu->walt_load.non_boosted_load);
 	unsigned long min_util = *util;
+	int target_boost;
+
+#ifdef CONFIG_MIGT_WALT
+	target_boost = 100 + find_target_boost(*util, &min_util, wg_cpu->cpu);
+#else
+	target_boost = 100 + find_target_boost(*util, wg_policy, &min_util);
+#endif
+	*util = mult_frac(*util, target_boost, 100);
+	*util = max(*util, min_util);
 
 	/* for uclamped cpu ignore adjustments */
 	if (is_uclamped_cpu(wg_cpu->cpu)) {
@@ -586,6 +691,10 @@ static unsigned int waltgov_next_freq_shared(struct waltgov_cpu *wg_cpu, u64 tim
 			j_nl = mult_frac(j_nl, boost + 100, 100);
 		}
 
+//MIUI ADD: Performance_BoostFramework
+		trace_sched_assi_kt_load_boost(j, &j_util, &j_wg_cpu->flags, &j_wg_cpu->reasons);
+//END Performance_BoostFramework
+
 		j_util = uclamp_rq_util_with(cpu_rq(j_wg_cpu->cpu), j_util, NULL);
 		if (j_util > util) {
 			util = j_util;
@@ -593,6 +702,15 @@ static unsigned int waltgov_next_freq_shared(struct waltgov_cpu *wg_cpu, u64 tim
 		}
 
 		waltgov_walt_adjust(j_wg_cpu, j_util, j_nl, &util, &max);
+//MIUI ADD: Camera_CamSched
+#ifdef CONFIG_MI_CAM_WALT
+		struct waltgov_cam_cpu *wg_cam_cpu = &per_cpu(waltgov_cam_cpu, j);
+		wg_cam_cpu->util = j_util;
+		wg_cam_cpu->cap = max;
+		wg_cam_cpu->util_thresh = j_wg_cpu->wg_policy->zone_util[0].util_thresh;
+		wg_cam_cpu->inflate_factor = j_wg_cpu->wg_policy->zone_util[0].inflate_factor;
+#endif
+//END Camera_CamSched
 	}
 
 	return get_next_freq(wg_policy, util, max, wg_cpu, time);
@@ -624,6 +742,27 @@ out:
 	raw_spin_unlock(&wg_policy->update_lock);
 }
 
+#ifdef CONFIG_MIGT_WALT
+static void soc_frameboost_update_freq(struct waltgov_callback *cb, u64 time)
+{
+	unsigned int next_f;
+	struct waltgov_cpu *wg_cpu = container_of(cb, struct waltgov_cpu, cb);
+	struct waltgov_policy *wg_policy = wg_cpu->wg_policy;
+
+	raw_spin_lock(&wg_policy->update_lock);
+	next_f = waltgov_next_freq_shared(wg_cpu, time);
+	if (!next_f)
+		goto out;
+	if (wg_policy->policy->fast_switch_enabled)
+		waltgov_fast_switch(wg_policy, time, next_f);
+	else
+		waltgov_deferred_update(wg_policy, time, next_f);
+out:
+	raw_spin_unlock(&wg_policy->update_lock);
+
+}
+#endif
+
 static void waltgov_update_freq(struct waltgov_callback *cb, u64 time,
 				unsigned int flags)
 {
@@ -635,6 +774,12 @@ static void waltgov_update_freq(struct waltgov_callback *cb, u64 time,
 		waltgov_update_smart_freq(cb, time, flags);
 		return;
 	}
+#ifdef CONFIG_MIGT_WALT
+	if (flags & OEM_CPUFREQ_UPDATE_FLT_BIT) {
+		soc_frameboost_update_freq(cb, time);
+		return;
+	}
+#endif
 
 	if (!wg_policy->tunables->pl && flags & WALT_CPUFREQ_PL_BIT)
 		return;
@@ -906,6 +1051,124 @@ static ssize_t boost_store(struct gov_attr_set *attr_set, const char *buf,
 		waltgov_run_callback(rq, WALT_CPUFREQ_BOOST_UPDATE_BIT);
 		raw_spin_unlock_irqrestore(&rq->__lock, flags);
 	}
+	return count;
+}
+
+static unsigned int *get_tokenized_data(const char *buf, int *num_tokens)
+{
+	const char *cp;
+	char *ptr, *ptr_bak, *token;
+	int i = 0, len = 0;
+	int ntokens = 1;
+	int *tokenized_data;
+	int err = -EINVAL;
+
+	cp = buf;
+	while ((cp = strpbrk(cp + 1, " :")))
+		ntokens++;
+
+	if (!(ntokens & 0x1))
+		goto err;
+
+	tokenized_data = kmalloc_array(ntokens, sizeof(int), GFP_KERNEL);
+	if (!tokenized_data) {
+		err = -ENOMEM;
+		goto err;
+	}
+
+	len = strlen(buf) + 1;
+	ptr = ptr_bak = kmalloc(len, GFP_KERNEL);
+	if (!ptr) {
+		kfree(tokenized_data);
+		err = -ENOMEM;
+		goto err;
+	}
+
+	memcpy(ptr, buf, len);
+	token = strsep(&ptr, " :");
+	while (token != NULL) {
+		if (kstrtoint(token, 10, &tokenized_data[i++]))
+			goto err_kfree;
+		token = strsep(&ptr, " :");
+	}
+
+	if (i != ntokens)
+		goto err_kfree;
+	kfree(ptr_bak);
+
+	*num_tokens = ntokens;
+	return tokenized_data;
+
+err_kfree:
+	kfree(ptr_bak);
+	kfree(tokenized_data);
+err:
+	return ERR_PTR(err);
+}
+
+static ssize_t target_loads_show(struct gov_attr_set *attr_set, char *buf)
+{
+	int i;
+	int tmp;
+	ssize_t ret = 0;
+	unsigned long flags;
+	struct waltgov_policy *wg_policy;
+	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
+
+	spin_lock_irqsave(&tunables->target_loads_lock, flags);
+
+	for (i = 0; i < tunables->ntarget_loads; i++) {
+		list_for_each_entry(wg_policy, &attr_set->policy_list, tunables_hook) {
+			if (i & 0x1)
+				tmp = map_util_freq(tunables->target_loads[i],
+							wg_policy->policy->cpuinfo.max_freq,
+							arch_scale_cpu_capacity(wg_policy->policy->cpu));
+			else
+				tmp = tunables->target_loads[i];
+		}
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%d%s",
+					tmp, i & 0x1 ? ":" : " ");
+	}
+	scnprintf(buf + ret - 1, PAGE_SIZE - (ret - 1), "\n");
+	spin_unlock_irqrestore(&tunables->target_loads_lock, flags);
+
+	return ret;
+}
+
+static ssize_t target_loads_store(struct gov_attr_set *attr_set, const char *buf,
+				   size_t count)
+{
+	int i;
+	int ntokens;
+	unsigned long util;
+	unsigned long flags;
+	struct waltgov_policy *wg_policy;
+	int *new_target_loads = NULL;
+	struct waltgov_tunables *tunables = to_waltgov_tunables(attr_set);
+
+	new_target_loads = get_tokenized_data(buf, &ntokens);
+	if (IS_ERR(new_target_loads))
+		return PTR_ERR_OR_ZERO(new_target_loads);
+
+	spin_lock_irqsave(&tunables->target_loads_lock, flags);
+	if (tunables->target_loads != default_target_loads)
+		kfree(tunables->target_loads);
+
+	for (i = 0; i < ntokens; i++) {
+		list_for_each_entry(wg_policy, &attr_set->policy_list, tunables_hook) {
+			if (i % 2) {
+				util = freq_to_util(wg_policy, new_target_loads[i]);
+				util = mult_frac(util,TARGET_LOAD,100);
+				new_target_loads[i] = util;
+			}
+		}
+
+	}
+
+	tunables->target_loads = new_target_loads;
+	tunables->ntarget_loads = ntokens;
+	spin_unlock_irqrestore(&tunables->target_loads_lock, flags);
+
 	return count;
 }
 
@@ -1212,6 +1475,7 @@ static struct governor_attr hispeed_freq = __ATTR_RW(hispeed_freq);
 static struct governor_attr hispeed_cond_freq = __ATTR_RW(hispeed_cond_freq);
 static struct governor_attr rtg_boost_freq = __ATTR_RW(rtg_boost_freq);
 static struct governor_attr pl = __ATTR_RW(pl);
+static struct governor_attr target_loads = __ATTR_RW(target_loads);
 static struct governor_attr boost = __ATTR_RW(boost);
 static struct governor_attr zone_max_util_pct = __ATTR_RW(zone_max_util_pct);
 WALTGOV_ATTR_RW(adaptive_level_1);
@@ -1226,6 +1490,7 @@ static struct attribute *waltgov_attrs[] = {
 	&hispeed_cond_freq.attr,
 	&rtg_boost_freq.attr,
 	&pl.attr,
+	&target_loads.attr,
 	&boost.attr,
 	&adaptive_level_1.attr,
 	&adaptive_low_freq.attr,
@@ -1412,6 +1677,9 @@ static int waltgov_init(struct cpufreq_policy *policy)
 
 	gov_attr_set_init(&tunables->attr_set, &wg_policy->tunables_hook);
 	tunables->hispeed_load = DEFAULT_HISPEED_LOAD;
+	spin_lock_init(&tunables->target_loads_lock);
+	tunables->target_loads = default_target_loads;
+	tunables->ntarget_loads = ARRAY_SIZE(default_target_loads);
 
 	/*
 	 * Initialize each zone and its util inflate factor to -1 during

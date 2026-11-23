@@ -13,6 +13,15 @@ load(
     "fragment_menuconfig",
 )
 
+def check_name_and_out(name, out):
+    # 获取name最后一个/后面的名称
+    name_suffix = name.split("/")[-1]
+
+    # 检查是否一致
+    if name_suffix + ".ko" != out:
+        fail("Error: The name suffix '{}' does not match the out name '{}', You should equal the register name and the register out,For details, refer to the documentation https://xiaomi.f.mioffice.cn/docx/doxk4yhklJTwdfPfKUGrATgWXmg".format(name_suffix, out))
+
+
 def signing_genrule(name, module, base_kernel, target_variant):
     native.genrule(
         name = name,
@@ -244,6 +253,8 @@ def create_module_registry():
           includes: See ddk_module() documentation.
           **kwargs: Additional ddk_module() arguments. See ddk_module() documentation.
         """
+        check_name_and_out(name, out)
+
         if not module_map.get(config):
             module_map[config] = []
         module_map[config].append(struct(

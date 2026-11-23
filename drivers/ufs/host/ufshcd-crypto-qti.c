@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
-
 #include <ufs/ufshcd.h>
 #include <ufs/ufshcd-crypto.h>
 #include "ufs-qcom.h"

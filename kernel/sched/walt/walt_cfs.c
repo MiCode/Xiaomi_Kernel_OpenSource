@@ -7,11 +7,34 @@
 #include <linux/seq_file.h>
 #include <trace/hooks/sched.h>
 #include <trace/hooks/binder.h>
+#include <trace/hooks/rwsem.h>
+#include <trace/hooks/dtask.h>
 
 #include "walt.h"
 #include "trace.h"
 #include "drivers/android/binder_internal.h"
 #include "drivers/android/binder_trace.h"
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+#include "../xiaomi_sched/common/vip_sched/vip_sched.h"
+#endif
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+#include "../xiaomi_sched/qcom/rtg/rtg_pfr_cpu.h"
+#endif
+
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+#include <linux/os-cpu/plat_common.h>
+#include "../xiaomi_sched/qcom/mi_game/mi_module.h"
+#endif
+
+
+extern unsigned int low_frame_op;
+
+//MIUI ADD: Performance_BoostFramework
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_assi_select_cpu_fastpath);
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_assi_cfs_enqueue_mvp_task_check);
+// END Performance_BoostFramework
+
+
 
 static void create_freq_to_cost_pd(struct em_perf_domain *pd)
 {
@@ -63,6 +86,8 @@ unsigned int sched_capacity_margin_down[ANDROID_CGROUPS][MAX_CLUSTERS] = {
 			{[0 ... MAX_CLUSTERS-1] = 1205},
 			{[0 ... MAX_CLUSTERS-1] = 1205}
 };
+EXPORT_SYMBOL_GPL(sched_capacity_margin_up);
+EXPORT_SYMBOL_GPL(sched_capacity_margin_down);
 
 static inline bool
 bias_to_this_cpu(struct task_struct *p, int cpu, int start_cpu)
@@ -144,7 +169,7 @@ struct find_best_target_env {
  * utilization of the specified task, whenever the task is currently
  * contributing to the CPU utilization.
  */
-static unsigned long cpu_util_without(int cpu, struct task_struct *p)
+unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	unsigned int util;
 	struct walt_rq *wrq;
@@ -173,6 +198,9 @@ static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 	 */
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+EXPORT_SYMBOL_GPL(cpu_util_without);
+#endif
 
 static inline bool walt_task_skip_min_cpu(struct task_struct *p)
 {
@@ -200,6 +228,9 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		int *end_index, int per_task_boost, bool is_uclamp_boosted,
 		bool *energy_eval_needed)
 {
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_t prefer_cpus;
+#endif
 	*order_index = 0;
 	*end_index = 0;
 
@@ -212,7 +243,11 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		return;
 	}
 
+#ifdef CONFIG_METIS_WALT
+	if (is_full_throttle_boost() && !sched_boost_should_disable(p)) {
+#else
 	if (is_full_throttle_boost()) {
+#endif
 		*energy_eval_needed = false;
 		*order_index = num_sched_clusters - 1;
 		*end_index = num_sched_clusters - 2;
@@ -225,6 +260,7 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 				break;
 		return;
 	}
+
 
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
@@ -239,9 +275,16 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			return;
 		}
 	}
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	os_cpu_get_group_prefer_cpus(p, &prefer_cpus);
+#endif
 	for (; *order_index < num_sched_clusters - 1; (*order_index)++) {
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		if (task_demand_fits(p, cpumask_first(&cpu_array[*order_index][0])) &&
+		    cpumask_intersects(&cpu_array[*order_index][0], &prefer_cpus))
+#else
 		if (task_demand_fits(p, cpumask_first(&cpu_array[*order_index][0])))
+#endif
 			break;
 	}
 
@@ -258,6 +301,7 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		*energy_eval_needed = false;
 }
 
+
 enum fastpaths {
 	NONE = 0,
 	SYNC_WAKEUP,
@@ -265,6 +309,12 @@ enum fastpaths {
 	CLUSTER_PACKING_FASTPATH,
 	PIPELINE_FASTPATH,
 	YIELD_FASTPATH,
+
+// MIUI ADD: Performance_BoostFramework
+	SCHED_ASSI_FASTPATH,
+// END Performance_BoostFramework
+
+
 };
 
 static inline bool is_complex_sibling_idle(int cpu)
@@ -302,6 +352,10 @@ static inline bool walt_should_reject_fbt_cpu(struct walt_rq *wrq, struct task_s
 
 	if (wrq->num_mvp_tasks > 0 && per_task_boost(p) != TASK_BOOST_STRICT_MAX)
 		return true;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (arch_scale_cpu_capacity(cpu) < os_cpu_get_group_prefer_util(p))
+		return true;
+#endif
 
 	return false;
 }
@@ -327,7 +381,10 @@ bool select_prev_cpu_fastpath(int prev_cpu, int start_cpu, int order_index,
 
 	if (is_reserved(prev_cpu))
 		return false;
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (!os_cpu_is_task_prefer_cpu(p, prev_cpu))
+		return false;
+#endif
 	valid_part_haltable_prev_cpu = cpumask_test_cpu(prev_cpu, &part_haltable_cpus) &&
 					((order_index == 0 && cpu_partial_halted(prev_cpu)) ||
 					 (order_index == 1 && !cpu_partial_halted(prev_cpu)));
@@ -364,17 +421,33 @@ static void walt_find_best_target(struct sched_domain *sd,
 	cpumask_t visit_cpus;
 	struct walt_task_struct *wts = (struct walt_task_struct *)android_task_vendor_data(p);
 	int packing_cpu, cpu;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_t prefer_cpus;
+#endif
+//MIUI ADD: Performance_BoostFramework
+	int sched_assi_cpu = -1;
+// END Performance_BoostFramework
 	unsigned int search_sibling_cluster = 0;
 	bool visited_clusters[MAX_CLUSTERS] = {[0 ... (MAX_CLUSTERS-1)] = false};
+//MIUI ADD: Performance_BoostFramework
+	bool skip = false;
+//END Performance_BoostFramework
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	os_cpu_get_group_prefer_cpus(p, &prefer_cpus);
+	if (cpumask_full(&prefer_cpus))
+		cpumask_clear(&prefer_cpus);
+#endif
 	/*
 	 * For higher capacity worth I/O tasks, stop the search
 	 * at the end of higher capacity cluster(s).
 	 */
-	if (order_index > 0 && wts->iowaited) {
+//MIUI ADD: Performance_BoostFramework
+	if (order_index > 0 && wts->iowaited && !sysctl_sched_storage_boost_disable) {
+//END Performance_BoostFramework
 		stop_index = num_sched_clusters - 2;
 		most_spare_wake_cap = LONG_MIN;
 	}
@@ -383,6 +456,19 @@ static void walt_find_best_target(struct sched_domain *sd,
 		stop_index = 0;
 		most_spare_wake_cap = LONG_MIN;
 	}
+
+//MIUI ADD: Performance_BoostFramework
+	trace_sched_assi_select_cpu_fastpath(p, start_cpu, &sched_assi_cpu);
+	if (sched_assi_cpu >= 0) {
+		fbt_env->fastpath = SCHED_ASSI_FASTPATH;
+		cpumask_set_cpu(sched_assi_cpu, candidates);
+		goto out;
+	}
+// END Performance_BoostFramework
+
+
+
+
 
 	/* fast path for packing_cpu */
 	packing_cpu = walt_find_and_choose_cluster_packing_cpu(start_cpu, p);
@@ -394,18 +480,24 @@ static void walt_find_best_target(struct sched_domain *sd,
 	}
 
 	/* fast path for prev_cpu */
-	if (select_prev_cpu_fastpath(prev_cpu, start_cpu, order_index, p)) {
+	if (select_prev_cpu_fastpath(prev_cpu, start_cpu, order_index, p)
+	) {
 		fbt_env->fastpath = PREV_CPU_FASTPATH;
 		cpumask_set_cpu(prev_cpu, candidates);
 		visited_clusters[cpu_cluster(prev_cpu)->id] = true;
 		goto out;
 	}
 
+
+
 /* retry for sibling cluster */
 retry:
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		int best_idle_cpu_cluster = -1;
 		int target_cpu_cluster = -1;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		int prefer_cpu_cluster = -1;
+#endif
 		int this_complex_idle = 0;
 		int best_complex_idle = 0;
 		int cluster_id;
@@ -424,7 +516,15 @@ retry:
 			cluster_id = cpu_cluster(
 					cpumask_first(&cpu_array[order_index][cluster]))->id;
 		}
+#ifdef CONFIG_MIGT_WALT
+		if (migt_should_skip)
+			cpumask_andnot(&visit_cpus, &visit_cpus, &migt_reserve_cpumask);
+#endif
 
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+	if (mi_game_should_skip)
+		cpumask_andnot(&visit_cpus, &visit_cpus, &mi_game_reserve_cpumask);
+#endif
 		if (visited_clusters[cluster_id])
 			continue;
 
@@ -444,6 +544,16 @@ retry:
 			if (walt_should_reject_fbt_cpu(wrq, p, i, order_index, fbt_env))
 				continue;
 
+// MIUI ADD: Performance_BoostFramework
+			trace_sched_assi_skip_keytask_cpu(p, &skip);
+			if (skip)
+				continue;
+// END Performance_BoostFramework
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+			if (prefer_cpu_cluster < 0 &&
+			    cpumask_test_cpu(i, &prefer_cpus))
+				prefer_cpu_cluster = i;
+#endif
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
 			 * so prev_cpu will receive a negative bias due to the double
@@ -521,11 +631,20 @@ retry:
 				best_idle_cuml_util = new_util_cuml;
 				best_idle_cpu_cluster = i;
 				best_complex_idle = this_complex_idle;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+				if (cpumask_test_cpu(i, &prefer_cpus))
+					prefer_cpu_cluster = i;
+#endif
 				continue;
 			}
 
 			/* skip visiting any more busy if idle was found */
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+			if (best_idle_cpu_cluster != -1
+				&& best_idle_cpu_cluster == prefer_cpu_cluster)
+#else
 			if (best_idle_cpu_cluster != -1)
+#endif
 				continue;
 
 			/*
@@ -555,13 +674,27 @@ retry:
 				if (spare_cap < target_max_spare_cap)
 					continue;
 			}
+#ifdef CONFIG_METIS_WALT
+			if (is_vip_task && metis_tp_walt_find_best_target_hook(i, &best_cpu_layered_load))
+				continue;
+#endif
 
 			target_max_spare_cap = spare_cap;
 			target_nr_rtg_high_prio = walt_nr_rtg_high_prio(i);
 			target_cpu_cluster = i;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+			if (cpumask_test_cpu(i, &prefer_cpus))
+				prefer_cpu_cluster = i;
+#endif
 		}
 
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		if (prefer_cpu_cluster != -1)
+			cpumask_set_cpu(prefer_cpu_cluster, candidates);
+		else if (best_idle_cpu_cluster != -1)
+#else
 		if (best_idle_cpu_cluster != -1)
+#endif
 			cpumask_set_cpu(best_idle_cpu_cluster, candidates);
 		else if (target_cpu_cluster != -1)
 			cpumask_set_cpu(target_cpu_cluster, candidates);
@@ -591,6 +724,25 @@ retry:
 			cpumask_set_cpu(prev_cpu, candidates);
 		else if (least_nr_cpu != -1)
 			cpumask_set_cpu(least_nr_cpu, candidates);
+#ifdef CONFIG_METIS_WALT
+		else if (metis_should_skip) {
+			metis_should_skip =false;
+			goto metis_retry;
+		}
+#endif
+
+#ifdef CONFIG_MIGT_WALT
+		else if (migt_should_skip) {
+			migt_should_skip = false;
+			goto migt_retry;
+		}
+#endif
+#if IS_ENABLED(CONFIG_MIPLAT_GAME)
+		else if (mi_game_should_skip) {
+			mi_game_should_skip = false;
+			goto mi_game_retry;
+		}
+#endif
 	}
 
 out:
@@ -938,6 +1090,9 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	struct perf_domain *pd;
 	unsigned long cur_energy;
 	cpumask_t *candidates;
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	cpumask_t prefer_cpus;
+#endif
 	bool is_rtg, curr_is_rtg;
 	struct find_best_target_env fbt_env;
 	bool need_idle = wake_to_idle(p);
@@ -954,6 +1109,9 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	bool force_energy_eval = false;
 
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		os_cpu_is_task_prefer_cpu(p, prev_cpu) &&
+#endif
 			cpumask_test_cpu(prev_cpu, p->cpus_ptr))
 		return prev_cpu;
 
@@ -964,7 +1122,12 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	candidates = this_cpu_ptr(&energy_cpus);
 	cpumask_clear(candidates);
 
+
 	wts = (struct walt_task_struct *)android_task_vendor_data(p);
+
+
+
+
 	pipeline_cpu = wts->pipeline_cpu;
 
 	if (pipeline_in_progress() &&
@@ -973,30 +1136,20 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		cpumask_test_cpu(pipeline_cpu, p->cpus_ptr) &&
 		cpu_active(pipeline_cpu) &&
 		!cpu_halted(pipeline_cpu)) {
-		if (walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr)) {
 			/*
-			 * In case if target pipeline cpu is already running a pipeline task
-			 * then scan through all the pipeline cpus and place task on the cpu
-			 * not running any pipeline task(preference is give to prev_cpu if it
-			 * is a pipeline cpu).
-			 */
-			if (cpumask_test_cpu(prev_cpu, &cpus_for_pipeline) &&
-				!walt_pipeline_low_latency_task(cpu_rq(prev_cpu)->curr)) {
+			* A situation of target pipeline cpu already running a pipeline
+			* task can only happen because of pipeline cpu swapping(i.e 'p'
+			* is already a pipeline task running on pipeline cpu.
+			* 'find_heaviest_topapp' where a task is evaluated as pipeline
+			* (i.e 'p' might not be running on pipeline cpu) always ensures no
+			* two task gets same pipeline cpu and thus we never enter hit this
+			* condition.
+			*
+			* Thus if we are here that means prev_cpu of 'p' is definitely a
+			* pipeline cpu.
+			*/
+			if (walt_pipeline_low_latency_task(cpu_rq(pipeline_cpu)->curr))
 				pipeline_cpu = prev_cpu;
-			} else {
-				int itr_cpu;
-
-				for_each_cpu(itr_cpu, &cpus_for_pipeline) {
-					if (itr_cpu == pipeline_cpu) {
-						continue;
-					} else if (!walt_pipeline_low_latency_task(
-									cpu_rq(itr_cpu)->curr)) {
-						pipeline_cpu = itr_cpu;
-						break;
-					}
-				}
-			}
-		}
 
 		best_energy_cpu = pipeline_cpu;
 		fbt_env.fastpath = PIPELINE_FASTPATH;
@@ -1016,6 +1169,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		goto out;
 	}
 
+
 	walt_get_indicies(p, &order_index, &end_index, task_boost, uclamp_boost,
 								&energy_eval_needed);
 	start_cpu = cpumask_first(&cpu_array[order_index][0]);
@@ -1032,7 +1186,11 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	fbt_env.fastpath = 0;
 	fbt_env.need_idle = need_idle;
 
-	if (sync && (need_idle || (is_rtg && curr_is_rtg)))
+	if (sync && (need_idle || (is_rtg && curr_is_rtg)
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		|| !os_cpu_is_task_prefer_cpu(p, cpu)
+#endif
+	))
 		sync = 0;
 
 	if (sysctl_sched_sync_hint_enable && sync
@@ -1060,6 +1218,11 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 
 	walt_find_best_target(NULL, candidates, p, &fbt_env, &force_energy_eval);
 
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	os_cpu_get_group_prefer_cpus(p, &prefer_cpus);
+	if (cpumask_intersects(candidates, &prefer_cpus))
+		cpumask_and(candidates, candidates, &prefer_cpus);
+#endif
 
 	/* Bail out if no candidate was found. */
 	weight = cpumask_weight(candidates);
@@ -1068,13 +1231,18 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 
 	first_cpu = cpumask_first(candidates);
 
+
 	if ((fbt_env.fastpath == CLUSTER_PACKING_FASTPATH) && !force_energy_eval) {
 		best_energy_cpu = first_cpu;
 		goto unlock;
 	}
 
 	if (weight == 1) {
-		if (available_idle_cpu(first_cpu) || first_cpu == prev_cpu) {
+		if (available_idle_cpu(first_cpu) || first_cpu == prev_cpu
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+			|| cpu_halted(prev_cpu)
+#endif
+		) {
 			best_energy_cpu = first_cpu;
 			goto unlock;
 		}
@@ -1164,17 +1332,22 @@ unlock:
 out:
 	if (best_energy_cpu < 0 || best_energy_cpu >= WALT_NR_CPUS)
 		best_energy_cpu = prev_cpu;
-
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
+			sync, fbt_env.need_idle, fbt_env.fastpath,
+			start_t, uclamp_boost, start_cpu, wts->yield_state & YIELD_CNT_MASK, &prefer_cpus);
+#else
 	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
 			sync, fbt_env.need_idle, fbt_env.fastpath,
 			start_t, uclamp_boost, start_cpu, wts->yield_state & YIELD_CNT_MASK);
-
+#endif
 	return best_energy_cpu;
 
 fail:
 	rcu_read_unlock();
 	return -1;
 }
+
 
 static void
 walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
@@ -1185,6 +1358,13 @@ walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 
 	if (unlikely(walt_disabled))
 		return;
+
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+	vip_sched_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, target_cpu);
+	if (*target_cpu >= 0)
+		return;
+#endif
+
 
 	if (walt_quiet_state)
 		return;
@@ -1213,7 +1393,11 @@ static void binder_set_priority_hook(void *data,
 
 	get_entry_instr(BINDER_SET_PRIORITY_HOOK);
 	if (bndrtrans && bndrtrans->need_reply && current_wts->boost == TASK_BOOST_STRICT_MAX) {
-		bndrtrans->android_vendor_data1  = wts->boost;
+#if IS_ENABLED(CONFIG_MQOS_WALT)
+		set_binder_walt_boost(bndrtrans, wts->boost);
+#else
+		bndrtrans->android_vendor_data1 = wts->boost;
+#endif
 		wts->boost = TASK_BOOST_STRICT_MAX;
 	}
 
@@ -1253,8 +1437,13 @@ static void binder_restore_priority_hook(void *data,
 		return;
 
 	get_entry_instr(BINDER_RESTORE_PRIORITY_HOOK);
-	if (bndrtrans && wts->boost == TASK_BOOST_STRICT_MAX)
+	if (bndrtrans && wts->boost == TASK_BOOST_STRICT_MAX) {
+#if IS_ENABLED(CONFIG_MQOS_WALT)
+		wts->boost = get_binder_walt_boost(bndrtrans);
+#else
 		wts->boost = bndrtrans->android_vendor_data1;
+#endif
+	}
 	update_instruction_data(BINDER_RESTORE_PRIORITY_HOOK);
 }
 
@@ -1268,6 +1457,9 @@ static void binder_restore_priority_hook(void *data,
  */
 int walt_get_mvp_task_prio(struct task_struct *p)
 {
+//MIUI ADD: Performance_BoostFramework
+	bool keytask_boost = false;
+// END Performance_BoostFramework
 	if (walt_pipeline_low_latency_task(p))
 		return WALT_PIPELINE_MVP;
 
@@ -1282,6 +1474,12 @@ int walt_get_mvp_task_prio(struct task_struct *p)
 
 	if (task_rtg_high_prio(p))
 		return WALT_RTG_MVP;
+
+// MIUI ADD: Performance_BoostFramework
+	trace_sched_assi_keytask_set_mvp(p, &keytask_boost);
+	if (keytask_boost)
+		return WALT_KEYTASK_MVP;
+// END Performance_BoostFramework
 
 	return WALT_NOT_MVP;
 }
@@ -1419,7 +1617,9 @@ void walt_cfs_enqueue_task(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = &per_cpu(walt_rq, cpu_of(rq));
 	struct walt_task_struct *wts = (struct walt_task_struct *)android_task_vendor_data(p);
 	int mvp_prio = walt_get_mvp_task_prio(p);
-
+//MIUI ADD: Performance_BoostFramework
+	trace_sched_assi_cfs_enqueue_mvp_task_check(p, &mvp_prio);
+//END Performance_BoostFramework
 	if (mvp_prio == WALT_NOT_MVP)
 		return;
 
@@ -1500,6 +1700,7 @@ static void walt_cfs_check_preempt_wakeup_fair(void *unused, struct rq *rq, stru
 	bool resched = false, skip_mvp;
 	bool p_is_mvp, curr_is_mvp;
 
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -1507,6 +1708,17 @@ static void walt_cfs_check_preempt_wakeup_fair(void *unused, struct rq *rq, stru
 		return;
 
 	get_entry_instr(CHECK_PREEMPT_WAKEUP_FAIR);
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0))
+	vip_sched_check_preempt_wakeup(rq, p, preempt, nopreempt, wake_flags, se, pse,
+			next_buddy_marked);
+#else
+	vip_sched_check_preempt_wakeup(rq, p, preempt, nopreempt, wake_flags, se, pse);
+#endif
+
+	if (*preempt || *nopreempt)
+		return;
+#endif
 	p_is_mvp = !list_empty(&wts_p->mvp_list) && wts_p->mvp_list.next;
 	curr_is_mvp = !list_empty(&wts_c->mvp_list) && wts_c->mvp_list.next;
 
@@ -1568,6 +1780,12 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	struct walt_task_struct *wts;
 	struct task_struct *mvp;
 
+#if IS_ENABLED(CONFIG_METIS_WALT) || IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+	bool repick = false;
+#endif
+
+
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -1575,6 +1793,12 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 		return;
 
 	get_entry_instr(REPLACE_NEXT_TASK_FAIR);
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+	vip_sched_replace_next_task_fair(rq, p, &repick, prev);
+	if (repick)
+		return;
+#endif
+
 	if ((*p) && (*p) != prev && ((*p)->on_cpu == 1 || (*p)->on_rq == 0 ||
 				     (*p)->on_rq == TASK_ON_RQ_MIGRATING ||
 				     task_thread_info(*p)->cpu != cpu_of(rq)))
@@ -1660,6 +1884,8 @@ void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
 	BUG_ON(wrq->walt_stats.nr_trailblazer_tasks < 0);
 }
+
+#include <linux/delay.h>
 
 void walt_cfs_init(void)
 {

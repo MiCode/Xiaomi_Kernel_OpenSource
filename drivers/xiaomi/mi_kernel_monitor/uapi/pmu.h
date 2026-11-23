@@ -1,0 +1,21 @@
+
+
+#ifndef UAPI_CGROUP_STAT_H
+#define UAPI_CGROUP_STAT_H
+
+#include <linux/ioctl.h>
+#include "uapi/kernelmonitor.h"
+
+enum pmu_counters
+{
+	PMU_INDEX_CYCLES = 0,
+	PMU_INDEX_INSTRUCTIONS,
+	PMU_INDEX_REF_CYCLES,
+	PMU_INDEX_BRANCH_MISSES,
+	PMU_INDEX_LLC_MISSES,
+	PMU_INDEX_RAW_EVENT1,
+	PMU_INDEX_RAW_EVENT2,
+	PMU_INDEX_MAX,
+};
+
+#endif /* UAPI_CGROUP_STAT_H */

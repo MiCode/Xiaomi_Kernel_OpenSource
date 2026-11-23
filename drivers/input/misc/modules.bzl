@@ -1,4 +1,7 @@
+load(":drivers/input/misc/cs40l26_haptic/modules.bzl", register_cs40l26_haptic = "register_modules")
+
 def register_modules(registry):
+    register_cs40l26_haptic(registry)
     registry.register(
         name = "drivers/input/misc/pm8941-pwrkey",
         out = "pm8941-pwrkey.ko",
@@ -17,6 +20,7 @@ def register_modules(registry):
             # do not sort
             "drivers/input/misc/qcom-hv-haptics.c",
             "drivers/input/misc/qcom-hv-haptics-debugfs.h",
+            "drivers/misc/hwid/hwid.h",
         ],
         deps = [
             # do not sort
@@ -42,5 +46,6 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/misc/hwid",
         ],
     )

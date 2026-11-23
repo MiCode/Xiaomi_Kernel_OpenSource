@@ -1,0 +1,1 @@
+source "$(KCONFIG_EXT_PREFIX)drivers/xiaomi/mi_qmi_trace/Kconfig"

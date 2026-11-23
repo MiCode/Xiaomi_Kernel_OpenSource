@@ -42,6 +42,7 @@ def register_modules(registry):
         ],
         deps = [
             # do not sort
+            "drivers/dma/qcom/msm_gpi",
             "kernel/trace/qcom_ipc_logging",
             "drivers/soc/qcom/minidump",
             "drivers/soc/qcom/smem",

@@ -76,3 +76,18 @@ def register_modules(registry):
             # do not sort
         ],
     )
+
+    registry.register(
+        name = "drivers/leds/leds-w21024",
+        out = "leds-w21024.ko",
+        config = "CONFIG_LEDS_AW21024",
+        srcs = [
+            # do not sort
+            "drivers/leds/leds-w21024.c",
+            "drivers/leds/leds-w21024.h",
+            "drivers/leds/leds-w21024-reg.h",
+        ],
+        deps = [
+            # do not sort
+        ],
+    )

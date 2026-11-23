@@ -26,7 +26,7 @@
 #include <linux/pinctrl/consumer.h>
 
 #define SPI_NUM_CHIPSELECT	(4)
-#define SPI_XFER_TIMEOUT_MS	(250)
+#define SPI_XFER_TIMEOUT_MS	(1500)
 #define SPI_AUTO_SUSPEND_DELAY	(250)
 #define SPI_XFER_TIMEOUT_OFFSET	(250)
 #define SPI_SLAVE_SYNC_XFER_TIMEOUT_OFFSET	(50)
@@ -303,6 +303,27 @@ struct spi_geni_master {
 	u32 ipc_log_size;
 };
 
+/* QUP Common registers */
+#define QUPV3_STATUS			0x8
+#define QUPV3_COMMON_CFG		0x120
+#define QUPV3_EXT_AHB_ARB_CFG		0x100
+#define QUPV3_INT_AHB_ARB_CFG		0x104
+#define QUPV3_GSI_SLAVE_AHB_ARB_CFG	0x108
+#define QUPV3_SE_IF_IRQ_MASKED		0x110
+#define QUPV3_SE_IF_IRQ_MASKED_H	0x124
+
+struct geni_wrapper {
+	struct device *dev;
+	void __iomem *base;
+};
+
+u32 geni_se_get_qup_common_reg(struct geni_se *se, int offset)
+{
+	struct geni_wrapper *wrapper = se->wrapper;
+
+	return readl_relaxed(wrapper->base + offset);
+}
+
 /**
  * geni_spi_se_dump_dbg_regs() - Print relevant registers that capture most
  *			accurately the state of an SE.
@@ -354,6 +375,13 @@ void geni_spi_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
 	u32 dma_if_en_ro = 0;
 	u32 dma_general_cfg = 0;
 	u32 dma_debug_reg0 = 0;
+	u32 qup_status = 0;
+	u32 qup_common_cfg = 0;
+	u32 qup_se_if_irq_msk_h = 0;
+	u32 qup_se_if_irq_msk = 0;
+	u32 qup_gsi_slave_ahb_arb_cfg = 0;
+	u32 qup_int_ahb_arb_cfg = 0;
+	u32 qup_ext_ahb_arb_cfg = 0;
 
 	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
 	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
@@ -391,37 +419,50 @@ void geni_spi_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
 	dma_if_en_ro = geni_read_reg(base, DMA_IF_EN_RO);
 	dma_general_cfg = geni_read_reg(base, DMA_GENERAL_CFG);
 	dma_debug_reg0 = geni_read_reg(base, SE_DMA_DEBUG_REG0);
+	qup_status = geni_se_get_qup_common_reg(se, QUPV3_STATUS);
+	qup_common_cfg = geni_se_get_qup_common_reg(se, QUPV3_COMMON_CFG);
+	qup_se_if_irq_msk_h = geni_se_get_qup_common_reg(se, QUPV3_SE_IF_IRQ_MASKED_H);
+	qup_se_if_irq_msk =  geni_se_get_qup_common_reg(se, QUPV3_SE_IF_IRQ_MASKED);
+	qup_gsi_slave_ahb_arb_cfg = geni_se_get_qup_common_reg(se, QUPV3_GSI_SLAVE_AHB_ARB_CFG);
+	qup_int_ahb_arb_cfg = geni_se_get_qup_common_reg(se, QUPV3_INT_AHB_ARB_CFG);
+	qup_ext_ahb_arb_cfg = geni_se_get_qup_common_reg(se, QUPV3_EXT_AHB_ARB_CFG);
 
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
 		    __func__, m_cmd0, m_irq_status, geni_status, geni_ios);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n",
 		    dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
 		    se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "dma_txlen:0x%x, dma_txlen_in:0x%x s_irq_status:0x%x\n",
 		    se_dma_tx_len, se_dma_tx_len_in, s_irq_status);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
 		    geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en, geni_s_irq_en);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "geni_dma_tx_irq_en:0x%x, geni_dma_rx_irq_en:0x%x, geni_general_cfg:0x%x\n",
 		    geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_general_cfg);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "geni_clk_ctrl_ro:0x%x, fifo_if_disable_ro:0x%x, geni_fw_multilock_msa_ro:0x%x\n",
 		    geni_clk_ctrl_ro, fifo_if_disable_ro, geni_fw_multilock_msa_ro);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "m_irq_en:0x%x, se_dma_tx_attr:0x%x se_dma_tx_irq_stat:0x%x, geni_output_ctrl:0x%x\n",
 		     m_irq_en, se_dma_tx_attr, se_dma_tx_irq_stat, geni_output_ctrl);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "se_dma_rx_attr:0x%x, se_dma_rx_irq_stat:0x%x se_gsi_event_en:0x%x se_irq_en:0x%x\n",
 		    se_dma_rx_attr, se_dma_rx_irq_stat, se_gsi_event_en, se_irq_en);
-	SPI_LOG_DBG(ipc, false, se->dev,
+	SPI_LOG_DBG(ipc, true, se->dev,
 		    "dma_if_en_ro:0x%x, dma_general_cfg:0x%x dma_debug_reg0:0x%x\n, geni_clk_sel:0x%x",
 		    dma_if_en_ro, dma_general_cfg, dma_debug_reg0, geni_clk_sel);
+	SPI_LOG_DBG(ipc, true, se->dev,
+		    "qup_status:0x%x, qup_common_cfg:0x%x qup_se_if_irq_msk_h:0x%x qup_se_if_irq_msk:0x%x\n",
+		    qup_status, qup_common_cfg, qup_se_if_irq_msk_h, qup_se_if_irq_msk);
+	SPI_LOG_DBG(ipc, true, se->dev,
+		    "qup_se_if_irq_msk:0x%x, qup_gsi_slave_ahb_arb_cfg:0x%x, qup_ext_ahb_arb_cfg:0x%x\n",
+		    qup_se_if_irq_msk, qup_gsi_slave_ahb_arb_cfg, qup_ext_ahb_arb_cfg);
 }
 
 static void spi_slv_setup(struct spi_geni_master *mas);
@@ -1096,6 +1137,12 @@ static void spi_gsi_ch_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb,
 		mas->qn_err = true;
 		complete_all(&mas->tx_cb);
 		complete_all(&mas->rx_cb);
+		if(cb->cb_event == MSM_GPI_QUP_FW_ERROR) {
+			geni_spi_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
+			gpi_dump_for_geni(mas->tx);
+			BUG_ON(1);
+		}
+
 
 		break;
 	default:

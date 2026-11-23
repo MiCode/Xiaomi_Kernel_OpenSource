@@ -1,0 +1,6 @@
+config POWERINSIGHT_GPU_FREQ_STATS
+	tristate "Power Insight GPU Freq"
+	default n
+	depends on POWERINSIGHT && POWERINSIGHT_GPU_OPP_STATS
+	help
+	  This driver provides PowerInsight feature

@@ -500,6 +500,7 @@ exit:
 DEFINE_DEBUGFS_ATTRIBUTE(clk_measure_fops, clk_debug_measure_get,
 			 clk_debug_measure_set, "%lld\n");
 
+
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 {
 	debugfs_create_file("clk_measure", 0444, dentry, hw, &clk_measure_fops);
@@ -843,12 +844,10 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 		if (!clk_hw)
 			break;
 
-		if (!atomic) {
-			clk_rate = clk_get_rate(clk);
+		clk_rate = clk_get_rate(clk);
+
+		if (!atomic)
 			vdd_level = clk_list_rate_vdd_level(clk_hw, clk_rate);
-		} else {
-			clk_rate = clk_hw_get_rate(clk_hw);
-		}
 
 		if (s) {
 			/*

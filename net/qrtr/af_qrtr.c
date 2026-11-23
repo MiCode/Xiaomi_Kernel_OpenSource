@@ -23,6 +23,8 @@
 #include <uapi/linux/sched/types.h>
 
 #include "qrtr.h"
+#include "../../../drivers/xiaomi/mi_qmi_trace/mi_qmi_trace.h"
+#include "powerinsight_modem_stats.h"
 
 #define QRTR_LOG_PAGE_CNT 16
 #define QRTR_DEBUG_LOG_PAGE_CNT 16
@@ -52,6 +54,7 @@
 /* LA GVM QRTR node-id */
 #define QRTR_GVM_NODE_ID 27
 
+extern void appendNode(const char *hex_service_id, const char *qmi_message_id);
 /**
  * struct qrtr_hdr_v1 - (I|R)PCrouter packet header version 1
  * @version: protocol version
@@ -276,6 +279,24 @@ void qrtr_print_wakeup_reason(const void *data)
 		cb.dst_node, cb.dst_port,
 		(unsigned int)preview, (unsigned int)(preview >> 32),
 		service_id);
+	char hex_service_id[64];
+	char qmi_message_id[17];
+	sprintf(hex_service_id, "0x%x", service_id);
+	snprintf(qmi_message_id, sizeof(qmi_message_id), "%08x%08x", 
+         (unsigned int)preview, 
+         (unsigned int)(preview >> 32));
+	appendNode(hex_service_id, qmi_message_id);
+
+	report_wakeup_event_to_pi(
+			 cb.src_node,
+			cb.src_port,
+			cb.dst_node,
+			cb.dst_port,
+			(uint32_t)preview,          // payload 低32位
+			(uint32_t)(preview >> 32),  // payload 高32位
+			service_id
+	);
+
 }
 EXPORT_SYMBOL_GPL(qrtr_print_wakeup_reason);
 
@@ -2524,4 +2545,6 @@ module_exit(qrtr_proto_fini);
 
 MODULE_DESCRIPTION("Qualcomm IPC-router driver");
 MODULE_LICENSE("GPL v2");
+MODULE_SOFTDEP("pre: mi_qmi_trace common");
+MODULE_INFO(depends, "mi_qmi_trace,common");
 MODULE_ALIAS_NETPROTO(PF_QIPCRTR);

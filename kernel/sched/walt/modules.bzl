@@ -44,11 +44,15 @@ def register_modules(registry):
             "kernel/sched/walt/smart_freq.c",
             "kernel/sched/walt/walt_storage_lb.c",
             "kernel/sched/walt/mvp_locking.c",
+            "kernel/sched/walt/midpoint.c",
             "kernel/sched/walt/perf_trace_counters.h",
             "kernel/sched/walt/trace.h",
             "kernel/sched/walt/walt.h",
             "kernel/sched/walt/voter.h",
             "kernel/sched/walt/sysctl_walt_stats.h",
+            "drivers/misc/hwid/hwid.h",
+            "drivers/mihw/include/mi_module.h",
+            "drivers/mihw/include/qos_inherit.h",
         ],
         conditional_srcs = {
             "CONFIG_SCHED_WALT_STATS": {
@@ -56,20 +60,35 @@ def register_modules(registry):
                     "kernel/sched/walt/sysctl_walt_stats.c",
                 ],
             },
+            "CONFIG_SCHED_WALT_MIDPOINT": {
+               True: [
+                    "kernel/sched/walt/midpoint.c",
+               ],
+            },
+            "CONFIG_OS_CPU_SCHED_VIP": {
+                True: [
+                    "kernel/sched/xiaomi_sched/common/vip_sched/vip_sched.h",
+                ],
+            },
+            "CONFIG_OS_CPU_RTG_WALT": {
+                True: [
+                    "kernel/sched/xiaomi_sched/qcom/rtg/rtg_pfr_cpu.h",
+                ],
+            }
         },
+
         deps = [
             # do not sort
             "drivers/soc/qcom/socinfo",
             "drivers/soc/qcom/smem",
-        ],
-    )
-
-    registry.register(
-        name = "kernel/sched/walt/midpoint",
-        out = "midpoint.ko",
-        config = "m",
-        srcs = [
-            # do not sort
-            "kernel/sched/walt/midpoint.c",
+            "drivers/misc/hwid",
+            "drivers/mihw/mi_schedule",
+            "drivers/mihw/metis",
+            "drivers/mihw/mist",
+            "drivers/xiaomi/perf_actuator",
+            "kernel/sched/xiaomi_sched/common/qis/v2/qi/os_cpu_qi",
+            "kernel/sched/xiaomi_sched/common/plat_common",
+            "kernel/sched/xiaomi_sched/common/vip_sched",
+            "kernel/sched/xiaomi_sched/qcom/rtg",
         ],
     )

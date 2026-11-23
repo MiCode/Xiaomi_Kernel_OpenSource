@@ -1,0 +1,7 @@
+config IR_SPI
+	tristate "SPI connected IR LED"
+	depends on SPI && of
+	help
+	  Say Y if you want to use an IR LED connected through SPI bus.
+	  To compile this driver as a module, choose M here: the module will be
+	  called ir-spi

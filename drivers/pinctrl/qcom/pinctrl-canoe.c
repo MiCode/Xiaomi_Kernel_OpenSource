@@ -2732,7 +2732,6 @@ static struct platform_driver canoe_tlmm_driver = {
 	.driver = {
 		.name = "canoe-pinctrl",
 		.of_match_table = canoe_tlmm_of_match,
-		.pm = &noirq_msm_pinctrl_dev_pm_ops,
 	},
 	.probe = canoe_tlmm_probe,
 	.remove_new = msm_pinctrl_remove,

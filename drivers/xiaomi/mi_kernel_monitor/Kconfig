@@ -1,0 +1,5 @@
+config MI_KERNEL_MONITOR
+       tristate "Allow xiaomi kernel monitor"
+       default n
+       help
+         Allow xiaomi kernel latency monitor feature

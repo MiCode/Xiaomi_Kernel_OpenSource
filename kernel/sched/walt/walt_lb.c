@@ -9,6 +9,21 @@
 #include "walt.h"
 #include "trace.h"
 #include "sysctl_walt_stats.h"
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+#include "../xiaomi_sched/qcom/rtg/rtg_pfr_cpu.h"
+#endif
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+#include "../xiaomi_sched/common/vip_sched/vip_sched.h"
+#endif
+#if IS_ENABLED(CONFIG_MIPLAT_GAME) || IS_ENABLED(CONFIG_OS_CPU_PLAT_COMMON)
+#include <linux/os-cpu/plat_common.h>
+#endif
+
+//MIUI ADD: Performance_BoostFramework
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_assi_newly_idle_balance_task_fit);
+//END Performance_BoostFramework
+
+
 
 inline unsigned long walt_lb_cpu_util(int cpu)
 {
@@ -256,6 +271,15 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 	if (pipeline_in_progress() && walt_pipeline_low_latency_task(p))
 		return false;
 
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+	/* Don't migrate the vip task which is running on prefer-cpu */
+	if (is_vip_task(p)) {
+		return false;
+	}
+#endif
+
+
+
 	if (to_lower) {
 		if (wts->iowaited && (wts->demand_scaled < MIN_UTIL_FOR_STORAGE_BALANCING))
 			return false;
@@ -271,6 +295,11 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 			wrq->walt_stats.nr_big_tasks < 2)
 			return false;
 	}
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (!os_cpu_can_migrate_task(p, task_cpu(p), dst_cpu)) {
+		return false;
+	}
+#endif
 
 	/* Don't detach task if dest cpu is halted */
 	if (cpu_halted(dst_cpu))
@@ -283,6 +312,18 @@ static inline bool need_active_lb(struct task_struct *p, int dst_cpu,
 				  int src_cpu)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *)android_task_vendor_data(p);
+
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+	/* Don't migrate the vip task which is running on prefer-cpu */
+	if (is_vip_task(p)) {
+		return false;
+	}
+#endif
+
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (!os_cpu_can_migrate_task(p, src_cpu, dst_cpu))
+		return false;
+#endif
 
 	if (cpu_rq(src_cpu)->active_balance)
 		return false;
@@ -400,6 +441,11 @@ static int walt_lb_pull_tasks(int dst_cpu, int src_cpu,
 					!p->se.sched_delayed &&
 					need_active_lb(p, dst_cpu, src_cpu)) {
 				bool success;
+
+#ifdef CONFIG_MIGT_WALT
+				if (game_migt_should_skip_migrate_hook && game_migt_should_skip_migrate_hook(p, dst_cpu))
+					continue;
+#endif
 
 				active_balance = true;
 				src_rq->active_balance = 1;
@@ -739,7 +785,11 @@ void walt_lb_tick(struct rq *rq)
 		goto out_unlock;
 
 	/* prevent active task migration to busy or same/lower capacity CPU */
-	if (!available_idle_cpu(new_cpu) || !check_for_higher_capacity(new_cpu, prev_cpu))
+	if (!available_idle_cpu(new_cpu) ||
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+		!os_cpu_can_migrate_task(p, prev_cpu, new_cpu) ||
+#endif
+		!check_for_higher_capacity(new_cpu, prev_cpu))
 		goto out_unlock;
 
 	if (!is_min_possible_cluster_cpu(prev_cpu) && !task_fits_max(p, new_cpu))
@@ -794,11 +844,16 @@ static bool walt_balance_rt(struct rq *this_rq)
 	struct task_struct *p;
 	struct walt_task_struct *wts;
 	bool pulled = false;
+//MIUI ADD: Performance_BoostFramework
+	bool skip = false;
+//END Performance_BoostFramework
 	u64 wallclock;
 
 	/* can't help if this has a runnable RT */
 	if (sched_rt_runnable(this_rq))
 		return false;
+
+
 
 	/* check if any CPU has a pushable RT task */
 	for_each_possible_cpu(i) {
@@ -825,6 +880,18 @@ static bool walt_balance_rt(struct rq *this_rq)
 
 	if (!p)
 		goto unlock;
+
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	if (arch_scale_cpu_capacity(this_cpu) < os_cpu_get_group_prefer_util(p) ||
+		!os_cpu_can_migrate_task(p, src_cpu, this_cpu))
+		goto unlock;
+#endif
+
+//MIUI ADD: Performance_BoostFramework
+	trace_sched_assi_newly_idle_balance_task_fit(p, this_rq, &skip);
+	if (skip)
+		goto unlock;
+//END Performance_BoostFramework
 
 	if (!cpumask_test_cpu(this_cpu, p->cpus_ptr))
 		goto unlock;
@@ -886,6 +953,7 @@ static void walt_newidle_balance(struct rq *this_rq,
 	int i;
 	struct task_struct *pulled_task_struct = NULL;
 
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -939,6 +1007,15 @@ static void walt_newidle_balance(struct rq *this_rq,
 
 	help_min_cap = should_help_min_cap(this_cpu);
 	raw_spin_unlock(&this_rq->__lock);
+
+#if IS_ENABLED(CONFIG_OS_CPU_SCHED_VIP)
+	/* No need do more balance if vip balance occurs */
+	if (vip_sched_newidle_balance(this_rq)) {
+		*pulled_task = 1;
+		goto unlock;
+	}
+#endif
+
 
 	/*
 	 * careful, we dropped the lock, and has to be acquired
@@ -996,6 +1073,7 @@ found_busy_cpu:
 	/* sanity checks before attempting the pull */
 	if (this_rq->nr_running > 0 || (busy_cpu == this_cpu))
 		goto unlock;
+
 
 	*pulled_task = walt_lb_pull_tasks(this_cpu, busy_cpu, &pulled_task_struct);
 
@@ -1373,6 +1451,7 @@ void walt_lb_init(void)
 	register_trace_android_rvh_find_busiest_queue(walt_find_busiest_queue, NULL);
 	register_trace_android_rvh_sched_newidle_balance(walt_sched_newidle_balance, NULL);
 	register_trace_android_rvh_find_new_ilb(walt_find_new_ilb, NULL);
+
 
 	for_each_cpu(cpu, cpu_possible_mask) {
 		call_single_data_t *csd;

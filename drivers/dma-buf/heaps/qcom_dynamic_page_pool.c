@@ -165,7 +165,6 @@ static int dynamic_page_pool_do_shrink(struct dynamic_page_pool *pool, gfp_t gfp
 
 	if (nr_to_scan == 0)
 		return dynamic_page_pool_total(pool, high);
-
 	while (freed < nr_to_scan) {
 		unsigned long flags;
 

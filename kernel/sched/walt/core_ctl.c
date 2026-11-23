@@ -105,6 +105,31 @@ static unsigned int get_assist_active_cpu_count(const struct cluster_data *clust
 static unsigned int active_cpu_count_from_mask(const cpumask_t *cpus);
 static void __ref do_core_ctl(void);
 
+// MIUI ADD: Task_Attribute_Sched
+void oem_corectl_cpu_busy(unsigned int flag, unsigned int val)
+{
+	struct cluster_data *cluster;
+	unsigned long flags;
+	unsigned int index = 0;
+	int i = 0;
+	spin_lock_irqsave(&state_lock, flags);
+	for_each_cluster(cluster, index) {
+	if (!cluster) {
+			printk(KERN_ERR "oem_corectl_cpu_busy: cluster at index %u is NULL\n", index);
+			continue;
+	}
+	if (flag == 1) {
+		for (i = 0; i < cluster->num_cpus; i++)
+			cluster->busy_up_thres[i] = val;
+	} else {
+		for (i = 0; i < cluster->num_cpus; i++)
+		cluster->busy_down_thres[i] = val;
+	}
+	}
+	spin_unlock_irqrestore(&state_lock, flags);
+}
+EXPORT_SYMBOL_GPL(oem_corectl_cpu_busy);
+// END Task_Attribute_Sched
 cpumask_t part_haltable_cpus = { CPU_BITS_NONE };
 /* ========================= sysfs interface =========================== */
 
@@ -1262,7 +1287,19 @@ int core_ctl_set_cluster_boost(int idx, bool boost)
 
 	return ret;
 }
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+void core_ctl_update(void)
+{
+	unsigned int index = 0;
+	struct cluster_data *cluster = NULL;
 
+	if (unlikely(!initialized))
+		return;
+
+	for_each_cluster(cluster, index)
+		sysfs_param_changed(cluster);
+}
+#endif
 static u64 core_ctl_check_timestamp;
 
 int core_ctl_set_boost(bool boost)
@@ -1958,5 +1995,12 @@ int core_ctl_init(void)
 
 	initialized = true;
 
+#if IS_ENABLED(CONFIG_OS_CPU_PLAT_COMMON)
+
+#if IS_ENABLED(CONFIG_OS_CPU_RTG_WALT)
+	register_plat_func(FUNC_CORE_CTL_UPDATE, core_ctl_update);
+#endif
+
+#endif
 	return 0;
 }

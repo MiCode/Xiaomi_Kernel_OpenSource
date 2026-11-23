@@ -67,7 +67,7 @@ static int qcom_scmi_vp_set_trip_temp(struct dyn_hw_trip *dyn_th, int trip_temp)
 	ret = dyn_th->ops->set_param(dyn_th->ph, &trip_payload, algo_str,
 			OL_TJ_THRESHOLD, sizeof(trip_payload));
 	if (ret < 0)
-		dev_err(dyn_th->dev,
+		dev_info(dyn_th->dev,
 			"Error to set dyntj for trip:%d for %s ret=%d\n",
 			trip_temp, dyn_th->name, ret);
 	return ret;
@@ -148,6 +148,10 @@ static int qcom_dynamic_hw_thermal_trip_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return -ENODEV;
 
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,trip-temperature", &dyn_vendor_trip.temperature);
+	if (ret < 0)
+		return -ENODEV;
+
 	dyn_th = devm_kzalloc(&pdev->dev, sizeof(*dyn_th), GFP_KERNEL);
 	if (!dyn_th)
 		return -ENOMEM;
@@ -179,7 +183,6 @@ static int qcom_dynamic_hw_thermal_trip_probe(struct platform_device *pdev)
 		dev_err(dyn_th->dev, "%s: unable to create IPC Logging for %s\n",
 					__func__, dyn_th->name);
 
-	qcom_scmi_vp_get_trip_temp(dyn_th, &dyn_vendor_trip.temperature);
 	dyn_th->tz = thermal_zone_device_register_with_trips(dyn_th->name,
 					&dyn_vendor_trip, 1, dyn_th,
 					&tzone_ops, &tzone_params, 0, 0);
@@ -189,6 +192,8 @@ static int qcom_dynamic_hw_thermal_trip_probe(struct platform_device *pdev)
 		return ret;
 	}
 	platform_set_drvdata(pdev, dyn_th);
+
+	qcom_dynamic_hw_set_trip_temp(dyn_th->tz, &dyn_vendor_trip, dyn_vendor_trip.temperature);
 
 	return 0;
 }

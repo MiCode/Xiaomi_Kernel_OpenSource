@@ -1189,8 +1189,9 @@ static int adsp_stop(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = rproc->priv;
 	int handover;
+	char *needle = "remoteproc-cdsp";
+	char *result;
 	int i, ret = 0;
-
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "enter");
 	if (adsp->q6_subdev) {
 		for (i = 0; i < adsp->q6_subdev_count; i++) {
@@ -1245,6 +1246,10 @@ static int adsp_stop(struct rproc *rproc)
 
 	adsp->q6v5.seq++;
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_stop", "exit");
+	result = strstr(dev_name(adsp->dev), needle);
+	if (result) {
+		adsp_minidump(rproc);
+	}
 
 	return ret;
 }

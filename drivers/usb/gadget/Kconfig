@@ -33,6 +33,11 @@ config USB_F_QDSS
 config USB_F_GSI
 	tristate
 
+config XM_USB_PRI_INTERFACE
+	tristate "Xiaomi Screen Share"
+	help
+	  Xiaomi device shared screen with pc or pad
+
 config USB_F_FS_IPC_LOGGING
         tristate "Enable IPC logging for FunctionFS via f_fs_ipc_log"
 	depends on IPC_LOGGING

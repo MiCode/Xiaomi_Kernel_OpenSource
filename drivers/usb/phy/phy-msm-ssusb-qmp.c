@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 #include <linux/extcon.h>
 #include <linux/reset.h>
+#include <linux/debugfs.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/eom_ioctl.h>
@@ -82,6 +83,9 @@ enum core_ldo_levels {
 /* USB3_DP_COM_TYPEC_STATUS */
 #define PORTSELECT_RAW		BIT(0)
 
+/* USB3 eye phy*/
+#define USB3_DP_PCS_G12S1_TXMGN_V0		0x1F38
+#define USB3_DP_PCS_G12S1_TXDEEMPH_M3P5DB	0x1F6C
 #define UTXR			0 /* USB Transfer */
 #define UCORE			1 /* USB Core */
 #define MIN_PD			2 /* Min Power Domains */
@@ -154,7 +158,17 @@ struct msm_ssphy_qmp {
 	int			reg_offset_cnt;
 	struct qmp_reg_val	*qmp_phy_init_seq;
 	int			init_seq_len;
+	u32			*usb3_phy_eye_seq;
+	int			usb3_phy_eye_seq_len;
+	u32			*host_usb3_phy_eye_seq;
+	int			host_usb3_phy_eye_seq_len;
 	enum qmp_phy_type	phy_type;
+	bool			usb3_eye;
+	/* debugfs entries */
+	struct dentry		*root;
+	/* USB3 eyetuning cfg */
+	u8			TXMGN_V0;
+	u8			TXDEEMPH_M3P5DB;
 	bool			fw_managed_pwr;
 	struct device		**pd_devs;
 	int			pd_count;
@@ -507,6 +521,36 @@ static int configure_phy_regs(struct msm_ssphy_qmp *phy)
 	return 0;
 }
 
+static int configure_usb3_phy_eye_regs(struct usb_phy *uphy,
+					const struct qmp_reg_val *reg, int len)
+{
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+	int i;
+
+	if (!reg) {
+		dev_err(uphy->dev, "NULL PHY configuration\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < len/2; i++) {
+		writel_relaxed(reg->val, phy->base + reg->offset);
+		reg++;
+	}
+
+	if (phy->usb3_eye) {
+		if (phy->TXMGN_V0) {
+			writel_relaxed(phy->TXMGN_V0, phy->base + USB3_DP_PCS_G12S1_TXMGN_V0);
+		}
+		if (phy->TXDEEMPH_M3P5DB) {
+			writel_relaxed(phy->TXDEEMPH_M3P5DB, phy->base + USB3_DP_PCS_G12S1_TXDEEMPH_M3P5DB);
+		}
+	}
+	dev_err(uphy->dev, "USB3 PHY CFG TXMGN_V0 is 0x%02x TXDEEMPH_M3P5DB is 0x%02x; reading the reg respectively is 0x%02x 0x%02x.\n", phy->TXMGN_V0, phy->TXDEEMPH_M3P5DB,
+			readl_relaxed(phy->base + USB3_DP_PCS_G12S1_TXMGN_V0), readl_relaxed(phy->base + USB3_DP_PCS_G12S1_TXDEEMPH_M3P5DB));
+	return 0;
+}
+
 static void msm_ssphy_qmp_setmode(struct msm_ssphy_qmp *phy, u32 mode)
 {
 	mode = mode & USB3_DP_COMBO_MODE;
@@ -634,6 +678,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 					phy);
 	int ret;
 	unsigned int init_timeout_usec = INIT_MAX_TIME_USEC;
+	const struct qmp_reg_val *usb3_phy_eye_reg = NULL;
+	const struct qmp_reg_val *host_usb3_phy_eye_reg = NULL;
+	int usb3_phy_ret = 0;
 
 	dev_dbg(uphy->dev, "Initializing QMP phy\n");
 
@@ -665,11 +712,23 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	/* power up PHY */
 	usb_qmp_powerup_phy(phy);
 
+	usb3_phy_eye_reg = (struct qmp_reg_val *)phy->usb3_phy_eye_seq;
+	host_usb3_phy_eye_reg = (struct qmp_reg_val *)phy->host_usb3_phy_eye_seq;
+
 	/* Main configuration */
 	ret = configure_phy_regs(phy);
 	if (ret) {
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
 		goto fail;
+	}
+
+	/*usb3 phy eye diag configuration*/
+	if (uphy->flags & PHY_HOST_MODE)
+		usb3_phy_ret = configure_usb3_phy_eye_regs(uphy, host_usb3_phy_eye_reg, phy->host_usb3_phy_eye_seq_len);
+	else
+		usb3_phy_ret = configure_usb3_phy_eye_regs(uphy, usb3_phy_eye_reg, phy->usb3_phy_eye_seq_len);
+	if (usb3_phy_ret) {
+		dev_err(uphy->dev, "Failed the usb3 PHY eye diag configuration\n");
 	}
 
 	/* perform software reset of PCS/Serdes */
@@ -1133,6 +1192,40 @@ static void msm_ssphy_qmp_enable_clks(struct msm_ssphy_qmp *phy, bool on)
 	}
 }
 
+
+static void msm_ssphy_create_debugfs(struct msm_ssphy_qmp *phy)
+{
+	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
+	debugfs_create_x8("txmgn_v0", 0644, phy->root, &phy->TXMGN_V0);
+	debugfs_create_x8("txdeemph_m3p5db", 0644, phy->root, &phy->TXDEEMPH_M3P5DB);
+}
+
+static int msm_ssphy_read_overrides(struct device *dev, const char *prop, u32 **seq, int *seq_len)
+{
+	int num_elem, ret;
+	num_elem = of_property_count_elems_of_size(dev->of_node, prop, sizeof(**seq));
+	if (num_elem > 0) {
+		if (num_elem % 2) {
+			dev_err(dev, "invalid len for %s\n", prop);
+			return -EINVAL;
+		}
+
+		*seq_len = num_elem;
+		*seq = devm_kzalloc(dev, sizeof(**seq) * num_elem, GFP_KERNEL);
+		if (!*seq)
+			return -ENOMEM;
+		ret = of_property_read_u32_array(dev->of_node,
+				prop,
+				*seq,
+				num_elem);
+		if (ret) {
+			dev_err(dev, "error reading %s\n", prop);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static void msm_ssphy_qmp_get_phy_type(struct msm_ssphy_qmp *phy, struct device *dev)
 {
 	phy->phy_type = USB3;
@@ -1460,6 +1553,14 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "usb3_dp_phy_gdsc optional regulator missing\n");
 	}
 
+	ret = msm_ssphy_read_overrides(dev, "qcom,usb3-phy-eye-seq", &phy->usb3_phy_eye_seq, &phy->usb3_phy_eye_seq_len);
+	if (ret < 0)
+		goto err;
+	ret = msm_ssphy_read_overrides(dev, "qcom,host-usb3-phy-eye-seq", &phy->host_usb3_phy_eye_seq, &phy->host_usb3_phy_eye_seq_len);
+	if (ret < 0)
+		goto err;
+	phy->usb3_eye = of_property_read_bool(dev->of_node, "usb3,eyegram-tuning");
+	dev_err(dev, "usb3 eye gram turning:%d\n", phy->usb3_eye);
 	register_eom_phy(phy);
 
 	platform_set_drvdata(pdev, phy);
@@ -1472,6 +1573,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->in_suspend = true;
 
 	ret = usb_add_phy_dev(&phy->phy);
+	msm_ssphy_create_debugfs(phy);
 	if (ret < 0)
 		goto err;
 	return 0;
@@ -1487,6 +1589,7 @@ static void msm_ssphy_qmp_remove(struct platform_device *pdev)
 	if (!phy)
 		return;
 
+	debugfs_remove_recursive(phy->root);
 	usb_remove_phy(&phy->phy);
 	if (phy->fw_managed_pwr) {
 		msm_ssphy_modeled_d0_to_d3(phy);
@@ -1494,6 +1597,7 @@ static void msm_ssphy_qmp_remove(struct platform_device *pdev)
 	}
 	msm_ssphy_qmp_enable_clks(phy, false);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
+	kfree(phy);
 }
 
 static int msm_ssphy_qmp_runtime_suspend(struct device *dev)

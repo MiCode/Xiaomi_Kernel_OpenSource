@@ -166,6 +166,7 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/power/supply/mca/mca_common/mca_log",
         ],
     )
 
@@ -1539,6 +1540,7 @@ def register_modules(registry):
             "drivers/soc/qcom/wcd-usbss-tables.c",
             "drivers/soc/qcom/wcd-usbss-utils.c",
             "drivers/soc/qcom/wcd939x-i2c.c",
+            "drivers/misc/hwid/hwid.h",
         ],
         deps = [
             # do not sort
@@ -1564,6 +1566,7 @@ def register_modules(registry):
             "drivers/virt/gunyah/gh_msgq",
             "drivers/virt/gunyah/gh_dbl",
             "arch/arm64/gunyah/gh_arm_drv",
+            "drivers/misc/hwid",
         ],
     )
 

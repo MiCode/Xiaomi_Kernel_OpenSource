@@ -1,0 +1,5 @@
+config FAULT_REPORT
+       tristate "F2FS fault reporting"
+       default n
+       help
+       Support F2FS fault reporting.

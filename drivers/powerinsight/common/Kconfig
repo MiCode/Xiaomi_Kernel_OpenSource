@@ -1,0 +1,6 @@
+config POWERINSIGHT
+	tristate "Power Insight"
+	default n
+	help
+	  This driver provides PowerInsight feature
+

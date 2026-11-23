@@ -10,6 +10,9 @@
 unsigned long __read_mostly soc_flags;
 unsigned int trailblazer_floor_freq[MAX_CLUSTERS];
 cpumask_t asym_cap_sibling_cpus;
+//MIUI_ADD: Task_Attribute_Sched
+unsigned int __read_mostly miui_power_enhance;
+//END Task_Attribute_Sched
 cpumask_t pipeline_sync_cpus;
 cpumask_t storage_boost_cpus;
 int oscillate_period_ns;
@@ -36,7 +39,12 @@ void walt_config(void)
 	sysctl_sched_util_busy_hyst_enable_cpus = 255;
 	sysctl_sched_coloc_busy_hyst_max_ms = 5000;
 	sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
-	sysctl_input_boost_ms = 40;
+// MIUI DEL: Performance_BoostFramework
+//	sysctl_input_boost_ms = 40;
+// END Performance_BoostFramework
+//MIUI_ADD: Task_Attribute_Sched
+        miui_power_enhance = 0;
+//END Task_Attribute_Sched
 	sysctl_sched_min_task_util_for_boost = 51;
 	sysctl_sched_min_task_util_for_uclamp = 51;
 	sysctl_sched_min_task_util_for_colocation = 35;
@@ -81,7 +89,9 @@ void walt_config(void)
 		sysctl_sched_coloc_busy_hyst_cpu_busy_pct[i] = 10;
 		sysctl_sched_util_busy_hyst_cpu[i] = 5000000;
 		sysctl_sched_util_busy_hyst_cpu_util[i] = 15;
-		sysctl_input_boost_freq[i] = 0;
+// MIUI DEL: Performance_BoostFramework
+//		sysctl_input_boost_freq[i] = 0;
+// END Performance_BoostFramework
 	}
 
 	for (i = 0; i < MAX_CLUSTERS; i++) {
@@ -186,7 +196,6 @@ void walt_config(void)
 		if (strcmp(name, "ALOR_INTERPOSER") && strcmp(name, "ALOR")
 				&& strcmp(name, "ALORP"))
 			demand_scaling_factor = 70;
-
 		/*
 		 * By default this SOC flag will be disabled. Enable this only
 		 * for Alor platforms

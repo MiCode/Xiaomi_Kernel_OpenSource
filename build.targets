@@ -11,6 +11,16 @@ build.config.msm.seraph.vm
 build.config.msm.vienna
 build.config.msm.vienna.le
 build.config.msm.gen3auto
+build.config.msm.haotian
+build.config.msm.popsicle
+build.config.msm.pandora
+build.config.msm.myron
+build.config.msm.athens
+build.config.msm.byron
+build.config.msm.shuntian
+build.config.msm.songyuan
+build.config.msm.pudding
+build.config.msm.nezha
 build.config.msm.hamoa
 build.config.msm.malabar
 build.config.msm.shikra

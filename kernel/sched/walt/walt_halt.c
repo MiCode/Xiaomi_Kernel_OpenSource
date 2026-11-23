@@ -20,7 +20,13 @@ enum pause_type {
 
 /* if a cpu is halting */
 struct cpumask __cpu_halt_mask;
+//MIUI ADD: Performance_BoostFramework
+EXPORT_SYMBOL_GPL(__cpu_halt_mask);
+// END Performance_BoostFramework
 struct cpumask __cpu_partial_halt_mask;
+//MIUI ADD: Performance_BoostFramework
+EXPORT_SYMBOL_GPL(__cpu_partial_halt_mask);
+//END: Performance_BoostFramework
 
 /* spin lock to allow calling from non-preemptible context */
 static DEFINE_RAW_SPINLOCK(halt_lock);
@@ -36,6 +42,7 @@ static DEFINE_RAW_SPINLOCK(walt_drain_pending_lock);
  * just after a halt operation.
  */
 #define WALT_HALT_CHECK_THRESHOLD_NS 400000
+
 
 /*
  * Remove a task from the runqueue and pretend that it's migrating. This

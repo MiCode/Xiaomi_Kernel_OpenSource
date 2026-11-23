@@ -31,6 +31,13 @@ config QCOM_DMABUF_HEAPS_SYSTEM
 	  along with other optimizatons. If in doubt, say Y
 	  here.
 
+config MI_DMABUF_DIO
+	tristate "XIAOMI DMA-BUF Dio"
+	depends on QCOM_DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to build the XIAOMI DMA-BUF dio.
+	  If in doubt, say M here.
+
 config QCOM_DMABUF_HEAPS_PAGE_POOL_REFILL
 	bool "QCOM DMA-BUF Page Pool Refill"
 	depends on QCOM_DMABUF_HEAPS_SYSTEM

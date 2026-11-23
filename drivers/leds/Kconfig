@@ -41,4 +41,12 @@ config LEDS_AW2016
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-aw2016.
 
+config LEDS_AW21024
+	tristate "LED Support for AW21024"
+	depends on LEDS_CLASS && I2C
+	help
+	  this option enables support for the AW21024 RGB LED connected
+	  through I2C. Say Y to enable support for the AW21024 LED
+	  light automatically.
+
 endif # NEW_LEDS

@@ -17,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/regmap.h>
 #include <soc/qcom/qcom-spmi-pmic.h>
+#include <linux/device.h>
 
 #define PMIC_REV2		0x101
 #define PMIC_REV3		0x102
@@ -32,6 +33,7 @@
 struct qcom_spmi_dev {
 	int num_usids;
 	struct qcom_spmi_pmic pmic;
+	struct regmap *regmap;
 };
 
 static DEFINE_MUTEX(pmic_spmi_revid_lock);
@@ -261,13 +263,13 @@ static const struct regmap_config spmi_regmap_can_sleep_config = {
 	.max_register	= 0xffff,
 	.fast_io	= false,
 };
-
 static int pmic_spmi_probe(struct spmi_device *sdev)
 {
 	struct device_node *root = sdev->dev.of_node;
 	struct regmap *regmap;
 	struct qcom_spmi_dev *ctx;
 	int ret;
+	const char *pmic_name = NULL;
 
 	if (of_property_read_bool(root, "qcom,can-sleep"))
 		regmap = devm_regmap_init_spmi_ext(sdev,
@@ -282,6 +284,7 @@ static int pmic_spmi_probe(struct spmi_device *sdev)
 		return -ENOMEM;
 
 	ctx->num_usids = (uintptr_t)device_get_match_data(&sdev->dev);
+	ctx->regmap = regmap;
 
 	/* Only the first slave id for a PMIC contains this information */
 	if (sdev->usid % ctx->num_usids == 0) {
@@ -300,6 +303,18 @@ static int pmic_spmi_probe(struct spmi_device *sdev)
 
 	devm_regmap_qti_debugfs_register(&sdev->dev, regmap);
 
+	//get pmic-name
+	for_each_child_of_node_scoped(root, child) {
+		if (of_device_is_compatible(child, "qcom,pmic-ecid")) {
+			ret = of_property_read_string(child, "qcom,pmic-name", &pmic_name);
+			if (ret >=0 )
+				dev_set_name(&sdev->dev, "%s:%s", dev_name(&sdev->dev), pmic_name);
+			break;
+		}
+	}
+
+	pr_info("spmi probe init: %s", dev_name(&sdev->dev));
+
 	return devm_of_platform_populate(&sdev->dev);
 }
 
@@ -310,6 +325,71 @@ static void pmic_spmi_remove(struct spmi_device *sdev)
 	mutex_unlock(&pmic_spmi_revid_lock);
 }
 
+static void print_regmap(struct regmap *regmap, char *name, unsigned int reg)
+{
+	unsigned int val;
+	regmap_read(regmap, reg, &val);
+	pr_info("%s val:0x%x, %s", name, val, (val & 0x80)?"on":"off");
+}
+static void print_special_ldo(struct device *dev)
+{
+	struct qcom_spmi_dev *ctx = dev_get_drvdata(dev);
+
+        if (ctx == NULL)
+                return ;
+	if (strstr(dev_name(dev), "pmh0110_f")) { //PMH0110_F
+                //L1F
+		print_regmap(ctx->regmap, "L1F", 0xc108);
+		//L2F
+		print_regmap(ctx->regmap, "L2F", 0xc208);
+	} else if (strstr(dev_name(dev), "pmh0101")) { //PMH0101
+                //L2B
+		print_regmap(ctx->regmap, "L2B", 0xc208);
+                //L8B
+		print_regmap(ctx->regmap, "L8B", 0xc808);
+                //L9B
+		print_regmap(ctx->regmap, "L9B", 0xc908);
+                //L10B
+		print_regmap(ctx->regmap, "L10B", 0xca08);
+                //L12B
+		print_regmap(ctx->regmap, "L12B", 0xcc08);
+		//L13B
+		print_regmap(ctx->regmap, "L13B", 0xcd08);
+		//L14B
+		print_regmap(ctx->regmap, "L14B", 0xce08);
+		//L16B
+		print_regmap(ctx->regmap, "L16B", 0xd008);
+		//L18B
+		print_regmap(ctx->regmap, "L18B", 0xd108);
+        } else if (strstr(dev_name(dev), "pm8010_m")) { //PM8010_M
+                //L1M
+		print_regmap(ctx->regmap, "L1M", 0x4008);
+		//L2M
+		print_regmap(ctx->regmap, "L2M", 0x4108);
+		//L3M
+		print_regmap(ctx->regmap, "L3M", 0x4208);
+		//L4M
+		print_regmap(ctx->regmap, "L4M", 0x4308);
+		//L5M
+		print_regmap(ctx->regmap, "L5M", 0x4408);
+		//L6M
+		print_regmap(ctx->regmap, "L6M", 0x4508);
+		//L7M
+		print_regmap(ctx->regmap, "L7M", 0x4608);
+        }
+}
+static int pmic_spmi_suspend(struct device *dev)
+{
+	print_special_ldo(dev);
+	return 0;
+}
+static int pmic_spmi_resume(struct device *dev)
+{
+	print_special_ldo(dev);
+	return 0;
+}
+static DEFINE_SIMPLE_DEV_PM_OPS(pmic_spmi_pm_ops, pmic_spmi_suspend, pmic_spmi_resume);
+
 MODULE_DEVICE_TABLE(of, pmic_spmi_id_table);
 
 static struct spmi_driver pmic_spmi_driver = {
@@ -318,6 +398,7 @@ static struct spmi_driver pmic_spmi_driver = {
 	.driver = {
 		.name = "pmic-spmi",
 		.of_match_table = pmic_spmi_id_table,
+		.pm = pm_sleep_ptr(&pmic_spmi_pm_ops),
 	},
 };
 module_spmi_driver(pmic_spmi_driver);

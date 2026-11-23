@@ -35,6 +35,9 @@
 #include <linux/qcom_scmi_vendor.h>
 #include <linux/cpu_phys_log_map.h>
 #include "trace-dcvs.h"
+#include <linux/suspend.h>
+#include <trace/events/power.h>
+#include <linux/list.h>
 
 #define MAX_MEMLAT_GRPS	NUM_DCVS_HW_TYPES
 #define FP_NAME		"memlat_fp"
@@ -195,6 +198,8 @@ struct memlat_mon {
 	bool				is_compute;
 	u32				index;
 	struct mutex			sysfs_lock;
+	//node
+	struct list_head		node;
 };
 
 struct memlat_group {
@@ -247,11 +252,16 @@ struct memlat_dev_data {
 	struct scmi_protocol_handle	*ph;
 	bool				subsampling_enabled;
 	u32				cpucp_log_level;
+	//list
+	struct list_head		store_min_freq_list;
+	struct work_struct		store_min_freq_work;
 };
 
 static struct memlat_dev_data		*memlat_data;
 static DEFINE_PER_CPU(struct cpu_stats *, sampling_stats);
 static DEFINE_MUTEX(memlat_lock);
+
+bool skip_thaw_process = false;
 
 struct qcom_memlat_attr {
 	struct attribute		attr;
@@ -369,6 +379,53 @@ static ssize_t store_##name(struct kobject *kobj,                      \
 		return count;                                                   \
 }
 
+void set_min_freq_ddr(void)
+{
+	struct memlat_mon *mon;
+	struct memlat_mon *tmp;
+	struct memlat_group *grp;
+	struct scalar_param_msg msg;
+	const struct qcom_scmi_vendor_ops *ops =  memlat_data->ops;
+	int ret;
+
+	list_for_each_entry_safe(mon, tmp, &memlat_data->store_min_freq_list, node) {
+		grp = mon->memlat_grp;
+		//mon->min_freq
+		pr_err("%s hw_type:%d, index:%u min_freq:%u\n", __func__, grp->hw_type, mon->index, mon->min_freq);
+		if ((mon->type & CPUCP_MON) && ops) {
+			msg.hw_type = grp->hw_type;
+			msg.mon_idx = mon->index;
+			msg.val = mon->min_freq;
+			ret = ops->set_param(memlat_data->ph, &msg, MEMLAT_ALGO_STR, MEMLAT_SET_MIN_FREQ, sizeof(msg));
+			if (ret < 0)
+				printk_deferred(KERN_ERR "freq:%u set min_freq failed ret = %u\n", mon->min_freq, ret);
+		}
+		list_del(&mon->node);
+	}
+}
+
+
+static void memlat_suspend_trace(void *unused, const char *action,
+				   int event, bool start) {
+	//start: true thaw_process begin; false thaw_process end
+	if (!strcmp("thaw_processes", action)) {
+		if (start) {
+			skip_thaw_process = true;
+			pr_info("thaw_process begin");
+                } else {
+			skip_thaw_process = false;
+			//set_min_freq_ddr();
+			queue_work(memlat_data->memlat_wq, &memlat_data->store_min_freq_work);
+			pr_info("thaw_process end");
+		}
+	}
+}
+
+static void memlat_store_min_freq_work(struct work_struct *work)
+{
+	set_min_freq_ddr();
+}
+
 static ssize_t store_min_freq(struct kobject *kobj,
 			struct attribute *attr, const char *buf,
 			size_t count)
@@ -376,6 +433,7 @@ static ssize_t store_min_freq(struct kobject *kobj,
 	int ret;
 	unsigned int freq;
 	struct memlat_mon *mon = to_memlat_mon(kobj);
+  	struct memlat_mon *tmp;
 	struct memlat_group *grp = mon->memlat_grp;
 	struct scalar_param_msg msg;
 	const struct qcom_scmi_vendor_ops *ops =  memlat_data->ops;
@@ -383,8 +441,23 @@ static ssize_t store_min_freq(struct kobject *kobj,
 	ret = kstrtouint(buf, 10, &freq);
 	if (ret < 0)
 		return ret;
+
 	freq = max(freq, grp->hw_min_freq);
 	freq = min(freq, mon->max_freq);
+
+	if (skip_thaw_process) {
+		list_for_each_entry(tmp, &memlat_data->store_min_freq_list, node) {
+			if (tmp->index == mon->index) {
+				mon->min_freq = freq;
+				return count;
+			}
+		}
+		list_add(&mon->node, &memlat_data->store_min_freq_list);
+		mon->min_freq = freq;
+		return count;
+	}
+
+
 	mutex_lock(&mon->sysfs_lock);
 	if ((mon->type & CPUCP_MON) && ops) {
 		msg.hw_type = grp->hw_type;
@@ -393,7 +466,9 @@ static ssize_t store_min_freq(struct kobject *kobj,
 		ret = ops->set_param(memlat_data->ph,
 				&msg, MEMLAT_ALGO_STR, MEMLAT_SET_MIN_FREQ, sizeof(msg));
 		if (ret < 0) {
-			pr_err("failed to set min_freq :%d\n", ret);
+			//pr_err("failed to set min_freq :%d\n", ret);
+			printk_deferred(KERN_ERR "%s task:%s:%d:%d freq:%u set min_freq failed ret = %d\n", __func__, current->comm,
+					current->pid, current->tgid, freq, ret);
 			mutex_unlock(&mon->sysfs_lock);
 			return ret;
 		}
@@ -435,6 +510,37 @@ static ssize_t store_max_freq(struct kobject *kobj,
 	mon->max_freq = freq;
 	mutex_unlock(&mon->sysfs_lock);
 	return count;
+}
+
+static ssize_t store_skip_thaw_process_debug(struct kobject *kobj,
+			struct attribute *attr, const char *buf,
+			size_t count)
+{
+	int ret;
+	int start;
+
+	ret = kstrtouint(buf, 10, &start);
+	if (ret < 0)
+		return ret;
+
+	if (start)
+		skip_thaw_process = true;
+	else {
+		skip_thaw_process = false;
+		//set_min_freq_ddr();
+          	queue_work(memlat_data->memlat_wq, &memlat_data->store_min_freq_work);
+	}
+
+	return count;
+}
+
+static ssize_t show_skip_thaw_process_debug(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	int ret;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", skip_thaw_process);
+	return ret;
 }
 
 static ssize_t show_freq_map(struct kobject *kobj,
@@ -619,8 +725,10 @@ static ssize_t store_subsampling_enabled(struct kobject *kobj,
 	val = input ? 1 : 0;
 
 	mutex_lock(&memlat_lock);
-	if (val == memlat_data->subsampling_enabled)
+	if (val == memlat_data->subsampling_enabled) {
+		mutex_unlock(&memlat_lock);
 		goto out;
+	}
 
 	ret = ops->set_param(memlat_data->ph, &val, MEMLAT_ALGO_STR,
 				MEMLAT_SET_SUBSAMPLING_ENABLED, sizeof(val));
@@ -750,6 +858,7 @@ MEMLAT_ATTR_RW(wb_pct_thres);
 MEMLAT_ATTR_RW(wb_filter_ipm);
 MEMLAT_ATTR_RW(freq_scale_ceil_mhz);
 MEMLAT_ATTR_RW(freq_scale_floor_mhz);
+MEMLAT_ATTR_RW(skip_thaw_process_debug);
 
 static struct attribute *memlat_settings_attrs[] = {
 	&sample_ms.attr,
@@ -773,6 +882,7 @@ ATTRIBUTE_GROUPS(memlat_grp);
 
 static struct attribute *memlat_mon_attrs[] = {
 	&min_freq.attr,
+	&skip_thaw_process_debug.attr,
 	&max_freq.attr,
 	&freq_map.attr,
 	&cur_freq.attr,
@@ -1187,7 +1297,36 @@ static void memlat_jiffies_update_cb(void *unused, void *extra)
 	if (unlikely(!memlat_data->inited))
 		return;
 
+	#ifdef CONFIG_MI_SOC_DFLT
+	if (mi_dflt_get_latency_enable()) {
+		if(!mist_ddr_vote_enable()) {
+			return;
+		}
+		if (mi_dflt_get_latency_vote_start()) {
+			if (delta_ns < ms_to_ktime(5)) {
+				pr_err(" %s enter, repeat vote\n", __func__);
+				return;
+			}
+
+			mi_dflt_set_latency_vote_start(false);
+
+			if (hrtimer_active(&memlat_data->timer)) {
+				pr_err(" %s enter, repeat timer\n", __func__);
+				return;
+				//hrtimer_cancel(&memlat_data->timer);
+			}
+
+			hrtimer_start(&memlat_data->timer,  ms_to_ktime(0),
+							HRTIMER_MODE_REL_PINNED);
+			memlat_data->last_jiffy_ts = now;
+		}
+		return;
+	}
+	#endif
+
+
 	if (delta_ns > ms_to_ktime(memlat_data->sample_ms)) {
+
 		hrtimer_start(&memlat_data->timer, MEMLAT_UPDATE_DELAY,
 						HRTIMER_MODE_REL_PINNED);
 		memlat_data->last_jiffy_ts = now;
@@ -1245,7 +1384,9 @@ static void memlat_pmu_idle_cb(struct qcom_pmu_data *data, int cpu, int state)
 		return;
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
+
 	memcpy(&stats->raw_ctrs, data, sizeof(*data));
+
 	process_raw_ctrs(stats);
 	stats->idle_sample = true;
 	spin_unlock_irqrestore(&stats->ctrs_lock, flags);
@@ -1262,14 +1403,45 @@ static void memlat_sched_tick_cb(void *unused, struct rq *rq)
 	ktime_t now = ktime_get();
 	s64 delta_ns;
 	unsigned long flags;
-
 	if (unlikely(!memlat_data->inited))
 		return;
 
 	spin_lock_irqsave(&stats->ctrs_lock, flags);
+	#ifdef CONFIG_MI_SOC_DFLT
+
+    if(mi_dflt_get_latency_enable()) {
+		goto out;
+	}
+
+	if(mi_dflt_get_latency_enable_from_user()) {
+
+		spin_unlock_irqrestore(&stats->ctrs_lock, flags);
+
+		local_irq_save(flags);
+		for_each_possible_cpu(cpu) {
+			stats = per_cpu(sampling_stats, cpu);
+			if (level == 0)
+				spin_lock(&stats->ctrs_lock);
+			else
+				spin_lock_nested(&stats->ctrs_lock, level);
+			level++;
+		}
+		mi_dflt_set_latency_enable(1);
+
+		for_each_possible_cpu(cpu) {
+			stats = per_cpu(sampling_stats, cpu);
+			spin_unlock(&stats->ctrs_lock);
+		}
+		local_irq_restore(flags);
+		return;
+	}
+	#endif
+
 	delta_ns = now - stats->last_sample_ts + HALF_TICK_NS;
+
 	if (delta_ns < ms_to_ktime(memlat_data->sample_ms))
 		goto out;
+
 	stats->sample_ts = now;
 	stats->idle_sample = false;
 	stats->raw_ctrs.num_evs = 0;
@@ -1383,6 +1555,7 @@ static int memlat_sampling_init(void)
 		return -ENOMEM;
 	}
 	INIT_WORK(&memlat_data->work, &memlat_update_work);
+	INIT_WORK(&memlat_data->store_min_freq_work, &memlat_store_min_freq_work);
 
 	hrtimer_init(&memlat_data->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	memlat_data->timer.function = memlat_hrtimer_handler;
@@ -1809,6 +1982,12 @@ static int memlat_dev_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+
+	ret = register_trace_suspend_resume(memlat_suspend_trace, NULL);
+	if (ret < 0)
+		dev_err(dev, "failed to register trace suspend resume: %d\n", ret);
+
+	INIT_LIST_HEAD(&dev_data->store_min_freq_list);
 	memlat_data = dev_data;
 
 	return 0;

@@ -509,7 +509,7 @@ static ssize_t backing_dev_store(struct device *dev,
 	if (sz > 0 && file_name[sz - 1] == '\n')
 		file_name[sz - 1] = 0x00;
 
-	backing_dev = filp_open(file_name, O_RDWR | O_LARGEFILE | O_EXCL, 0);
+	backing_dev = filp_open_block(file_name, O_RDWR | O_LARGEFILE | O_EXCL, 0);
 	if (IS_ERR(backing_dev)) {
 		err = PTR_ERR(backing_dev);
 		backing_dev = NULL;
@@ -1222,6 +1222,7 @@ static void zram_meta_free(struct zram *zram, u64 disksize)
 
 	zs_destroy_pool(zram->mem_pool);
 	vfree(zram->table);
+
 }
 
 static bool zram_meta_alloc(struct zram *zram, u64 disksize)
@@ -1244,6 +1245,7 @@ static bool zram_meta_alloc(struct zram *zram, u64 disksize)
 
 	for (index = 0; index < num_pages; index++)
 		spin_lock_init(&zram->table[index].lock);
+
 	return true;
 }
 
@@ -1373,8 +1375,10 @@ static int zram_read_page(struct zram *zram, struct page *page, u32 index,
 			  struct bio *parent)
 {
 	int ret;
+	bool is_wb = false;
 
 	zram_slot_lock(zram, index);
+
 	if (!zram_test_flag(zram, index, ZRAM_WB)) {
 		/* Slot should be locked through out the function call */
 		ret = zram_read_from_zspool(zram, page, index);
@@ -1392,7 +1396,8 @@ static int zram_read_page(struct zram *zram, struct page *page, u32 index,
 
 	/* Should NEVER happen. Return bio error if it does. */
 	if (WARN_ON(ret < 0))
-		panic("Decompression failed! err=%d, page=%u\n", ret, index);
+		pr_err("Decompression failed! err=%d, page=%u, is_wb=%d\n",
+			ret, index, is_wb);
 
 	return ret;
 }
@@ -1479,6 +1484,7 @@ compress_again:
 				__GFP_NOWARN |
 				__GFP_HIGHMEM |
 				__GFP_MOVABLE);
+
 	if (IS_ERR_VALUE(handle)) {
 		zcomp_stream_put(zram->comps[ZRAM_PRIMARY_COMP]);
 		atomic64_inc(&zram->stats.writestall);
@@ -1937,12 +1943,13 @@ static void zram_compress_success_handler(struct qpace_event_descriptor *ed, int
 	} else {
 		comp_source = ed->out_addr;
 	}
-
 	no_reclaim = memalloc_noreclaim_save();
+
 	handle = zs_malloc(zmeta->zram->mem_pool, comp_len,
 			   GFP_NOIO |
 			   __GFP_HIGHMEM |
 			   __GFP_MOVABLE);
+
 	memalloc_noreclaim_restore(no_reclaim);
 	if (IS_ERR_VALUE(handle)) {
 		zram_abandon_requests(&comp_control);
@@ -2293,6 +2300,7 @@ static int zram_recompress(struct zram *zram, u32 index, struct page *page,
 			       __GFP_NOWARN |
 			       __GFP_HIGHMEM |
 			       __GFP_MOVABLE);
+
 	if (IS_ERR_VALUE(handle_new)) {
 		zcomp_stream_put(zram->comps[prio]);
 		return PTR_ERR((void *)handle_new);
@@ -2890,7 +2898,7 @@ static int zram_add(void)
 	struct zram *zram;
 	int ret, device_id;
 
-	static bool use_qpace = true;
+	static bool use_qpace = false;
 
 	zram = kzalloc(sizeof(struct zram), GFP_KERNEL);
 	if (!zram)
@@ -3146,10 +3154,9 @@ static void destroy_devices(void)
 
 static int __init zram_init(void)
 {
-	struct zram_table_entry zram_te;
 	int ret;
 
-	BUILD_BUG_ON(__NR_ZRAM_PAGEFLAGS > sizeof(zram_te.flags) * 8);
+	BUILD_BUG_ON(__NR_ZRAM_PAGEFLAGS > BITS_PER_LONG);
 
 	ret = cpuhp_setup_state_multi(CPUHP_ZCOMP_PREPARE, "block/zram:prepare",
 				      zcomp_cpu_up_prepare, zcomp_cpu_dead);

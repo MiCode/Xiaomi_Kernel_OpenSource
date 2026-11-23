@@ -1,0 +1,5 @@
+config MI_QMI_TRACE
+tristate "Xiaomi QMI Tracing"
+default n
+help
+This option enables tracing of QMI messages in Xiaomi devices.

@@ -35,6 +35,16 @@
 
 #include "qcom_sg_ops.h"
 
+#define DMABUF_64K_SHIFT	16
+#define DMABUF_64K_SIZE		(1UL << DMABUF_64K_SHIFT)
+#define DMABUF_64K_MASK		(~(DMABUF_64K_SIZE-1))
+#define DMABUF_PMD_MAP		0
+#define DMABUF_64K_MAP		1
+
+extern int (*dmabuf_hugetlb_remap)(struct vm_area_struct *vma, unsigned long addr,
+                    unsigned long pfn, unsigned long size, pgprot_t prot, unsigned int map_type);
+extern bool dmabuf_hugetlb_enable;
+
 int proxy_invalid_map(struct device *dev, struct sg_table *table,
 		      struct dma_buf *dmabuf)
 {
@@ -456,6 +466,9 @@ int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		struct page *page = sg_page(sg);
 		unsigned long remainder = vma->vm_end - addr;
 		unsigned long len = sg->length;
+		unsigned long aligned_start, aligned_end;
+		struct page *tpage;
+		int no_align_flag = 0;
 
 		if (offset >= sg->length) {
 			offset -= sg->length;
@@ -466,8 +479,89 @@ int qcom_sg_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 			offset = 0;
 		}
 		len = min(len, remainder);
-		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
-				      vma->vm_page_prot);
+
+		if ((dmabuf_hugetlb_enable) && (dmabuf_hugetlb_remap != NULL)) {
+			if (len >= PMD_SIZE) {
+				aligned_start = ALIGN(addr, PMD_SIZE);
+				aligned_end = ALIGN_DOWN(addr + len, PMD_SIZE);
+
+				tpage = page + (aligned_start - addr) / PAGE_SIZE;
+				no_align_flag = ((page_to_pfn(tpage) << PAGE_SHIFT) & ~PMD_MASK) ? 1 : 0;
+
+				if ((aligned_start == aligned_end) || no_align_flag) {
+					ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+								  vma->vm_page_prot);
+					goto out;
+				}
+
+				if (!IS_ALIGNED(addr, PMD_SIZE)) {
+					ret = remap_pfn_range(vma, addr, page_to_pfn(page), aligned_start - addr,
+								  vma->vm_page_prot);
+					if (ret)
+						goto out;
+					page += (aligned_start - addr) / PAGE_SIZE;
+				}
+
+				if ((aligned_end - aligned_start) >= PMD_SIZE) {
+					ret = (*dmabuf_hugetlb_remap)(vma, aligned_start, page_to_pfn(page), aligned_end - aligned_start,
+									vma->vm_page_prot, DMABUF_PMD_MAP);
+					if (ret)
+						goto out;
+
+					page += (aligned_end - aligned_start) / PAGE_SIZE;
+				}
+
+				if (!IS_ALIGNED(addr + len, PMD_SIZE)) {
+					ret = remap_pfn_range(vma, aligned_end, page_to_pfn(page), addr + len - aligned_end,
+								  vma->vm_page_prot);
+					if (ret)
+						goto out;
+				}
+			} else if (len >= DMABUF_64K_SIZE) {
+				aligned_start = ALIGN(addr, DMABUF_64K_SIZE);
+				aligned_end = ALIGN_DOWN(addr + len, DMABUF_64K_SIZE);
+
+				tpage = page + (aligned_start - addr) / PAGE_SIZE;
+				no_align_flag = ((page_to_pfn(tpage) << PAGE_SHIFT) & ~DMABUF_64K_MASK) ? 1 : 0;
+
+				if ((aligned_start == aligned_end) || no_align_flag) {
+					ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+								  vma->vm_page_prot);
+					goto out;
+				}
+
+				if (!IS_ALIGNED(addr, DMABUF_64K_SIZE)) {
+					ret = remap_pfn_range(vma, addr, page_to_pfn(page), aligned_start - addr,
+								  vma->vm_page_prot);
+					if (ret)
+						goto out;
+					page += (aligned_start - addr) / PAGE_SIZE;
+				}
+
+				if ((aligned_end - aligned_start) >= DMABUF_64K_SIZE) {
+					ret = (*dmabuf_hugetlb_remap)(vma, aligned_start, page_to_pfn(page), aligned_end - aligned_start,
+									vma->vm_page_prot, DMABUF_64K_MAP);
+					if (ret)
+						goto out;
+
+					page += (aligned_end - aligned_start) / PAGE_SIZE;
+				}
+
+				if (!IS_ALIGNED(addr + len, DMABUF_64K_SIZE)) {
+					ret = remap_pfn_range(vma, aligned_end, page_to_pfn(page), addr + len - aligned_end,
+								  vma->vm_page_prot);
+					if (ret)
+						goto out;
+				}
+			} else{
+				ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+							  vma->vm_page_prot);
+			}
+		} else
+			ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+						  vma->vm_page_prot);
+
+out:
 		if (ret) {
 			mem_buf_vmperm_unpin(buffer->vmperm);
 			return ret;

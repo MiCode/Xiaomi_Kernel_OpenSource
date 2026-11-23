@@ -1,2 +1,73 @@
-def define_techpack_modules(target, msm_target, variant):
-    return
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load(":kleaf-scripts/msm_common.bzl", "get_out_dir")
+load("//vendor/qcom/opensource/display-drivers:device_config.bzl", "devices_using_device_name")
+
+def define_techpack_modules(name, arch, variant):
+    device_name = "{}_{}".format(name, variant)
+    arch_name = "{}_{}".format(arch, variant)
+    display_target_format = device_name if name in devices_using_device_name else arch_name
+    techpack_targets = [
+        #"//vendor/qcom/opensource/fingerprint:{}_qbt_handler".format(arch_name),
+        "//vendor/qcom/opensource/bt-kernel:{}_bt-kernel_modules".format(arch_name),
+        "//vendor/qcom/opensource/dsp-kernel:{}_frpc-adsprpc".format(arch_name),
+        "//vendor/qcom/opensource/eva-kernel:{}_eva_modules".format(arch_name),
+        "//vendor/qcom/opensource/securemsm-kernel:{}_securemsm-kernel_modules".format(arch_name),
+        "//vendor/qcom/opensource/spu-kernel:{}_spu-drivers_modules".format(arch_name),
+        "//vendor/qcom/opensource/synx-kernel:{}_modules".format(arch_name),
+        "//vendor/qcom/opensource/touch-drivers:{}_touch_modules".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet:{}_datarmnet_modules".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/aps:{}_aps".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/offload:{}_offload".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/perf:{}_perf".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/perf_tether:{}_perf_tether".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/mem:{}_rmnet_mem".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/sch:{}_sch".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/shs:{}_shs".format(arch_name),
+        "//vendor/qcom/opensource/datarmnet-ext/wlan:{}_wlan".format(arch_name),
+        "//vendor/qcom/opensource/mm-drivers/sync_fence:{}_sync_fence".format(arch_name),
+        "//vendor/qcom/opensource/mm-drivers/hw_fence:{}_msm_hw_fence".format(arch_name),
+        "//vendor/qcom/opensource/mm-drivers/hfi_core:{}_msm_hfi_core".format(arch_name),
+        "//vendor/qcom/opensource/mm-drivers/msm_ext_display:{}_msm_ext_display".format(arch_name),
+        "//vendor/qcom/opensource/mmrm-driver:{}_mmrm_driver".format(arch_name),
+        "//vendor/qcom/opensource/audio-kernel:{}_modules".format(device_name),
+        "//vendor/qcom/opensource/dataipa:{}_dataipa_modules".format(arch_name),
+        "//vendor/qcom/opensource/data-kernel/drivers/smem-mailbox:{}_smem_mailbox".format(arch_name),
+        "//vendor/qcom/opensource/graphics-kernel:{}_msm_kgsl".format(arch_name),
+        "//vendor/qcom/opensource/video-driver:{}_video_modules".format(arch_name),
+        "//vendor/qcom/opensource/display-drivers:{}_msm_drm".format(display_target_format),
+        "//vendor/qcom/opensource/wlan/qcacld-3.0:{}_wlan_qcacld3_modules".format(arch_name),
+        "//vendor/qcom/opensource/wlan/platform:{}_wlan_platform_modules".format(arch_name),
+        "//vendor/st/opensource/eSE-driver:{}_stm_st54se_gpio".format(arch_name),
+        "//vendor/st/opensource/driver:{}_stm_nfc_i2c".format(arch_name),
+        "//vendor/nxp/opensource/driver:{}_nxp-nci".format(arch_name),
+        "//vendor/qcom/opensource/camera-kernel:{}_camera_modules".format(arch_name),
+        "//vendor/qcom/opensource/camera-kernel:{}_mi_cam".format(arch_name),
+        "//vendor/xiaomi/proprietary/kernelmodules/mitee_drv:{}_mitee_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/kernelmodules/vendor_stability/qcom/bootinfo:{}_bootinfo_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/touch/touchfeature_v2/touch_driver:{}_touch_modules".format(device_name),
+        "//vendor/xiaomi/proprietary/factory_cmd/reg_intf:{}_reg_intf_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/slm/kmod_qcom:{}_sla_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/miwillp/miwill_redudancy:{}_miwill_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/miwillp/engine_qcom:{}_miwill_qcom_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/minet/driver_qcom:{}_minet_qcom_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/minet/kquic:{}_quic_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/minet/ftun:{}_ftun_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/minet/mibbr/mibbr_qcom:{}_mibbr_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/minet/miscore/miscore_qcom:{}_miscore_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/minet/miicmpfilter_qcom:{}_miicmpfilter_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/matt/core_qcom:{}_matt_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/32bit_translator/kernel_module:{}_tango_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/kernelmodules/debug_ext/kmodule:{}_debug_ext_modules".format(arch_name),
+        "//vendor/xiaomi/proprietary/kernelmodules/vendor_stability/qcom/hardwareinfo/kernel_module:{}_hardwareinfo_modules".format(arch_name),
+    ]
+
+    copy_to_dist_dir(
+        name = "{}_all_vendor_module_dist".format(device_name),
+        data = techpack_targets,
+        dist_dir = "{}/dist".format(get_out_dir(name, variant)),
+        flat = True,
+        wipe_dist_dir = False,
+        allow_duplicate_filenames = False,
+        mode_overrides = {"**/*": "644"},
+        log = "info",
+    )

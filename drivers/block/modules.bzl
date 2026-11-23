@@ -4,7 +4,7 @@ def register_modules(registry):
     register_zram(registry)
 
     registry.register(
-        name = "drivers/block/virtio_blk",
+        name = "drivers/block/virtio_block",
         out = "virtio_block.ko",
         config = "CONFIG_VIRTIO_BLK",
         srcs = [

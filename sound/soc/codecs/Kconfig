@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Input misc drivers configuration
+#
+
+config SND_SOC_ALL_CODECS
+	tristate "Build all ASoC CODEC drivers"
+	depends on COMPILE_TEST
+	imply SND_SOC_CS40L26
+
+config SND_SOC_CS40L26
+	tristate "Cirrus Logic CS40L26 Stub CODEC"
+	depends on INPUT_CS40L26_I2C || INPUT_CS40L26_SPI

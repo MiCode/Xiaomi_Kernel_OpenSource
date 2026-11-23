@@ -21,6 +21,7 @@ load(":kleaf-scripts/msm_dtc.bzl", "define_dtc_dist")
 load(":kleaf-scripts/techpack_modules.bzl", "define_techpack_modules")
 load(":qcom_libraries.bzl", "library_registry")
 load(":qcom_modules.bzl", "registry")
+load(":kleaf-scripts/merge_list_files.bzl", "merge_list_files")
 
 def define_common_android_rules():
     write_file(
@@ -48,6 +49,7 @@ def define_common_android_rules():
 
 def define_single_android_build(
         name,
+        arch,
         variant,
         config_fragment,
         base_kernel,
@@ -94,7 +96,7 @@ def define_single_android_build(
         srcs = [],
         outs = ["modules.list.vendor_dlkm.{}".format(stem)],
         cmd = """
-          touch "$@"
+          echo "" > "$@"
           for module in {mod_list}; do
             basename "$$module".ko >> "$@"
           done
@@ -151,9 +153,27 @@ def define_single_android_build(
                 """.format(board_bc_extras),
             )
 
+    # Regenerate the follow  list
+    #   modules.list.msm.{}
+    #   modules.systemdlkm_blocklist.msm.{}
+    #   modules.vendor_blocklist.msm.{}
+    prefixes = [
+        "modules-lists/modules.list.msm",
+        "modules-lists/modules.systemdlkm_blocklist.msm",
+        "modules-lists/modules.vendor_blocklist.msm",
+    ]
+    modules_list_name = {}
+    for prefix in prefixes:
+        modules_list_name[prefix] = "{prefix}.{target}_generated".format(prefix = prefix, target = stem)
+        files = [ prefix + ".{}".format(name) ] if name == arch else [
+            prefix + ".{}".format(arch),
+            prefix + ".{}".format(name),
+        ]
+        merge_list_files( name = modules_list_name[prefix], files = files )
+
     copy_file(
         name = "{}_system_dlkm_blocklist".format(stem),
-        src = "modules-lists/modules.systemdlkm_blocklist.msm.{}".format(name),
+        src = ":{}".format(modules_list_name["modules-lists/modules.systemdlkm_blocklist.msm"]),
         out = "{}/system_dlkm.modules.blocklist".format(stem),
     )
 
@@ -169,15 +189,15 @@ def define_single_android_build(
         build_dtbo = True,
         build_vendor_dlkm = True,
         dedup_dlkm_modules = True,  # removes system_dlkm modules from vendor_dlkm
-        modules_list = "modules-lists/modules.list.msm.{}".format(name),
+        modules_list = ":{}".format(modules_list_name["modules-lists/modules.list.msm"]),
         vendor_dlkm_modules_list = ":{}_vendor_dlkm_modules_list_generated".format(stem),
-        system_dlkm_modules_blocklist = "modules-lists/modules.systemdlkm_blocklist.msm.{}".format(name),
-        vendor_dlkm_modules_blocklist = "modules-lists/modules.vendor_blocklist.msm.{}".format(name),
+        system_dlkm_modules_blocklist = ":{}".format(modules_list_name["modules-lists/modules.systemdlkm_blocklist.msm"]),
+        vendor_dlkm_modules_blocklist = ":{}".format(modules_list_name["modules-lists/modules.vendor_blocklist.msm"]),
         vendor_ramdisk_binaries = get_vendor_ramdisk_binaries(stem),
         deps = [
-            "modules-lists/modules.list.msm.{}".format(name),
-            "modules-lists/modules.vendor_blocklist.msm.{}".format(name),
-            "modules-lists/modules.systemdlkm_blocklist.msm.{}".format(name),
+            ":{}".format(modules_list_name["modules-lists/modules.list.msm"]),
+            ":{}".format(modules_list_name["modules-lists/modules.systemdlkm_blocklist.msm"]),
+            ":{}".format(modules_list_name["modules-lists/modules.vendor_blocklist.msm"]),
         ],
     )
 
@@ -322,7 +342,7 @@ def define_single_android_build(
 
     define_dtc_dist(stem, name, variant)
 
-    define_techpack_modules(stem, name, variant)
+    define_techpack_modules(name, arch, variant)
 
     define_extras(stem, kbuild_config = base_kernel)
 
@@ -330,11 +350,13 @@ def define_single_android_build(
 
 def define_android_build(
         name,
+        arch,
         configs,
         **kwargs):
     for (variant, options) in configs.items():
         define_single_android_build(
             name = name,
+            arch = arch,
             variant = variant,
             **(options | kwargs)
         )
@@ -343,6 +365,7 @@ def define_typical_android_build(
         name,
         perf_config,
         consolidate_config,
+        arch = None,
         perf_kwargs = None,
         consolidate_kwargs = None,
         consolidate_build_img_opts = None,
@@ -380,8 +403,12 @@ def define_typical_android_build(
         defconfigs = [":{}_perf_defconfig".format(name)],
     )
 
+    if arch == None:
+        arch = name
+
     define_android_build(
         name,
+        arch,
         configs = {
             "perf": {
                 "config_fragment": perf_config,

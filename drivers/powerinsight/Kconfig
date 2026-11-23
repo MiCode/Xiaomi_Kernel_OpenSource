@@ -1,0 +1,4 @@
+source "$(KCONFIG_EXT_PREFIX)drivers/powerinsight/gpu_stats/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/powerinsight/gpu_freq_stats/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/powerinsight/common/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/powerinsight/powerinsight_interface/Kconfig"

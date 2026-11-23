@@ -16,10 +16,12 @@ def register_modules(registry):
         srcs = [
             # do not sort
             "drivers/usb/repeater/repeater-qti-pmic-eusb2.c",
+            "drivers/misc/hwid/hwid.h",
         ],
         deps = [
             # do not sort
             "drivers/usb/repeater/repeater",
+            "drivers/misc/hwid",
         ],
     )
 

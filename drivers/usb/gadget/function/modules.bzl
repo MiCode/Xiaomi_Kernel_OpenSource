@@ -47,6 +47,16 @@ def register_modules(registry):
     )
 
     registry.register(
+        name = "drivers/usb/gadget/function/xm_usb_pri_interface",
+        out = "xm_usb_pri_interface.ko",
+        config = "CONFIG_XM_USB_PRI_INTERFACE",
+        srcs = [
+            # do not sort
+            "drivers/usb/gadget/function/xm_usb_pri_interface.c",
+        ],
+    )
+
+    registry.register(
         name = "drivers/usb/gadget/function/usb_f_gsi",
         out = "usb_f_gsi.ko",
         config = "CONFIG_USB_F_GSI",

@@ -160,8 +160,7 @@ int sched_smart_freq_legacy_freq_handler(const struct ctl_table *table, int writ
 		&& default_freq_config[id].smart_freq_ipc_participation_mask) {
 		if (no_reason_freq >
 			default_freq_config[id].ipc_reason_config[IPC_B].freq_allowed) {
-			ret = -EINVAL;
-			goto unlock;
+			goto bypass_no_reason;
 		}
 
 		default_freq_config[id].legacy_reason_config[NO_REASON_SMART_FREQ].freq_allowed =
@@ -178,14 +177,17 @@ int sched_smart_freq_legacy_freq_handler(const struct ctl_table *table, int writ
 			sysctl_ipc_freq_levels_cluster3[IPC_A] = no_reason_freq;
 	}
 
+bypass_no_reason:
 	for (i = 0; i < size; i += 2) {
+		if (val[i] == NO_REASON_SMART_FREQ)
+			continue;
+		ret++;
 		default_freq_config[id].legacy_reason_config[val[i]].freq_allowed =
 			val[i+1];
 		default_freq_config[id].smart_freq_participation_mask |=
 			BIT(val[i]);
 	}
 
-unlock:
 	mutex_unlock(&freq_reason_mutex);
 out:
 	return ret;

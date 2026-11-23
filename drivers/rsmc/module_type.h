@@ -1,0 +1,13 @@
+#ifndef _MUDULE_TYPE_H_
+#define _MUDULE_TYPE_H_
+
+enum module_type {
+	MODULE_TYPE_KNL = 0,
+	MODULE_TYPE_CTRL,
+	MODULE_TYPE_STACK,
+	MODULE_TYPE_FAST_CTRL,
+	MODULE_TYPE_MAX
+};
+
+#endif
+

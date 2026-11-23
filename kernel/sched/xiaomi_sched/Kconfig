@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026, xiaomi technologies Inc., All rights reserved.
+
+menu "XiaoMi scheduler features"
+
+config OS_CPU_DEPEND_GKI
+	bool "Support for OS-CPU Module"
+	default n
+	help
+	  dependence on GKI existence state
+
+config OS_CPU_PERF_ACTUATOR
+        tristate "perf actuator interface"
+	default n
+        help
+	  perf actuator
+
+config OS_CPU_FBT
+	tristate "os-cpu fbt interface"
+	depends on OS_CPU_PERF_ACTUATOR
+	default n
+	help
+	  os-cpu fbt interface
+
+config OS_CPU_DYNAMIC_TASK_SIZE
+	bool "Support for Dynamic Task Size"
+	default n
+	help
+	  This enables Dynamic Task Size
+
+config OS_CPU_QIS_V2
+	bool "Support for os-cpu qis V2"
+	default n
+	help
+	  This enables qis2.0
+
+config OS_CPU_PLAT_COMMON
+	tristate "Support for OS-CPU Platform Common"
+	default n
+	help
+	  Enable OS-CPU Platform Common
+
+config PLAT_SCHED_SYNC
+	bool "Support for sched sync wake"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  Enable sync wake for critical task waking.
+
+config OS_CPU_RTG_WALT
+	tristate "Support for os-cpu RTG Driver"
+	depends on OS_CPU_PERF_ACTUATOR
+	default n
+	help
+	  Enable os-cpu RTG driver
+
+config OS_CPU_RTG_DESIGN_QCOM
+	bool "Support for OS-CPU RTG Design QCOM"
+	depends on OS_CPU_RTG_WALT
+	default n
+	help
+	  Enable RTG design features for QCOM platform.
+	  This controls special mark handling and RTG group
+	  assignment in QIS module.
+
+config OS_CPU_SCHED_VIP
+	tristate "Support for OS-CPU Sched Driver"
+	depends on OS_CPU_PERF_ACTUATOR
+	default n
+	help
+	  This feature will add a vip task list in cfs sched class. The
+	  high priority vip tasks would preempt the normal tasks and low
+	  priority vip tasks. Meanwhile, vip balance is triggered in
+	  scheduler tick and other situations to keep high priority vip
+	  tasks get a smaller schedule latency.
+
+config OS_CPU_QOS_INHERIT
+	tristate "Support for os-cpu QoS Inherit Driver"
+	depends on OS_CPU_PERF_ACTUATOR && OS_CPU_QIS_V2
+	default n
+	help
+	  Enable qos inheritance(QI).
+	  With this feature enabled, if the task is
+	  blocked by binder request, mutex, rwsem,
+	  or futex, and its QOS is critical level, then
+	  its QOS will be inherited by binder server or
+	  lock owner task.
+
+config OS_CPU_QOS_SCHED
+	tristate "Support for os-cpu QoS Sched Driver"
+	depends on OS_CPU_QOS_INHERIT
+	default n
+	help
+	  Enable scheduler based QoS inheritance.
+	  With the feature enabled, FIFO schedule policy
+	  or VIP schedule will be set to task when the
+	  task inherits the critical level QoS from the
+	  critical task. With qos speedlock feature enabled,
+	  when the task from the critical process try to
+	  hold reader rwsem and get blocked, VIP sched
+	  schedule will be set to the task until the task
+	  releases the rwsem lock.
+
+config MIPLAT_4CLU_TYPE_A
+	bool "4 cluster type A (2+3+2+1, mask 0x9c)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  4-cluster platform with 2+3+2+1 architecture (CPU 2,3,4,7).
+
+config MIPLAT_4CLU_TYPE_B
+	bool "4 cluster type B (2+4+2+2, mask 0x300)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  4-cluster platform with 2+4+2+2 architecture (CPU 8,9).
+
+config MIPLAT_3CLU_TYPE_A
+	bool "3 cluster type A (4+3+1, mask 0xf0)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  3-cluster platform with 4+3+1 architecture (CPU 4,5,6,7).
+
+config MIPLAT_3CLU_TYPE_B
+	bool "3 cluster type B (3+4+1, mask 0xf8)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  3-cluster platform with 3+4+1 architecture (CPU 3,4,5,6,7).
+
+config MIPLAT_3CLU_TYPE_C
+	bool "3 cluster type C (2+5+1, mask 0xfc)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  3-cluster platform with 2+5+1 architecture (CPU 2,3,4,5,6,7).
+
+config MIPLAT_2CLU_TYPE_A
+	bool "2 cluster type A (6+2, mask 0xc0)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  2-cluster platform with 6+2 architecture (CPU 6,7).
+
+config MIPLAT_2CLU_TYPE_B
+	bool "2 cluster type B (4+4, mask 0xf0)"
+	depends on OS_CPU_PLAT_COMMON
+	default n
+	help
+	  2-cluster platform with 4+4 architecture (CPU 4,5,6,7).
+
+endmenu

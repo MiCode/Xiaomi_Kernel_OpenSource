@@ -54,7 +54,7 @@ def register_modules(registry):
     )
 
     registry.register(
-        name = "drivers/dma/qcom/gpi_fixed",
+        name = "drivers/dma/qcom/gpi",
         out = "gpi.ko",
         config = "CONFIG_QCOM_GPI_DMA",
         srcs = [

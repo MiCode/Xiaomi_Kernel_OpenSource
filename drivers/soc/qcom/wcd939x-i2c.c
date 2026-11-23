@@ -2,6 +2,7 @@
 /*
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
+#define DEBUG
 
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_altmode.h>
@@ -13,9 +14,11 @@
 #include <linux/kobject.h>
 #include <linux/pm_runtime.h>
 #include <linux/nvmem-consumer.h>
+#include <linux/debugfs.h>
 #include "wcd-usbss-priv.h"
 #include "wcd-usbss-reg-masks.h"
 #include "wcd-usbss-reg-shifts.h"
+#include "hwid.h"
 
 #define WCD_USBSS_I2C_NAME	"wcd-usbss-i2c-driver"
 
@@ -26,6 +29,8 @@
 #define MAX_SURGE_TIMER_PERIOD_SEC 20
 #define PM_RUNTIME_RESUME_CNT 8
 #define PM_RUNTIME_RESUME_WAIT_MIN_US  5000
+#define DEBUGFS_DIR_NAME "wcd_usbss"
+#define DEBUGFS_WCD_STANDBY_STATUS_FILE_NAME "standby_status"
 #define MG_BIAS_CURRENT 0xCF
 
 enum {
@@ -106,7 +111,46 @@ static struct kobj_attribute wcd_usbss_surge_period_attribute =
 static struct kobj_attribute wcd_usbss_standby_enable_attribute =
 	__ATTR(standby_mode, 0220, NULL, wcd_usbss_standby_store);
 
+static struct dentry* usbss_debugfs_dir;
+/* By default, the audio switch is allowed to enter standby */
+static int standby_status = 1;
 
+static ssize_t standby_status_read(struct file *filp, char __user *buffer,
+		size_t count, loff_t *ppos);
+static ssize_t standby_status_write(struct file *filp, const char __user *buffer,
+		size_t count, loff_t *ppos);
+
+static ssize_t standby_status_read(struct file *filp, char __user *buffer,
+		size_t count, loff_t *ppos) {
+	char buf[3];
+
+	sprintf(buf, "%d\n", standby_status);
+	pr_info("%s: standby_status:%s\n", __func__, buf);
+
+	return simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
+}
+
+static ssize_t standby_status_write(struct file *filp, const char __user *buffer,
+		size_t count, loff_t *ppos) {
+	char buf[2];
+
+	if (copy_from_user(buf, buffer, 1))
+		return -EFAULT;
+	if (strncmp(buf, "1", 1) == 0) {
+		standby_status = 1;
+	} else if (strncmp(buf, "0", 1) == 0) {
+		standby_status = 0;
+	}
+	pr_info("%s: standby_status:%d\n", __func__, standby_status);
+
+	return count;
+}
+
+static const struct file_operations usbss_standby_status_fops = {
+	.owner = THIS_MODULE,
+	.read = standby_status_read,
+	.write = standby_status_write,
+};
 static int acquire_runtime_env(struct wcd_usbss_ctxt *priv)
 {
 	int rc = 0, retry = 0;
@@ -1151,10 +1195,15 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 		switch (ctype) {
 		case WCD_USBSS_USB:
 			/* Keep DP/DM switch on but disable EQ */
-			if (wcd_usbss_ctxt_->standby_enable && wcd_usbss_ctxt_->is_in_standby)
-				wcd_usbss_dpdm_switch_update(false, false);
-			else
-				wcd_usbss_dpdm_switch_update(true, false);
+			pr_info("%s: standby_status:%d\n", __func__, standby_status);
+			if (standby_status) {
+				if (wcd_usbss_ctxt_->standby_enable && wcd_usbss_ctxt_->is_in_standby)
+					wcd_usbss_dpdm_switch_update(false, false);
+				else
+					wcd_usbss_dpdm_switch_update(true, false);
+			} else {
+				pr_info("%s: bypass wcd-usbss standby mode switch\n", __func__);
+			}
 			break;
 		case WCD_USBSS_DP_AUX_CC1:
 			fallthrough;
@@ -1533,24 +1582,29 @@ static int wcd_usbss_sdam_handle_events_locked(int req_state)
 
 	switch (req_state) {
 	case WCD_USBSS_LPD_USB_MODE_CLEAR:
-		regmap_update_bits(priv->regmap, WCD_USBSS_PMP_OUT1, 0x20, 0x00);
-		/* Enable D+/D- 1M & 400K PLDN */
-		regmap_update_bits(priv->regmap, WCD_USBSS_BIAS_TOP, 0x20, 0x00);
+		pr_info("%s: standby_status:%d\n", __func__, standby_status);
+		if (standby_status) {
+			regmap_update_bits(priv->regmap, WCD_USBSS_PMP_OUT1, 0x20, 0x00);
+			/* Enable D+/D- 1M & 400K PLDN */
+			regmap_update_bits(priv->regmap, WCD_USBSS_BIAS_TOP, 0x20, 0x00);
 
-		/* Enable DP/DN 2K PLDN */
-		regmap_update_bits(priv->regmap, WCD_USBSS_DP_BIAS, 0x01, 0x01);
-		regmap_update_bits(priv->regmap, WCD_USBSS_DN_BIAS, 0x01, 0x01);
+			/* Enable DP/DN 2K PLDN */
+			regmap_update_bits(priv->regmap, WCD_USBSS_DP_BIAS, 0x01, 0x01);
+			regmap_update_bits(priv->regmap, WCD_USBSS_DN_BIAS, 0x01, 0x01);
 
-		if (!wcd_usbss_ctxt_->usb_sbu_compliance) {
-			/* Enable SBU1/2 2K PLDN */
-			regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, 0x01);
-			regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, 0x01);
+			if (!wcd_usbss_ctxt_->usb_sbu_compliance) {
+				/* Enable SBU1/2 2K PLDN */
+				regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, 0x01);
+				regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, 0x01);
+			}
+			/* Disconnect D+/D- switch */
+			wcd_usbss_dpdm_switch_update_from_handler(false, false);
+
+			/* Enter standby */
+			wcd_usbss_standby_control_locked(true);
+		} else {
+			pr_info("%s: bypass wcd-usbss standby mode switch\n", __func__);
 		}
-		/* Disconnect D+/D- switch */
-		wcd_usbss_dpdm_switch_update_from_handler(false, false);
-
-		/* Enter standby */
-		wcd_usbss_standby_control_locked(true);
 		break;
 	case WCD_USBSS_LPD_CONTINUOUS_1:
 		fallthrough;
@@ -1622,8 +1676,10 @@ static void wcd_usbss_sdam_handle_events_update(struct wcd_usbss_ctxt *priv)
 	int rc = 0;
 
 	/* Exit when wcd_usbss_ctxt_ is NULL */
-	if (WARN_ON(wcd_usbss_ctxt_ == NULL))
+    	if (WARN_ON(wcd_usbss_ctxt_ == NULL)){
+          	dev_info(priv->dev, "wcd_usbss_ctxt_ = NULL , rc:%d\n", rc);
 		goto exit;
+	}
 
 	mutex_lock(&wcd_usbss_ctxt_->switch_update_lock);
 	buf = nvmem_cell_read(priv->nvmem_cell, &len);
@@ -1726,6 +1782,7 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 	struct device *dev = &i2c->dev;
 	int rc = 0, i;
 	unsigned int ver = 0;
+	uint32_t hw_country_ver;
 
 	priv = devm_kzalloc(&i2c->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -1788,19 +1845,22 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 		dev_err(priv->dev, "Failed to initialize regmap: %d\n", rc);
 		goto err_data;
 	}
-	if (of_find_property(i2c->dev.of_node, "wcd-usb-sbu-compliance", NULL)) {
-		dev_dbg(priv->dev, "disabling SBU pulldowns for USB compliance\n");
-		priv->usb_sbu_compliance = true;
-		/*
-		 * external zener diode installed,
-		 * disable OVP protections on SBUx. SBUx pull-downs are disabled.
-		 * This is needed for USB compliance requirement (related to
-		 * impedance) on SBUx
-		 */
-		regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, 0x00);
-		regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, 0x00);
-	}
 
+	hw_country_ver = get_hw_country_version();
+	if (0) {
+		if (of_find_property(i2c->dev.of_node, "wcd-usb-sbu-compliance", NULL)) {
+			dev_dbg(priv->dev, "disabling SBU pulldowns for USB compliance\n");
+			priv->usb_sbu_compliance = true;
+			/*
+		 	* external zener diode installed,
+		 	* disable OVP protections on SBUx. SBUx pull-downs are disabled.
+		 	* This is needed for USB compliance requirement (related to
+		 	* impedance) on SBUx
+		 	*/
+			regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, 0x00);
+			regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, 0x00);
+		}
+	}
 	/* OVP-Fuse settings recommended from HW */
 	regmap_update_bits(priv->regmap, WCD_USBSS_FSM_OVERRIDE, 0x77, 0x77);
 	regmap_update_bits(priv->regmap, WCD_USBSS_DP_EN, 0x0E, 0x08);
@@ -1870,7 +1930,18 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 		wcd_usbss_enable_surge_kthread();
 	}
 
+	/* Fix for WCD9395 USB1.1 camera device detection fail */
+	regmap_write(priv->regmap, WCD_USBSS_DP_BIAS, 0xCF);
+	regmap_write(priv->regmap, WCD_USBSS_DN_BIAS, 0xCF);
+
 	release_runtime_env(wcd_usbss_ctxt_);
+
+	usbss_debugfs_dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
+	if (!IS_ERR(usbss_debugfs_dir)) {
+		debugfs_create_file(DEBUGFS_WCD_STANDBY_STATUS_FILE_NAME, 0666,
+				usbss_debugfs_dir, NULL, &usbss_standby_status_fops);
+	}
+
 	dev_info(priv->dev, "Probe completed!\n");
 	return 0;
 err_data:
@@ -1885,7 +1956,7 @@ static void wcd_usbss_remove(struct i2c_client *i2c)
 	int error;
 	struct wcd_usbss_ctxt *priv =
 			(struct wcd_usbss_ctxt *)i2c_get_clientdata(i2c);
-
+	dev_info(priv->dev, "enter wcd_usbss_remove\n");
 	if (!priv)
 		return;
 

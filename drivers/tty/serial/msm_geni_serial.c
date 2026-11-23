@@ -4008,7 +4008,8 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 			return 0;
 		}
 	}
-
+	dump_ipc(uport, msm_port->ipc_log_rx, "DMA Rx Before tty_insert_flip_string",
+	(char *)msm_port->rx_buf, 0, rx_bytes);
 	tport = &uport->state->port;
 	ret = tty_insert_flip_string(tport, (unsigned char *)(msm_port->rx_buf), rx_bytes);
 	rx_bytes_copied = ret;

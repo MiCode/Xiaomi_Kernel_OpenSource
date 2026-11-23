@@ -21,6 +21,7 @@
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/soc/qcom/pdr.h>
 #include <linux/soc/qcom/qti_pmic_glink.h>
+#include <linux/rpmsg/qcom_glink.h>
 
 #define NUM_LOG_PAGES		10
 
@@ -445,6 +446,26 @@ static void pmic_glink_rx_work(struct work_struct *work)
 	spin_unlock_irqrestore(&pdev->rx_lock, flags);
 }
 
+static void pmic_glink_print_wakeup_reason(struct pmic_glink_dev *pgdev, void *data)
+{
+	struct pmic_glink_client *client;
+	struct pmic_glink_hdr *hdr;
+
+	hdr = (struct pmic_glink_hdr *)data;
+
+	mutex_lock(&pgdev->client_lock);
+	client = idr_find(&pgdev->client_idr, hdr->owner);
+	mutex_unlock(&pgdev->client_lock);
+
+	if (!client || !client->msg_cb) {
+		pr_err("No client present for %u\n", hdr->owner);
+		return;
+	}
+
+	pr_info("owner:0x%x ,type:0x%x, client:%s ,opcode: 0x%x\n",
+		hdr->owner, hdr->type, client->name, hdr->opcode);
+}
+
 static int pmic_glink_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 addr)
 {
@@ -464,6 +485,9 @@ static int pmic_glink_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 
 	pbuf->len = len;
 	memcpy(pbuf->buf, data, len);
+
+	if (qcom_glink_is_wakeup(true))
+		pmic_glink_print_wakeup_reason(pdev, data);
 
 	spin_lock_irqsave(&pdev->rx_lock, flags);
 	list_add_tail(&pbuf->node, &pdev->rx_list);

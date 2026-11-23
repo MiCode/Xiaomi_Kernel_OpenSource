@@ -220,8 +220,9 @@ dump_syn_reg_values(struct llcc_drv_data *drv, u32 bank, int err_type)
 		if (ret)
 			goto clear;
 
-		edac_printk(KERN_CRIT, EDAC_LLCC, "%s: ECC_SYN%d: 0x%8x\n",
-			    reg_data.name, i, synd_val);
+		if (err_type != LLCC_DRAM_CE && err_type != LLCC_TRAM_CE)
+			edac_printk(KERN_CRIT, EDAC_LLCC, "%s: ECC_SYN%d: 0x%8x\n",
+			reg_data.name, i, synd_val);
 	}
 
 	ret = regmap_read(drv->regmaps[bank], regs.count_status_reg,

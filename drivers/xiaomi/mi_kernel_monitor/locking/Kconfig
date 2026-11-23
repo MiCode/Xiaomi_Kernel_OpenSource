@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_LOCKING
+       tristate "mi_locking support"
+       default n
+       help
+         mi locking will record waitlock time and holdlock time.

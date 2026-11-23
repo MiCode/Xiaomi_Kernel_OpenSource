@@ -903,8 +903,8 @@ static void md_dump_slabowner(char *m, size_t dump_size)
 {
 	struct kmem_cache *s;
 	struct priv_buf buf;
-	int ret;
 	int i;
+	int ret = 0;
 
 	buf.buf = m;
 	buf.size = dump_size;

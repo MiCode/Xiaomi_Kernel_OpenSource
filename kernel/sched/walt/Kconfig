@@ -48,6 +48,19 @@ config SCHED_CONSERVATIVE_BOOST_LPM_BIAS
 	  will not enter low power mode for a hysteresis time period,
 	  which can be configured from userspace.
 
+config SCHED_WALT_MIDPOINT
+	tristate "sched walt midpoint"
+	depends on SCHED_WALT
+	help
+	  This feature will have a midpoint frequency voted qos request
+	  in fmin and fmax.
+
+config MI_CAM_WALT
+	bool "cam sched"
+	default n
+	help
+	  Camera WALT cpu stall2.0 feature
+
 config SCHED_WALT_NR_CPUS
 	int "Maximum number of CPUs managed by WALT"
 	range 2 32

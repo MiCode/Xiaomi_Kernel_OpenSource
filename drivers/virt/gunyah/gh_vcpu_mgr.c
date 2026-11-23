@@ -441,7 +441,7 @@ static void android_rvh_gh_after_vcpu_run(void *unused, u16 vmid, u32 vcpu_id, i
 	if (hcall_ret == GH_ERROR_OK) {
 		switch (resp->state) {
 		case GUNYAH_VCPU_STATE_EXPECTS_WAKEUP:
-			if (resp->state_data[1] == GH_VCPU_SYSTEM_SUSPEND)
+			if (resp->state_data[1] == GH_VCPU_SYSTEM_SUSPEND || (vmid == 49 && resp->state_data[1] == GH_VCPU_WFI))
 				__pm_relax(vcpu->ws);
 			break;
 		case GUNYAH_VCPU_STATE_POWERED_OFF:
