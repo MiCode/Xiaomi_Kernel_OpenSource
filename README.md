@@ -263,3 +263,4 @@
 | darwin-w-oss | POCO X8s | Android W | LA.VENDOR.15.4.0.r1-15000-pakala.0-1.111359.20 |[darwin-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/darwin-w-oss) |
 | tanzanite-w-oss | Redmi Note 14 | Android W | t-alps-release-b0.mp1.tc8sp2-V1 |[tanzanite-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tanzanite-w-oss) |
 | songyuan-w-oss | POCO F9 Ultra / REDMI K100 Pro Max | Android W | LA.VENDOR.16.2.0.r1-15300-r1.0.r1_000033.0 |[songyuan-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/songyuan-w-oss) |
+| shuntian-w-oss | Xiaomi Pad 9 Pro | Android W | LA.VENDOR.16.2.0.r1-15300-r1.0.r1_000033.0 |[shuntian-w-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/shuntian-w-oss) |
